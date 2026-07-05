@@ -6,8 +6,23 @@ const yahooFinance = new (YahooFinanceClass as any)();
 
 const router = Router();
 
-const INDICES = ["^GSPC", "^IXIC", "^GSPTSX", "BTC-USD", "ETH-USD"];
-const WEALTHSIMPLE_POPULAR = ["XEQT.TO", "VEQT.TO", "ZSP.TO", "HXT.TO", "AAPL", "TSLA", "MSFT", "SHOP.TO"];
+const INDICES = [
+  // Amérique du Nord
+  "^GSPC", "^IXIC", "^DJI", "^GSPTSX",
+  // Europe
+  "^FTSE", "^GDAXI", "^FCHI", "^STOXX50E",
+  // Asie
+  "^N225", "^HSI",
+  // Cryptos
+  "BTC-USD", "ETH-USD", "SOL-USD",
+  // Matières premières
+  "GC=F", "CL=F", "SI=F",
+];
+
+const WEALTHSIMPLE_POPULAR = [
+  "XEQT.TO", "VEQT.TO", "ZSP.TO", "HXT.TO", "VFV.TO", "XIU.TO",
+  "AAPL", "TSLA", "MSFT", "NVDA", "AMZN", "SHOP.TO", "RY.TO", "TD.TO",
+];
 
 const TYPE_MAP: Record<string, string> = {
   EQUITY: "stock",
@@ -76,7 +91,7 @@ router.get("/market/search", async (req, res) => {
 
   try {
     const results = await yahooFinance.search(q, { newsCount: 0 });
-    const quotes = (results.quotes ?? []).slice(0, 10).map((item) => ({
+    const quotes = (results.quotes ?? []).slice(0, 15).map((item) => ({
       symbol: item.symbol ?? "",
       name: ("longname" in item && item.longname) ? item.longname : ("shortname" in item && item.shortname) ? item.shortname : item.symbol ?? "",
       type: ("quoteType" in item && item.quoteType) ? (TYPE_MAP[item.quoteType.toUpperCase()] ?? "stock") : "stock",

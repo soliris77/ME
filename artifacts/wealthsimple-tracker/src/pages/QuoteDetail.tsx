@@ -9,8 +9,14 @@ import { useToast } from "@/hooks/use-toast";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import TechnicalAnalysis from "@/components/TechnicalAnalysis";
 
-const RANGES = ["1d", "5d", "1mo", "3mo", "6mo", "1y"] as const;
-type Range = typeof RANGES[number];
+const RANGES: { value: string; label: string }[] = [
+  { value: "1d", label: "1j" },
+  { value: "5d", label: "5j" },
+  { value: "1mo", label: "1m" },
+  { value: "3mo", label: "3m" },
+  { value: "6mo", label: "6m" },
+  { value: "1y", label: "1a" },
+];
 
 function StatBox({ label, value }: { label: string; value: string | number | null }) {
   return (
@@ -39,26 +45,27 @@ const CustomTooltip = ({ active, payload, label }: {
 
 export default function QuoteDetail() {
   const { symbol } = useParams<{ symbol: string }>();
-  const [range, setRange] = useState<Range>("1mo");
+  const decodedSymbol = symbol ? decodeURIComponent(symbol) : "";
+  const [range, setRange] = useState("1mo");
   const [tab, setTab] = useState<"chart" | "analysis">("chart");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: quote, isLoading } = useGetQuote(symbol!, {
-    query: { enabled: !!symbol, refetchInterval: 30_000 },
+  const { data: quote, isLoading } = useGetQuote(decodedSymbol, {
+    query: { enabled: !!decodedSymbol, refetchInterval: 30_000 },
   });
 
-  const { data: history = [], isLoading: histLoading } = useGetQuoteHistory(symbol!, range, {
-    query: { enabled: !!symbol },
+  const { data: history = [], isLoading: histLoading } = useGetQuoteHistory(decodedSymbol, range, {
+    query: { enabled: !!decodedSymbol },
   });
 
   const add = useAddToWatchlist({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetWatchlistQueryKey() });
-        toast({ title: `${symbol} added to watchlist` });
+        toast({ title: `${decodedSymbol} ajouté à votre liste de suivi` });
       },
-      onError: () => toast({ title: "Already in watchlist or error", variant: "destructive" }),
+      onError: () => toast({ title: "Déjà suivi ou erreur", variant: "destructive" }),
     },
   });
 
@@ -78,10 +85,10 @@ export default function QuoteDetail() {
       <div className="p-6">
         <Link href="/">
           <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> Retour
           </button>
         </Link>
-        <p className="text-muted-foreground">Symbol not found: {symbol}</p>
+        <p className="text-muted-foreground">Symbole introuvable : {decodedSymbol}</p>
       </div>
     );
   }
@@ -91,7 +98,7 @@ export default function QuoteDetail() {
   const chartColor = isUp ? "hsl(168, 60%, 42%)" : "hsl(0, 72%, 51%)";
 
   const simpleChartData = history.map((p) => ({
-    date: new Date(p.date).toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
+    date: new Date(p.date).toLocaleDateString("fr-CA", { month: "short", day: "numeric" }),
     close: p.close,
   }));
 
@@ -104,21 +111,27 @@ export default function QuoteDetail() {
     volume: p.volume,
   }));
 
+  const typeLabel: Record<string, string> = {
+    stock: "Action",
+    etf: "FNB/ETF",
+    crypto: "Crypto",
+    index: "Indice",
+  };
+
   return (
     <div className="p-6 max-w-4xl">
       <Link href="/">
         <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back
+          <ArrowLeft className="w-4 h-4" /> Retour
         </button>
       </Link>
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold font-mono">{quote.symbol}</h1>
             <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded capitalize">
-              {quote.type}
+              {typeLabel[quote.type] ?? quote.type}
             </span>
             {quote.exchange && (
               <span className="text-xs text-muted-foreground">{quote.exchange}</span>
@@ -132,68 +145,58 @@ export default function QuoteDetail() {
           className="flex items-center gap-1.5 px-3 py-2 border border-border text-sm font-medium rounded-md hover:bg-muted transition-colors shrink-0"
         >
           <Bookmark className="w-4 h-4" />
-          Watch
+          Suivre
         </button>
       </div>
 
-      {/* Price */}
       <div className="mb-6">
         <div className="text-4xl font-bold font-mono">
           {formatPrice(quote.price, quote.currency)}
         </div>
         <div className={`flex items-center gap-1.5 mt-1 text-base font-mono font-semibold ${cls}`}>
           {isUp ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-          {formatChange(quote.change, quote.currency)} ({formatPercent(quote.changePercent)}) today
+          {formatChange(quote.change, quote.currency)} ({formatPercent(quote.changePercent)}) aujourd'hui
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-border mb-5">
         <button
           onClick={() => setTab("chart")}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-            tab === "chart"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+            tab === "chart" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <TrendingUp className="w-4 h-4" />
-          Price Chart
+          Graphique prix
         </button>
         <button
           onClick={() => setTab("analysis")}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-            tab === "analysis"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+            tab === "analysis" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <BarChart2 className="w-4 h-4" />
-          Technical Analysis
+          Analyse technique
         </button>
       </div>
 
-      {/* Range selector */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs text-muted-foreground">Range</span>
+        <span className="text-xs text-muted-foreground">Période</span>
         <div className="flex gap-1">
           {RANGES.map((r) => (
             <button
-              key={r}
-              onClick={() => setRange(r)}
+              key={r.value}
+              onClick={() => setRange(r.value)}
               className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
-                range === r
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
+                range === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
               }`}
             >
-              {r}
+              {r.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Tab content */}
       {tab === "chart" && (
         <>
           <div className="bg-card border border-card-border rounded-xl p-4 mb-6">
@@ -209,50 +212,28 @@ export default function QuoteDetail() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                    domain={["auto", "auto"]}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
-                    width={58}
-                  />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${v.toFixed(0)}`} width={58} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="close"
-                    stroke={chartColor}
-                    strokeWidth={2}
-                    fill="url(#colorClose)"
-                    dot={false}
-                    activeDot={{ r: 4, strokeWidth: 0 }}
-                  />
+                  <Area type="monotone" dataKey="close" stroke={chartColor} strokeWidth={2} fill="url(#colorClose)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
-                No chart data available
+                Aucune donnée disponible
               </div>
             )}
           </div>
 
-          {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <StatBox label="Open" value={quote.open ? formatPrice(quote.open, quote.currency) : null} />
-            <StatBox label="Prev. Close" value={quote.previousClose ? formatPrice(quote.previousClose, quote.currency) : null} />
-            <StatBox label="Day High" value={quote.high ? formatPrice(quote.high, quote.currency) : null} />
-            <StatBox label="Day Low" value={quote.low ? formatPrice(quote.low, quote.currency) : null} />
+            <StatBox label="Ouverture" value={quote.open ? formatPrice(quote.open, quote.currency) : null} />
+            <StatBox label="Clôture préc." value={quote.previousClose ? formatPrice(quote.previousClose, quote.currency) : null} />
+            <StatBox label="Plus haut du jour" value={quote.high ? formatPrice(quote.high, quote.currency) : null} />
+            <StatBox label="Plus bas du jour" value={quote.low ? formatPrice(quote.low, quote.currency) : null} />
             <StatBox label="Volume" value={formatVolume(quote.volume)} />
-            <StatBox label="Market Cap" value={formatMarketCap(quote.marketCap)} />
-            <StatBox label="Currency" value={quote.currency} />
-            <StatBox label="Type" value={quote.type} />
+            <StatBox label="Capitalisation" value={formatMarketCap(quote.marketCap)} />
+            <StatBox label="Devise" value={quote.currency} />
+            <StatBox label="Type" value={typeLabel[quote.type] ?? quote.type} />
           </div>
         </>
       )}
@@ -265,11 +246,7 @@ export default function QuoteDetail() {
             ))}
           </div>
         ) : (
-          <TechnicalAnalysis
-            history={ohlcHistory}
-            currentPrice={quote.price}
-            currency={quote.currency}
-          />
+          <TechnicalAnalysis history={ohlcHistory} currentPrice={quote.price} currency={quote.currency} />
         )
       )}
     </div>

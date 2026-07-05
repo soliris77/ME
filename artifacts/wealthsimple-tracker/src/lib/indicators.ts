@@ -116,7 +116,7 @@ export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
         : undefined;
 
     return {
-      date: new Date(p.date).toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
+      date: new Date(p.date).toLocaleDateString("fr-CA", { month: "short", day: "numeric" }),
       close: p.close,
       open: p.open,
       high: p.high,
@@ -140,18 +140,20 @@ export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
   });
 }
 
-export type SignalStrength = "STRONG BUY" | "BUY" | "NEUTRAL" | "SELL" | "STRONG SELL";
+export type SignalStrength = "FORT ACHAT" | "ACHAT" | "NEUTRE" | "VENTE" | "FORTE VENTE";
 
 export interface TradingSignal {
   overall: SignalStrength;
-  score: number; // -100 to +100
+  score: number;
   signals: {
     name: string;
     value: string;
     verdict: "buy" | "sell" | "neutral";
     description: string;
+    beginnerTip: string;
   }[];
   recommendation: string;
+  beginnerSummary: string;
 }
 
 export function analyzeTradingSignals(data: IndicatorPoint[], currentPrice: number): TradingSignal {
@@ -165,81 +167,148 @@ export function analyzeTradingSignals(data: IndicatorPoint[], currentPrice: numb
   if (last.rsi !== undefined) {
     const r = last.rsi;
     if (r < 30) {
-      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "buy", description: "Oversold — potential bounce zone" });
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "buy",
+        description: "RSI en zone de survente — rebond probable",
+        beginnerTip: "Le RSI mesure si un actif a trop baissé. En dessous de 30, les vendeurs sont épuisés — le prix remonte souvent.",
+      });
       score += 25;
     } else if (r > 70) {
-      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "sell", description: "Overbought — risk of pullback" });
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "sell",
+        description: "RSI en zone de surachat — correction possible",
+        beginnerTip: "Au-dessus de 70, le prix a trop monté trop vite. Un recul est fréquent — prudence avant d'acheter.",
+      });
       score -= 25;
     } else if (r >= 45 && r <= 60) {
-      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "buy", description: "Healthy bullish momentum" });
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "buy",
+        description: "Momentum haussier sain",
+        beginnerTip: "Le RSI est dans une zone idéale — ni trop haut ni trop bas. La tendance est positive.",
+      });
       score += 10;
     } else {
-      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "neutral", description: "Neutral momentum zone" });
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "neutral",
+        description: "Zone neutre — pas de signal clair",
+        beginnerTip: "Le RSI ne donne pas de direction claire. Attendez qu'il sorte de cette zone.",
+      });
     }
   }
 
-  // MACD crossover
+  // MACD
   if (last.macdLine !== undefined && last.macdSignal !== undefined && prev?.macdLine !== undefined && prev?.macdSignal !== undefined) {
     const crossedUp = prev.macdLine < prev.macdSignal && last.macdLine > last.macdSignal;
     const crossedDown = prev.macdLine > prev.macdSignal && last.macdLine < last.macdSignal;
     if (crossedUp) {
-      signals.push({ name: "MACD", value: "Bullish cross", verdict: "buy", description: "MACD crossed above signal — buy signal" });
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Croisement haussier",
+        verdict: "buy",
+        description: "Le MACD vient de croiser la ligne signal vers le haut — signal d'achat",
+        beginnerTip: "Quand la ligne MACD (bleue) croise vers le haut la ligne signal (rouge), c'est souvent le début d'une hausse. C'est l'un des signaux les plus fiables.",
+      });
       score += 30;
     } else if (crossedDown) {
-      signals.push({ name: "MACD", value: "Bearish cross", verdict: "sell", description: "MACD crossed below signal — sell signal" });
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Croisement baissier",
+        verdict: "sell",
+        description: "Le MACD a croisé la ligne signal vers le bas — signal de vente",
+        beginnerTip: "Quand la ligne MACD croise vers le bas, les vendeurs reprennent le contrôle. Prudence ou moment de vendre.",
+      });
       score -= 30;
     } else if (last.macdLine > last.macdSignal) {
-      signals.push({ name: "MACD", value: "Bullish", verdict: "buy", description: "MACD above signal line" });
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Haussier",
+        verdict: "buy",
+        description: "MACD au-dessus de la ligne signal",
+        beginnerTip: "Le MACD est positif — le momentum est encore favorable aux acheteurs.",
+      });
       score += 15;
     } else {
-      signals.push({ name: "MACD", value: "Bearish", verdict: "sell", description: "MACD below signal line" });
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Baissier",
+        verdict: "sell",
+        description: "MACD en dessous de la ligne signal",
+        beginnerTip: "Le MACD est négatif — les vendeurs ont l'avantage pour l'instant.",
+      });
       score -= 15;
     }
   }
 
-  // SMA 20 vs SMA 50 (golden/death cross)
+  // SMA 20 vs 50
   if (last.sma20 !== undefined && last.sma50 !== undefined) {
     const golden = last.sma20 > last.sma50;
     signals.push({
-      name: "SMA 20/50",
-      value: golden ? "Golden cross" : "Death cross",
+      name: "Moyennes mobiles SMA 20/50",
+      value: golden ? "Croix dorée 🥇" : "Croix de la mort ☠️",
       verdict: golden ? "buy" : "sell",
       description: golden
-        ? `SMA20 ($${last.sma20.toFixed(2)}) above SMA50 ($${last.sma50.toFixed(2)}) — uptrend`
-        : `SMA20 ($${last.sma20.toFixed(2)}) below SMA50 ($${last.sma50.toFixed(2)}) — downtrend`,
+        ? `MM20 ($${last.sma20.toFixed(2)}) au-dessus de MM50 ($${last.sma50.toFixed(2)}) — tendance haussière`
+        : `MM20 ($${last.sma20.toFixed(2)}) en dessous de MM50 ($${last.sma50.toFixed(2)}) — tendance baissière`,
+      beginnerTip: golden
+        ? "La 'croix dorée' se produit quand la moyenne courte dépasse la moyenne longue. C'est un signe que la tendance haussière s'installe."
+        : "La 'croix de la mort' est l'inverse — la tendance baissière prend le dessus. Beaucoup de traders l'utilisent comme signal de sortie.",
     });
     score += golden ? 20 : -20;
   }
 
-  // Price vs SMA 20
+  // Prix vs SMA 20
   if (last.sma20 !== undefined) {
-    const aboveSma = currentPrice > last.sma20;
+    const above = currentPrice > last.sma20;
     signals.push({
-      name: "Price vs SMA20",
-      value: aboveSma ? "Above" : "Below",
-      verdict: aboveSma ? "buy" : "sell",
-      description: aboveSma
-        ? `Price above 20-day average ($${last.sma20.toFixed(2)})`
-        : `Price below 20-day average ($${last.sma20.toFixed(2)})`,
+      name: "Prix vs Moyenne 20 jours",
+      value: above ? "Au-dessus ✅" : "En dessous ⚠️",
+      verdict: above ? "buy" : "sell",
+      description: above
+        ? `Prix au-dessus de la MM20 ($${last.sma20.toFixed(2)})`
+        : `Prix en dessous de la MM20 ($${last.sma20.toFixed(2)})`,
+      beginnerTip: above
+        ? "Le prix est plus haut que sa moyenne des 20 derniers jours — c'est un signe de force à court terme."
+        : "Le prix est plus bas que sa moyenne des 20 jours — signal de faiblesse. Un retour au-dessus serait bullish.",
     });
-    score += aboveSma ? 10 : -10;
+    score += above ? 10 : -10;
   }
 
   // Bollinger Bands
   if (last.bbUpper !== undefined && last.bbLower !== undefined && last.bbMiddle !== undefined) {
     if (currentPrice < last.bbLower) {
-      signals.push({ name: "Bollinger Bands", value: "Below lower band", verdict: "buy", description: "Price at lower band — possible reversal zone" });
+      signals.push({
+        name: "Bandes de Bollinger",
+        value: "Sous la bande basse",
+        verdict: "buy",
+        description: "Prix en dessous de la bande inférieure — zone de retournement potentielle",
+        beginnerTip: "Les bandes de Bollinger sont comme des murs élastiques. Quand le prix touche la bande du bas, il rebondit souvent vers le haut — opportunité d'achat.",
+      });
       score += 20;
     } else if (currentPrice > last.bbUpper) {
-      signals.push({ name: "Bollinger Bands", value: "Above upper band", verdict: "sell", description: "Price at upper band — possible exhaustion" });
+      signals.push({
+        name: "Bandes de Bollinger",
+        value: "Au-dessus de la bande haute",
+        verdict: "sell",
+        description: "Prix au-dessus de la bande supérieure — zone d'épuisement potentielle",
+        beginnerTip: "Quand le prix touche la bande du haut, il peut se retrouver 'étiré' et revenir vers le milieu. Signe de prudence pour les nouveaux acheteurs.",
+      });
       score -= 20;
     } else {
       const pct = ((currentPrice - last.bbLower) / (last.bbUpper - last.bbLower)) * 100;
       signals.push({
-        name: "Bollinger Bands",
-        value: `${pct.toFixed(0)}% of range`,
+        name: "Bandes de Bollinger",
+        value: `${pct.toFixed(0)}% de la plage`,
         verdict: "neutral",
-        description: `Price within bands at ${pct.toFixed(0)}% of the range`,
+        description: `Prix dans les bandes à ${pct.toFixed(0)}% de la plage`,
+        beginnerTip: "Le prix est entre les deux bandes — c'est normal. Observez s'il tend vers le haut ou le bas des bandes pour anticiper le prochain mouvement.",
       });
     }
   }
@@ -248,22 +317,29 @@ export function analyzeTradingSignals(data: IndicatorPoint[], currentPrice: numb
 
   let overall: SignalStrength;
   let recommendation: string;
+  let beginnerSummary: string;
+
   if (clampedScore >= 60) {
-    overall = "STRONG BUY";
-    recommendation = "Multiple indicators aligned bullish. Strong entry opportunity — confirm with volume and news catalyst.";
+    overall = "FORT ACHAT";
+    recommendation = "Plusieurs indicateurs s'alignent en faveur des acheteurs. Opportunité d'entrée forte — confirmez avec le volume et les actualités.";
+    beginnerSummary = "🟢 La majorité des signaux disent d'acheter. Pour un débutant : c'est le moment où beaucoup de traders entreraient en position. Utilisez toujours un stop-loss.";
   } else if (clampedScore >= 20) {
-    overall = "BUY";
-    recommendation = "Indicators lean bullish. Consider a partial position with a stop-loss below the nearest support.";
+    overall = "ACHAT";
+    recommendation = "Les indicateurs penchent vers le haussier. Envisagez une position partielle avec un stop-loss sous le support le plus proche.";
+    beginnerSummary = "🟡 Les signaux sont plutôt positifs, mais pas unanimes. Pour un débutant : n'investissez qu'une petite partie de votre capital et fixez une limite de perte.";
   } else if (clampedScore <= -60) {
-    overall = "STRONG SELL";
-    recommendation = "Multiple indicators aligned bearish. Consider exiting or avoiding new positions until reversal signals appear.";
+    overall = "FORTE VENTE";
+    recommendation = "Plusieurs indicateurs s'alignent vers le baissier. Envisagez de sortir ou d'éviter de nouvelles positions jusqu'à des signaux de retournement.";
+    beginnerSummary = "🔴 La majorité des signaux sont négatifs. Pour un débutant : ce n'est pas le moment d'acheter. Patientez ou réduisez votre exposition.";
   } else if (clampedScore <= -20) {
-    overall = "SELL";
-    recommendation = "Indicators lean bearish. Caution advised — wait for a confirmed reversal before buying.";
+    overall = "VENTE";
+    recommendation = "Les indicateurs penchent vers le baissier. Prudence — attendez une confirmation de retournement avant d'acheter.";
+    beginnerSummary = "🟠 Les signaux sont plutôt négatifs. Pour un débutant : attendez que la situation se stabilise avant d'investir.";
   } else {
-    overall = "NEUTRAL";
-    recommendation = "Mixed signals. No clear edge. Wait for a cleaner setup or higher-conviction confirmation.";
+    overall = "NEUTRE";
+    recommendation = "Signaux mixtes — pas d'avantage clair. Attendez un setup plus propre ou une confirmation de direction.";
+    beginnerSummary = "⚪ Les signaux s'annulent mutuellement. Pour un débutant : il n'y a pas de direction claire. C'est souvent le bon moment de ne rien faire.";
   }
 
-  return { overall, score: clampedScore, signals, recommendation };
+  return { overall, score: clampedScore, signals, recommendation, beginnerSummary };
 }

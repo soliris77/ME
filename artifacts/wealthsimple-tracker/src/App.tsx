@@ -7,7 +7,8 @@ import Dashboard from "@/pages/Dashboard";
 import Watchlist from "@/pages/Watchlist";
 import Alerts from "@/pages/Alerts";
 import QuoteDetail from "@/pages/QuoteDetail";
-import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun } from "lucide-react";
+import SearchPage from "@/pages/Search";
+import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -29,9 +30,10 @@ function Nav() {
   }, [dark]);
 
   const links = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/watchlist", label: "Watchlist", icon: Bookmark },
-    { href: "/alerts", label: "Alerts", icon: Bell },
+    { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+    { href: "/search", label: "Rechercher", icon: Search },
+    { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
+    { href: "/alerts", label: "Alertes prix", icon: Bell },
   ];
 
   return (
@@ -41,7 +43,7 @@ function Nav() {
           <div className="w-7 h-7 rounded bg-sidebar-primary flex items-center justify-center">
             <BarChart2 className="w-4 h-4 text-sidebar-primary-foreground" />
           </div>
-          <span className="text-sidebar-foreground font-semibold text-sm tracking-tight">WS Markets</span>
+          <span className="text-sidebar-foreground font-semibold text-sm tracking-tight">WS Marchés</span>
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -69,7 +71,7 @@ function Nav() {
           className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded w-full transition-colors"
         >
           {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          {dark ? "Light mode" : "Dark mode"}
+          {dark ? "Mode clair" : "Mode sombre"}
         </button>
       </div>
     </aside>
@@ -83,6 +85,7 @@ function Router() {
       <main className="flex-1 ml-56 min-h-screen bg-background">
         <Switch>
           <Route path="/" component={Dashboard} />
+          <Route path="/search" component={SearchPage} />
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/alerts" component={Alerts} />
           <Route path="/quote/:symbol" component={QuoteDetail} />
