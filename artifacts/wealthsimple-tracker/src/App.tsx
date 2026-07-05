@@ -8,7 +8,8 @@ import Watchlist from "@/pages/Watchlist";
 import Alerts from "@/pages/Alerts";
 import QuoteDetail from "@/pages/QuoteDetail";
 import SearchPage from "@/pages/Search";
-import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search } from "lucide-react";
+import Pricing from "@/pages/Pricing";
+import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -65,7 +66,14 @@ function Nav() {
           );
         })}
       </nav>
-      <div className="px-3 py-4 border-t border-sidebar-border">
+      <div className="px-3 py-4 border-t border-sidebar-border space-y-1.5">
+        <Link
+          href="/pricing"
+          className="flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors w-full"
+        >
+          <Zap className="w-4 h-4 shrink-0" />
+          Passer au Premium
+        </Link>
         <button
           onClick={() => setDark((d) => !d)}
           className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded w-full transition-colors"
@@ -88,6 +96,7 @@ function Router() {
           <Route path="/search" component={SearchPage} />
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/alerts" component={Alerts} />
+          <Route path="/pricing" component={Pricing} />
           <Route path="/quote/:symbol" component={QuoteDetail} />
           <Route component={NotFound} />
         </Switch>
