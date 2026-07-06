@@ -190,3 +190,13 @@
   50% { opacity: 0.5; transform: scale(0.8); }
 }
 .live-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover { animation-play-state: paused; }

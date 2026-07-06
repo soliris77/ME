@@ -44,7 +44,7 @@ export default function SearchPage() {
 
   const suggestedSymbols = SUGGESTED.map((s) => s.symbol).join(",");
   const { data: suggestedQuotes = [] } = useGetQuotes(
-    { params: { symbols: suggestedSymbols } },
+    { symbols: suggestedSymbols },
     { query: { enabled: !debouncedQuery } }
   );
 

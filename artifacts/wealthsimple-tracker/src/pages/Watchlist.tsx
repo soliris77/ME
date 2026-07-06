@@ -80,8 +80,8 @@ export default function Watchlist() {
   const { data: watchlist = [], isLoading } = useGetWatchlist({ query: { refetchInterval: 30_000 } });
   const symbols = watchlist.map((w: WatchlistItem) => w.symbol).join(",");
   const { data: quotes = [] } = useGetQuotes(
-    { params: { symbols } },
-    { query: { enabled: symbols.length > 0, refetchInterval: 30_000 } }
+    { symbols },
+    { query: { enabled: symbols.length > 0, refetchInterval: 10_000 } }
   );
   const queryClient = useQueryClient();
   const { toast } = useToast();
