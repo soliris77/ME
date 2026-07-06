@@ -3,9 +3,9 @@ import {
   ComposedChart, Line, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine, Area, AreaChart,
 } from "recharts";
-import { computeIndicators, analyzeTradingSignals } from "@/lib/indicators";
-import type { IndicatorPoint, OHLCPoint } from "@/lib/indicators";
-import { TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X } from "lucide-react";
+import { computeIndicators, analyzeTradingSignals, detectCandlePatterns } from "@/lib/indicators";
+import type { IndicatorPoint, OHLCPoint, CandlePattern } from "@/lib/indicators";
+import { TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart } from "lucide-react";
 
 interface Props {
   history: OHLCPoint[];
@@ -162,6 +162,49 @@ function LegendDot({ color, label, dashed, box }: { color: string; label: string
   );
 }
 
+function CandlePatternBadge({ p }: { p: CandlePattern }) {
+  const isUp = p.signal === "haussier";
+  const isDown = p.signal === "baissier";
+  const strengthLabel = p.strength === "fort" ? "⭐⭐ Fort" : p.strength === "moyen" ? "⭐ Moyen" : "Faible";
+  const [showDetail, setShowDetail] = useState(false);
+
+  return (
+    <div
+      className={`border rounded-xl p-3 cursor-pointer transition-all ${
+        isUp ? "bg-emerald-500/8 border-emerald-500/20 hover:border-emerald-500/40" :
+        isDown ? "bg-red-500/8 border-red-500/20 hover:border-red-500/40" :
+        "bg-muted/30 border-border hover:border-border/80"
+      }`}
+      onClick={() => setShowDetail((v) => !v)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`text-sm font-bold ${isUp ? "text-emerald-600 dark:text-emerald-400" : isDown ? "text-red-600 dark:text-red-400" : "text-foreground"}`}>
+              {isUp ? "🟢" : isDown ? "🔴" : "⚪"} {p.name}
+            </span>
+            <span className="text-xs text-muted-foreground italic">{p.nameEn}</span>
+            {p.candles > 1 && (
+              <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">{p.candles} bougies</span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">{p.date} · {strengthLabel}</div>
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform mt-0.5 ${showDetail ? "rotate-180" : ""}`} />
+      </div>
+      {showDetail && (
+        <div className="mt-2 space-y-1.5 border-t border-border/50 pt-2">
+          <p className="text-xs text-foreground/80 leading-relaxed">{p.description}</p>
+          <div className="bg-background/60 rounded-lg px-2.5 py-1.5">
+            <p className="text-xs font-medium text-primary">💡 Comment l'utiliser :</p>
+            <p className="text-xs text-foreground/70 mt-0.5 leading-relaxed">{p.howToUse}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TechnicalAnalysis({ history, currentPrice }: Props) {
   const [overlays, setOverlays] = useState<Set<ActiveOverlay>>(new Set(["sma"]));
   const [showDetails, setShowDetails] = useState(false);
@@ -169,6 +212,22 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
 
   const data: IndicatorPoint[] = useMemo(() => computeIndicators(history), [history]);
   const analysis = useMemo(() => analyzeTradingSignals(data, currentPrice), [data, currentPrice]);
+  const allPatterns = useMemo(() => detectCandlePatterns(history), [history]);
+  // Show only patterns from the last 30 candles, most recent first, deduplicate by same idx+name
+  const recentPatterns = useMemo(() => {
+    const cutoff = history.length - 30;
+    const seen = new Set<string>();
+    return allPatterns
+      .filter((p) => p.idx >= cutoff)
+      .reverse()
+      .filter((p) => {
+        const key = `${p.idx}-${p.name}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 12);
+  }, [allPatterns, history.length]);
 
   const toggleOverlay = (o: ActiveOverlay) => {
     setOverlays((prev) => {
@@ -418,6 +477,35 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
             <Line dataKey="macdSignal" stroke="#f87171" strokeWidth={1.5} strokeDasharray="5 2" dot={false} name="Signal" connectNulls />
           </ComposedChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Patterns de chandeliers détectés */}
+      <div className="bg-card border border-card-border rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <CandlestickChart className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold">Patterns de chandeliers détectés</span>
+          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">30 dernières bougies</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+          Patterns identifiés automatiquement sur l'historique récent. Cliquez sur un pattern pour voir son explication et comment l'utiliser.
+        </p>
+        {recentPatterns.length === 0 ? (
+          <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Aucun pattern reconnu sur les 30 dernières bougies. Essayez une période plus longue.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {recentPatterns.map((p, i) => (
+              <CandlePatternBadge key={`${p.idx}-${p.name}-${i}`} p={p} />
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex gap-3 text-xs text-muted-foreground border-t border-border pt-2.5">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Haussier</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Baissier</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground inline-block" />Neutre</span>
+        </div>
       </div>
 
       <div className="bg-muted/50 rounded-xl px-4 py-3">

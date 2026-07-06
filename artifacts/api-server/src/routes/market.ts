@@ -19,10 +19,39 @@ const INDICES = [
   "GC=F", "CL=F", "SI=F",
 ];
 
-const WEALTHSIMPLE_POPULAR = [
-  "XEQT.TO", "VEQT.TO", "ZSP.TO", "HXT.TO", "VFV.TO", "XIU.TO",
-  "AAPL", "TSLA", "MSFT", "NVDA", "AMZN", "SHOP.TO", "RY.TO", "TD.TO",
+const POPULAR_TECH_US = [
+  "AAPL", "MSFT", "NVDA", "AMD", "META", "GOOG", "AMZN", "TSLA",
+  "INTC", "NFLX", "ORCL", "CRM", "ADBE", "PYPL", "UBER", "PLTR",
+  "SNOW", "SQ", "COIN", "SHOP",
 ];
+
+const POPULAR_FINANCE_US = [
+  "JPM", "BAC", "GS", "MS", "V", "MA", "BRK-B", "WFC", "BLK", "C",
+];
+
+const POPULAR_CONSUMER_US = [
+  "WMT", "COST", "MCD", "NKE", "DIS", "SBUX", "TGT", "PG", "KO", "PEP",
+];
+
+const POPULAR_CANADA = [
+  "XEQT.TO", "VEQT.TO", "ZSP.TO", "VFV.TO", "XIU.TO",
+  "SHOP.TO", "RY.TO", "TD.TO", "BNS.TO", "ENB.TO",
+  "CNR.TO", "CP.TO", "SU.TO", "BCE.TO", "MFC.TO", "BAM.TO",
+];
+
+const WEALTHSIMPLE_POPULAR = [
+  ...POPULAR_TECH_US,
+  ...POPULAR_FINANCE_US,
+  ...POPULAR_CONSUMER_US,
+  ...POPULAR_CANADA,
+];
+
+export const STOCK_CATEGORIES: Record<string, string[]> = {
+  "Tech US": POPULAR_TECH_US,
+  "Finance US": POPULAR_FINANCE_US,
+  "Consommation US": POPULAR_CONSUMER_US,
+  "Canada": POPULAR_CANADA,
+};
 
 const TYPE_MAP: Record<string, string> = {
   EQUITY: "stock",
