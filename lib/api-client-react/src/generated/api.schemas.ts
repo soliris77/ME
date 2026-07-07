@@ -71,6 +71,40 @@ export interface SearchResult {
   exchange: string;
 }
 
+export type NewsSentimentLabel = typeof NewsSentimentLabel[keyof typeof NewsSentimentLabel];
+
+
+export const NewsSentimentLabel = {
+  haussier: 'haussier',
+  baissier: 'baissier',
+  neutre: 'neutre',
+} as const;
+
+export interface NewsTickerSentiment {
+  ticker: string;
+  relevanceScore: number;
+  sentimentScore: number;
+  sentimentLabel: NewsSentimentLabel;
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  theme: string;
+  overallSentimentScore: number;
+  overallSentimentLabel: NewsSentimentLabel;
+  tickers: NewsTickerSentiment[];
+}
+
+export type GetMarketNewsParams = {
+tickers?: string;
+limit?: number;
+};
+
 export interface WatchlistItem {
   id: number;
   symbol: string;
@@ -86,12 +120,33 @@ export interface WatchlistInput {
   note?: string;
 }
 
-export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition];
+export type AlertAlertType = typeof AlertAlertType[keyof typeof AlertAlertType];
 
+export const AlertAlertType = {
+  price: 'price',
+  pattern: 'pattern',
+} as const;
+
+export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition];
 
 export const AlertCondition = {
   above: 'above',
   below: 'below',
+} as const;
+
+export type AlertPatternSignal = typeof AlertPatternSignal[keyof typeof AlertPatternSignal];
+
+export const AlertPatternSignal = {
+  haussier: 'haussier',
+  baissier: 'baissier',
+} as const;
+
+export type AlertMinStrength = typeof AlertMinStrength[keyof typeof AlertMinStrength];
+
+export const AlertMinStrength = {
+  faible: 'faible',
+  moyen: 'moyen',
+  fort: 'fort',
 } as const;
 
 export interface Alert {
@@ -99,27 +154,58 @@ export interface Alert {
   symbol: string;
   /** @nullable */
   name?: string | null;
-  condition: AlertCondition;
-  targetPrice: number;
+  alertType: AlertAlertType;
+  /** @nullable */
+  condition?: AlertCondition | null;
+  /** @nullable */
+  targetPrice?: number | null;
+  /** @nullable */
+  patternSignal?: AlertPatternSignal | null;
+  /** @nullable */
+  minStrength?: AlertMinStrength | null;
   active: boolean;
   /** @nullable */
   triggeredAt?: string | null;
   createdAt: string;
 }
 
-export type AlertInputCondition = typeof AlertInputCondition[keyof typeof AlertInputCondition];
+export type AlertInputAlertType = typeof AlertInputAlertType[keyof typeof AlertInputAlertType];
 
+export const AlertInputAlertType = {
+  price: 'price',
+  pattern: 'pattern',
+} as const;
+
+export type AlertInputCondition = typeof AlertInputCondition[keyof typeof AlertInputCondition];
 
 export const AlertInputCondition = {
   above: 'above',
   below: 'below',
 } as const;
 
+export type AlertInputPatternSignal = typeof AlertInputPatternSignal[keyof typeof AlertInputPatternSignal];
+
+export const AlertInputPatternSignal = {
+  haussier: 'haussier',
+  baissier: 'baissier',
+} as const;
+
+export type AlertInputMinStrength = typeof AlertInputMinStrength[keyof typeof AlertInputMinStrength];
+
+export const AlertInputMinStrength = {
+  faible: 'faible',
+  moyen: 'moyen',
+  fort: 'fort',
+} as const;
+
 export interface AlertInput {
   symbol: string;
   name?: string;
-  condition: AlertInputCondition;
-  targetPrice: number;
+  alertType?: AlertInputAlertType;
+  condition?: AlertInputCondition;
+  targetPrice?: number;
+  patternSignal?: AlertInputPatternSignal;
+  minStrength?: AlertInputMinStrength;
 }
 
 export type GetQuotesParams = {

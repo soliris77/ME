@@ -8,9 +8,13 @@ import Watchlist from "@/pages/Watchlist";
 import Alerts from "@/pages/Alerts";
 import QuoteDetail from "@/pages/QuoteDetail";
 import SearchPage from "@/pages/Search";
+import MarketNewsJournal from "@/pages/MarketNewsJournal";
 import Learn from "@/pages/Learn";
+import CandleDetail from "@/pages/learn/CandleDetail";
+import StrategyDetail from "@/pages/learn/StrategyDetail";
+import GlossaryDetail from "@/pages/learn/GlossaryDetail";
 import ApiStatusModal from "@/components/ApiStatusModal";
-import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings } from "lucide-react";
+import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -37,6 +41,7 @@ function Nav() {
     { href: "/search", label: "Rechercher", icon: Search },
     { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
     { href: "/alerts", label: "Alertes prix", icon: Bell },
+    { href: "/journal", label: "Journal des marchés", icon: Newspaper },
     { href: "/apprendre", label: "Apprendre à trader", icon: BookOpen },
   ];
 
@@ -102,7 +107,12 @@ function Router() {
           <Route path="/search" component={SearchPage} />
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/alerts" component={Alerts} />
+          <Route path="/journal" component={MarketNewsJournal} />
           <Route path="/apprendre" component={Learn} />
+          <Route path="/apprendre/chandeliers/:slug" component={CandleDetail} />
+          <Route path="/apprendre/strategies/:slug" component={StrategyDetail} />
+          <Route path="/apprendre/glossaire/:slug" component={GlossaryDetail} />
+          <Route path="/apprendre/:tab" component={Learn} />
           <Route path="/quote/:symbol" component={QuoteDetail} />
           <Route component={NotFound} />
         </Switch>

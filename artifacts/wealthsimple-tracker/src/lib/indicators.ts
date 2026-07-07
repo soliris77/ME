@@ -25,6 +25,7 @@ export interface IndicatorPoint {
   macdLine?: number;
   macdSignal?: number;
   macdHist?: number;
+  atr?: number;
 }
 
 export interface CandlePattern {
@@ -37,6 +38,100 @@ export interface CandlePattern {
   description: string;
   howToUse: string;
   candles: number;
+}
+
+export interface PriceGap {
+  idx: number;
+  date: string;
+  type: "haussier" | "baissier";
+  gapPct: number;
+  prevClose: number;
+  open: number;
+  filled: boolean;
+}
+
+export interface SRLevel {
+  price: number;
+  type: "support" | "resistance";
+  touches: number;
+  strength: "fort" | "moyen" | "faible";
+  distancePct: number;
+}
+
+export interface VolatilityInfo {
+  atr: number;
+  atrPct: number;
+  label: "faible" | "modérée" | "élevée";
+  stopLossLong: number;
+  takeProfitLong: number;
+  stopLossShort: number;
+  takeProfitShort: number;
+}
+
+export interface MarketStructure {
+  trend: "haussière" | "baissière" | "range";
+  label: string;
+  description: string;
+  swingHighs: { idx: number; date: string; price: number }[];
+  swingLows: { idx: number; date: string; price: number }[];
+}
+
+export interface FibLevel {
+  ratio: number;
+  label: string;
+  price: number;
+}
+
+export interface FibonacciResult {
+  direction: "haussier" | "baissier";
+  swingHigh: number;
+  swingLow: number;
+  levels: FibLevel[];
+}
+
+export interface Divergence {
+  idx: number;
+  date: string;
+  type: "haussière" | "baissière";
+  indicator: "RSI" | "MACD";
+  description: string;
+}
+
+export interface PatternBacktestStat {
+  name: string;
+  signal: "haussier" | "baissier" | "neutre";
+  occurrences: number;
+  winRate: number;
+  avgReturnPct: number;
+  lookaheadDays: number;
+}
+
+// Détecte si un historique est "intraday" (bougies de quelques minutes à
+// quelques heures, ex: 1j/5j avec intervalles 5m/15m) plutôt que journalier
+// ou plus large. Sert à choisir un format d'affichage de date pertinent :
+// heure:minute(:seconde) pour l'intraday, jour/mois pour le reste.
+export function isIntradayHistory(history: { date: string }[]): boolean {
+  if (history.length < 2) return false;
+  const d0 = new Date(history[0].date).getTime();
+  const d1 = new Date(history[1].date).getTime();
+  const gapMs = Math.abs(d1 - d0);
+  return gapMs > 0 && gapMs < 20 * 60 * 60 * 1000; // écart entre 2 bougies < 20h
+}
+
+// Formate une date de bougie selon le contexte : si l'historique est
+// intraday, on affiche l'heure (avec les secondes si l'écart entre bougies
+// est très fin, ex: 1 minute) plutôt que seulement le jour — sinon deux
+// bougies du même jour affichaient exactement le même texte sur l'axe.
+export function formatCandleDate(iso: string, intraday: boolean, fineGrained = false): string {
+  const d = new Date(iso);
+  if (intraday) {
+    return d.toLocaleTimeString("fr-CA", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: fineGrained ? "2-digit" : undefined,
+    });
+  }
+  return d.toLocaleDateString("fr-CA", { month: "short", day: "numeric" });
 }
 
 function sma(data: number[], period: number, idx: number): number | undefined {
@@ -106,7 +201,35 @@ function bollingerBands(closes: number[], period = 20, stdDevMult = 2) {
   });
 }
 
+function computeATRSeries(history: OHLCPoint[], period = 14): (number | undefined)[] {
+  const result: (number | undefined)[] = new Array(history.length).fill(undefined);
+  const trueRanges: number[] = new Array(history.length).fill(NaN);
+
+  for (let i = 0; i < history.length; i++) {
+    const c = history[i];
+    if (c.high === null || c.low === null) continue;
+    const prevClose = i > 0 ? history[i - 1].close : c.close;
+    trueRanges[i] = Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose));
+  }
+
+  for (let i = period - 1; i < trueRanges.length; i++) {
+    if (i === period - 1) {
+      const slice = trueRanges.slice(0, period);
+      if (slice.some((v) => isNaN(v))) continue;
+      result[i] = slice.reduce((a, b) => a + b, 0) / period;
+    } else if (result[i - 1] !== undefined && !isNaN(trueRanges[i])) {
+      result[i] = ((result[i - 1] as number) * (period - 1) + trueRanges[i]) / period;
+    }
+  }
+
+  return result;
+}
+
 export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
+  const intraday = isIntradayHistory(history);
+  const fineGrained =
+    history.length > 1 &&
+    Math.abs(new Date(history[1].date).getTime() - new Date(history[0].date).getTime()) <= 60_000;
   const closes = history.map((p) => p.close);
   const ema12Arr = ema(closes, 12);
   const ema26Arr = ema(closes, 26);
@@ -120,6 +243,7 @@ export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
 
   const rsiArr = rsi(closes, 14);
   const bbArr = bollingerBands(closes, 20, 2);
+  const atrArr = computeATRSeries(history, 14);
 
   return history.map((p, i) => {
     const macdHistVal =
@@ -128,7 +252,7 @@ export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
         : undefined;
 
     return {
-      date: new Date(p.date).toLocaleDateString("fr-CA", { month: "short", day: "numeric" }),
+      date: formatCandleDate(p.date, intraday, fineGrained),
       close: p.close,
       open: p.open,
       high: p.high,
@@ -148,12 +272,17 @@ export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
           ? macdSignalFull[i - signalOffset]
           : undefined,
       macdHist: macdHistVal,
+      atr: atrArr[i],
     };
   });
 }
 
 export function detectCandlePatterns(history: OHLCPoint[]): CandlePattern[] {
   const patterns: CandlePattern[] = [];
+  const intraday = isIntradayHistory(history);
+  const fineGrained =
+    history.length > 1 &&
+    Math.abs(new Date(history[1].date).getTime() - new Date(history[0].date).getTime()) <= 60_000;
 
   for (let i = 0; i < history.length; i++) {
     const c = history[i];
@@ -169,7 +298,7 @@ export function detectCandlePatterns(history: OHLCPoint[]): CandlePattern[] {
     const lowerWick = Math.min(open, close) - low;
     const isBullish = close > open;
     const isBearish = close < open;
-    const dateStr = new Date(c.date).toLocaleDateString("fr-CA", { month: "short", day: "numeric" });
+    const dateStr = formatCandleDate(c.date, intraday, fineGrained);
 
     if (range < 0.0001) continue;
 
@@ -429,6 +558,329 @@ export function detectCandlePatterns(history: OHLCPoint[]): CandlePattern[] {
   return patterns;
 }
 
+/**
+ * Détecte les "gaps" de prix : quand l'ouverture d'une bougie est nettement
+ * différente de la clôture précédente (souvent après une nouvelle, un rapport
+ * de résultats, ou une reprise après fermeture du marché).
+ */
+export function detectPriceGaps(history: OHLCPoint[], minGapPct = 0.5): PriceGap[] {
+  const gaps: PriceGap[] = [];
+  const intraday = isIntradayHistory(history);
+
+  for (let i = 1; i < history.length; i++) {
+    const prev = history[i - 1];
+    const c = history[i];
+    if (c.open === null || prev.close === null || prev.close === 0) continue;
+
+    const prevClose = prev.close;
+    const open = c.open;
+    const gapPct = ((open - prevClose) / prevClose) * 100;
+    if (Math.abs(gapPct) < minGapPct) continue;
+
+    const type: "haussier" | "baissier" = gapPct > 0 ? "haussier" : "baissier";
+
+    // Un gap est "comblé" si le prix est revenu toucher le niveau de clôture précédent
+    let filled = false;
+    for (let j = i; j < history.length; j++) {
+      const h = history[j].high;
+      const l = history[j].low;
+      if (h === null || l === null) continue;
+      if (type === "haussier" && l <= prevClose) { filled = true; break; }
+      if (type === "baissier" && h >= prevClose) { filled = true; break; }
+    }
+
+    gaps.push({
+      idx: i,
+      date: formatCandleDate(c.date, intraday),
+      type,
+      gapPct: Math.round(gapPct * 100) / 100,
+      prevClose,
+      open,
+      filled,
+    });
+  }
+
+  return gaps;
+}
+
+/**
+ * Détecte des niveaux de support/résistance automatiques en repérant les
+ * points pivots (sommets et creux locaux) puis en regroupant les niveaux
+ * proches entre eux. Plus un niveau a été "touché" souvent, plus il est fort.
+ */
+export function detectSupportResistance(
+  history: OHLCPoint[],
+  currentPrice: number,
+  lookback = 3,
+  tolerancePct = 0.8,
+  maxLevels = 4
+): SRLevel[] {
+  const pivots: number[] = [];
+
+  for (let i = lookback; i < history.length - lookback; i++) {
+    const h = history[i].high;
+    const l = history[i].low;
+    if (h === null || l === null) continue;
+
+    let isPivotHigh = true;
+    let isPivotLow = true;
+    for (let k = 1; k <= lookback; k++) {
+      const hb = history[i - k].high, ha = history[i + k].high;
+      const lb = history[i - k].low, la = history[i + k].low;
+      if (hb === null || ha === null || h < hb || h < ha) isPivotHigh = false;
+      if (lb === null || la === null || l > lb || l > la) isPivotLow = false;
+    }
+    if (isPivotHigh) pivots.push(h);
+    if (isPivotLow) pivots.push(l);
+  }
+
+  if (pivots.length === 0) return [];
+
+  const sorted = [...pivots].sort((a, b) => a - b);
+  const clusters: number[][] = [];
+  for (const p of sorted) {
+    const last = clusters[clusters.length - 1];
+    if (last && p > 0 && Math.abs(p - last[last.length - 1]) / p * 100 <= tolerancePct) {
+      last.push(p);
+    } else {
+      clusters.push([p]);
+    }
+  }
+
+  const levels: SRLevel[] = clusters
+    .map((prices) => {
+      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const touches = prices.length;
+      const strength: SRLevel["strength"] = touches >= 4 ? "fort" : touches >= 2 ? "moyen" : "faible";
+      return {
+        price: Math.round(avg * 100) / 100,
+        type: (avg < currentPrice ? "support" : "resistance") as SRLevel["type"],
+        touches,
+        strength,
+        distancePct: Math.round(((avg - currentPrice) / currentPrice) * 1000) / 10,
+      };
+    })
+    .filter((l) => l.touches >= 2)
+    .sort((a, b) => b.touches - a.touches)
+    .slice(0, maxLevels)
+    .sort((a, b) => b.price - a.price);
+
+  return levels;
+}
+
+/**
+ * Traduit l'ATR (volatilité moyenne) en une jauge simple + des suggestions
+ * de stop-loss / take-profit basées sur la volatilité réelle du titre,
+ * plutôt que sur un pourcentage fixe arbitraire.
+ */
+export function getVolatilityInfo(data: IndicatorPoint[], currentPrice: number): VolatilityInfo | null {
+  const last = data[data.length - 1];
+  if (!last || last.atr === undefined || last.atr <= 0 || currentPrice <= 0) return null;
+
+  const atrVal = last.atr;
+  const atrPct = (atrVal / currentPrice) * 100;
+  const label: VolatilityInfo["label"] = atrPct < 1.5 ? "faible" : atrPct < 3 ? "modérée" : "élevée";
+
+  return {
+    atr: Math.round(atrVal * 100) / 100,
+    atrPct: Math.round(atrPct * 100) / 100,
+    label,
+    stopLossLong: Math.round((currentPrice - atrVal * 1.5) * 100) / 100,
+    takeProfitLong: Math.round((currentPrice + atrVal * 2.5) * 100) / 100,
+    stopLossShort: Math.round((currentPrice + atrVal * 1.5) * 100) / 100,
+    takeProfitShort: Math.round((currentPrice - atrVal * 2.5) * 100) / 100,
+  };
+}
+
+/**
+ * Analyse la structure du marché (sommets/creux) pour déterminer si on est
+ * dans une tendance haussière, baissière, ou un range latéral.
+ */
+export function detectMarketStructure(history: OHLCPoint[], lookback = 3): MarketStructure {
+  const highs: { idx: number; date: string; price: number }[] = [];
+  const lows: { idx: number; date: string; price: number }[] = [];
+  const intraday = isIntradayHistory(history);
+
+  for (let i = lookback; i < history.length - lookback; i++) {
+    const h = history[i].high;
+    const l = history[i].low;
+    if (h === null || l === null) continue;
+
+    let isHigh = true;
+    let isLow = true;
+    for (let k = 1; k <= lookback; k++) {
+      const hb = history[i - k].high, ha = history[i + k].high;
+      const lb = history[i - k].low, la = history[i + k].low;
+      if (hb === null || ha === null || h < hb || h < ha) isHigh = false;
+      if (lb === null || la === null || l > lb || l > la) isLow = false;
+    }
+    const dateStr = formatCandleDate(history[i].date, intraday);
+    if (isHigh) highs.push({ idx: i, date: dateStr, price: h });
+    if (isLow) lows.push({ idx: i, date: dateStr, price: l });
+  }
+
+  const lastHighs = highs.slice(-2);
+  const lastLows = lows.slice(-2);
+
+  let trend: MarketStructure["trend"] = "range";
+  let description = "Le prix évolue latéralement sans direction claire — ni sommets ni creux qui progressent nettement dans une direction. Souvent le bon moment pour attendre.";
+
+  if (lastHighs.length === 2 && lastLows.length === 2) {
+    const higherHighs = lastHighs[1].price > lastHighs[0].price;
+    const higherLows = lastLows[1].price > lastLows[0].price;
+    const lowerHighs = lastHighs[1].price < lastHighs[0].price;
+    const lowerLows = lastLows[1].price < lastLows[0].price;
+
+    if (higherHighs && higherLows) {
+      trend = "haussière";
+      description = "Sommets et creux de plus en plus hauts — structure classique d'une tendance haussière saine. Les traders cherchent des points d'entrée sur les replis (creux).";
+    } else if (lowerHighs && lowerLows) {
+      trend = "baissière";
+      description = "Sommets et creux de plus en plus bas — structure classique d'une tendance baissière. Prudence à l'achat tant que ce schéma persiste.";
+    }
+  }
+
+  const label = trend === "haussière" ? "📈 Tendance haussière" : trend === "baissière" ? "📉 Tendance baissière" : "↔️ Range latéral";
+
+  return { trend, label, description, swingHighs: highs.slice(-4), swingLows: lows.slice(-4) };
+}
+
+/**
+ * Calcule les niveaux de retracement de Fibonacci sur le dernier mouvement
+ * significatif (plus haut / plus bas) de la période analysée.
+ */
+export function computeFibonacciLevels(history: OHLCPoint[], lookback = 90): FibonacciResult | null {
+  const slice = history.slice(-lookback).filter((p) => p.high !== null && p.low !== null);
+  if (slice.length < 10) return null;
+
+  let highIdx = 0, lowIdx = 0;
+  let high = -Infinity, low = Infinity;
+  slice.forEach((p, i) => {
+    const h = p.high as number;
+    const l = p.low as number;
+    if (h > high) { high = h; highIdx = i; }
+    if (l < low) { low = l; lowIdx = i; }
+  });
+
+  if (!isFinite(high) || !isFinite(low) || high <= low) return null;
+
+  // Si le creux est survenu avant le sommet → mouvement haussier, on trace la correction depuis le haut
+  const direction: "haussier" | "baissier" = lowIdx < highIdx ? "haussier" : "baissier";
+  const ratios = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+
+  const levels: FibLevel[] = ratios.map((r) => {
+    const price = direction === "haussier" ? high - (high - low) * r : low + (high - low) * r;
+    return { ratio: r, label: `${(r * 100).toFixed(1)}%`, price: Math.round(price * 100) / 100 };
+  });
+
+  return { direction, swingHigh: Math.round(high * 100) / 100, swingLow: Math.round(low * 100) / 100, levels };
+}
+
+/**
+ * Détecte les divergences entre le prix et le RSI/MACD : quand le prix fait
+ * un nouveau sommet/creux mais que l'indicateur ne confirme pas, c'est
+ * souvent un signal précoce de retournement.
+ */
+export function detectDivergences(data: IndicatorPoint[], lookback = 3): Divergence[] {
+  const divergences: Divergence[] = [];
+  const closeHighs: { idx: number; price: number }[] = [];
+  const closeLows: { idx: number; price: number }[] = [];
+
+  for (let i = lookback; i < data.length - lookback; i++) {
+    const c = data[i].close;
+    let isHigh = true;
+    let isLow = true;
+    for (let k = 1; k <= lookback; k++) {
+      if (data[i - k].close > c || data[i + k].close > c) isHigh = false;
+      if (data[i - k].close < c || data[i + k].close < c) isLow = false;
+    }
+    if (isHigh) closeHighs.push({ idx: i, price: c });
+    if (isLow) closeLows.push({ idx: i, price: c });
+  }
+
+  // Divergence baissière : prix fait un plus haut, l'indicateur fait un plus bas
+  if (closeHighs.length >= 2) {
+    const [a, b] = closeHighs.slice(-2);
+    const rsiA = data[a.idx].rsi, rsiB = data[b.idx].rsi;
+    if (b.price > a.price && rsiA !== undefined && rsiB !== undefined && rsiB < rsiA) {
+      divergences.push({
+        idx: b.idx, date: data[b.idx].date, type: "baissière", indicator: "RSI",
+        description: "Le prix a fait un nouveau sommet plus haut, mais le RSI a fait un sommet plus bas — le momentum faiblit malgré la hausse du prix. Signal d'essoufflement potentiel.",
+      });
+    }
+    const macdA = data[a.idx].macdLine, macdB = data[b.idx].macdLine;
+    if (b.price > a.price && macdA !== undefined && macdB !== undefined && macdB < macdA) {
+      divergences.push({
+        idx: b.idx, date: data[b.idx].date, type: "baissière", indicator: "MACD",
+        description: "Le prix monte mais le MACD baisse entre les deux derniers sommets — la force acheteuse diminue. Prudence recommandée.",
+      });
+    }
+  }
+
+  // Divergence haussière : prix fait un plus bas, l'indicateur fait un plus haut
+  if (closeLows.length >= 2) {
+    const [a, b] = closeLows.slice(-2);
+    const rsiA = data[a.idx].rsi, rsiB = data[b.idx].rsi;
+    if (b.price < a.price && rsiA !== undefined && rsiB !== undefined && rsiB > rsiA) {
+      divergences.push({
+        idx: b.idx, date: data[b.idx].date, type: "haussière", indicator: "RSI",
+        description: "Le prix a fait un nouveau creux plus bas, mais le RSI a fait un creux plus haut — les vendeurs s'essoufflent. Signal de retournement potentiel à la hausse.",
+      });
+    }
+    const macdA = data[a.idx].macdLine, macdB = data[b.idx].macdLine;
+    if (b.price < a.price && macdA !== undefined && macdB !== undefined && macdB > macdA) {
+      divergences.push({
+        idx: b.idx, date: data[b.idx].date, type: "haussière", indicator: "MACD",
+        description: "Le prix baisse mais le MACD monte entre les deux derniers creux — la pression vendeuse diminue.",
+      });
+    }
+  }
+
+  return divergences;
+}
+
+/**
+ * "Backtest" léger : pour chaque pattern déjà détecté sur cet actif, regarde
+ * ce qui s'est passé N jours après chaque occurrence passée, et calcule un
+ * taux de réussite + rendement moyen. Donne du concret plutôt qu'une règle
+ * théorique générique.
+ */
+export function backtestPatterns(history: OHLCPoint[], patterns: CandlePattern[], lookahead = 3): Record<string, PatternBacktestStat> {
+  const buckets: Record<string, { signal: CandlePattern["signal"]; wins: number; total: number; returns: number[] }> = {};
+
+  for (const p of patterns) {
+    if (p.signal === "neutre") continue;
+    const exitIdx = p.idx + lookahead;
+    if (exitIdx >= history.length) continue;
+
+    const entryClose = history[p.idx].close;
+    const exitClose = history[exitIdx].close;
+    if (!entryClose || !exitClose) continue;
+
+    const returnPct = ((exitClose - entryClose) / entryClose) * 100;
+    const won = p.signal === "haussier" ? returnPct > 0 : returnPct < 0;
+
+    if (!buckets[p.name]) buckets[p.name] = { signal: p.signal, wins: 0, total: 0, returns: [] };
+    buckets[p.name].total += 1;
+    if (won) buckets[p.name].wins += 1;
+    buckets[p.name].returns.push(returnPct);
+  }
+
+  const result: Record<string, PatternBacktestStat> = {};
+  for (const [name, b] of Object.entries(buckets)) {
+    if (b.total < 2) continue; // pas assez d'occurrences pour être significatif
+    result[name] = {
+      name,
+      signal: b.signal,
+      occurrences: b.total,
+      winRate: Math.round((b.wins / b.total) * 1000) / 10,
+      avgReturnPct: Math.round((b.returns.reduce((a, c) => a + c, 0) / b.returns.length) * 100) / 100,
+      lookaheadDays: lookahead,
+    };
+  }
+  return result;
+}
+
 export type SignalStrength = "FORT ACHAT" | "ACHAT" | "NEUTRE" | "VENTE" | "FORTE VENTE";
 
 export interface TradingSignal {
@@ -558,3 +1010,111 @@ export function analyzeTradingSignals(data: IndicatorPoint[], currentPrice: numb
 
   return { overall, score: clampedScore, signals, recommendation, beginnerSummary };
 }
+
+/**
+ * Prédiction du prochain mouvement probable, à partir d'un pattern de
+ * chandelier détecté récemment. Combine 3 sources de preuve concrètes plutôt
+ * que de deviner :
+ *  1. Le taux de réussite historique de CE pattern sur CET actif (backtest local)
+ *  2. La confluence avec le signal global (RSI/MACD/moyennes mobiles)
+ *  3. La proximité d'un support/résistance pour donner un point d'entrée concret
+ *
+ * Ce n'est pas une prédiction magique — c'est un résumé probabiliste basé sur
+ * ce qui s'est passé les fois précédentes, présenté simplement.
+ */
+export type PredictionAction = "Acheter" | "Vendre" | "Attendre";
+export type ConfidenceLabel = "faible" | "moyenne" | "élevée";
+
+export interface CandlePrediction {
+  patternName: string;
+  patternIdx: number;
+  date: string;
+  signal: "haussier" | "baissier" | "neutre";
+  confidence: number; // 0-100
+  confidenceLabel: ConfidenceLabel;
+  action: PredictionAction;
+  timing: string;
+  targetZone: string;
+  rationale: string;
+}
+
+export function predictNextMove(
+  patterns: CandlePattern[],
+  backtest: Record<string, PatternBacktestStat>,
+  signal: TradingSignal,
+  srLevels: SRLevel[],
+  currentPrice: number,
+): CandlePrediction[] {
+  return patterns
+    .filter((p) => p.signal !== "neutre")
+    .map((p) => {
+      const stat = backtest[p.name];
+
+      // 1. Confiance de base : taux de réussite historique s'il y en a assez,
+      //    sinon une estimation prudente selon la force théorique du pattern.
+      let confidence = stat ? stat.winRate : p.strength === "fort" ? 58 : p.strength === "moyen" ? 52 : 47;
+
+      // 2. Ajustement selon la confluence avec le signal global (RSI/MACD/etc.)
+      const signalAgrees =
+        (p.signal === "haussier" && signal.score > 15) ||
+        (p.signal === "baissier" && signal.score < -15);
+      const signalDisagrees =
+        (p.signal === "haussier" && signal.score < -15) ||
+        (p.signal === "baissier" && signal.score > 15);
+      if (signalAgrees) confidence += 12;
+      if (signalDisagrees) confidence -= 15;
+      confidence = Math.max(5, Math.min(95, Math.round(confidence)));
+
+      const confidenceLabel: ConfidenceLabel = confidence >= 65 ? "élevée" : confidence >= 50 ? "moyenne" : "faible";
+
+      // 3. Timing : cherche le support/résistance le plus proche dans le bon sens
+      const relevantLevels = srLevels.filter((l) =>
+        p.signal === "haussier" ? l.type === "support" : l.type === "resistance"
+      );
+      const nearest = relevantLevels.sort((a, b) => a.distancePct - b.distancePct)[0];
+
+      let timing: string;
+      let targetZone: string;
+      if (nearest && nearest.distancePct <= 1.5) {
+        timing = p.signal === "haussier"
+          ? `Le prix est déjà proche du support à $${nearest.price.toFixed(2)} (${nearest.distancePct.toFixed(1)}% d'écart) — c'est une zone d'entrée envisageable maintenant.`
+          : `Le prix est déjà proche de la résistance à $${nearest.price.toFixed(2)} (${nearest.distancePct.toFixed(1)}% d'écart) — zone de sortie/prudence dès maintenant.`;
+        targetZone = `$${nearest.price.toFixed(2)}`;
+      } else if (nearest) {
+        timing = p.signal === "haussier"
+          ? `Idéalement, attendre un repli vers le support à $${nearest.price.toFixed(2)} (${nearest.distancePct.toFixed(1)}% plus bas) avant d'acheter, plutôt qu'entrer immédiatement.`
+          : `Idéalement, attendre un rebond vers la résistance à $${nearest.price.toFixed(2)} (${nearest.distancePct.toFixed(1)}% plus haut) avant de vendre/sortir.`;
+        targetZone = `$${nearest.price.toFixed(2)}`;
+      } else {
+        timing = "Aucun support/résistance clair à proximité — confirmez avec la bougie suivante avant d'agir.";
+        targetZone = `~$${currentPrice.toFixed(2)}`;
+      }
+
+      // Action recommandée
+      let action: PredictionAction;
+      if (confidence >= 60 && !signalDisagrees) {
+        action = p.signal === "haussier" ? "Acheter" : "Vendre";
+      } else {
+        action = "Attendre";
+      }
+
+      const rationale = stat
+        ? `Historiquement sur cet actif, ce pattern a été suivi d'un mouvement ${p.signal} ${stat.occurrences} fois sur les dernières données, avec ${stat.winRate}% de réussite et un rendement moyen de ${stat.avgReturnPct >= 0 ? "+" : ""}${stat.avgReturnPct}% sur ${stat.lookaheadDays} bougies.`
+        : `Pas encore assez d'occurrences historiques de ce pattern sur cet actif pour un taux de réussite fiable — estimation basée sur la force théorique du pattern (${p.strength}).`;
+
+      return {
+        patternName: p.name,
+        patternIdx: p.idx,
+        date: p.date,
+        signal: p.signal,
+        confidence,
+        confidenceLabel,
+        action,
+        timing,
+        targetZone,
+        rationale,
+      };
+    })
+    .sort((a, b) => b.confidence - a.confidence);
+}
+

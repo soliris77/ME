@@ -1,16 +1,26 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
-  ComposedChart, Line, Bar, XAxis, YAxis, Tooltip,
+  ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine, Area, AreaChart,
 } from "recharts";
-import { computeIndicators, analyzeTradingSignals, detectCandlePatterns } from "@/lib/indicators";
-import type { IndicatorPoint, OHLCPoint, CandlePattern } from "@/lib/indicators";
-import { TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart } from "lucide-react";
+import {
+  computeIndicators, analyzeTradingSignals, detectCandlePatterns, detectPriceGaps, detectSupportResistance,
+  getVolatilityInfo, detectMarketStructure, computeFibonacciLevels, detectDivergences, backtestPatterns, predictNextMove,
+} from "@/lib/indicators";
+import type {
+  IndicatorPoint, OHLCPoint, CandlePattern, PriceGap, SRLevel, VolatilityInfo, MarketStructure, FibonacciResult, Divergence, PatternBacktestStat, CandlePrediction,
+} from "@/lib/indicators";
+import {
+  TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart,
+  Radio, ArrowUpRight, ArrowDownRight, Gauge, GitCompareArrows, History, Sparkles, Target,
+} from "lucide-react";
+import TradingJournal from "@/components/TradingJournal";
 
 interface Props {
   history: OHLCPoint[];
   currentPrice: number;
   currency: string;
+  symbol?: string;
 }
 
 const SIGNAL_COLORS = {
@@ -21,7 +31,18 @@ const SIGNAL_COLORS = {
   "FORTE VENTE": { bg: "bg-red-500/15",     text: "text-red-600",     border: "border-red-500/30" },
 };
 
-type ActiveOverlay = "sma" | "ema" | "bb";
+type ActiveOverlay = "sma" | "ema" | "bb" | "sr" | "fib";
+
+// Nombre minimum de bougies nécessaires pour que chaque indicateur ait des
+// valeurs à afficher (ex : EMA 26 a besoin d'au moins 26 jours). En dessous
+// de ce seuil, on désactive le bouton plutôt que d'afficher un graphique vide.
+const OVERLAY_MIN_HISTORY: Record<ActiveOverlay, number> = {
+  sma: 50, // SMA 50 est la plus exigeante des deux moyennes mobiles
+  ema: 26, // EMA 26
+  bb: 20, // Bandes de Bollinger (période 20)
+  sr: 15,
+  fib: 15,
+};
 
 const TOOLTIP_STYLE = {
   backgroundColor: "hsl(var(--card))",
@@ -60,6 +81,48 @@ const BEGINNER_GUIDE = [
     explain: "Ces bandes s'élargissent quand le marché est volatile et se resserrent quand il est calme. Quand le prix touche la bande du bas, il rebondit souvent vers le milieu. La bande du haut est une zone de résistance.",
     action: "Prix à la bande basse → rebond probable (achat). Prix à la bande haute → résistance (prudence).",
     color: "text-orange-500",
+  },
+  {
+    term: "Supports & Résistances",
+    simple: "Planchers et plafonds invisibles",
+    explain: "Un support est un niveau de prix où les acheteurs reviennent souvent (le prix a du mal à descendre plus bas). Une résistance est un niveau où les vendeurs reviennent souvent (le prix a du mal à monter plus haut). Plus un niveau a été touché de fois, plus il est fiable.",
+    action: "Prix proche d'un support → rebond possible (achat prudent). Prix proche d'une résistance → ralentissement probable (prudence).",
+    color: "text-cyan-500",
+  },
+  {
+    term: "Gaps de prix (écarts)",
+    simple: "Trou entre deux séances",
+    explain: "Un gap se produit quand le prix ouvre nettement au-dessus ou en dessous de la clôture précédente — souvent après une nouvelle importante ou un rapport de résultats. Beaucoup de gaps finissent par être 'comblés' : le prix revient éventuellement toucher le niveau d'avant le gap.",
+    action: "Gap haussier non comblé → tendance forte. Gap baissier non comblé → faiblesse. Un gap non comblé depuis longtemps agit souvent comme aimant pour le prix.",
+    color: "text-pink-500",
+  },
+  {
+    term: "ATR (volatilité)",
+    simple: "Combien ça bouge, en moyenne",
+    explain: "L'ATR mesure de combien le prix bouge en moyenne chaque jour, en dollars. Plus il est élevé, plus le titre est volatile (mouvements amples et rapides, risqué mais potentiel de gain plus grand). Plus il est faible, plus le titre est calme.",
+    action: "Utilise l'ATR pour placer ton stop-loss : trop proche du prix actuel, un titre volatile te sortira pour rien. Vise environ 1,5x l'ATR de distance.",
+    color: "text-amber-500",
+  },
+  {
+    term: "Structure de marché",
+    simple: "Sommets et creux qui racontent une histoire",
+    explain: "En regardant la suite des sommets (hauts) et des creux (bas) récents, on peut dire si le marché est en tendance haussière (sommets et creux de plus en plus hauts), baissière (de plus en plus bas), ou en range (ça oscille sans direction).",
+    action: "En tendance haussière, cherche à acheter sur les replis. En tendance baissière, évite d'acheter à contre-courant. En range, achète bas et vends haut dans la fourchette.",
+    color: "text-indigo-500",
+  },
+  {
+    term: "Fibonacci (retracement)",
+    simple: "Les niveaux de pause préférés du marché",
+    explain: "Après un grand mouvement de prix, une correction s'arrête souvent à des niveaux précis : 38,2%, 50% ou 61,8% du mouvement. Ce n'est pas magique — c'est parce que beaucoup de traders regardent les mêmes niveaux et y placent des ordres.",
+    action: "Le niveau 61,8% est souvent surveillé comme zone d'achat en tendance haussière. Combine-le avec un autre signal (RSI, pattern de chandelier) pour plus de fiabilité.",
+    color: "text-rose-500",
+  },
+  {
+    term: "Divergences RSI/MACD",
+    simple: "Quand le prix et l'indicateur ne sont plus d'accord",
+    explain: "Normalement, quand le prix monte, le RSI et le MACD montent aussi. Une divergence, c'est quand le prix fait un nouveau sommet (ou creux) mais que l'indicateur ne le confirme pas — un signal que la tendance s'essouffle même si le prix ne le montre pas encore.",
+    action: "Divergence baissière (prix monte, indicateur baisse) → signal de prudence. Divergence haussière (prix baisse, indicateur monte) → signal de retournement possible.",
+    color: "text-teal-500",
   },
 ];
 
@@ -162,7 +225,15 @@ function LegendDot({ color, label, dashed, box }: { color: string; label: string
   );
 }
 
-function CandlePatternBadge({ p }: { p: CandlePattern }) {
+function CandlePatternBadge({
+  p, backtest, hasPrediction, highlighted, onJumpToPrediction,
+}: {
+  p: CandlePattern;
+  backtest?: PatternBacktestStat;
+  hasPrediction?: boolean;
+  highlighted?: boolean;
+  onJumpToPrediction?: () => void;
+}) {
   const isUp = p.signal === "haussier";
   const isDown = p.signal === "baissier";
   const strengthLabel = p.strength === "fort" ? "⭐⭐ Fort" : p.strength === "moyen" ? "⭐ Moyen" : "Faible";
@@ -170,7 +241,10 @@ function CandlePatternBadge({ p }: { p: CandlePattern }) {
 
   return (
     <div
+      id={`pattern-${p.idx}-${p.name}`}
       className={`border rounded-xl p-3 cursor-pointer transition-all ${
+        highlighted ? "ring-2 ring-primary/60" : ""
+      } ${
         isUp ? "bg-emerald-500/8 border-emerald-500/20 hover:border-emerald-500/40" :
         isDown ? "bg-red-500/8 border-red-500/20 hover:border-red-500/40" :
         "bg-muted/30 border-border hover:border-border/80"
@@ -187,6 +261,15 @@ function CandlePatternBadge({ p }: { p: CandlePattern }) {
             {p.candles > 1 && (
               <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">{p.candles} bougies</span>
             )}
+            {hasPrediction && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onJumpToPrediction?.(); }}
+                className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded flex items-center gap-1 hover:bg-primary/25 transition-colors"
+                title="Voir la prédiction liée à ce chandelier"
+              >
+                <Sparkles className="w-3 h-3" /> Prédiction
+              </button>
+            )}
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">{p.date} · {strengthLabel}</div>
         </div>
@@ -199,13 +282,280 @@ function CandlePatternBadge({ p }: { p: CandlePattern }) {
             <p className="text-xs font-medium text-primary">💡 Comment l'utiliser :</p>
             <p className="text-xs text-foreground/70 mt-0.5 leading-relaxed">{p.howToUse}</p>
           </div>
+          {backtest && (
+            <div className="bg-background/60 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+              <History className="w-3.5 h-3.5 text-primary shrink-0" />
+              <p className="text-xs text-foreground/70 leading-relaxed">
+                Sur ce titre : <strong>{backtest.occurrences} occurrences</strong> passées, <strong>{backtest.winRate}%</strong> ont évolué dans le sens attendu sur {backtest.lookaheadDays} jours (rendement moyen {backtest.avgReturnPct > 0 ? "+" : ""}{backtest.avgReturnPct}%).
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export default function TechnicalAnalysis({ history, currentPrice }: Props) {
+const ACTION_STYLE: Record<CandlePrediction["action"], { bg: string; text: string; border: string }> = {
+  Acheter: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/25" },
+  Vendre: { bg: "bg-red-500/10", text: "text-red-600 dark:text-red-400", border: "border-red-500/25" },
+  Attendre: { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" },
+};
+
+// Point 1 : mini-graphique de chandeliers dans la section "Prédictions & signaux
+// d'entrée", pour voir visuellement sur quelles bougies les prédictions se
+// basent (contour violet = bougie liée à une prédiction active).
+function PredictionCandleChart({
+  history, data, predictions,
+}: {
+  history: OHLCPoint[];
+  data: IndicatorPoint[];
+  predictions: CandlePrediction[];
+}) {
+  const mutedFg = "hsl(var(--muted-foreground))";
+  const WINDOW = 40;
+  const startIdx = Math.max(0, history.length - WINDOW);
+  const predictedIdx = useMemo(() => new Set(predictions.map((p) => p.patternIdx)), [predictions]);
+
+  const chartData = useMemo(
+    () =>
+      data.slice(startIdx).map((d, i) => {
+        const idx = startIdx + i;
+        const isUp = d.close >= d.open;
+        return {
+          ...d,
+          idx,
+          isUp,
+          hasPrediction: predictedIdx.has(idx),
+          wickRange: [d.low, d.high] as [number, number],
+          bodyRange: [Math.min(d.open, d.close), Math.max(d.open, d.close)] as [number, number],
+        };
+      }),
+    [data, startIdx, predictedIdx]
+  );
+
+  if (chartData.length === 0) return null;
+
+  return (
+    <div className="mb-3">
+      <div className="h-48 -mx-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+            <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: mutedFg }} axisLine={false} tickLine={false} width={38} />
+            <Tooltip content={<PriceTooltip />} />
+            <Bar dataKey="wickRange" barSize={2} isAnimationActive={false}>
+              {chartData.map((d, i) => (
+                <Cell key={`wick-${d.idx}-${i}`} fill={d.isUp ? "#22c55e" : "#ef4444"} />
+              ))}
+            </Bar>
+            <Bar dataKey="bodyRange" barSize={7} isAnimationActive={false}>
+              {chartData.map((d, i) => (
+                <Cell
+                  key={`body-${d.idx}-${i}`}
+                  fill={d.isUp ? "#22c55e" : "#ef4444"}
+                  stroke={d.hasPrediction ? "#a855f7" : "none"}
+                  strokeWidth={d.hasPrediction ? 2 : 0}
+                />
+              ))}
+            </Bar>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground mt-1 px-1">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" /> Bougie haussière</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500 inline-block" /> Bougie baissière</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm border-2 border-purple-500 inline-block" /> Bougie liée à une prédiction ci-dessous</span>
+      </div>
+    </div>
+  );
+}
+
+function PredictionRow({ pred, highlighted, onJumpToPattern }: { pred: CandlePrediction; highlighted?: boolean; onJumpToPattern?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const style = ACTION_STYLE[pred.action];
+  const isUp = pred.signal === "haussier";
+
+  return (
+    <div
+      id={`prediction-${pred.patternIdx}-${pred.patternName}`}
+      className={`border rounded-lg overflow-hidden cursor-pointer transition-colors ${
+        highlighted ? "ring-2 ring-primary/60 border-primary/40" : "border-card-border hover:border-primary/40"
+      }`}
+      onClick={() => setOpen((v) => !v)}
+    >
+      <div className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1.5fr_1fr_1fr_auto] items-center gap-2 px-3 py-2.5 bg-card">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+            {isUp ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <TrendingDown className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+            {pred.patternName}
+          </div>
+          <div className="text-xs text-muted-foreground">{pred.date}</div>
+        </div>
+        <div className="hidden sm:block text-xs text-muted-foreground">
+          Confiance : <strong className="text-foreground">{pred.confidence}%</strong> ({pred.confidenceLabel})
+        </div>
+        <div className="hidden sm:block text-xs text-muted-foreground truncate">Zone : {pred.targetZone}</div>
+        <span className={`text-xs font-bold px-2 py-1 rounded-md border ${style.bg} ${style.text} ${style.border} whitespace-nowrap`}>
+          {pred.action}
+        </span>
+      </div>
+      {open && (
+        <div className="px-3 py-2.5 border-t border-card-border bg-background/50 space-y-2">
+          <div className="sm:hidden text-xs text-muted-foreground">
+            Confiance : <strong className="text-foreground">{pred.confidence}%</strong> ({pred.confidenceLabel}) · Zone : {pred.targetZone}
+          </div>
+          <div className="flex items-start gap-2">
+            <Target className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/80 leading-relaxed">{pred.timing}</p>
+          </div>
+          <div className="flex items-start gap-2">
+            <History className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/70 leading-relaxed">{pred.rationale}</p>
+          </div>
+          {onJumpToPattern && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onJumpToPattern(); }}
+              className="text-xs bg-primary/15 text-primary px-2 py-1 rounded-md flex items-center gap-1 hover:bg-primary/25 transition-colors"
+            >
+              <CandlestickChart className="w-3.5 h-3.5" /> Voir le chandelier détecté
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GapBadge({ g, currency }: { g: PriceGap; currency: string }) {
+  const isUp = g.type === "haussier";
+  return (
+    <div className={`border rounded-xl p-3 ${isUp ? "bg-emerald-500/8 border-emerald-500/20" : "bg-red-500/8 border-red-500/20"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {isUp ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <ArrowDownRight className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+          <span className={`text-sm font-bold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+            Gap {isUp ? "haussier" : "baissier"} {g.gapPct > 0 ? "+" : ""}{g.gapPct}%
+          </span>
+        </div>
+        <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${g.filled ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+          {g.filled ? "Comblé" : "Non comblé"}
+        </span>
+      </div>
+      <div className="text-xs text-muted-foreground mt-1">
+        {g.date} · Clôture préc. {currency}{g.prevClose.toFixed(2)} → Ouverture {currency}{g.open.toFixed(2)}
+      </div>
+      {!g.filled && (
+        <p className="text-xs text-foreground/60 mt-1 leading-relaxed italic border-t border-border/40 pt-1">
+          💡 {isUp
+            ? "Gap encore ouvert : le marché n'est pas revenu combler cet écart, signe de force. Certains traders surveillent ce niveau comme support potentiel."
+            : "Gap encore ouvert : le marché n'est pas revenu combler cet écart, signe de faiblesse. Ce niveau peut agir comme résistance."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SRLevelRow({ l, currency }: { l: SRLevel; currency: string }) {
+  const isSupport = l.type === "support";
+  const strengthLabel = l.strength === "fort" ? "⭐⭐ Fort" : l.strength === "moyen" ? "⭐ Moyen" : "Faible";
+  return (
+    <div className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${isSupport ? "bg-emerald-500/8 border-emerald-500/20" : "bg-red-500/8 border-red-500/20"}`}>
+      <div className="flex items-center gap-2">
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isSupport ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-red-500/15 text-red-600 dark:text-red-400"}`}>
+          {isSupport ? "Support" : "Résistance"}
+        </span>
+        <span className="font-mono text-sm font-semibold">{currency}{l.price.toFixed(2)}</span>
+        <span className="text-xs text-muted-foreground">{l.touches}x touché · {strengthLabel}</span>
+      </div>
+      <span className={`text-xs font-mono ${isSupport ? "text-emerald-500" : "text-red-500"}`}>
+        {l.distancePct > 0 ? "+" : ""}{l.distancePct}%
+      </span>
+    </div>
+  );
+}
+
+function VolatilityCard({ vol, currency }: { vol: VolatilityInfo; currency: string }) {
+  const labelColor = vol.label === "faible" ? "text-emerald-500" : vol.label === "modérée" ? "text-amber-500" : "text-red-500";
+  const barPct = vol.label === "faible" ? 25 : vol.label === "modérée" ? 60 : 90;
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Gauge className="w-4 h-4 text-primary" />
+        <span className="text-sm font-semibold">Volatilité (ATR) &amp; suggestion de stop-loss</span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+        L'ATR mesure de combien le prix bouge en moyenne chaque jour. Les niveaux ci-dessous sont calculés à partir de cette volatilité réelle, pas d'un pourcentage arbitraire.
+      </p>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${vol.label === "faible" ? "bg-emerald-500" : vol.label === "modérée" ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${barPct}%` }} />
+        </div>
+        <span className={`text-xs font-bold ${labelColor}`}>Volatilité {vol.label}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+        <div className="bg-muted/40 rounded-lg px-2.5 py-1.5">
+          <span className="text-muted-foreground">ATR (14 jours)</span>
+          <div className="font-mono font-semibold">{currency}{vol.atr.toFixed(2)} ({vol.atrPct.toFixed(2)}%/jour)</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="border border-emerald-500/20 bg-emerald-500/8 rounded-lg px-3 py-2">
+          <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Si position acheteuse (long)</div>
+          <div className="text-xs text-muted-foreground">Stop-loss suggéré : <span className="font-mono font-semibold text-foreground">{currency}{vol.stopLossLong.toFixed(2)}</span></div>
+          <div className="text-xs text-muted-foreground">Take-profit suggéré : <span className="font-mono font-semibold text-foreground">{currency}{vol.takeProfitLong.toFixed(2)}</span></div>
+        </div>
+        <div className="border border-red-500/20 bg-red-500/8 rounded-lg px-3 py-2">
+          <div className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">Si position vendeuse (short)</div>
+          <div className="text-xs text-muted-foreground">Stop-loss suggéré : <span className="font-mono font-semibold text-foreground">{currency}{vol.stopLossShort.toFixed(2)}</span></div>
+          <div className="text-xs text-muted-foreground">Take-profit suggéré : <span className="font-mono font-semibold text-foreground">{currency}{vol.takeProfitShort.toFixed(2)}</span></div>
+        </div>
+      </div>
+      <p className="text-xs text-foreground/60 mt-2 italic">💡 Basé sur 1,5x l'ATR pour le stop-loss et 2,5x pour le take-profit — des multiples courants chez les traders. Ajuste selon ta tolérance au risque.</p>
+    </div>
+  );
+}
+
+function MarketStructureBanner({ structure }: { structure: MarketStructure }) {
+  const color = structure.trend === "haussière" ? "text-emerald-500" : structure.trend === "baissière" ? "text-red-500" : "text-muted-foreground";
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <GitCompareArrows className="w-4 h-4 text-primary" />
+        <span className="text-sm font-semibold">Structure de marché</span>
+        <span className={`text-sm font-bold ml-auto ${color}`}>{structure.label}</span>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{structure.description}</p>
+    </div>
+  );
+}
+
+function FibLevelRow({ level, currency, isKey }: { level: FibonacciResult["levels"][number]; currency: string; isKey: boolean }) {
+  return (
+    <div className={`flex items-center justify-between rounded-lg border px-3 py-1.5 ${isKey ? "bg-rose-500/8 border-rose-500/25" : "bg-muted/30 border-border"}`}>
+      <span className={`text-xs font-semibold ${isKey ? "text-rose-500" : "text-muted-foreground"}`}>{level.label}</span>
+      <span className="font-mono text-sm">{currency}{level.price.toFixed(2)}</span>
+    </div>
+  );
+}
+
+function DivergenceBadge({ d }: { d: Divergence }) {
+  const isBull = d.type === "haussière";
+  return (
+    <div className={`border rounded-xl p-3 ${isBull ? "bg-emerald-500/8 border-emerald-500/20" : "bg-red-500/8 border-red-500/20"}`}>
+      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+        {isBull ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> : <TrendingDown className="w-3.5 h-3.5 text-red-500" />}
+        <span className={`text-sm font-bold ${isBull ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+          Divergence {d.type} ({d.indicator})
+        </span>
+        <span className="text-xs text-muted-foreground ml-auto">{d.date}</span>
+      </div>
+      <p className="text-xs text-foreground/70 leading-relaxed">{d.description}</p>
+    </div>
+  );
+}
+
+export default function TechnicalAnalysis({ history, currentPrice, currency, symbol }: Props) {
   const [overlays, setOverlays] = useState<Set<ActiveOverlay>>(new Set(["sma"]));
   const [showDetails, setShowDetails] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -229,12 +579,60 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
       .slice(0, 12);
   }, [allPatterns, history.length]);
 
+  // Patterns détectés sur la toute dernière bougie — mis à jour à chaque rafraîchissement des données
+  const livePatterns = useMemo(
+    () => allPatterns.filter((p) => p.idx === history.length - 1),
+    [allPatterns, history.length]
+  );
+
+  const priceGaps = useMemo(() => detectPriceGaps(history), [history]);
+  const recentGaps = useMemo(() => [...priceGaps].reverse().slice(0, 8), [priceGaps]);
+  const unfilledGaps = useMemo(() => priceGaps.filter((g) => !g.filled), [priceGaps]);
+
+  const srLevels = useMemo(() => detectSupportResistance(history, currentPrice), [history, currentPrice]);
+
+  const volatility = useMemo(() => getVolatilityInfo(data, currentPrice), [data, currentPrice]);
+  const structure = useMemo(() => detectMarketStructure(history), [history]);
+  const fibonacci = useMemo(() => computeFibonacciLevels(history), [history]);
+  const divergences = useMemo(() => detectDivergences(data), [data]);
+  const backtestStats = useMemo(() => backtestPatterns(history, allPatterns, 3), [history, allPatterns]);
+  const predictions = useMemo(
+    () => predictNextMove(recentPatterns, backtestStats, analysis, srLevels, currentPrice).slice(0, 8),
+    [recentPatterns, backtestStats, analysis, srLevels, currentPrice]
+  );
+
+  // Petit indicateur visuel pour confirmer que tout se recalcule bien en
+  // direct — se met à jour chaque fois que `history` change (donc à chaque
+  // rafraîchissement automatique toutes les 10s dans QuoteDetail.tsx).
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  useEffect(() => {
+    setLastUpdated(new Date());
+  }, [history]);
+
   const toggleOverlay = (o: ActiveOverlay) => {
     setOverlays((prev) => {
       const next = new Set(prev);
       next.has(o) ? next.delete(o) : next.add(o);
       return next;
     });
+  };
+
+  // Connexion "Chandeliers détectés" <-> "Prédictions & signaux d'entrée" :
+  // les deux sections dérivent déjà des mêmes patterns (predictNextMove
+  // utilise recentPatterns), on ajoute ici un aller-retour visuel entre les
+  // deux pour que ce lien soit évident, pas seulement logique.
+  const predictionKeySet = useMemo(
+    () => new Set(predictions.map((pr) => `${pr.patternIdx}-${pr.patternName}`)),
+    [predictions]
+  );
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+  const jumpTo = (elementId: string, key: string) => {
+    setHighlightKey(key);
+    // Léger délai pour laisser le DOM se stabiliser si une section vient de s'ouvrir
+    requestAnimationFrame(() => {
+      document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    setTimeout(() => setHighlightKey((k) => (k === key ? null : k)), 2200);
   };
 
   if (history.length < 20) {
@@ -273,6 +671,70 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
           <BookOpen className="w-3.5 h-3.5" />
           Guide débutant
         </button>
+      </div>
+
+      {/* Radar en direct — patterns détectés sur la dernière bougie */}
+      <div className="bg-card border border-card-border rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+          <Radio className="w-3.5 h-3.5 text-primary" />
+          <span className="text-sm font-semibold">Radar en direct — dernière bougie</span>
+          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Mis à jour à chaque nouvelle donnée</span>
+        </div>
+        {livePatterns.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucun pattern de chandelier reconnu sur la bougie la plus récente en ce moment.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {livePatterns.map((p, i) => (
+              <CandlePatternBadge key={`live-${p.idx}-${p.name}-${i}`} p={p} backtest={backtestStats[p.name]} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Indicateur "en direct" — confirme visuellement que tout se rafraîchit tout seul toutes les 10s */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        </span>
+        En direct — mis à jour à {lastUpdated.toLocaleTimeString("fr-CA")} (rafraîchissement automatique toutes les 5s)
+      </div>
+
+      {/* Prédictions IA — table interactive des signaux d'entrée/sortie */}
+      <div className="bg-card border border-card-border rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <span className="text-sm font-semibold">Prédictions &amp; signaux d'entrée</span>
+          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Basé sur l'historique de ce titre — cliquez une ligne pour le détail</span>
+        </div>
+        <PredictionCandleChart history={history} data={data} predictions={predictions} />
+        {predictions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Pas assez de patterns récents pour établir une prédiction fiable.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {predictions.map((pred, i) => (
+              <PredictionRow
+                key={`pred-${pred.patternIdx}-${pred.patternName}-${i}`}
+                pred={pred}
+                highlighted={highlightKey === `${pred.patternIdx}-${pred.patternName}`}
+                onJumpToPattern={() => jumpTo(`pattern-${pred.patternIdx}-${pred.patternName}`, `${pred.patternIdx}-${pred.patternName}`)}
+              />
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground/70 mt-3 leading-relaxed">
+          ⚠️ Ces prédictions se basent sur ce qui s'est produit après ce pattern les fois précédentes sur ce titre — ce n'est pas une garantie. Combinez toujours avec votre propre jugement et un stop-loss.
+        </p>
+      </div>
+
+      {/* Structure de marché + Volatilité (ATR) */}
+      <div className="grid grid-cols-1 gap-4">
+        <MarketStructureBanner structure={structure} />
+        {volatility && <VolatilityCard vol={volatility} currency={currency} />}
       </div>
 
       {/* Signal global */}
@@ -347,21 +809,31 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-semibold">Prix &amp; Indicateurs</span>
           <div className="flex items-center gap-1.5">
-            {(["sma", "ema", "bb"] as ActiveOverlay[]).map((o) => (
-              <button
-                key={o}
-                onClick={() => toggleOverlay(o)}
-                className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
-                  overlays.has(o)
-                    ? o === "sma" ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                    : o === "ema" ? "bg-violet-500/20 text-violet-400 border-violet-500/30"
-                    : "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                    : "bg-muted text-muted-foreground border-border"
-                }`}
-              >
-                {o === "sma" ? "MM 20/50" : o === "ema" ? "EMA 12/26" : "Bollinger"}
-              </button>
-            ))}
+            {(["sma", "ema", "bb", "sr", "fib"] as ActiveOverlay[]).map((o) => {
+              const hasEnoughData = history.length >= OVERLAY_MIN_HISTORY[o];
+              const label = o === "sma" ? "MM 20/50" : o === "ema" ? "EMA 12/26" : o === "bb" ? "Bollinger" : o === "sr" ? "Support/Résist." : "Fibonacci";
+              return (
+                <button
+                  key={o}
+                  onClick={() => hasEnoughData && toggleOverlay(o)}
+                  disabled={!hasEnoughData}
+                  title={hasEnoughData ? undefined : `Besoin d'au moins ${OVERLAY_MIN_HISTORY[o]} bougies — choisis une période plus longue (3m ou plus) pour activer "${label}".`}
+                  className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
+                    !hasEnoughData
+                      ? "bg-muted/50 text-muted-foreground/40 border-border cursor-not-allowed"
+                      : overlays.has(o)
+                      ? o === "sma" ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                      : o === "ema" ? "bg-violet-500/20 text-violet-400 border-violet-500/30"
+                      : o === "bb" ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                      : o === "sr" ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                      : "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                      : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -371,6 +843,28 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis domain={yDomain} tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v.toFixed(0)}`} width={58} />
             <Tooltip content={<PriceTooltip />} />
+
+            {overlays.has("sr") && srLevels.map((l) => (
+              <ReferenceLine
+                key={`sr-${l.price}`}
+                y={l.price}
+                stroke={l.type === "support" ? "#10b981" : "#ef4444"}
+                strokeDasharray="6 3"
+                strokeWidth={l.strength === "fort" ? 1.75 : 1}
+                label={{ value: `${l.type === "support" ? "S" : "R"} $${l.price.toFixed(0)}`, position: "insideBottomRight", fontSize: 9, fill: l.type === "support" ? "#10b981" : "#ef4444" }}
+              />
+            ))}
+
+            {overlays.has("fib") && fibonacci?.levels.map((l) => (
+              <ReferenceLine
+                key={`fib-${l.ratio}`}
+                y={l.price}
+                stroke="#f43f5e"
+                strokeDasharray={l.ratio === 0.618 || l.ratio === 0.5 ? "2 2" : "6 4"}
+                strokeWidth={l.ratio === 0.618 || l.ratio === 0.5 ? 1.5 : 0.75}
+                label={{ value: `${l.label}`, position: "insideTopLeft", fontSize: 9, fill: "#f43f5e" }}
+              />
+            ))}
 
             {overlays.has("bb") && (
               <>
@@ -405,6 +899,8 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
           {overlays.has("sma") && <><LegendDot color="#60a5fa" label="MM 20 jours" /><LegendDot color="#a78bfa" label="MM 50 jours" /></>}
           {overlays.has("ema") && <><LegendDot color="#34d399" label="EMA 12" dashed /><LegendDot color="#f87171" label="EMA 26" dashed /></>}
           {overlays.has("bb") && <LegendDot color="hsl(38 100% 55%)" label="Bandes Bollinger" dashed />}
+          {overlays.has("sr") && <><LegendDot color="#10b981" label="Support" dashed /><LegendDot color="#ef4444" label="Résistance" dashed /></>}
+          {overlays.has("fib") && <LegendDot color="#f43f5e" label="Fibonacci" dashed />}
         </div>
       </div>
 
@@ -487,7 +983,7 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
           <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">30 dernières bougies</span>
         </div>
         <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-          Patterns identifiés automatiquement sur l'historique récent. Cliquez sur un pattern pour voir son explication et comment l'utiliser.
+          Patterns identifiés automatiquement sur l'historique récent. Cliquez sur un pattern pour voir son explication et comment l'utiliser — le badge <span className="text-primary font-medium">Prédiction</span> saute directement vers le signal d'entrée correspondant plus haut.
         </p>
         {recentPatterns.length === 0 ? (
           <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
@@ -496,9 +992,19 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {recentPatterns.map((p, i) => (
-              <CandlePatternBadge key={`${p.idx}-${p.name}-${i}`} p={p} />
-            ))}
+            {recentPatterns.map((p, i) => {
+              const key = `${p.idx}-${p.name}`;
+              return (
+                <CandlePatternBadge
+                  key={`${key}-${i}`}
+                  p={p}
+                  backtest={backtestStats[p.name]}
+                  hasPrediction={predictionKeySet.has(key)}
+                  highlighted={highlightKey === key}
+                  onJumpToPrediction={() => jumpTo(`prediction-${key}`, key)}
+                />
+              );
+            })}
           </div>
         )}
         <div className="mt-3 flex gap-3 text-xs text-muted-foreground border-t border-border pt-2.5">
@@ -507,6 +1013,102 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground inline-block" />Neutre</span>
         </div>
       </div>
+
+      {/* Niveaux de support / résistance */}
+      <div className="bg-card border border-card-border rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold">Niveaux clés — Supports &amp; Résistances</span>
+          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Détection automatique</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+          Niveaux de prix où le marché a réagi plusieurs fois dans le passé. Activez "Support/Résist." sur le graphique ci-dessus pour les visualiser.
+        </p>
+        {srLevels.length === 0 ? (
+          <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Pas assez de points pivots sur cette période pour identifier des niveaux fiables.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {srLevels.map((l) => (
+              <SRLevelRow key={`${l.type}-${l.price}`} l={l} currency={currency} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Gaps de prix */}
+      <div className="bg-card border border-card-border rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold">Gaps de prix récents</span>
+          {unfilledGaps.length > 0 && (
+            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{unfilledGaps.length} non comblé{unfilledGaps.length > 1 ? "s" : ""}</span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+          Écarts entre la clôture d'une séance et l'ouverture de la suivante. Les gaps non comblés indiquent souvent une direction forte du marché.
+        </p>
+        {recentGaps.length === 0 ? (
+          <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Aucun gap significatif détecté sur cette période.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {recentGaps.map((g, i) => (
+              <GapBadge key={`gap-${g.idx}-${i}`} g={g} currency={currency} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Divergences RSI/MACD */}
+      <div className="bg-card border border-card-border rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold">Divergences RSI / MACD</span>
+          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Signal avancé</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+          Quand le prix et un indicateur ne racontent plus la même histoire — souvent un signe précoce de retournement, avant même que le prix ne change de direction.
+        </p>
+        {divergences.length === 0 ? (
+          <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Aucune divergence détectée récemment — le prix et les indicateurs sont alignés.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {divergences.map((d, i) => (
+              <DivergenceBadge key={`div-${d.idx}-${d.indicator}-${i}`} d={d} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Fibonacci */}
+      {fibonacci && (
+        <div className="bg-card border border-card-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-semibold">Niveaux de Fibonacci</span>
+            <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">
+              Mouvement {fibonacci.direction} · {currency}{fibonacci.swingLow.toFixed(2)} → {currency}{fibonacci.swingHigh.toFixed(2)}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            Calculés sur le dernier grand mouvement de la période affichée. Activez "Fibonacci" sur le graphique ci-dessus pour les visualiser. Les niveaux 50% et 61,8% (en surbrillance) sont les plus surveillés.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {fibonacci.levels.map((l) => (
+              <FibLevelRow key={l.ratio} level={l} currency={currency} isKey={l.ratio === 0.5 || l.ratio === 0.618} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Journal de trading / simulateur */}
+      {symbol && (
+        <TradingJournal symbol={symbol} currency={currency} currentPrice={currentPrice} suggestedSignal={analysis.overall} />
+      )}
 
       <div className="bg-muted/50 rounded-xl px-4 py-3">
         <p className="text-xs text-muted-foreground leading-relaxed">
@@ -517,3 +1119,4 @@ export default function TechnicalAnalysis({ history, currentPrice }: Props) {
     </div>
   );
 }
+

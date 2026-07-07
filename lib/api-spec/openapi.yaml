@@ -135,6 +135,32 @@ paths:
                 items:
                   $ref: "#/components/schemas/SearchResult"
 
+  /market/news:
+    get:
+      operationId: getMarketNews
+      tags: [market]
+      summary: Get market-moving news (free — Yahoo Finance + Google News RSS, no API key)
+      parameters:
+        - name: tickers
+          in: query
+          required: false
+          description: Comma-separated ticker symbols to include ticker-specific news for
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: News journal items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NewsItem"
   /watchlist:
     get:
       operationId: getWatchlist
@@ -345,6 +371,50 @@ components:
         exchange:
           type: string
 
+    NewsSentimentLabel:
+      type: string
+      enum: [haussier, baissier, neutre]
+
+    NewsTickerSentiment:
+      type: object
+      required: [ticker, relevanceScore, sentimentScore, sentimentLabel]
+      properties:
+        ticker:
+          type: string
+        relevanceScore:
+          type: number
+        sentimentScore:
+          type: number
+        sentimentLabel:
+          $ref: "#/components/schemas/NewsSentimentLabel"
+
+    NewsItem:
+      type: object
+      required: [id, title, summary, source, url, publishedAt, theme, overallSentimentScore, overallSentimentLabel, tickers]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+        publishedAt:
+          type: string
+        theme:
+          type: string
+        overallSentimentScore:
+          type: number
+        overallSentimentLabel:
+          $ref: "#/components/schemas/NewsSentimentLabel"
+        tickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsTickerSentiment"
+
     WatchlistItem:
       type: object
       required: [id, symbol, name, addedAt]
@@ -373,7 +443,7 @@ components:
 
     Alert:
       type: object
-      required: [id, symbol, condition, targetPrice, active, createdAt]
+      required: [id, symbol, alertType, active, createdAt]
       properties:
         id:
           type: integer
@@ -381,11 +451,20 @@ components:
           type: string
         name:
           type: ["string", "null"]
-        condition:
+        alertType:
           type: string
-          enum: [above, below]
+          enum: [price, pattern]
+        condition:
+          type: ["string", "null"]
+          enum: [above, below, null]
         targetPrice:
-          type: number
+          type: ["number", "null"]
+        patternSignal:
+          type: ["string", "null"]
+          enum: [haussier, baissier, null]
+        minStrength:
+          type: ["string", "null"]
+          enum: [faible, moyen, fort, null]
         active:
           type: boolean
         triggeredAt:
@@ -395,14 +474,23 @@ components:
 
     AlertInput:
       type: object
-      required: [symbol, condition, targetPrice]
+      required: [symbol]
       properties:
         symbol:
           type: string
         name:
           type: string
+        alertType:
+          type: string
+          enum: [price, pattern]
         condition:
           type: string
           enum: [above, below]
         targetPrice:
           type: number
+        patternSignal:
+          type: string
+          enum: [haussier, baissier]
+        minStrength:
+          type: string
+          enum: [faible, moyen, fort]

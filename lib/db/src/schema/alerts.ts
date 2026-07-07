@@ -6,11 +6,19 @@ export const alertsTable = pgTable("alerts", {
   id: serial("id").primaryKey(),
   symbol: text("symbol").notNull(),
   name: text("name"),
-  condition: text("condition").notNull(), // "above" | "below"
-  targetPrice: numeric("target_price", { precision: 18, scale: 6 }).notNull(),
+  // "price" (comportement historique) ou "pattern" (nouvelle alerte intelligente).
+  alertType: text("alert_type").default("price").notNull(),
+  condition: text("condition"), // "above" | "below" — utilisé seulement pour alertType = "price"
+  targetPrice: numeric("target_price", { precision: 18, scale: 6 }), // utilisé seulement pour alertType = "price"
+  // --- Champs spécifiques aux alertes de pattern/signal ---
+  patternSignal: text("pattern_signal"), // "haussier" | "baissier" | null (= les deux)
+  minStrength: text("min_strength"), // "faible" | "moyen" | "fort" | null (= n'importe laquelle)
   active: boolean("active").default(true).notNull(),
   triggeredAt: timestamp("triggered_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Optional per-alert destination. Falls back to ALERT_NOTIFY_EMAIL env var
+  // when null — see lib/emailClient.ts.
+  notifyEmail: text("notify_email"),
 });
 
 export const insertAlertSchema = createInsertSchema(alertsTable).omit({ id: true, active: true, triggeredAt: true, createdAt: true });

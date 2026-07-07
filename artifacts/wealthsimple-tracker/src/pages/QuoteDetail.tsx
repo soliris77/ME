@@ -8,6 +8,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import TechnicalAnalysis from "@/components/TechnicalAnalysis";
+import { isIntradayHistory, formatCandleDate } from "@/lib/indicators";
 
 const RANGES: { value: string; label: string }[] = [
   { value: "1d", label: "1j" },
@@ -46,17 +47,25 @@ const CustomTooltip = ({ active, payload, label }: {
 export default function QuoteDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const decodedSymbol = symbol ? decodeURIComponent(symbol) : "";
-  const [range, setRange] = useState("1mo");
+  const [range, setRange] = useState("3mo");
   const [tab, setTab] = useState<"chart" | "analysis">("chart");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: quote, isLoading } = useGetQuote(decodedSymbol, {
-    query: { enabled: !!decodedSymbol, refetchInterval: 30_000 },
+    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 },
   });
 
+  // Rafraîchit l'historique de bougies automatiquement — c'est ce qui fait
+  // que le graphique, les indicateurs, les patterns détectés ET les
+  // prédictions/signaux d'entrée se mettent tous à jour tout seuls, sans
+  // recharger la page. Tout dans TechnicalAnalysis.tsx dépend de `history`
+  // via useMemo, donc ce seul rafraîchissement suffit à tout propager.
+  // 5s est le plancher recommandé : plus vite ne donnerait pas de données
+  // plus fraîches (Yahoo Finance gratuit se met à jour à ce rythme environ)
+  // et risquerait de se faire bloquer.
   const { data: history = [], isLoading: histLoading } = useGetQuoteHistory(decodedSymbol, range, {
-    query: { enabled: !!decodedSymbol },
+    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 },
   });
 
   const add = useAddToWatchlist({
@@ -97,8 +106,13 @@ export default function QuoteDetail() {
   const isUp = quote.changePercent >= 0;
   const chartColor = isUp ? "hsl(168, 60%, 42%)" : "hsl(0, 72%, 51%)";
 
+  const intraday = isIntradayHistory(history);
+  const fineGrained =
+    history.length > 1 &&
+    Math.abs(new Date(history[1].date).getTime() - new Date(history[0].date).getTime()) <= 60_000;
+
   const simpleChartData = history.map((p) => ({
-    date: new Date(p.date).toLocaleDateString("fr-CA", { month: "short", day: "numeric" }),
+    date: formatCandleDate(p.date, intraday, fineGrained),
     close: p.close,
   }));
 
@@ -246,9 +260,10 @@ export default function QuoteDetail() {
             ))}
           </div>
         ) : (
-          <TechnicalAnalysis history={ohlcHistory} currentPrice={quote.price} currency={quote.currency} />
+          <TechnicalAnalysis history={ohlcHistory} currentPrice={quote.price} currency={quote.currency} symbol={quote.symbol} />
         )
       )}
     </div>
   );
 }
+

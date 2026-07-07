@@ -1,225 +1,47 @@
 import { useState } from "react";
+import { Link, useRoute } from "wouter";
 import { BookOpen, TrendingUp, BarChart2, ShieldAlert, Lightbulb, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { CANDLES, STRATEGIES, GLOSSAIRE } from "@/data/learnContent";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 type Tab = "bases" | "chandeliers" | "strategies" | "risques" | "glossaire";
 
-const TABS: { id: Tab; label: string; icon: typeof BookOpen }[] = [
-  { id: "bases", label: "Bases du trading", icon: TrendingUp },
-  { id: "chandeliers", label: "Chandeliers japonais", icon: BarChart2 },
-  { id: "strategies", label: "Stratégies débutant", icon: Lightbulb },
-  { id: "risques", label: "Gestion des risques", icon: ShieldAlert },
-  { id: "glossaire", label: "Glossaire complet", icon: BookOpen },
-];
-
-// ── Chandeliers ──────────────────────────────────────────────────────────────
-interface Candle {
-  name: string;
-  signal: "haussier" | "baissier" | "neutre";
-  description: string;
-  howToUse: string;
-  svg: string;
-}
-
-const CANDLES: Candle[] = [
+const TABS: { id: Tab; label: string; icon: typeof BookOpen; title: string; description: string }[] = [
   {
-    name: "Marteau (Hammer)",
-    signal: "haussier",
-    description: "Petite bougie verte avec une très longue mèche inférieure. Signale que les vendeurs ont essayé de pousser le prix vers le bas, mais les acheteurs ont repris le contrôle.",
-    howToUse: "Cherchez ce pattern au bas d'une tendance baissière. Si la bougie suivante est également verte, c'est un signal de retournement fort.",
-    svg: `<svg viewBox="0 0 40 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="20" y1="65" x2="20" y2="15" stroke="#22c55e" stroke-width="1.5"/>
-      <rect x="13" y="35" width="14" height="10" rx="1" fill="#22c55e"/>
-    </svg>`,
+    id: "bases",
+    label: "Bases du trading",
+    icon: TrendingUp,
+    title: "Bases du trading en bourse pour débutants | WS Marchés",
+    description: "Comment fonctionne un marché boursier, lire un graphique, différence entre action/ETF/crypto, heures d'ouverture des bourses, et les 5 erreurs classiques des débutants.",
   },
   {
-    name: "Étoile filante (Shooting Star)",
-    signal: "baissier",
-    description: "Petite bougie rouge avec une très longue mèche supérieure. Signale que les acheteurs ont essayé de monter le prix, mais les vendeurs ont repris le contrôle.",
-    howToUse: "Cherchez ce pattern au sommet d'une tendance haussière. C'est souvent le signal d'un retournement vers le bas. Confirmez avec le volume.",
-    svg: `<svg viewBox="0 0 40 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="20" y1="10" x2="20" y2="65" stroke="#ef4444" stroke-width="1.5"/>
-      <rect x="13" y="35" width="14" height="10" rx="1" fill="#ef4444"/>
-    </svg>`,
+    id: "chandeliers",
+    label: "Chandeliers japonais",
+    icon: BarChart2,
+    title: "Chandeliers japonais expliqués : marteau, doji, engulfing… | WS Marchés",
+    description: "Guide visuel des principaux patterns de chandeliers japonais (marteau, étoile filante, doji, engulfing, étoiles du matin/soir) et comment les utiliser en trading.",
   },
   {
-    name: "Doji",
-    signal: "neutre",
-    description: "Bougie dont l'ouverture et la clôture sont presque identiques — forme une croix. Signale une indécision totale entre acheteurs et vendeurs.",
-    howToUse: "Un Doji seul ne donne pas de direction. Mais après une longue tendance, c'est souvent le signe qu'un retournement se prépare. Attendez la bougie suivante pour confirmer.",
-    svg: `<svg viewBox="0 0 40 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="20" y1="10" x2="20" y2="70" stroke="#94a3b8" stroke-width="1.5"/>
-      <rect x="10" y="38" width="20" height="4" rx="1" fill="#94a3b8"/>
-    </svg>`,
+    id: "strategies",
+    label: "Stratégies débutant",
+    icon: Lightbulb,
+    title: "4 stratégies de trading pour débutants | WS Marchés",
+    description: "Suivi de tendance, retournement sur support/résistance, cassure (breakout) et dollar cost averaging (DCA) — avantages, limites et étapes concrètes.",
   },
   {
-    name: "Engulfing haussier",
-    signal: "haussier",
-    description: "Une grande bougie verte qui 'engloutit' entièrement la bougie rouge précédente. Signale que les acheteurs ont complètement dominé les vendeurs sur cette période.",
-    howToUse: "Très fiable au bas d'une tendance baissière. Plus la bougie verte est grande par rapport à la rouge, plus le signal est fort.",
-    svg: `<svg viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="8" y="28" width="16" height="18" rx="1" fill="#ef4444"/>
-      <rect x="32" y="22" width="18" height="30" rx="1" fill="#22c55e"/>
-      <line x1="41" y1="16" x2="41" y2="22" stroke="#22c55e" stroke-width="1.5"/>
-      <line x1="41" y1="52" x2="41" y2="58" stroke="#22c55e" stroke-width="1.5"/>
-    </svg>`,
+    id: "risques",
+    label: "Gestion des risques",
+    icon: ShieldAlert,
+    title: "Gestion des risques en trading : stop-loss, R:R, psychologie | WS Marchés",
+    description: "La règle des 1-2% par position, comment placer un stop-loss, calculer son rapport risque/gain, et éviter les pièges psychologiques (FOMO, revenge trading).",
   },
   {
-    name: "Engulfing baissier",
-    signal: "baissier",
-    description: "Une grande bougie rouge qui engloutit la bougie verte précédente. Les vendeurs prennent complètement le contrôle après une montée.",
-    howToUse: "Très efficace au sommet d'une tendance haussière. Utilisez-le pour sortir d'une position longue ou envisager une vente.",
-    svg: `<svg viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="8" y="28" width="16" height="18" rx="1" fill="#22c55e"/>
-      <rect x="32" y="22" width="18" height="30" rx="1" fill="#ef4444"/>
-      <line x1="41" y1="16" x2="41" y2="22" stroke="#ef4444" stroke-width="1.5"/>
-      <line x1="41" y1="52" x2="41" y2="58" stroke="#ef4444" stroke-width="1.5"/>
-    </svg>`,
+    id: "glossaire",
+    label: "Glossaire complet",
+    icon: BookOpen,
+    title: "Glossaire du trading et de la bourse (A à Z) | WS Marchés",
+    description: "Tous les termes essentiels de la bourse et du trading expliqués simplement : RSI, MACD, support, résistance, drawdown, levier, et plus.",
   },
-  {
-    name: "Étoile du matin (Morning Star)",
-    signal: "haussier",
-    description: "Séquence de 3 bougies : rouge, petite (Doji ou petite bougie), puis grande verte. Signale la fin d'une baisse et le début d'une hausse.",
-    howToUse: "L'un des patterns les plus fiables. La 3e bougie verte doit clôturer au-dessus du milieu de la 1re bougie rouge pour confirmer.",
-    svg: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="20" width="16" height="25" rx="1" fill="#ef4444"/>
-      <rect x="30" y="42" width="12" height="6" rx="1" fill="#94a3b8"/>
-      <line x1="36" y1="36" x2="36" y2="42" stroke="#94a3b8" stroke-width="1.5"/>
-      <line x1="36" y1="48" x2="36" y2="54" stroke="#94a3b8" stroke-width="1.5"/>
-      <rect x="56" y="22" width="18" height="28" rx="1" fill="#22c55e"/>
-      <line x1="65" y1="16" x2="65" y2="22" stroke="#22c55e" stroke-width="1.5"/>
-      <line x1="65" y1="50" x2="65" y2="56" stroke="#22c55e" stroke-width="1.5"/>
-    </svg>`,
-  },
-  {
-    name: "Étoile du soir (Evening Star)",
-    signal: "baissier",
-    description: "Séquence de 3 bougies : verte, petite, puis grande rouge. L'inverse de l'étoile du matin — signale la fin d'une hausse.",
-    howToUse: "Cherchez ce pattern au sommet d'une tendance. Combiné avec un RSI > 70, c'est un signal de vente très fort.",
-    svg: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="30" width="16" height="25" rx="1" fill="#22c55e"/>
-      <rect x="30" y="24" width="12" height="6" rx="1" fill="#94a3b8"/>
-      <line x1="36" y1="18" x2="36" y2="24" stroke="#94a3b8" stroke-width="1.5"/>
-      <line x1="36" y1="30" x2="36" y2="36" stroke="#94a3b8" stroke-width="1.5"/>
-      <rect x="56" y="25" width="18" height="28" rx="1" fill="#ef4444"/>
-      <line x1="65" y1="18" x2="65" y2="25" stroke="#ef4444" stroke-width="1.5"/>
-      <line x1="65" y1="53" x2="65" y2="60" stroke="#ef4444" stroke-width="1.5"/>
-    </svg>`,
-  },
-  {
-    name: "Trois soldats blancs",
-    signal: "haussier",
-    description: "Trois bougies vertes consécutives avec des corps larges et des mèches courtes. Signale une forte pression acheteuse et le début d'une tendance haussière.",
-    howToUse: "Pattern très fiable après une consolidation ou une baisse prolongée. Chaque bougie doit ouvrir dans le corps de la précédente.",
-    svg: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="45" width="16" height="20" rx="1" fill="#22c55e"/>
-      <rect x="28" y="33" width="16" height="20" rx="1" fill="#22c55e"/>
-      <rect x="52" y="18" width="16" height="22" rx="1" fill="#22c55e"/>
-    </svg>`,
-  },
-];
-
-// ── Stratégies ───────────────────────────────────────────────────────────────
-const STRATEGIES = [
-  {
-    name: "Tendance (Trend Following)",
-    level: "Débutant",
-    description: "Suivre la direction principale du marché. Si le prix monte depuis plusieurs semaines, on achète. Si il descend, on évite.",
-    steps: [
-      "Regardez le graphique sur 3 mois. La ligne des prix monte ou descend ?",
-      "Vérifiez que le prix est au-dessus de la MM50 (haussier) ou en dessous (baissier)",
-      "Entrez dans la direction de la tendance, jamais contre elle",
-      "Sortez quand le prix franchit la MM20 dans l'autre sens",
-    ],
-    pros: "Simple, peu de décisions à prendre",
-    cons: "Peu efficace sur les marchés latéraux",
-    color: "text-emerald-500",
-    bg: "bg-emerald-500/10",
-  },
-  {
-    name: "Retournement sur support/résistance",
-    level: "Intermédiaire",
-    description: "Les marchés rebondissent souvent sur les mêmes niveaux de prix. Un 'support' est un plancher que le prix a du mal à franchir à la baisse. Une 'résistance' est un plafond difficile à franchir à la hausse.",
-    steps: [
-      "Identifiez les zones où le prix a rebondi plusieurs fois dans le passé",
-      "Attendez que le prix revienne tester cette zone",
-      "Cherchez un chandelier de retournement (Marteau, Engulfing) pour confirmer",
-      "Placez votre stop-loss juste en dessous du support",
-    ],
-    pros: "Excellent rapport risque/gain, stop-loss logique",
-    cons: "Les supports peuvent être enfoncés — toujours utiliser un stop",
-    color: "text-blue-500",
-    bg: "bg-blue-500/10",
-  },
-  {
-    name: "Cassure (Breakout)",
-    level: "Intermédiaire",
-    description: "Acheter quand le prix sort d'une zone de consolidation (trading range) vers le haut avec un volume élevé. Le prix accumule de l'énergie dans une range étroite, puis explose.",
-    steps: [
-      "Identifiez une zone où le prix oscille entre deux niveaux depuis plusieurs jours",
-      "Attendez que le prix ferme clairement au-dessus de la résistance",
-      "Vérifiez que le volume de la bougie de cassure est supérieur à la moyenne",
-      "L'objectif est souvent la hauteur du range (même distance projetée vers le haut)",
-    ],
-    pros: "Fort momentum au départ, cibles claires",
-    cons: "Les fausses cassures sont courantes — attendez la confirmation",
-    color: "text-violet-500",
-    bg: "bg-violet-500/10",
-  },
-  {
-    name: "Dollar Cost Averaging (DCA)",
-    level: "Débutant — Idéal pour commencer",
-    description: "Investir la même somme à intervalles réguliers (ex: 100 $/mois) peu importe le prix du marché. Élimine le stress de 'choisir le bon moment'.",
-    steps: [
-      "Choisissez un montant fixe que vous pouvez investir chaque mois sans problème",
-      "Choisissez un actif diversifié (ex: XEQT.TO, S&P500)",
-      "Investissez ce montant chaque mois, que le marché monte ou descende",
-      "Ne vous inquiétez pas des fluctuations à court terme — pensez à 5-10 ans",
-    ],
-    pros: "Élimine le risque de mauvais timing, convient aux débutants",
-    cons: "Moins rentable que le lump sum en marché haussier fort",
-    color: "text-orange-500",
-    bg: "bg-orange-500/10",
-  },
-];
-
-// ── Glossaire ────────────────────────────────────────────────────────────────
-const GLOSSAIRE: { term: string; definition: string; category: string }[] = [
-  { term: "Action (Stock)", definition: "Part de propriété d'une entreprise cotée en bourse. En achetant une action AAPL, vous devenez copropriétaire d'Apple.", category: "Bases" },
-  { term: "ETF / FNB", definition: "Fonds négocié en bourse qui regroupe plusieurs actifs (ex: les 500 plus grandes entreprises US pour le S&P500 ETF). Moins risqué qu'une seule action.", category: "Bases" },
-  { term: "Indice boursier", definition: "Mesure de la performance d'un groupe d'actions (ex: S&P500 = 500 plus grandes entreprises US). Thermomètre de la santé du marché.", category: "Bases" },
-  { term: "Capitalisation boursière", definition: "Valeur totale d'une entreprise en bourse = Prix de l'action × Nombre d'actions. Apple : ~3 000 milliards $.", category: "Bases" },
-  { term: "Volume", definition: "Nombre d'actions ou de contrats échangés sur une période. Un volume élevé lors d'un mouvement de prix le rend plus significatif.", category: "Bases" },
-  { term: "Spread", definition: "Différence entre le prix d'achat (ask) et le prix de vente (bid). C'est le coût invisible de chaque transaction.", category: "Bases" },
-  { term: "Dividende", definition: "Portion des bénéfices d'une entreprise versée aux actionnaires, généralement trimestriellement.", category: "Bases" },
-  { term: "Liquidité", definition: "Facilité à acheter ou vendre un actif sans impacter son prix. Apple est très liquide ; une micro-cap canadienne l'est beaucoup moins.", category: "Bases" },
-  { term: "Tendance haussière (Bullish)", definition: "Marché ou actif qui monte sur la durée. Série de plus hauts et plus bas ascendants.", category: "Tendances" },
-  { term: "Tendance baissière (Bearish)", definition: "Marché ou actif qui descend sur la durée. Série de plus hauts et plus bas descendants.", category: "Tendances" },
-  { term: "Marché latéral (Sideways)", definition: "Prix qui oscille dans une plage sans tendance claire. Difficile pour les traders de tendance.", category: "Tendances" },
-  { term: "Support", definition: "Niveau de prix où le marché a tendance à rebondir car les acheteurs sont plus nombreux que les vendeurs. Plancher du prix.", category: "Niveaux" },
-  { term: "Résistance", definition: "Niveau de prix difficile à franchir à la hausse car les vendeurs dominent. Plafond du prix.", category: "Niveaux" },
-  { term: "Cassure (Breakout)", definition: "Franchissement d'un support ou d'une résistance avec du volume. Souvent suivi d'un fort mouvement.", category: "Niveaux" },
-  { term: "Retracement de Fibonacci", definition: "Niveaux de pullback courants après un mouvement (23,6%, 38,2%, 50%, 61,8%). Les traders y placent leurs ordres.", category: "Niveaux" },
-  { term: "RSI (Relative Strength Index)", definition: "Indicateur de 0 à 100. En dessous de 30 : survente (rebond probable). Au-dessus de 70 : surachat (repli possible).", category: "Indicateurs" },
-  { term: "MACD", definition: "Indicateur de momentum. Croisement haussier = signal d'achat potentiel. Croisement baissier = signal de vente.", category: "Indicateurs" },
-  { term: "Moyenne mobile (MM/SMA)", definition: "Moyenne des prix sur N jours. Lisse les fluctuations et montre la tendance. MM200 = tendance long terme.", category: "Indicateurs" },
-  { term: "Bandes de Bollinger", definition: "Enveloppe autour du prix basée sur l'écart-type. Le prix touche la bande basse → rebond probable. Bande haute → résistance.", category: "Indicateurs" },
-  { term: "Volume on Balance (OBV)", definition: "Cumule le volume selon la direction du prix. Si le prix monte avec un OBV croissant, la hausse est confirmée.", category: "Indicateurs" },
-  { term: "Stop-loss", definition: "Ordre de vente automatique si le prix tombe à un niveau prédéfini. Protège contre les grosses pertes.", category: "Gestion des risques" },
-  { term: "Take profit", definition: "Ordre de vente automatique si le prix atteint votre objectif de gain.", category: "Gestion des risques" },
-  { term: "Rapport risque/gain (R:R)", definition: "Si vous risquez 100 $ pour gagner 300 $, votre R:R est 1:3. Visez toujours un minimum de 1:2.", category: "Gestion des risques" },
-  { term: "Taille de position", definition: "Montant investi dans un seul actif. Règle commune : ne jamais risquer plus de 1-2% de son capital sur une seule trade.", category: "Gestion des risques" },
-  { term: "Drawdown", definition: "Baisse maximale depuis un pic. Si votre portefeuille passe de 10 000 $ à 8 000 $, le drawdown est 20%.", category: "Gestion des risques" },
-  { term: "Levier (Leverage)", definition: "Emprunter pour multiplier les gains potentiels — et les pertes. Déconseillé aux débutants. 10x levier = 10x le risque.", category: "Gestion des risques" },
-  { term: "Diversification", definition: "Répartir son capital sur plusieurs actifs non-corrélés pour réduire le risque global.", category: "Gestion des risques" },
-  { term: "Corrélation", definition: "Mesure si deux actifs bougent ensemble (+1) ou à l'opposé (-1). Un portefeuille bien diversifié a des actifs peu corrélés.", category: "Avancé" },
-  { term: "P/E Ratio (PER)", definition: "Prix / Bénéfice par action. Mesure si une action est chère par rapport à ses bénéfices. PER de 15 = normal, 50+ = cher.", category: "Fondamentaux" },
-  { term: "Short selling / Vente à découvert", definition: "Vendre un actif qu'on ne possède pas en espérant le racheter moins cher. Risque illimité si le prix monte.", category: "Avancé" },
-  { term: "Chandelier japonais", definition: "Représentation graphique d'un prix sur une période donnée : ouverture, clôture, haut et bas. Inventé par les marchands japonais de riz au XVIIe siècle.", category: "Bases" },
-  { term: "Bougie verte / Bougie rouge", definition: "Verte = clôture au-dessus de l'ouverture (prix a monté). Rouge = clôture en dessous (prix a baissé).", category: "Bases" },
-  { term: "Mèche (Wick/Shadow)", definition: "Ligne fine au-dessus ou en dessous du corps d'une bougie. Représente les extrêmes atteints pendant la période.", category: "Bases" },
-  { term: "IPO (Introduction en bourse)", definition: "Première mise sur le marché des actions d'une entreprise. Souvent volatile dans les premiers jours.", category: "Événements" },
-  { term: "Bear market", definition: "Marché en baisse de plus de 20% depuis un sommet. Souvent lié à des récessions ou crises.", category: "Tendances" },
-  { term: "Bull market", definition: "Marché en hausse de plus de 20% depuis un creux. Période de confiance et d'optimisme.", category: "Tendances" },
 ];
 
 // ── Accordion ────────────────────────────────────────────────────────────────
@@ -348,7 +170,8 @@ function ChandeliersTab() {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CANDLES.map((c) => (
-          <div key={c.name} className={`border rounded-xl p-4 ${
+          <Link key={c.slug} href={`/apprendre/chandeliers/${c.slug}`}>
+          <div className={`border rounded-xl p-4 cursor-pointer hover:border-primary/40 transition-colors ${
             c.signal === "haussier" ? "border-emerald-500/20 bg-emerald-500/5" :
             c.signal === "baissier" ? "border-red-500/20 bg-red-500/5" :
             "border-border bg-muted/20"
@@ -372,6 +195,7 @@ function ChandeliersTab() {
               </div>
             </div>
           </div>
+          </Link>
         ))}
       </div>
     </div>
@@ -385,7 +209,8 @@ function StrategiesTab() {
         <strong>⚠️ Important :</strong> Aucune stratégie ne fonctionne 100% du temps. L'objectif est d'avoir une <strong>espérance mathématique positive</strong> sur le long terme — gagner plus que vous ne perdez en moyenne.
       </div>
       {STRATEGIES.map((s) => (
-        <div key={s.name} className={`border rounded-xl p-5 ${s.bg} border-current/20`}>
+        <Link key={s.slug} href={`/apprendre/strategies/${s.slug}`}>
+        <div className={`border rounded-xl p-5 ${s.bg} border-current/20 cursor-pointer hover:opacity-90 transition-opacity`}>
           <div className="flex items-start justify-between gap-3 mb-3">
             <h3 className={`font-bold text-base ${s.color}`}>{s.name}</h3>
             <span className="text-xs bg-background/60 px-2 py-1 rounded-full font-medium shrink-0">{s.level}</span>
@@ -413,6 +238,7 @@ function StrategiesTab() {
             </div>
           </div>
         </div>
+        </Link>
       ))}
     </div>
   );
@@ -526,13 +352,15 @@ function GlossaireTab() {
           <div className="px-4 py-6 text-sm text-center text-muted-foreground">Aucun terme trouvé</div>
         ) : (
           filtered.map((g) => (
-            <div key={g.term} className="px-4 py-3">
+            <Link key={g.slug} href={`/apprendre/glossaire/${g.slug}`}>
+            <div className="px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-sm font-bold text-foreground">{g.term}</span>
                 <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">{g.category}</span>
               </div>
               <p className="text-xs text-foreground/70 leading-relaxed">{g.definition}</p>
             </div>
+            </Link>
           ))
         )}
       </div>
@@ -541,7 +369,11 @@ function GlossaireTab() {
 }
 
 export default function Learn() {
-  const [tab, setTab] = useState<Tab>("bases");
+  const [, params] = useRoute<{ tab?: string }>("/apprendre/:tab?");
+  const tab = (TABS.find((t) => t.id === params?.tab)?.id ?? "bases") as Tab;
+  const activeTab = TABS.find((t) => t.id === tab)!;
+
+  usePageMeta(activeTab.title, activeTab.description);
 
   return (
     <div className="p-6 max-w-4xl">
@@ -552,16 +384,16 @@ export default function Learn() {
 
       <div className="flex flex-wrap gap-1 mb-6 border-b border-border pb-4">
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button
+          <Link
             key={id}
-            onClick={() => setTab(id)}
+            href={`/apprendre/${id}`}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               tab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
             {label}
-          </button>
+          </Link>
         ))}
       </div>
 

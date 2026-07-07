@@ -22,10 +22,12 @@ import type {
 import type {
   Alert,
   AlertInput,
+  GetMarketNewsParams,
   GetQuotesParams,
   HealthStatus,
   HistoricalPoint,
   MarketOverview,
+  NewsItem,
   Quote,
   SearchResult,
   SearchSymbolsParams,
@@ -534,6 +536,89 @@ export function useSearchSymbols<TData = Awaited<ReturnType<typeof searchSymbols
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+export const getGetMarketNewsUrl = (params?: GetMarketNewsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/market/news?${stringifiedParams}` : `/api/market/news`
+}
+
+/**
+ * @summary Get market-moving news (free — Yahoo Finance + Google News RSS, no API key)
+ */
+export const getMarketNews = async ( params?: GetMarketNewsParams, options?: RequestInit): Promise<NewsItem[]> => {
+
+  return customFetch<NewsItem[]>(getGetMarketNewsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+export const getGetMarketNewsQueryKey = (params?: GetMarketNewsParams,) => {
+    return [
+    `/api/market/news`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMarketNewsQueryOptions = <TData = Awaited<ReturnType<typeof getMarketNews>>, TError = ErrorType<unknown>>(params?: GetMarketNewsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketNews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketNewsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketNews>>> = ({ signal }) => getMarketNews(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarketNews>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketNewsQueryResult = NonNullable<Awaited<ReturnType<typeof getMarketNews>>>
+export type GetMarketNewsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get market-moving news (free — Yahoo Finance + Google News RSS, no API key)
+ */
+
+export function useGetMarketNews<TData = Awaited<ReturnType<typeof getMarketNews>>, TError = ErrorType<unknown>>(
+ params?: GetMarketNewsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketNews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketNewsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
 
 
 

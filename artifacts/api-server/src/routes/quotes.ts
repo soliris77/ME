@@ -1,44 +1,7 @@
 import { Router } from "express";
-import YahooFinanceClass from "yahoo-finance2";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const yahooFinance = new (YahooFinanceClass as any)();
+import { yahooFinance, formatQuote, getQuotes } from "../lib/yahoo";
 
 const router = Router();
-
-const TYPE_MAP: Record<string, string> = {
-  EQUITY: "stock",
-  ETF: "etf",
-  CRYPTOCURRENCY: "crypto",
-  INDEX: "index",
-  MUTUALFUND: "stock",
-  FUTURE: "stock",
-};
-
-function mapQuoteType(quoteType?: string): string {
-  if (!quoteType) return "stock";
-  return TYPE_MAP[quoteType.toUpperCase()] ?? "stock";
-}
-
-function formatQuote(q: Awaited<ReturnType<typeof yahooFinance.quote>>) {
-  return {
-    symbol: q.symbol,
-    name: q.longName ?? q.shortName ?? q.symbol,
-    price: q.regularMarketPrice ?? 0,
-    change: q.regularMarketChange ?? 0,
-    changePercent: q.regularMarketChangePercent ?? 0,
-    previousClose: q.regularMarketPreviousClose ?? null,
-    open: q.regularMarketOpen ?? null,
-    high: q.regularMarketDayHigh ?? null,
-    low: q.regularMarketDayLow ?? null,
-    volume: q.regularMarketVolume ?? null,
-    marketCap: q.marketCap ?? null,
-    currency: q.currency ?? "USD",
-    type: mapQuoteType(q.quoteType),
-    exchange: q.fullExchangeName ?? q.exchange ?? null,
-    lastUpdated: new Date().toISOString(),
-  };
-}
 
 router.get("/quotes", async (req, res) => {
   const { symbols } = req.query as { symbols?: string };
@@ -47,12 +10,7 @@ router.get("/quotes", async (req, res) => {
   }
   const symbolList = symbols.split(",").map((s) => s.trim()).filter(Boolean);
   try {
-    const results = await Promise.all(
-      symbolList.map((sym) =>
-        yahooFinance.quote(sym).catch(() => null)
-      )
-    );
-    const quotes = results.filter(Boolean).map((q) => formatQuote(q!));
+    const quotes = await getQuotes(symbolList);
     return res.json(quotes);
   } catch (err) {
     req.log.error({ err }, "Failed to fetch quotes");
@@ -93,7 +51,7 @@ router.get("/quotes/:symbol/history/:range", async (req, res) => {
       period1: getStartDate(range),
       interval,
     });
-    const points = (result.quotes ?? []).map((p) => ({
+    const points = (result.quotes ?? []).map((p: { date: string | number | Date; open?: number; high?: number; low?: number; close?: number; volume?: number }) => ({
       date: new Date(p.date).toISOString(),
       open: p.open ?? null,
       high: p.high ?? null,

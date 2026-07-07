@@ -9,6 +9,8 @@ const TYPE_LABELS: Record<string, { label: string; icon: typeof TrendingUp; colo
   etf: { label: "FNB/ETF", icon: Layers, color: "text-violet-500" },
   crypto: { label: "Crypto", icon: Bitcoin, color: "text-orange-500" },
   index: { label: "Indice", icon: BarChart2, color: "text-emerald-500" },
+  commodity: { label: "Matière première", icon: Globe, color: "text-amber-500" },
+  currency: { label: "Devise", icon: Globe, color: "text-cyan-500" },
 };
 
 const SUGGESTED = [
@@ -173,9 +175,20 @@ export default function SearchPage() {
               <span>🇬🇧 Bourse de Londres (LSE)</span>
               <span>🇩🇪 Bourse de Francfort (DAX)</span>
               <span>🇫🇷 Bourse de Paris (CAC 40)</span>
+              <span>🇮🇹 Bourse de Milan (FTSE MIB)</span>
+              <span>🇪🇸 Bourse de Madrid (IBEX 35)</span>
+              <span>🇨🇭 Bourse de Zurich (SMI)</span>
               <span>🇯🇵 Bourse de Tokyo (Nikkei)</span>
-              <span>🪙 Cryptomonnaies (BTC, ETH, SOL...)</span>
-              <span>🥇 Matières premières (Or, Pétrole...)</span>
+              <span>🇭🇰 Bourse de Hong Kong (Hang Seng)</span>
+              <span>🇰🇷 Bourse de Séoul (KOSPI)</span>
+              <span>🇮🇳 Bourse de Bombay (Sensex)</span>
+              <span>🇦🇺 Bourse australienne (ASX 200)</span>
+              <span>🇧🇷 Bourse de São Paulo (Bovespa)</span>
+              <span>🇲🇽 Bourse mexicaine (IPC)</span>
+              <span>🪙 Cryptomonnaies (BTC, ETH, SOL, XRP, ADA...)</span>
+              <span>🥇 Matières premières (Or, Pétrole, Argent, Gaz, Cuivre, Blé...)</span>
+              <span>💱 Devises (EUR/USD, USD/CAD, GBP/USD, USD/JPY)</span>
+              <span>🔍 + tout symbole Yahoo Finance via la recherche</span>
             </div>
           </div>
         </div>
