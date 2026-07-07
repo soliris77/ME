@@ -78,7 +78,7 @@ export default function Pricing() {
           </div>
           <h1 className="text-xl font-bold mb-2">Paiement réussi ! 🎉</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Bienvenue dans WS Marchés Premium. Votre accès est maintenant actif.
+            Bienvenue dans Soliris Market Premium. Votre accès est maintenant actif.
           </p>
           <a
             href={`${BASE}/`}

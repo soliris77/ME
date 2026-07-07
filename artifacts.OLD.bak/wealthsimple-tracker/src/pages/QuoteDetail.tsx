@@ -1,0 +1,269 @@
+import { useGetQuote, useGetQuoteHistory, useAddToWatchlist, getGetWatchlistQueryKey } from "@workspace/api-client-react";
+import { useParams } from "wouter";
+import { formatPrice, formatChange, formatPercent, formatVolume, formatMarketCap, changeClass } from "@/lib/format";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, Bookmark, TrendingUp, BarChart2 } from "lucide-react";
+import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import TechnicalAnalysis from "@/components/TechnicalAnalysis";
+import { isIntradayHistory, formatCandleDate } from "@/lib/indicators";
+
+const RANGES: { value: string; label: string }[] = [
+  { value: "1d", label: "1j" },
+  { value: "5d", label: "5j" },
+  { value: "1mo", label: "1m" },
+  { value: "3mo", label: "3m" },
+  { value: "6mo", label: "6m" },
+  { value: "1y", label: "1a" },
+];
+
+function StatBox({ label, value }: { label: string; value: string | number | null }) {
+  return (
+    <div className="bg-card border border-card-border rounded-lg p-3">
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      <div className="text-sm font-mono font-semibold text-foreground">{value ?? "—"}</div>
+    </div>
+  );
+}
+
+const CustomTooltip = ({ active, payload, label }: {
+  active?: boolean;
+  payload?: { value: number }[];
+  label?: string;
+}) => {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="bg-card border border-card-border rounded-lg px-3 py-2 shadow-md">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm font-mono font-bold">
+        {payload[0]?.value !== undefined ? `$${payload[0].value.toFixed(2)}` : "—"}
+      </p>
+    </div>
+  );
+};
+
+export default function QuoteDetail() {
+  const { symbol } = useParams<{ symbol: string }>();
+  const decodedSymbol = symbol ? decodeURIComponent(symbol) : "";
+  const [range, setRange] = useState("3mo");
+  const [tab, setTab] = useState<"chart" | "analysis">("chart");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: quote, isLoading } = useGetQuote(decodedSymbol, {
+    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 },
+  });
+
+  // Rafraîchit l'historique de bougies automatiquement — c'est ce qui fait
+  // que le graphique, les indicateurs, les patterns détectés ET les
+  // prédictions/signaux d'entrée se mettent tous à jour tout seuls, sans
+  // recharger la page. Tout dans TechnicalAnalysis.tsx dépend de `history`
+  // via useMemo, donc ce seul rafraîchissement suffit à tout propager.
+  // 5s est le plancher recommandé : plus vite ne donnerait pas de données
+  // plus fraîches (Yahoo Finance gratuit se met à jour à ce rythme environ)
+  // et risquerait de se faire bloquer.
+  const { data: history = [], isLoading: histLoading } = useGetQuoteHistory(decodedSymbol, range, {
+    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 },
+  });
+
+  const add = useAddToWatchlist({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistQueryKey() });
+        toast({ title: `${decodedSymbol} ajouté à votre liste de suivi` });
+      },
+      onError: () => toast({ title: "Déjà suivi ou erreur", variant: "destructive" }),
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="h-6 bg-muted rounded w-32 mb-6 animate-pulse" />
+        <div className="h-10 bg-muted rounded w-48 mb-2 animate-pulse" />
+        <div className="h-6 bg-muted rounded w-32 mb-8 animate-pulse" />
+        <div className="h-64 bg-card border border-card-border rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <div className="p-6">
+        <Link href="/">
+          <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Retour
+          </button>
+        </Link>
+        <p className="text-muted-foreground">Symbole introuvable : {decodedSymbol}</p>
+      </div>
+    );
+  }
+
+  const cls = changeClass(quote.changePercent);
+  const isUp = quote.changePercent >= 0;
+  const chartColor = isUp ? "hsl(168, 60%, 42%)" : "hsl(0, 72%, 51%)";
+
+  const intraday = isIntradayHistory(history);
+  const fineGrained =
+    history.length > 1 &&
+    Math.abs(new Date(history[1].date).getTime() - new Date(history[0].date).getTime()) <= 60_000;
+
+  const simpleChartData = history.map((p) => ({
+    date: formatCandleDate(p.date, intraday, fineGrained),
+    close: p.close,
+  }));
+
+  const ohlcHistory = history.map((p) => ({
+    date: p.date,
+    open: p.open,
+    high: p.high,
+    low: p.low,
+    close: p.close,
+    volume: p.volume,
+  }));
+
+  const typeLabel: Record<string, string> = {
+    stock: "Action",
+    etf: "FNB/ETF",
+    crypto: "Crypto",
+    index: "Indice",
+  };
+
+  return (
+    <div className="p-6 max-w-4xl">
+      <Link href="/">
+        <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </button>
+      </Link>
+
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold font-mono">{quote.symbol}</h1>
+            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded capitalize">
+              {typeLabel[quote.type] ?? quote.type}
+            </span>
+            {quote.exchange && (
+              <span className="text-xs text-muted-foreground">{quote.exchange}</span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">{quote.name}</p>
+        </div>
+        <button
+          onClick={() => add.mutate({ data: { symbol: quote.symbol, name: quote.name } })}
+          disabled={add.isPending}
+          className="flex items-center gap-1.5 px-3 py-2 border border-border text-sm font-medium rounded-md hover:bg-muted transition-colors shrink-0"
+        >
+          <Bookmark className="w-4 h-4" />
+          Suivre
+        </button>
+      </div>
+
+      <div className="mb-6">
+        <div className="text-4xl font-bold font-mono">
+          {formatPrice(quote.price, quote.currency)}
+        </div>
+        <div className={`flex items-center gap-1.5 mt-1 text-base font-mono font-semibold ${cls}`}>
+          {isUp ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+          {formatChange(quote.change, quote.currency)} ({formatPercent(quote.changePercent)}) aujourd'hui
+        </div>
+      </div>
+
+      <div className="flex border-b border-border mb-5">
+        <button
+          onClick={() => setTab("chart")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === "chart" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          Graphique prix
+        </button>
+        <button
+          onClick={() => setTab("analysis")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === "analysis" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <BarChart2 className="w-4 h-4" />
+          Analyse technique
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs text-muted-foreground">Période</span>
+        <div className="flex gap-1">
+          {RANGES.map((r) => (
+            <button
+              key={r.value}
+              onClick={() => setRange(r.value)}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                range === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "chart" && (
+        <>
+          <div className="bg-card border border-card-border rounded-xl p-4 mb-6">
+            {histLoading ? (
+              <div className="h-56 bg-muted rounded animate-pulse" />
+            ) : simpleChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={simpleChartData}>
+                  <defs>
+                    <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartColor} stopOpacity={0.2} />
+                      <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${v.toFixed(0)}`} width={58} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="close" stroke={chartColor} strokeWidth={2} fill="url(#colorClose)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
+                Aucune donnée disponible
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <StatBox label="Ouverture" value={quote.open ? formatPrice(quote.open, quote.currency) : null} />
+            <StatBox label="Clôture préc." value={quote.previousClose ? formatPrice(quote.previousClose, quote.currency) : null} />
+            <StatBox label="Plus haut du jour" value={quote.high ? formatPrice(quote.high, quote.currency) : null} />
+            <StatBox label="Plus bas du jour" value={quote.low ? formatPrice(quote.low, quote.currency) : null} />
+            <StatBox label="Volume" value={formatVolume(quote.volume)} />
+            <StatBox label="Capitalisation" value={formatMarketCap(quote.marketCap)} />
+            <StatBox label="Devise" value={quote.currency} />
+            <StatBox label="Type" value={typeLabel[quote.type] ?? quote.type} />
+          </div>
+        </>
+      )}
+
+      {tab === "analysis" && (
+        histLoading ? (
+          <div className="space-y-4">
+            {[220, 80, 100, 110].map((h, i) => (
+              <div key={i} className="bg-card border border-card-border rounded-xl animate-pulse" style={{ height: h }} />
+            ))}
+          </div>
+        ) : (
+          <TechnicalAnalysis history={ohlcHistory} currentPrice={quote.price} currency={quote.currency} symbol={quote.symbol} />
+        )
+      )}
+    </div>
+  );
+}
+

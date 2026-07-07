@@ -92,7 +92,7 @@ export default function QuoteDetail() {
   if (!quote) {
     return (
       <div className="p-6">
-        <Link href="/">
+        <Link href="/dashboard">
           <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Retour
           </button>
@@ -134,7 +134,7 @@ export default function QuoteDetail() {
 
   return (
     <div className="p-6 max-w-4xl">
-      <Link href="/">
+      <Link href="/dashboard">
         <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Retour
         </button>

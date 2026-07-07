@@ -9,7 +9,7 @@ export default function GlossaryDetail() {
   const term = GLOSSAIRE.find((g) => g.slug === params?.slug);
 
   usePageMeta(
-    term ? `${term.term} : définition | Glossaire trading WS Marchés` : "Terme introuvable | WS Marchés",
+    term ? `${term.term} : définition | Glossaire trading Soliris Market` : "Terme introuvable | Soliris Market",
     term ? term.definition : "Ce terme n'existe pas dans le glossaire.",
   );
 

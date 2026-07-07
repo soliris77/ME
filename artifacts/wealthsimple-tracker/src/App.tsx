@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Watchlist from "@/pages/Watchlist";
 import Alerts from "@/pages/Alerts";
@@ -14,7 +15,7 @@ import CandleDetail from "@/pages/learn/CandleDetail";
 import StrategyDetail from "@/pages/learn/StrategyDetail";
 import GlossaryDetail from "@/pages/learn/GlossaryDetail";
 import ApiStatusModal from "@/components/ApiStatusModal";
-import { BarChart2, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper } from "lucide-react";
+import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -22,6 +23,16 @@ const queryClient = new QueryClient({
     queries: { retry: 1, staleTime: 8_000 },
   },
 });
+
+function LionMark({ className = "" }: { className?: string }) {
+  return (
+    <img
+      src="/lion-emblem.png"
+      alt="Emblème Soliris Market"
+      className={`${className} rounded-full object-cover bg-black`}
+    />
+  );
+}
 
 function Nav() {
   const [location] = useLocation();
@@ -37,7 +48,7 @@ function Nav() {
   }, [dark]);
 
   const links = [
-    { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
     { href: "/search", label: "Rechercher", icon: Search },
     { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
     { href: "/alerts", label: "Alertes prix", icon: Bell },
@@ -49,17 +60,19 @@ function Nav() {
     <>
       {showApi && <ApiStatusModal onClose={() => setShowApi(false)} />}
       <aside className="fixed inset-y-0 left-0 w-56 bg-sidebar border-r border-sidebar-border flex flex-col z-30">
-        <div className="px-5 py-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded bg-sidebar-primary flex items-center justify-center">
-              <BarChart2 className="w-4 h-4 text-sidebar-primary-foreground" />
+        <div className="px-5 py-5">
+          <div className="flex items-center gap-2.5">
+            <LionMark className="w-9 h-9 flex-shrink-0" />
+            <div className="leading-tight">
+              <div className="brand-mark text-sidebar-primary font-semibold text-[15px]">SOLIRIS</div>
+              <div className="text-sidebar-foreground/60 text-[10px] tracking-[0.3em] -mt-0.5">MARKET</div>
             </div>
-            <span className="text-sidebar-foreground font-semibold text-sm tracking-tight">WS Marchés</span>
           </div>
         </div>
+        <div className="gold-divider" />
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           {links.map(({ href, label, icon: Icon }) => {
-            const active = href === "/" ? location === "/" : location.startsWith(href);
+            const active = location.startsWith(href);
             return (
               <Link
                 key={href}
@@ -97,13 +110,13 @@ function Nav() {
   );
 }
 
-function Router() {
+function AppShell() {
   return (
     <div className="flex min-h-screen">
       <Nav />
       <main className="flex-1 ml-56 min-h-screen bg-background">
         <Switch>
-          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/search" component={SearchPage} />
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/alerts" component={Alerts} />
@@ -118,6 +131,15 @@ function Router() {
         </Switch>
       </main>
     </div>
+  );
+}
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/:rest*" component={AppShell} />
+    </Switch>
   );
 }
 

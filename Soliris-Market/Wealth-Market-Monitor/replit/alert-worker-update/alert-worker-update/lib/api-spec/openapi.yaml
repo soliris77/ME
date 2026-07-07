@@ -1,0 +1,413 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Wealthsimple Market Tracker API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: quotes
+    description: Real-time market quotes
+  - name: watchlist
+    description: User watchlist management
+  - name: alerts
+    description: Price alert management
+  - name: market
+    description: Market overview and summaries
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /quotes:
+    get:
+      operationId: getQuotes
+      tags: [quotes]
+      summary: Get real-time quotes for multiple symbols
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of ticker symbols
+      responses:
+        "200":
+          description: Quote data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quote"
+
+  /quotes/{symbol}:
+    get:
+      operationId: getQuote
+      tags: [quotes]
+      summary: Get real-time quote for a single symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quote data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          description: Symbol not found
+
+  /quotes/{symbol}/history/{range}:
+    get:
+      operationId: getQuoteHistory
+      tags: [quotes]
+      summary: Get historical price data for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: range
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [1d, 5d, 1mo, 3mo, 6mo, 1y]
+      responses:
+        "200":
+          description: Historical price data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoricalPoint"
+
+  /market/overview:
+    get:
+      operationId: getMarketOverview
+      tags: [market]
+      summary: Get overview of major indices and trending assets
+      responses:
+        "200":
+          description: Market overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketOverview"
+
+  /market/search:
+    get:
+      operationId: searchSymbols
+      tags: [market]
+      summary: Search for ticker symbols
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+
+  /watchlist:
+    get:
+      operationId: getWatchlist
+      tags: [watchlist]
+      summary: Get all watchlist items
+      responses:
+        "200":
+          description: Watchlist items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WatchlistItem"
+    post:
+      operationId: addToWatchlist
+      tags: [watchlist]
+      summary: Add a symbol to the watchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WatchlistInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchlistItem"
+
+  /watchlist/{id}:
+    delete:
+      operationId: removeFromWatchlist
+      tags: [watchlist]
+      summary: Remove a symbol from the watchlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /alerts:
+    get:
+      operationId: getAlerts
+      tags: [alerts]
+      summary: Get all price alerts
+      responses:
+        "200":
+          description: Price alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+    post:
+      operationId: createAlert
+      tags: [alerts]
+      summary: Create a price alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}:
+    delete:
+      operationId: deleteAlert
+      tags: [alerts]
+      summary: Delete a price alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /alerts/{id}/triggered:
+    get:
+      operationId: getTriggeredAlerts
+      tags: [alerts]
+      summary: Get recently triggered alerts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Triggered alert info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Quote:
+      type: object
+      required: [symbol, name, price, change, changePercent, currency, type]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+        previousClose:
+          type: ["number", "null"]
+        open:
+          type: ["number", "null"]
+        high:
+          type: ["number", "null"]
+        low:
+          type: ["number", "null"]
+        volume:
+          type: ["integer", "null"]
+        marketCap:
+          type: ["number", "null"]
+        currency:
+          type: string
+        type:
+          type: string
+          enum: [stock, etf, crypto, index]
+        exchange:
+          type: ["string", "null"]
+        lastUpdated:
+          type: string
+
+    HistoricalPoint:
+      type: object
+      required: [date, close]
+      properties:
+        date:
+          type: string
+        open:
+          type: ["number", "null"]
+        high:
+          type: ["number", "null"]
+        low:
+          type: ["number", "null"]
+        close:
+          type: number
+        volume:
+          type: ["integer", "null"]
+
+    MarketOverview:
+      type: object
+      required: [indices, topGainers, topLosers, wealthsimplePopular]
+      properties:
+        indices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quote"
+        topGainers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quote"
+        topLosers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quote"
+        wealthsimplePopular:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quote"
+
+    SearchResult:
+      type: object
+      required: [symbol, name, type, exchange]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        exchange:
+          type: string
+
+    WatchlistItem:
+      type: object
+      required: [id, symbol, name, addedAt]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        name:
+          type: string
+        note:
+          type: ["string", "null"]
+        addedAt:
+          type: string
+
+    WatchlistInput:
+      type: object
+      required: [symbol, name]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        note:
+          type: string
+
+    Alert:
+      type: object
+      required: [id, symbol, condition, targetPrice, active, createdAt]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        name:
+          type: ["string", "null"]
+        condition:
+          type: string
+          enum: [above, below]
+        targetPrice:
+          type: number
+        active:
+          type: boolean
+        notifyEmail:
+          type: ["string", "null"]
+        triggeredAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    AlertInput:
+      type: object
+      required: [symbol, condition, targetPrice]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        condition:
+          type: string
+          enum: [above, below]
+        targetPrice:
+          type: number
+        notifyEmail:
+          type: string
+          description: Optional destination email for this specific alert. Falls back to the server's ALERT_NOTIFY_EMAIL if omitted.

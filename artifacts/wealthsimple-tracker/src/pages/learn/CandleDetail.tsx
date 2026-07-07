@@ -9,7 +9,7 @@ export default function CandleDetail() {
   const candle = CANDLES.find((c) => c.slug === params?.slug);
 
   usePageMeta(
-    candle ? `${candle.name} : pattern chandelier ${candle.signal} expliqué | WS Marchés` : "Pattern introuvable | WS Marchés",
+    candle ? `${candle.name} : pattern chandelier ${candle.signal} expliqué | Soliris Market` : "Pattern introuvable | Soliris Market",
     candle ? candle.description : "Ce pattern de chandelier n'existe pas.",
   );
 

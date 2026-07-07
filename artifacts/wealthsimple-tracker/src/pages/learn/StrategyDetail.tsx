@@ -9,7 +9,7 @@ export default function StrategyDetail() {
   const strategy = STRATEGIES.find((s) => s.slug === params?.slug);
 
   usePageMeta(
-    strategy ? `${strategy.name} : stratégie de trading ${strategy.level.toLowerCase()} | WS Marchés` : "Stratégie introuvable | WS Marchés",
+    strategy ? `${strategy.name} : stratégie de trading ${strategy.level.toLowerCase()} | Soliris Market` : "Stratégie introuvable | Soliris Market",
     strategy ? strategy.description : "Cette stratégie n'existe pas.",
   );
 

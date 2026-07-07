@@ -1,0 +1,1 @@
+{"version":3,"file":"marketOverview.d.ts","sourceRoot":"","sources":["../../../src/generated/types/marketOverview.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AACH,OAAO,KAAK,EAAE,KAAK,EAAE,MAAM,SAAS,CAAC;AAErC,MAAM,WAAW,cAAc;IAC7B,OAAO,EAAE,KAAK,EAAE,CAAC;IACjB,UAAU,EAAE,KAAK,EAAE,CAAC;IACpB,SAAS,EAAE,KAAK,EAAE,CAAC;IACnB,mBAAmB,EAAE,KAAK,EAAE,CAAC;CAC9B"}
