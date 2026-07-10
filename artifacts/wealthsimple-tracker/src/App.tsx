@@ -17,7 +17,7 @@ import GlossaryDetail from "@/pages/learn/GlossaryDetail";
 import ApiStatusModal from "@/components/ApiStatusModal";
 import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,58 +111,24 @@ function Nav() {
   );
 }
 
-function AppShell() {
+function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Nav />
       <main className="flex-1 ml-56 min-h-screen bg-background">
-        <Switch>
-          <Route path="/dashboard">
-            {() => <PageErrorBoundary pageName="Tableau de bord"><Dashboard /></PageErrorBoundary>}
-          </Route>
-          <Route path="/search">
-            {() => <PageErrorBoundary pageName="Recherche"><SearchPage /></PageErrorBoundary>}
-          </Route>
-          <Route path="/watchlist">
-            {() => <PageErrorBoundary pageName="Portefeuille suivi"><Watchlist /></PageErrorBoundary>}
-          </Route>
-          <Route path="/alerts">
-            {() => <PageErrorBoundary pageName="Alertes prix"><Alerts /></PageErrorBoundary>}
-          </Route>
-          <Route path="/journal">
-            {() => <PageErrorBoundary pageName="Journal des marchés"><MarketNewsJournal /></PageErrorBoundary>}
-          </Route>
-          <Route path="/apprendre/chandeliers/:slug">
-            {() => <PageErrorBoundary pageName="Chandeliers"><CandleDetail /></PageErrorBoundary>}
-          </Route>
-          <Route path="/apprendre/strategies/:slug">
-            {() => <PageErrorBoundary pageName="Stratégies"><StrategyDetail /></PageErrorBoundary>}
-          </Route>
-          <Route path="/apprendre/glossaire/:slug">
-            {() => <PageErrorBoundary pageName="Glossaire"><GlossaryDetail /></PageErrorBoundary>}
-          </Route>
-          <Route path="/apprendre/:tab">
-            {() => <PageErrorBoundary pageName="Apprendre"><Learn /></PageErrorBoundary>}
-          </Route>
-          <Route path="/apprendre">
-            {() => <PageErrorBoundary pageName="Apprendre"><Learn /></PageErrorBoundary>}
-          </Route>
-          <Route path="/quote/:symbol">
-            {() => <PageErrorBoundary pageName="Fiche du titre"><QuoteDetail /></PageErrorBoundary>}
-          </Route>
-          <Route component={NotFound} />
-        </Switch>
+        {children}
       </main>
     </div>
   );
 }
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/:rest*" component={AppShell} />
-    </Switch>
+function wrap(name: string, Page: React.ComponentType) {
+  return () => (
+    <AppLayout>
+      <PageErrorBoundary pageName={name}>
+        <Page />
+      </PageErrorBoundary>
+    </AppLayout>
   );
 }
 
@@ -171,7 +137,21 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <Switch>
+            <Route path="/" component={Landing} />
+            <Route path="/dashboard" component={wrap("Tableau de bord", Dashboard)} />
+            <Route path="/search" component={wrap("Recherche", SearchPage)} />
+            <Route path="/watchlist" component={wrap("Portefeuille suivi", Watchlist)} />
+            <Route path="/alerts" component={wrap("Alertes prix", Alerts)} />
+            <Route path="/journal" component={wrap("Journal des marchés", MarketNewsJournal)} />
+            <Route path="/apprendre/chandeliers/:slug" component={wrap("Chandeliers", CandleDetail)} />
+            <Route path="/apprendre/strategies/:slug" component={wrap("Stratégies", StrategyDetail)} />
+            <Route path="/apprendre/glossaire/:slug" component={wrap("Glossaire", GlossaryDetail)} />
+            <Route path="/apprendre/:tab" component={wrap("Apprendre", Learn)} />
+            <Route path="/apprendre" component={wrap("Apprendre", Learn)} />
+            <Route path="/quote/:symbol" component={wrap("Fiche du titre", QuoteDetail)} />
+            <Route component={wrap("Page introuvable", NotFound)} />
+          </Switch>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
