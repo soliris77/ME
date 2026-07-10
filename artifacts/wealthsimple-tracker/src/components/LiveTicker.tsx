@@ -1,5 +1,5 @@
 import { useGetQuotes } from "@workspace/api-client-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { formatPrice, formatPercent, isUp } from "@/lib/format";
 
 const TICKER_SYMBOLS = [
@@ -37,32 +37,48 @@ export default function LiveTicker() {
 
   if (quotes.length === 0) {
     return (
-      <div className="h-9 bg-card border-b border-border flex items-center px-4">
-        <div className="flex gap-6 animate-pulse">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-3 bg-muted rounded w-24" />
+      <div className="h-8 bg-sidebar border-b border-sidebar-border flex items-center px-6">
+        <div className="flex gap-8 animate-pulse">
+          {[...Array(7)].map((_, i) => (
+            <div key={i} className="h-2.5 bg-sidebar-accent rounded w-20" />
           ))}
         </div>
       </div>
     );
   }
 
-  const items = [...quotes, ...quotes]; // duplicate for seamless loop
+  const items = [...quotes, ...quotes];
 
   return (
     <div
-      className={`h-9 bg-card border-b border-border overflow-hidden flex items-center select-none transition-colors ${flash ? "bg-primary/5" : ""}`}
+      className={`h-8 bg-sidebar border-b border-sidebar-border overflow-hidden flex items-center select-none transition-colors duration-300 ${
+        flash ? "bg-sidebar-accent/60" : ""
+      }`}
     >
-      <div className="ticker-track flex items-center gap-0 whitespace-nowrap" ref={tickerRef}>
+      <div className="ticker-track flex items-center whitespace-nowrap" ref={tickerRef}>
         {items.map((q, i) => {
           const up = isUp(q.changePercent);
           const name = DISPLAY_NAMES[q.symbol] ?? q.symbol;
           return (
-            <span key={`${q.symbol}-${i}`} className="inline-flex items-center gap-1.5 px-4 border-r border-border/40 text-xs">
-              <span className="font-semibold text-foreground">{name}</span>
-              <span className="font-mono text-foreground">{formatPrice(q.price, q.currency)}</span>
-              <span className={`font-mono font-semibold ${up === null ? "text-muted-foreground" : up ? "text-emerald-500" : "text-red-500"}`}>
-                {up !== null && (up ? "▲" : "▼")}{up !== null && " "}{formatPercent(q.changePercent)}
+            <span
+              key={`${q.symbol}-${i}`}
+              className="inline-flex items-center gap-2 px-5 text-[11px] tracking-wide"
+              style={{ borderRight: "1px solid hsl(var(--sidebar-border) / 0.4)" }}
+            >
+              <span className="font-semibold text-sidebar-foreground/70 uppercase tracking-widest text-[10px]">{name}</span>
+              <span className="font-mono text-sidebar-foreground/90">{formatPrice(q.price, q.currency)}</span>
+              <span
+                className="font-mono font-semibold text-[10px]"
+                style={{
+                  color: up === null
+                    ? "hsl(var(--muted-foreground))"
+                    : up
+                    ? "hsl(142 68% 52%)"
+                    : "hsl(0 72% 62%)",
+                }}
+              >
+                {up !== null && (up ? "▲" : "▼")}{" "}
+                {formatPercent(q.changePercent)}
               </span>
             </span>
           );

@@ -55,7 +55,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Soliris Market — obsidian & antique-gold palette */
+/* ─── Soliris Market — Obsidian Luxe (light base) ─── */
 :root {
   --button-outline: rgba(0,0,0,.10);
   --badge-outline: rgba(0,0,0,.05);
@@ -63,46 +63,46 @@
   --elevate-1: rgba(0,0,0,.03);
   --elevate-2: rgba(0,0,0,.08);
 
-  /* Warm ivory background, antique-gold brand accent */
-  --background: 40 25% 96%;
-  --foreground: 220 18% 12%;
-  --border: 38 20% 86%;
-  --card: 40 30% 99%;
-  --card-foreground: 220 18% 12%;
-  --card-border: 38 20% 88%;
-  --sidebar: 220 22% 8%;
-  --sidebar-foreground: 40 20% 88%;
-  --sidebar-border: 42 35% 22%;
-  --sidebar-primary: 42 62% 52%;
-  --sidebar-primary-foreground: 220 22% 8%;
-  --sidebar-accent: 220 18% 15%;
-  --sidebar-accent-foreground: 42 45% 82%;
-  --sidebar-ring: 42 62% 52%;
-  --popover: 40 30% 99%;
-  --popover-foreground: 220 18% 12%;
-  --popover-border: 38 20% 86%;
-  --primary: 42 62% 42%;
-  --primary-foreground: 40 30% 99%;
-  --secondary: 40 18% 92%;
-  --secondary-foreground: 220 18% 18%;
-  --muted: 40 18% 92%;
-  --muted-foreground: 220 10% 42%;
-  --accent: 42 55% 90%;
-  --accent-foreground: 42 65% 24%;
-  --destructive: 0 65% 45%;
+  --background: 38 22% 95%;
+  --foreground: 220 20% 10%;
+  --border: 38 18% 84%;
+  --card: 40 28% 99%;
+  --card-foreground: 220 20% 10%;
+  --card-border: 38 18% 86%;
+  --sidebar: 220 28% 6%;
+  --sidebar-foreground: 42 18% 84%;
+  --sidebar-border: 42 32% 18%;
+  --sidebar-primary: 42 70% 52%;
+  --sidebar-primary-foreground: 220 28% 5%;
+  --sidebar-accent: 220 20% 13%;
+  --sidebar-accent-foreground: 42 48% 80%;
+  --sidebar-ring: 42 70% 52%;
+  --popover: 40 28% 99%;
+  --popover-foreground: 220 20% 10%;
+  --popover-border: 38 18% 84%;
+  --primary: 42 70% 44%;
+  --primary-foreground: 40 28% 99%;
+  --secondary: 40 16% 92%;
+  --secondary-foreground: 220 20% 16%;
+  --muted: 40 16% 92%;
+  --muted-foreground: 220 10% 44%;
+  --accent: 42 52% 90%;
+  --accent-foreground: 42 68% 22%;
+  --destructive: 0 68% 46%;
   --destructive-foreground: 0 0% 100%;
-  --input: 38 20% 86%;
-  --ring: 42 62% 42%;
-  --chart-1: 42 62% 45%;
-  --chart-2: 152 45% 32%;
-  --chart-3: 220 30% 40%;
-  --chart-4: 12 55% 45%;
-  --chart-5: 0 65% 45%;
+  --input: 38 18% 84%;
+  --ring: 42 70% 44%;
+  --chart-1: 42 70% 46%;
+  --chart-2: 152 48% 32%;
+  --chart-3: 220 32% 40%;
+  --chart-4: 12 58% 46%;
+  --chart-5: 0 68% 46%;
 
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-serif: 'Cormorant Garamond', Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', Menlo, monospace;
-  --radius: 0.375rem;
+  --app-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+  --radius: 0.5rem;
+
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -123,56 +123,64 @@
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* ─── DARK MODE — Full Obsidian Luxe ─── */
 .dark {
-  --button-outline: rgba(255,255,255,.10);
-  --badge-outline: rgba(255,255,255,.05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255,.04);
-  --elevate-2: rgba(255,255,255,.09);
+  --button-outline: rgba(255,255,255,.08);
+  --badge-outline: rgba(255,255,255,.04);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255,255,255,.03);
+  --elevate-2: rgba(255,255,255,.07);
 
-  --background: 220 24% 6%;
-  --foreground: 42 20% 92%;
-  --border: 42 25% 18%;
-  --card: 220 22% 9%;
-  --card-foreground: 42 20% 92%;
-  --card-border: 42 25% 16%;
-  --sidebar: 220 26% 5%;
-  --sidebar-foreground: 42 18% 86%;
-  --sidebar-border: 42 30% 16%;
-  --sidebar-primary: 42 65% 55%;
-  --sidebar-primary-foreground: 220 26% 6%;
-  --sidebar-accent: 220 20% 12%;
-  --sidebar-accent-foreground: 42 40% 82%;
-  --sidebar-ring: 42 65% 55%;
-  --popover: 220 22% 9%;
-  --popover-foreground: 42 20% 92%;
-  --popover-border: 42 25% 16%;
-  --primary: 42 65% 55%;
-  --primary-foreground: 220 26% 8%;
-  --secondary: 220 18% 14%;
-  --secondary-foreground: 42 20% 86%;
-  --muted: 220 18% 13%;
-  --muted-foreground: 40 10% 58%;
-  --accent: 42 45% 16%;
-  --accent-foreground: 42 65% 78%;
-  --destructive: 0 68% 52%;
+  /* Deep obsidian background */
+  --background: 222 28% 5%;
+  --foreground: 40 22% 90%;
+  --border: 42 26% 13%;
+  --card: 220 26% 8%;
+  --card-foreground: 40 22% 90%;
+  --card-border: 42 24% 14%;
+
+  /* Sidebar — absolute deepest black */
+  --sidebar: 220 32% 3%;
+  --sidebar-foreground: 42 20% 82%;
+  --sidebar-border: 42 30% 12%;
+  --sidebar-primary: 42 70% 52%;
+  --sidebar-primary-foreground: 220 32% 5%;
+  --sidebar-accent: 220 22% 10%;
+  --sidebar-accent-foreground: 42 46% 78%;
+  --sidebar-ring: 42 70% 52%;
+
+  --popover: 220 26% 8%;
+  --popover-foreground: 40 22% 90%;
+  --popover-border: 42 24% 14%;
+
+  /* Champagne gold primary */
+  --primary: 42 70% 52%;
+  --primary-foreground: 220 28% 5%;
+  --secondary: 220 20% 13%;
+  --secondary-foreground: 42 20% 84%;
+  --muted: 220 20% 12%;
+  --muted-foreground: 40 10% 52%;
+  --accent: 42 46% 14%;
+  --accent-foreground: 42 68% 78%;
+  --destructive: 0 70% 54%;
   --destructive-foreground: 0 0% 100%;
-  --input: 42 25% 18%;
-  --ring: 42 65% 55%;
-  --chart-1: 42 65% 55%;
-  --chart-2: 152 40% 42%;
-  --chart-3: 220 40% 58%;
-  --chart-4: 12 60% 55%;
-  --chart-5: 0 68% 58%;
+  --input: 42 24% 14%;
+  --ring: 42 70% 52%;
 
-  --shadow-2xs: 0 1px 0 0 rgb(0 0 0 / 0.2);
-  --shadow-xs: 0 1px 1px 0 rgb(0 0 0 / 0.25);
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.35);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4);
-  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+  --chart-1: 42 70% 52%;
+  --chart-2: 152 42% 44%;
+  --chart-3: 220 42% 58%;
+  --chart-4: 12 62% 55%;
+  --chart-5: 0 70% 58%;
+
+  --shadow-2xs: 0 1px 0 0 rgb(0 0 0 / 0.3);
+  --shadow-xs: 0 1px 1px 0 rgb(0 0 0 / 0.35);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.6);
 }
 
 @layer base {
@@ -180,41 +188,135 @@
   body { @apply font-sans antialiased bg-background text-foreground; }
 }
 
+/* ─── Brand typography ─── */
 .brand-serif { font-family: var(--app-font-serif); }
 .brand-mark {
-  font-family: 'Cinzel', var(--app-font-serif);
-  letter-spacing: 0.14em;
+  font-family: 'Cinzel', 'Cormorant Garamond', var(--app-font-serif);
+  letter-spacing: 0.18em;
 }
+
+/* ─── Gold divider ─── */
 .gold-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--sidebar-primary) / 0.55), transparent);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    hsl(var(--sidebar-primary) / 0.15) 20%,
+    hsl(var(--sidebar-primary) / 0.50) 50%,
+    hsl(var(--sidebar-primary) / 0.15) 80%,
+    transparent 100%
+  );
 }
 
-.gain { color: hsl(142 71% 38%); }
-.loss { color: hsl(0 72% 51%); }
-.dark .gain { color: hsl(142 71% 52%); }
+/* ─── Section divider (horizontal rule with label) ─── */
+.section-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+.section-rule::before {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 1px;
+  background: hsl(var(--primary) / 0.35);
+  flex-shrink: 0;
+}
+.section-rule::after {
+  content: "";
+  display: block;
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border) / 0.6);
+}
+
+/* ─── Gain / Loss colours ─── */
+.gain { color: hsl(142 68% 40%); }
+.loss { color: hsl(0 72% 52%); }
+.dark .gain { color: hsl(142 68% 52%); }
 .dark .loss { color: hsl(0 72% 62%); }
 
+/* ─── Market card hover glow ─── */
+.market-card {
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.market-card:hover {
+  border-color: hsl(var(--primary) / 0.4) !important;
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 4px 20px hsl(var(--primary) / 0.08);
+  transform: translateY(-1px);
+}
+
+/* ─── Live dot ─── */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
+  50% { opacity: 0.4; transform: scale(0.75); }
 }
-.live-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+.live-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
+/* ─── Ticker scroll ─── */
 @keyframes ticker-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 .ticker-track {
-  animation: ticker-scroll 60s linear infinite;
+  animation: ticker-scroll 55s linear infinite;
   will-change: transform;
 }
 .ticker-track:hover { animation-play-state: paused; }
 
+/* ─── Page fade-up ─── */
 @keyframes fadeUp {
-  0% { opacity: 0; transform: translateY(14px); }
+  0% { opacity: 0; transform: translateY(16px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+.animate-fadeUp { animation: fadeUp 0.45s cubic-bezier(.22,1,.36,1) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  [class*="animate-[fadeUp"] { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .animate-fadeUp { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+/* ─── Gold particles ─── */
+@keyframes floatParticle {
+  0%   { transform: translateY(0) translateX(0) scale(1);   opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-100vh) translateX(var(--drift)) scale(0.4); opacity: 0; }
+}
+
+.gold-particle {
+  position: fixed;
+  bottom: -10px;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(42 80% 72%) 0%, hsl(42 65% 52%) 60%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+  animation: floatParticle var(--duration) var(--delay) ease-in infinite;
+  box-shadow: 0 0 calc(var(--size) * 2) hsl(42 70% 60% / 0.5);
+}
+
+/* ─── Sidebar nav active pill ─── */
+.nav-link-active {
+  background: hsl(var(--sidebar-primary) / 0.14);
+  color: hsl(var(--sidebar-primary));
+  border-left: 2px solid hsl(var(--sidebar-primary));
+}
+.nav-link-inactive {
+  color: hsl(var(--sidebar-foreground) / 0.55);
+  border-left: 2px solid transparent;
+}
+.nav-link-inactive:hover {
+  background: hsl(var(--sidebar-accent));
+  color: hsl(var(--sidebar-accent-foreground));
+}
+
+/* ─── Logo emblem glow ─── */
+.logo-glow {
+  box-shadow:
+    0 0 12px hsl(42 70% 52% / 0.35),
+    0 0 32px hsl(42 70% 52% / 0.15),
+    inset 0 1px 0 hsl(42 80% 80% / 0.25);
 }

@@ -15,6 +15,7 @@ import CandleDetail from "@/pages/learn/CandleDetail";
 import StrategyDetail from "@/pages/learn/StrategyDetail";
 import GlossaryDetail from "@/pages/learn/GlossaryDetail";
 import ApiStatusModal from "@/components/ApiStatusModal";
+import GoldParticles from "@/components/GoldParticles";
 import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
@@ -25,21 +26,49 @@ const queryClient = new QueryClient({
   },
 });
 
-function LionMark({ className = "" }: { className?: string }) {
+function SolirisMark() {
   return (
-    <img
-      src="/lion-emblem.png"
-      alt="Emblème Soliris Market"
-      className={`${className} rounded-full object-cover bg-black`}
-    />
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="goldGrad" cx="40%" cy="30%" r="65%">
+          <stop offset="0%" stopColor="#f0d98a" />
+          <stop offset="45%" stopColor="#c9a040" />
+          <stop offset="100%" stopColor="#8a6314" />
+        </radialGradient>
+        <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#c9a040" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#c9a040" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* Outer glow circle */}
+      <circle cx="18" cy="18" r="18" fill="url(#goldGlow)" />
+      {/* Main circle */}
+      <circle cx="18" cy="18" r="16" fill="url(#goldGrad)" />
+      {/* Inner ring */}
+      <circle cx="18" cy="18" r="13.5" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.75" />
+      {/* Top shine */}
+      <ellipse cx="14" cy="12" rx="5" ry="3" fill="rgba(255,255,255,0.22)" transform="rotate(-20 14 12)" />
+      {/* Letter S */}
+      <text
+        x="18"
+        y="23.5"
+        textAnchor="middle"
+        fontFamily="'Cinzel', 'Times New Roman', serif"
+        fontSize="16"
+        fontWeight="700"
+        fill="rgba(20,12,0,0.85)"
+        letterSpacing="-0.5"
+      >S</text>
+    </svg>
   );
 }
 
 function Nav() {
   const [location] = useLocation();
   const [dark, setDark] = useState(() => {
-    return localStorage.getItem("theme") === "dark" ||
-      (!localStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const stored = localStorage.getItem("theme");
+    if (stored) return stored === "dark";
+    return true; // default to dark (Obsidian Luxe)
   });
   const [showApi, setShowApi] = useState(false);
 
@@ -61,16 +90,22 @@ function Nav() {
     <>
       {showApi && <ApiStatusModal onClose={() => setShowApi(false)} />}
       <aside className="fixed inset-y-0 left-0 w-56 bg-sidebar border-r border-sidebar-border flex flex-col z-30">
+        {/* Logo */}
         <div className="px-5 py-5">
-          <div className="flex items-center gap-2.5">
-            <LionMark className="w-9 h-9 flex-shrink-0" />
-            <div className="leading-tight">
-              <div className="brand-mark text-sidebar-primary font-semibold text-[15px]">SOLIRIS</div>
-              <div className="text-sidebar-foreground/60 text-[10px] tracking-[0.3em] -mt-0.5">MARKET</div>
+          <div className="flex items-center gap-3">
+            <div className="logo-glow rounded-full flex-shrink-0">
+              <SolirisMark />
+            </div>
+            <div className="leading-none">
+              <div className="brand-mark text-sidebar-primary font-semibold text-[13px] tracking-[0.2em]">SOLIRIS</div>
+              <div className="text-sidebar-foreground/40 text-[8.5px] tracking-[0.38em] mt-0.5">MARKET</div>
             </div>
           </div>
         </div>
+
         <div className="gold-divider" />
+
+        {/* Nav links */}
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           {links.map(({ href, label, icon: Icon }) => {
             const active = location.startsWith(href);
@@ -78,31 +113,33 @@ function Nav() {
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                  active ? "nav-link-active" : "nav-link-inactive"
                 }`}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                <Icon className={`w-4 h-4 flex-shrink-0 transition-colors ${active ? "text-sidebar-primary" : ""}`} />
                 {label}
               </Link>
             );
           })}
         </nav>
-        <div className="px-3 py-4 border-t border-sidebar-border space-y-0.5">
+
+        <div className="gold-divider" />
+
+        {/* Footer */}
+        <div className="px-3 py-4 space-y-0.5">
           <button
             onClick={() => setShowApi(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded w-full transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4 flex-shrink-0" />
             Coûts API &amp; données
           </button>
           <button
             onClick={() => setDark((d) => !d)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded w-full transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
-            {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {dark ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
             {dark ? "Mode clair" : "Mode sombre"}
           </button>
         </div>
@@ -113,9 +150,10 @@ function Nav() {
 
 function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen relative">
+      <GoldParticles />
       <Nav />
-      <main className="flex-1 ml-56 min-h-screen bg-background">
+      <main className="flex-1 ml-56 min-h-screen bg-background relative z-10">
         {children}
       </main>
     </div>
