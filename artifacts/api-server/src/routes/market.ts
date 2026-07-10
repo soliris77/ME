@@ -5,7 +5,7 @@ const router = Router();
 
 const INDICES = [
   // Amérique du Nord
-  "^GSPC", "^IXIC", "^DJI", "^GSPTSX", "^RUT", "^VIX", "^NYA", "^XAX",
+  "^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX", "^NYA", "^XAX",
   // Europe
   "^FTSE", "^GDAXI", "^FCHI", "^STOXX50E", "^IBEX", "^FTMIB", "^AEX", "^SSMI",
   "^OMXS30", "^OSEAX", "^ATX", "^BFX", "^PSI20",

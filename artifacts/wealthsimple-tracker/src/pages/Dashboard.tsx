@@ -6,13 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import LiveTicker from "@/components/LiveTicker";
 import type { Quote } from "@workspace/api-client-react";
 
-const CANADA_NORTH_AM = ["^GSPC", "^IXIC", "^DJI", "^GSPTSX"];
+const CANADA_NORTH_AM = ["^GSPC", "^IXIC", "^DJI", "^RUT"];
 const EUROPE_ASIA = ["^FTSE", "^GDAXI", "^FCHI", "^STOXX50E", "^N225", "^HSI"];
 const CRYPTO = ["BTC-USD", "ETH-USD", "SOL-USD"];
 const COMMODITIES = ["GC=F", "CL=F", "SI=F"];
 
 const MARKET_NAMES: Record<string, string> = {
-  "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^DJI": "Dow Jones", "^GSPTSX": "S&P/TSX (Canada)",
+  "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^DJI": "Dow Jones", "^RUT": "Russell 2000",
   "^FTSE": "FTSE 100 (UK)", "^GDAXI": "DAX (Allemagne)", "^FCHI": "CAC 40 (France)", "^STOXX50E": "Euro Stoxx 50",
   "^N225": "Nikkei (Japon)", "^HSI": "Hang Seng (HK)",
   "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",

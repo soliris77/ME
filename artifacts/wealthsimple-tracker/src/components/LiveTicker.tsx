@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatPrice, formatPercent, isUp } from "@/lib/format";
 
 const TICKER_SYMBOLS = [
-  "^GSPC", "^IXIC", "^DJI", "^GSPTSX",
+  "^GSPC", "^IXIC", "^DJI", "^RUT",
   "^FTSE", "^GDAXI", "^FCHI",
   "^N225", "^HSI",
   "BTC-USD", "ETH-USD", "SOL-USD",
@@ -11,7 +11,7 @@ const TICKER_SYMBOLS = [
 ];
 
 const DISPLAY_NAMES: Record<string, string> = {
-  "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^DJI": "Dow Jones", "^GSPTSX": "TSX",
+  "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^DJI": "Dow Jones", "^RUT": "Russell 2000",
   "^FTSE": "FTSE 100", "^GDAXI": "DAX", "^FCHI": "CAC 40",
   "^N225": "Nikkei", "^HSI": "Hang Seng",
   "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",

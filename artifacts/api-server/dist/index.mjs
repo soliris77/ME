@@ -71729,6 +71729,15 @@ function formatQuote(q) {
     lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
+async function fetchSingle(sym) {
+  try {
+    const q = await yahooFinance.quote(sym, {}, { skipValidation: true });
+    if (!q) return null;
+    return formatQuote({ ...q, symbol: sym });
+  } catch {
+    return null;
+  }
+}
 async function getQuotes(symbols) {
   const unique = [...new Set(symbols.map((s) => s.trim()).filter(Boolean))];
   if (unique.length === 0) return [];
@@ -71736,21 +71745,41 @@ async function getQuotes(symbols) {
   const PARALLEL_BATCHES = 4;
   const out = [];
   for (let i = 0; i < unique.length; i += BATCH_SIZE * PARALLEL_BATCHES) {
-    const window2 = unique.slice(i, i + BATCH_SIZE * PARALLEL_BATCHES);
+    const windowSymbols = unique.slice(i, i + BATCH_SIZE * PARALLEL_BATCHES);
     const batches = [];
-    for (let j = 0; j < window2.length; j += BATCH_SIZE) {
-      batches.push(window2.slice(j, j + BATCH_SIZE));
+    for (let j = 0; j < windowSymbols.length; j += BATCH_SIZE) {
+      batches.push(windowSymbols.slice(j, j + BATCH_SIZE));
     }
-    const results = await Promise.all(
-      batches.map(
-        (batch) => (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          yahooFinance.quote(batch, {}, { skipValidation: true }).then((res) => Array.isArray(res) ? res : [res]).catch(() => [])
-        )
-      )
+    const batchResults = await Promise.all(
+      batches.map(async (batch) => {
+        try {
+          const res = await yahooFinance.quote(batch, {}, { skipValidation: true });
+          const arr = Array.isArray(res) ? res : [res];
+          return arr.map(
+            (q, idx) => q ? { ...q, symbol: batch[idx] ?? q.symbol } : null
+          );
+        } catch {
+          return new Array(batch.length).fill(null);
+        }
+      })
     );
-    for (const batch of results) {
-      out.push(...batch.filter(Boolean).map((q) => formatQuote(q)));
+    const missedSymbols = [];
+    for (let b = 0; b < batches.length; b++) {
+      const batchResult = batchResults[b];
+      for (let k = 0; k < batches[b].length; k++) {
+        const q = batchResult[k];
+        if (q) {
+          out.push(formatQuote(q));
+        } else {
+          missedSymbols.push(batches[b][k]);
+        }
+      }
+    }
+    if (missedSymbols.length > 0) {
+      const retried = await Promise.all(missedSymbols.map(fetchSingle));
+      for (const q of retried) {
+        if (q) out.push(q);
+      }
     }
   }
   return out;
