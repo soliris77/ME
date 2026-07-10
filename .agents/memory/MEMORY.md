@@ -1,0 +1,3 @@
+- [API server build-on-restart](api-server-build.md) — API server must rebuild on every restart; stale dist/index.mjs causes silent data failures.
+- [Yahoo Finance batch queries](yahoo-finance-batch.md) — use array form of yahooFinance.quote() with skipValidation:true; 50 symbols/batch, 4 batches parallel gives ~1s vs 15s individually.
+- [isUp null semantics](isup-null-semantics.md) — isUp() returns boolean|null; null means no data — suppress arrows/colors, don't default to "up".

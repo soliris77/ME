@@ -1,6 +1,6 @@
 import { useGetQuotes } from "@workspace/api-client-react";
 import { useEffect, useRef, useState } from "react";
-import { formatPrice, formatPercent } from "@/lib/format";
+import { formatPrice, formatPercent, isUp } from "@/lib/format";
 
 const TICKER_SYMBOLS = [
   "^GSPC", "^IXIC", "^DJI", "^GSPTSX",
@@ -21,7 +21,8 @@ const DISPLAY_NAMES: Record<string, string> = {
 export default function LiveTicker() {
   const { data: quotes = [] } = useGetQuotes(
     { symbols: TICKER_SYMBOLS.join(",") },
-    { query: { refetchInterval: 10_000 } }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { refetchInterval: 10_000 } as any }
   );
 
   const tickerRef = useRef<HTMLDivElement>(null);
@@ -54,14 +55,14 @@ export default function LiveTicker() {
     >
       <div className="ticker-track flex items-center gap-0 whitespace-nowrap" ref={tickerRef}>
         {items.map((q, i) => {
-          const isUp = q.changePercent >= 0;
+          const up = isUp(q.changePercent);
           const name = DISPLAY_NAMES[q.symbol] ?? q.symbol;
           return (
             <span key={`${q.symbol}-${i}`} className="inline-flex items-center gap-1.5 px-4 border-r border-border/40 text-xs">
               <span className="font-semibold text-foreground">{name}</span>
               <span className="font-mono text-foreground">{formatPrice(q.price, q.currency)}</span>
-              <span className={`font-mono font-semibold ${isUp ? "text-emerald-500" : "text-red-500"}`}>
-                {isUp ? "▲" : "▼"} {formatPercent(q.changePercent)}
+              <span className={`font-mono font-semibold ${up === null ? "text-muted-foreground" : up ? "text-emerald-500" : "text-red-500"}`}>
+                {up !== null && (up ? "▲" : "▼")}{up !== null && " "}{formatPercent(q.changePercent)}
               </span>
             </span>
           );

@@ -105,7 +105,8 @@ export default function MarketNewsJournal() {
 
   const { data: news = [], isLoading, isError, error, refetch, isFetching } = useGetMarketNews(
     { limit: 60 },
-    { query: { refetchInterval: 15 * 60_000 } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { refetchInterval: 15 * 60_000 } as any },
   );
 
   useEffect(() => savePinned(pinned), [pinned]);

@@ -1,11 +1,11 @@
-import { Link, useRoute } from "wouter";
+import { Link, useParams } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { STRATEGIES } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import NotFound from "@/pages/not-found";
 
 export default function StrategyDetail() {
-  const [, params] = useRoute<{ slug: string }>("/apprendre/strategies/:slug");
+  const params = useParams<{ slug: string }>();
   const strategy = STRATEGIES.find((s) => s.slug === params?.slug);
 
   usePageMeta(

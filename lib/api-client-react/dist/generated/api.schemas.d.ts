@@ -63,6 +63,34 @@ export interface SearchResult {
     type: string;
     exchange: string;
 }
+export type NewsSentimentLabel = typeof NewsSentimentLabel[keyof typeof NewsSentimentLabel];
+export declare const NewsSentimentLabel: {
+    readonly haussier: "haussier";
+    readonly baissier: "baissier";
+    readonly neutre: "neutre";
+};
+export interface NewsTickerSentiment {
+    ticker: string;
+    relevanceScore: number;
+    sentimentScore: number;
+    sentimentLabel: NewsSentimentLabel;
+}
+export interface NewsItem {
+    id: string;
+    title: string;
+    summary: string;
+    source: string;
+    url: string;
+    publishedAt: string;
+    theme: string;
+    overallSentimentScore: number;
+    overallSentimentLabel: NewsSentimentLabel;
+    tickers: NewsTickerSentiment[];
+}
+export type GetMarketNewsParams = {
+    tickers?: string;
+    limit?: number;
+};
 export interface WatchlistItem {
     id: number;
     symbol: string;
@@ -76,33 +104,75 @@ export interface WatchlistInput {
     name: string;
     note?: string;
 }
+export type AlertAlertType = typeof AlertAlertType[keyof typeof AlertAlertType];
+export declare const AlertAlertType: {
+    readonly price: "price";
+    readonly pattern: "pattern";
+};
 export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition];
 export declare const AlertCondition: {
     readonly above: "above";
     readonly below: "below";
+};
+export type AlertPatternSignal = typeof AlertPatternSignal[keyof typeof AlertPatternSignal];
+export declare const AlertPatternSignal: {
+    readonly haussier: "haussier";
+    readonly baissier: "baissier";
+};
+export type AlertMinStrength = typeof AlertMinStrength[keyof typeof AlertMinStrength];
+export declare const AlertMinStrength: {
+    readonly faible: "faible";
+    readonly moyen: "moyen";
+    readonly fort: "fort";
 };
 export interface Alert {
     id: number;
     symbol: string;
     /** @nullable */
     name?: string | null;
-    condition: AlertCondition;
-    targetPrice: number;
+    alertType: AlertAlertType;
+    /** @nullable */
+    condition?: AlertCondition | null;
+    /** @nullable */
+    targetPrice?: number | null;
+    /** @nullable */
+    patternSignal?: AlertPatternSignal | null;
+    /** @nullable */
+    minStrength?: AlertMinStrength | null;
     active: boolean;
     /** @nullable */
     triggeredAt?: string | null;
     createdAt: string;
 }
+export type AlertInputAlertType = typeof AlertInputAlertType[keyof typeof AlertInputAlertType];
+export declare const AlertInputAlertType: {
+    readonly price: "price";
+    readonly pattern: "pattern";
+};
 export type AlertInputCondition = typeof AlertInputCondition[keyof typeof AlertInputCondition];
 export declare const AlertInputCondition: {
     readonly above: "above";
     readonly below: "below";
 };
+export type AlertInputPatternSignal = typeof AlertInputPatternSignal[keyof typeof AlertInputPatternSignal];
+export declare const AlertInputPatternSignal: {
+    readonly haussier: "haussier";
+    readonly baissier: "baissier";
+};
+export type AlertInputMinStrength = typeof AlertInputMinStrength[keyof typeof AlertInputMinStrength];
+export declare const AlertInputMinStrength: {
+    readonly faible: "faible";
+    readonly moyen: "moyen";
+    readonly fort: "fort";
+};
 export interface AlertInput {
     symbol: string;
     name?: string;
-    condition: AlertInputCondition;
-    targetPrice: number;
+    alertType?: AlertInputAlertType;
+    condition?: AlertInputCondition;
+    targetPrice?: number;
+    patternSignal?: AlertInputPatternSignal;
+    minStrength?: AlertInputMinStrength;
 }
 export type GetQuotesParams = {
     /**

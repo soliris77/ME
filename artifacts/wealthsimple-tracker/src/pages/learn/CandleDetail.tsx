@@ -1,11 +1,11 @@
-import { Link, useRoute } from "wouter";
+import { Link, useParams } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { CANDLES } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import NotFound from "@/pages/not-found";
 
 export default function CandleDetail() {
-  const [, params] = useRoute<{ slug: string }>("/apprendre/chandeliers/:slug");
+  const params = useParams<{ slug: string }>();
   const candle = CANDLES.find((c) => c.slug === params?.slug);
 
   usePageMeta(

@@ -1,7 +1,10 @@
 import YahooFinanceClass from "yahoo-finance2";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const yahooFinance = new (YahooFinanceClass as any)();
+export const yahooFinance = new (YahooFinanceClass as any)({
+  suppressNotices: ["yahooSurvey"],
+  validation: { logErrors: false, logOptionsErrors: false },
+});
 
 const TYPE_MAP: Record<string, string> = {
   EQUITY: "stock",
@@ -57,30 +60,38 @@ export function formatQuote(q: any): FormattedQuote {
 }
 
 /**
- * Batch-fetch quotes for a list of symbols. Failed lookups are silently
- * dropped from the result (caller can diff against input to see what's missing).
- */
-/**
- * Batch-fetch quotes for a list of symbols. Failed lookups are silently
- * dropped from the result (caller can diff against input to see what's missing).
- *
- * Requests are chunked with a concurrency limit rather than fired all at
- * once — Yahoo's free/unauthenticated endpoint is more likely to rate-limit
- * or time out a single burst of 100+ parallel requests (which happens now
- * that /market/overview covers many more symbols/markets).
+ * Batch-fetch quotes for a list of symbols using Yahoo Finance's multi-symbol
+ * endpoint. Symbols are chunked into groups of 50 and fetched in parallel
+ * batches — drastically faster than one request per symbol.
  */
 export async function getQuotes(symbols: string[]): Promise<FormattedQuote[]> {
   const unique = [...new Set(symbols.map((s) => s.trim()).filter(Boolean))];
   if (unique.length === 0) return [];
 
-  const CONCURRENCY = 15;
+  const BATCH_SIZE = 50;
+  const PARALLEL_BATCHES = 4;
   const out: FormattedQuote[] = [];
-  for (let i = 0; i < unique.length; i += CONCURRENCY) {
-    const chunk = unique.slice(i, i + CONCURRENCY);
+
+  for (let i = 0; i < unique.length; i += BATCH_SIZE * PARALLEL_BATCHES) {
+    const window = unique.slice(i, i + BATCH_SIZE * PARALLEL_BATCHES);
+    const batches: string[][] = [];
+    for (let j = 0; j < window.length; j += BATCH_SIZE) {
+      batches.push(window.slice(j, j + BATCH_SIZE));
+    }
+
     const results = await Promise.all(
-      chunk.map((sym) => yahooFinance.quote(sym).catch(() => null)),
+      batches.map((batch) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (yahooFinance.quote(batch as any, {}, { skipValidation: true }) as Promise<any>)
+          .then((res) => (Array.isArray(res) ? res : [res]))
+          .catch(() => []),
+      ),
     );
-    out.push(...results.filter(Boolean).map((q) => formatQuote(q)));
+
+    for (const batch of results) {
+      out.push(...batch.filter(Boolean).map((q: unknown) => formatQuote(q)));
+    }
   }
+
   return out;
 }

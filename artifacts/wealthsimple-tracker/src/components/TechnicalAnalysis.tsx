@@ -321,14 +321,20 @@ function PredictionCandleChart({
     () =>
       data.slice(startIdx).map((d, i) => {
         const idx = startIdx + i;
-        const isUp = d.close >= d.open;
+        const open = d.open ?? d.close;
+        const low = d.low ?? d.close;
+        const high = d.high ?? d.close;
+        const isUp = d.close >= open;
         return {
           ...d,
+          open,
+          low,
+          high,
           idx,
           isUp,
           hasPrediction: predictedIdx.has(idx),
-          wickRange: [d.low, d.high] as [number, number],
-          bodyRange: [Math.min(d.open, d.close), Math.max(d.open, d.close)] as [number, number],
+          wickRange: [low, high] as [number, number],
+          bodyRange: [Math.min(open, d.close), Math.max(open, d.close)] as [number, number],
         };
       }),
     [data, startIdx, predictedIdx]

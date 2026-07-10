@@ -15,6 +15,7 @@ import CandleDetail from "@/pages/learn/CandleDetail";
 import StrategyDetail from "@/pages/learn/StrategyDetail";
 import GlossaryDetail from "@/pages/learn/GlossaryDetail";
 import ApiStatusModal from "@/components/ApiStatusModal";
+import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -116,17 +117,39 @@ function AppShell() {
       <Nav />
       <main className="flex-1 ml-56 min-h-screen bg-background">
         <Switch>
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/search" component={SearchPage} />
-          <Route path="/watchlist" component={Watchlist} />
-          <Route path="/alerts" component={Alerts} />
-          <Route path="/journal" component={MarketNewsJournal} />
-          <Route path="/apprendre" component={Learn} />
-          <Route path="/apprendre/chandeliers/:slug" component={CandleDetail} />
-          <Route path="/apprendre/strategies/:slug" component={StrategyDetail} />
-          <Route path="/apprendre/glossaire/:slug" component={GlossaryDetail} />
-          <Route path="/apprendre/:tab" component={Learn} />
-          <Route path="/quote/:symbol" component={QuoteDetail} />
+          <Route path="/dashboard">
+            {() => <PageErrorBoundary pageName="Tableau de bord"><Dashboard /></PageErrorBoundary>}
+          </Route>
+          <Route path="/search">
+            {() => <PageErrorBoundary pageName="Recherche"><SearchPage /></PageErrorBoundary>}
+          </Route>
+          <Route path="/watchlist">
+            {() => <PageErrorBoundary pageName="Portefeuille suivi"><Watchlist /></PageErrorBoundary>}
+          </Route>
+          <Route path="/alerts">
+            {() => <PageErrorBoundary pageName="Alertes prix"><Alerts /></PageErrorBoundary>}
+          </Route>
+          <Route path="/journal">
+            {() => <PageErrorBoundary pageName="Journal des marchés"><MarketNewsJournal /></PageErrorBoundary>}
+          </Route>
+          <Route path="/apprendre/chandeliers/:slug">
+            {() => <PageErrorBoundary pageName="Chandeliers"><CandleDetail /></PageErrorBoundary>}
+          </Route>
+          <Route path="/apprendre/strategies/:slug">
+            {() => <PageErrorBoundary pageName="Stratégies"><StrategyDetail /></PageErrorBoundary>}
+          </Route>
+          <Route path="/apprendre/glossaire/:slug">
+            {() => <PageErrorBoundary pageName="Glossaire"><GlossaryDetail /></PageErrorBoundary>}
+          </Route>
+          <Route path="/apprendre/:tab">
+            {() => <PageErrorBoundary pageName="Apprendre"><Learn /></PageErrorBoundary>}
+          </Route>
+          <Route path="/apprendre">
+            {() => <PageErrorBoundary pageName="Apprendre"><Learn /></PageErrorBoundary>}
+          </Route>
+          <Route path="/quote/:symbol">
+            {() => <PageErrorBoundary pageName="Fiche du titre"><QuoteDetail /></PageErrorBoundary>}
+          </Route>
           <Route component={NotFound} />
         </Switch>
       </main>

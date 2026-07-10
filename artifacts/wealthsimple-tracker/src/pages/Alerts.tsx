@@ -279,7 +279,8 @@ function AlertRow({ alert, onDelete, muted = false }: { alert: Alert; onDelete: 
 export default function Alerts() {
   const [showCreate, setShowCreate] = useState(false);
   const [notifPerm, setNotifPerm] = useState<NotificationPermission>("default");
-  const { data: alerts = [], isLoading } = useGetAlerts({ query: { refetchInterval: 30_000 } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: alerts = [], isLoading } = useGetAlerts({ query: { refetchInterval: 30_000 } as any });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const del = useDeleteAlert({

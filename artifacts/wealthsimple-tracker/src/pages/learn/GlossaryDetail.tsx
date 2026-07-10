@@ -1,11 +1,11 @@
-import { Link, useRoute } from "wouter";
+import { Link, useParams } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { GLOSSAIRE } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import NotFound from "@/pages/not-found";
 
 export default function GlossaryDetail() {
-  const [, params] = useRoute<{ slug: string }>("/apprendre/glossaire/:slug");
+  const params = useParams<{ slug: string }>();
   const term = GLOSSAIRE.find((g) => g.slug === params?.slug);
 
   usePageMeta(

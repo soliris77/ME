@@ -1,6 +1,6 @@
 import { useGetQuote, useGetQuoteHistory, useAddToWatchlist, getGetWatchlistQueryKey } from "@workspace/api-client-react";
 import { useParams } from "wouter";
-import { formatPrice, formatChange, formatPercent, formatVolume, formatMarketCap, changeClass } from "@/lib/format";
+import { formatPrice, formatChange, formatPercent, formatVolume, formatMarketCap, changeClass, isUp } from "@/lib/format";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, ArrowDownRight, Bookmark, TrendingUp, BarChart2 } from "lucide-react";
@@ -47,13 +47,14 @@ const CustomTooltip = ({ active, payload, label }: {
 export default function QuoteDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const decodedSymbol = symbol ? decodeURIComponent(symbol) : "";
-  const [range, setRange] = useState("3mo");
+  const [range, setRange] = useState<"1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y">("3mo");
   const [tab, setTab] = useState<"chart" | "analysis">("chart");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: quote, isLoading } = useGetQuote(decodedSymbol, {
-    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 } as any,
   });
 
   // Rafraîchit l'historique de bougies automatiquement — c'est ce qui fait
@@ -65,7 +66,8 @@ export default function QuoteDetail() {
   // plus fraîches (Yahoo Finance gratuit se met à jour à ce rythme environ)
   // et risquerait de se faire bloquer.
   const { data: history = [], isLoading: histLoading } = useGetQuoteHistory(decodedSymbol, range, {
-    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: !!decodedSymbol, refetchInterval: 5_000 } as any,
   });
 
   const add = useAddToWatchlist({
@@ -103,8 +105,8 @@ export default function QuoteDetail() {
   }
 
   const cls = changeClass(quote.changePercent);
-  const isUp = quote.changePercent >= 0;
-  const chartColor = isUp ? "hsl(168, 60%, 42%)" : "hsl(0, 72%, 51%)";
+  const up = isUp(quote.changePercent);
+  const chartColor = up === false ? "hsl(0, 72%, 51%)" : "hsl(168, 60%, 42%)";
 
   const intraday = isIntradayHistory(history);
   const fineGrained =
@@ -118,11 +120,11 @@ export default function QuoteDetail() {
 
   const ohlcHistory = history.map((p) => ({
     date: p.date,
-    open: p.open,
-    high: p.high,
-    low: p.low,
+    open: p.open ?? null,
+    high: p.high ?? null,
+    low: p.low ?? null,
     close: p.close,
-    volume: p.volume,
+    volume: p.volume ?? null,
   }));
 
   const typeLabel: Record<string, string> = {
@@ -168,7 +170,8 @@ export default function QuoteDetail() {
           {formatPrice(quote.price, quote.currency)}
         </div>
         <div className={`flex items-center gap-1.5 mt-1 text-base font-mono font-semibold ${cls}`}>
-          {isUp ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+          {up === true && <ArrowUpRight className="w-5 h-5" />}
+          {up === false && <ArrowDownRight className="w-5 h-5" />}
           {formatChange(quote.change, quote.currency)} ({formatPercent(quote.changePercent)}) aujourd'hui
         </div>
       </div>
@@ -200,7 +203,7 @@ export default function QuoteDetail() {
           {RANGES.map((r) => (
             <button
               key={r.value}
-              onClick={() => setRange(r.value)}
+              onClick={() => setRange(r.value as typeof range)}
               className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                 range === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
               }`}

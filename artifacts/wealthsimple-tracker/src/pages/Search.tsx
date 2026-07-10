@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchSymbols, useGetQuotes } from "@workspace/api-client-react";
-import { formatPrice, formatPercent, changeClass } from "@/lib/format";
+import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link } from "wouter";
 import { Search, ArrowUpRight, ArrowDownRight, TrendingUp, Globe, Bitcoin, BarChart2, Layers } from "lucide-react";
 
@@ -40,14 +40,16 @@ export default function SearchPage() {
   }, [query]);
 
   const { data: results = [], isLoading } = useSearchSymbols(
-    { params: { q: debouncedQuery } },
-    { query: { enabled: debouncedQuery.length >= 1 } }
+    { q: debouncedQuery },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: debouncedQuery.length >= 1 } as any }
   );
 
   const suggestedSymbols = SUGGESTED.map((s) => s.symbol).join(",");
   const { data: suggestedQuotes = [] } = useGetQuotes(
     { symbols: suggestedSymbols },
-    { query: { enabled: !debouncedQuery } }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: !debouncedQuery } as any }
   );
 
   const quoteMap = Object.fromEntries(suggestedQuotes.map((q) => [q.symbol, q]));
@@ -102,7 +104,7 @@ export default function SearchPage() {
                 const meta = TYPE_LABELS[r.type] ?? TYPE_LABELS.stock;
                 const Icon = meta.icon;
                 return (
-                  <Link key={r.symbol} href={`/quote/${r.symbol}`}>
+                  <Link key={r.symbol} href={`/quote/${encodeURIComponent(r.symbol)}`}>
                     <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors group">
                       <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                         <Icon className={`w-4 h-4 ${meta.color}`} />
@@ -137,8 +139,9 @@ export default function SearchPage() {
               const meta = TYPE_LABELS[s.type] ?? TYPE_LABELS.stock;
               const Icon = meta.icon;
               const cls = q ? changeClass(q.changePercent) : "";
+              const up = q ? isUp(q.changePercent) : false;
               return (
-                <Link key={s.symbol} href={`/quote/${s.symbol}`}>
+                <Link key={s.symbol} href={`/quote/${encodeURIComponent(s.symbol)}`}>
                   <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors group">
                     <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                       <Icon className={`w-4 h-4 ${meta.color}`} />
@@ -154,7 +157,8 @@ export default function SearchPage() {
                       <div className="text-right shrink-0">
                         <div className="text-sm font-mono font-semibold">{formatPrice(q.price, q.currency)}</div>
                         <div className={`text-xs font-mono flex items-center justify-end gap-0.5 ${cls}`}>
-                          {q.changePercent >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                          {up === true && <ArrowUpRight className="w-3 h-3" />}
+                          {up === false && <ArrowDownRight className="w-3 h-3" />}
                           {formatPercent(q.changePercent)}
                         </div>
                       </div>

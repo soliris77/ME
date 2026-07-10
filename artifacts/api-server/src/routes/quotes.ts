@@ -21,7 +21,7 @@ router.get("/quotes", async (req, res) => {
 router.get("/quotes/:symbol", async (req, res) => {
   const { symbol } = req.params;
   try {
-    const q = await yahooFinance.quote(symbol);
+    const q = await yahooFinance.quote(symbol, {}, { skipValidation: true });
     if (!q) return res.status(404).json({ error: "Symbol not found" });
     return res.json(formatQuote(q));
   } catch (err) {

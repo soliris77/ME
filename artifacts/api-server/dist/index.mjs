@@ -71694,7 +71694,10 @@ var YahooFinance2 = createYahooFinance(createOpts);
 var src_default = YahooFinance2;
 
 // src/lib/yahoo.ts
-var yahooFinance = new src_default();
+var yahooFinance = new src_default({
+  suppressNotices: ["yahooSurvey"],
+  validation: { logErrors: false, logOptionsErrors: false }
+});
 var TYPE_MAP = {
   EQUITY: "stock",
   ETF: "etf",
@@ -71729,14 +71732,26 @@ function formatQuote(q) {
 async function getQuotes(symbols) {
   const unique = [...new Set(symbols.map((s) => s.trim()).filter(Boolean))];
   if (unique.length === 0) return [];
-  const CONCURRENCY = 15;
+  const BATCH_SIZE = 50;
+  const PARALLEL_BATCHES = 4;
   const out = [];
-  for (let i = 0; i < unique.length; i += CONCURRENCY) {
-    const chunk = unique.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < unique.length; i += BATCH_SIZE * PARALLEL_BATCHES) {
+    const window2 = unique.slice(i, i + BATCH_SIZE * PARALLEL_BATCHES);
+    const batches = [];
+    for (let j = 0; j < window2.length; j += BATCH_SIZE) {
+      batches.push(window2.slice(j, j + BATCH_SIZE));
+    }
     const results = await Promise.all(
-      chunk.map((sym) => yahooFinance.quote(sym).catch(() => null))
+      batches.map(
+        (batch) => (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          yahooFinance.quote(batch, {}, { skipValidation: true }).then((res) => Array.isArray(res) ? res : [res]).catch(() => [])
+        )
+      )
     );
-    out.push(...results.filter(Boolean).map((q) => formatQuote(q)));
+    for (const batch of results) {
+      out.push(...batch.filter(Boolean).map((q) => formatQuote(q)));
+    }
   }
   return out;
 }
@@ -71760,7 +71775,7 @@ router2.get("/quotes", async (req, res) => {
 router2.get("/quotes/:symbol", async (req, res) => {
   const { symbol: symbol2 } = req.params;
   try {
-    const q = await yahooFinance.quote(symbol2);
+    const q = await yahooFinance.quote(symbol2, {}, { skipValidation: true });
     if (!q) return res.status(404).json({ error: "Symbol not found" });
     return res.json(formatQuote(q));
   } catch (err) {

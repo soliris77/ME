@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { formatPrice, formatPercent, changeClass } from "@/lib/format";
+import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link } from "wouter";
 import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -77,11 +77,13 @@ function AddSymbolModal({ onClose }: { onClose: () => void }) {
 
 export default function Watchlist() {
   const [showAdd, setShowAdd] = useState(false);
-  const { data: watchlist = [], isLoading } = useGetWatchlist({ query: { refetchInterval: 30_000 } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: watchlist = [], isLoading } = useGetWatchlist({ query: { refetchInterval: 30_000 } as any });
   const symbols = watchlist.map((w: WatchlistItem) => w.symbol).join(",");
   const { data: quotes = [] } = useGetQuotes(
     { symbols },
-    { query: { enabled: symbols.length > 0, refetchInterval: 10_000 } }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: symbols.length > 0, refetchInterval: 10_000 } as any }
   );
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -140,6 +142,7 @@ export default function Watchlist() {
           {watchlist.map((item: WatchlistItem) => {
             const q = quoteMap[item.symbol];
             const cls = q ? changeClass(q.changePercent) : "";
+            const up = q ? isUp(q.changePercent) : false;
             return (
               <div key={item.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors group">
                 <Link href={`/quote/${encodeURIComponent(item.symbol)}`} className="flex-1 flex items-center justify-between cursor-pointer">
@@ -152,7 +155,8 @@ export default function Watchlist() {
                     <div className="text-right ml-4">
                       <div className="text-sm font-mono font-semibold">{formatPrice(q.price, q.currency)}</div>
                       <div className={`text-xs font-mono ${cls} flex items-center justify-end gap-0.5`}>
-                        {q.changePercent >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                        {up === true && <ArrowUpRight className="w-3 h-3" />}
+                        {up === false && <ArrowDownRight className="w-3 h-3" />}
                         {formatPercent(q.changePercent)}
                       </div>
                     </div>
