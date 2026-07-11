@@ -1,5 +1,29 @@
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { LineChart, ShieldCheck, Bell, Compass } from "lucide-react";
+
+const PILLARS = [
+  {
+    icon: LineChart,
+    title: "Précision",
+    text: "Des cours de marché lus au dixième près, présentés sans artifice ni distraction.",
+  },
+  {
+    icon: Bell,
+    title: "Vigilance",
+    text: "Des alertes discrètes qui vous préviennent au moment juste — jamais avant, jamais trop tard.",
+  },
+  {
+    icon: Compass,
+    title: "Clarté",
+    text: "Une seule vue, tous les marchés. L'essentiel, rien que l'essentiel.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Rigueur",
+    text: "Des données vérifiées, une interface pensée pour durer, à l'image d'un instrument de précision.",
+  },
+];
 
 export default function Landing() {
   usePageMeta(
@@ -11,14 +35,14 @@ export default function Landing() {
     <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
       {/* fond : vignette dorée très douce, pas d'image importée */}
       <div
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none fixed inset-0"
         style={{
           background:
             "radial-gradient(ellipse 70% 55% at 50% 32%, rgba(201,162,39,0.14), transparent 65%), radial-gradient(ellipse 120% 80% at 50% 100%, rgba(201,162,39,0.05), transparent 60%)",
         }}
       />
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        className="pointer-events-none fixed inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
             "repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 3px)",
@@ -31,12 +55,12 @@ export default function Landing() {
           <img
             src="/lion-emblem.png"
             alt="Soliris Market"
-            className="h-8 w-8 rounded-full object-cover bg-black"
+            className="emblem-spin h-8 w-8 rounded-full object-cover bg-black"
           />
           <span className="brand-mark text-[13px] tracking-[0.28em] text-[#c9a227]">SOLIRIS</span>
         </div>
         <Link href="/dashboard">
-          <button className="text-xs tracking-[0.2em] text-[#f2ead6]/70 hover:text-[#c9a227] transition-colors uppercase">
+          <button className="link-underline text-xs tracking-[0.2em] text-[#f2ead6]/70 hover:text-[#c9a227] transition-colors uppercase">
             Entrer
           </button>
         </Link>
@@ -49,7 +73,7 @@ export default function Landing() {
             src="/lion-emblem.png"
             alt=""
             aria-hidden="true"
-            className="mx-auto h-40 w-40 sm:h-52 sm:w-52 rounded-full object-cover ring-1 ring-[#c9a227]/40 shadow-[0_0_60px_rgba(201,162,39,0.15)]"
+            className="emblem-spin mx-auto h-40 w-40 sm:h-52 sm:w-52 rounded-full object-cover ring-1 ring-[#c9a227]/40 shadow-[0_0_60px_rgba(201,162,39,0.15)]"
           />
         </div>
 
@@ -72,13 +96,51 @@ export default function Landing() {
         </p>
 
         <Link href="/dashboard">
-          <button className="mt-12 border border-[#c9a227]/60 px-10 py-3 text-xs tracking-[0.3em] text-[#c9a227] uppercase transition-colors hover:bg-[#c9a227] hover:text-[#07080a] animate-[fadeUp_1.1s_ease-out_0.55s_both]">
+          <button className="btn-sheen mt-12 border border-[#c9a227]/60 px-10 py-3 text-xs tracking-[0.3em] text-[#c9a227] uppercase hover:text-[#07080a] hover:bg-[#c9a227] hover:border-[#c9a227] hover:shadow-[0_0_36px_rgba(201,162,39,0.35)] animate-[fadeUp_1.1s_ease-out_0.55s_both]">
             Accéder aux marchés
           </button>
         </Link>
       </main>
 
-      <footer className="relative z-10 flex items-center justify-center pb-8">
+      {/* piliers de marque */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 pb-[10vh] sm:px-10">
+        <div className="section-rule justify-center text-[#c9a227]/70">
+          <span className="shrink-0">L'ESPRIT SOLIRIS</span>
+        </div>
+
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map(({ icon: Icon, title, text }, i) => (
+            <div
+              key={title}
+              className="lux-card reveal rounded-lg border border-[#c9a227]/15 bg-white/[0.02] p-6 text-left"
+              style={{ animationDelay: `${0.15 * i}s` }}
+            >
+              <Icon className="h-5 w-5 text-[#c9a227]" strokeWidth={1.5} />
+              <div className="brand-mark mt-4 text-[12px] tracking-[0.22em] text-[#f2ead6]">
+                {title.toUpperCase()}
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-[#f2ead6]/60">{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* citation de fermeture */}
+      <section className="reveal relative z-10 mx-auto max-w-2xl px-6 pb-[12vh] text-center sm:px-10">
+        <div className="gold-divider mx-auto w-24" />
+        <p className="brand-serif mt-8 text-lg italic text-[#f2ead6]/70 sm:text-xl">
+          « La précision n'est pas un détail. C'est la mesure de tout. »
+        </p>
+      </section>
+
+      <footer className="relative z-10 flex flex-col items-center justify-center gap-3 pb-10">
+        <div className="flex items-center gap-6 text-[10px] tracking-[0.2em] text-[#f2ead6]/45">
+          <Link href="/conditions-utilisation">
+            <span className="link-underline cursor-pointer hover:text-[#c9a227] transition-colors">
+              CONDITIONS D'UTILISATION
+            </span>
+          </Link>
+        </div>
         <span className="text-[10px] tracking-[0.2em] text-[#f2ead6]/35">
           SOLIRIS MARKET — DONNÉES DE MARCHÉ EN TEMPS DIFFÉRÉ
         </span>

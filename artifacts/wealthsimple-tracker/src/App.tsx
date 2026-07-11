@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import ConditionsUtilisation from "@/pages/ConditionsUtilisation";
 import Dashboard from "@/pages/Dashboard";
 import Watchlist from "@/pages/Watchlist";
 import Alerts from "@/pages/Alerts";
@@ -113,7 +114,7 @@ function Nav() {
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-300 ease-out ${
                   active ? "nav-link-active" : "nav-link-inactive"
                 }`}
               >
@@ -142,6 +143,12 @@ function Nav() {
             {dark ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
             {dark ? "Mode clair" : "Mode sombre"}
           </button>
+          <Link
+            href="/conditions-utilisation"
+            className="link-underline flex items-center gap-2 px-3 py-2 text-[11px] text-sidebar-foreground/35 hover:text-sidebar-accent-foreground transition-colors w-fit"
+          >
+            Conditions d'utilisation
+          </Link>
         </div>
       </aside>
     </>
@@ -177,6 +184,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Switch>
             <Route path="/" component={Landing} />
+            <Route path="/conditions-utilisation" component={ConditionsUtilisation} />
             <Route path="/dashboard" component={wrap("Tableau de bord", Dashboard)} />
             <Route path="/search" component={wrap("Recherche", SearchPage)} />
             <Route path="/watchlist" component={wrap("Portefeuille suivi", Watchlist)} />
