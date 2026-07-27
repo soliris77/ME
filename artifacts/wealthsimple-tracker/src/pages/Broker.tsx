@@ -25,10 +25,12 @@ interface Account {
   id?: string;
   number?: string;
   name?: string;
-  balance?: number;
+  balance?: { total?: { amount?: number; currency?: string } } | number | null;
   currency?: string;
   type?: string;
+  institution_name?: string;
   brokerage?: { name?: string };
+  meta?: { type?: string; currency?: string; unifiedAccountType?: string; institution_name?: string };
 }
 
 function StatusBadge({ status }: { status: BrokerStatus["status"] }) {
@@ -452,17 +454,33 @@ export default function BrokerPage() {
                   <div>
                     <div className="font-medium text-sm">{acc.name ?? acc.number ?? "Compte"}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {acc.brokerage?.name} · {acc.type}
+                      {acc.institution_name ?? acc.brokerage?.name ?? acc.meta?.institution_name}
+                      {(acc.meta?.unifiedAccountType ?? acc.type) && (
+                        <> · {acc.meta?.unifiedAccountType ?? acc.type}</>
+                      )}
                     </div>
                   </div>
-                  {acc.balance != null && (
-                    <div className="text-right text-sm font-mono shrink-0">
-                      {acc.currency}{" "}
-                      {typeof acc.balance === "number"
-                        ? acc.balance.toLocaleString("fr-CA", { minimumFractionDigits: 2 })
-                        : acc.balance}
-                    </div>
-                  )}
+                  {(() => {
+                    if (acc.balance == null) return null;
+                    if (typeof acc.balance === "number") {
+                      return (
+                        <div className="text-right text-sm font-mono shrink-0">
+                          {acc.currency ?? acc.meta?.currency}{" "}
+                          {acc.balance.toLocaleString("fr-CA", { minimumFractionDigits: 2 })}
+                        </div>
+                      );
+                    }
+                    if (typeof acc.balance === "object" && acc.balance.total != null) {
+                      const { amount, currency } = acc.balance.total;
+                      return (
+                        <div className="text-right text-sm font-mono shrink-0">
+                          {currency}{" "}
+                          {(amount ?? 0).toLocaleString("fr-CA", { minimumFractionDigits: 2 })}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
             ))}
