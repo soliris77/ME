@@ -123654,8 +123654,11 @@ async function initTradingMode() {
     _mode = "paper";
   }
 }
-function getTradingMode2() {
+function getTradingMode() {
   return _mode;
+}
+function isLiveMode() {
+  return _mode === "live";
 }
 async function setTradingMode(mode) {
   await pool.query(
@@ -124359,7 +124362,7 @@ async function submitOrder(input) {
   if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity <= 0) {
     throw new OrderValidationError("quantity doit \xEAtre un nombre positif");
   }
-  const mode = getTradingMode2();
+  const mode = getTradingMode();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1e3);
   const existing = await db.select().from(ordersTable).where(and(eq(ordersTable.signalId, signalId), gte(ordersTable.createdAt, cutoff))).limit(1);
   if (existing.length > 0) {
@@ -124490,7 +124493,7 @@ async function getConnection() {
   return rows[0] ?? null;
 }
 router8.get("/broker/trading-mode", (_req, res) => {
-  const mode = getTradingMode2();
+  const mode = getTradingMode();
   const hasCredentials = !!process.env.SNAPTRADE_CLIENT_ID && !!process.env.SNAPTRADE_CONSUMER_KEY && !!process.env.SNAPTRADE_USER_ID && !!process.env.SNAPTRADE_USER_SECRET;
   return res.json({ mode, hasCredentials });
 });
@@ -124563,7 +124566,7 @@ router8.get("/broker/connect-url", async (req, res) => {
   }
 });
 router8.get("/broker/status", async (_req, res) => {
-  const mode = getTradingMode2();
+  const mode = getTradingMode();
   const hasCredentials = !!process.env.SNAPTRADE_CLIENT_ID && !!process.env.SNAPTRADE_CONSUMER_KEY && !!process.env.SNAPTRADE_USER_ID && !!process.env.SNAPTRADE_USER_SECRET;
   const settings = await getRiskSettings();
   const conn = await getConnection();
@@ -124740,7 +124743,7 @@ router8.post("/broker/resume", async (req, res) => {
 });
 router8.get("/broker/reconciliation", async (req, res) => {
   try {
-    const mode = getTradingMode2();
+    const mode = getTradingMode();
     const conn = await getConnection();
     let brokerPositionsRaw = [];
     let brokerFetchError = null;
