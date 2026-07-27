@@ -1,4 +1,4 @@
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "python-base-3.13", "postgresql-16"]
 
 [[ports]]
 localPort = 3001
@@ -22,3 +22,11 @@ externalPort = 3000
 
 [agent]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+TRADING_MODE = "paper"
+
+[nix]
+channel = "stable-25_05"

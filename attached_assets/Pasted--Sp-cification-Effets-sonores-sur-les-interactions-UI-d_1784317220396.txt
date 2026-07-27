@@ -1,0 +1,94 @@
+# Spécification — Effets sonores sur les interactions UI de Soliris Market
+
+## Objectif
+Ajouter des retours sonores discrets sur les interactions clés du site (clics de boutons, ouverture/fermeture de panneaux, notifications d'alerte prix, confirmation d'action) pour renforcer le feedback utilisateur, sans que ce soit intrusif.
+
+## Approche technique recommandée
+
+### 1. Librairie
+Utiliser **Howler.js** — légère, gère bien le cache audio, le contrôle du volume, et le comportement multi-navigateur (contournement des restrictions d'autoplay).
+```
+pnpm add howler
+pnpm add -D @types/howler
+```
+
+### 2. Fichiers audio
+- Format `.mp3` ou `.webm` compressé, fichiers très courts (50-300 ms), poids < 20 Ko chacun pour ne pas alourdir le chargement.
+- Stocker dans `wealthsimple-tracker/public/sounds/` :
+```
+public/sounds/
+  click.mp3          // clic bouton générique
+  success.mp3         // action réussie (ex: alerte créée)
+  error.mp3            // erreur/action refusée
+  notification.mp3     // nouvelle alerte prix déclenchée
+  toggle.mp3           // ouverture/fermeture panneau, switch
+```
+
+### 3. Module centralisé
+Créer `wealthsimple-tracker/src/lib/sounds.ts` :
+
+```typescript
+import { Howl } from "howler";
+
+const sounds = {
+  click: new Howl({ src: ["/sounds/click.mp3"], volume: 0.4 }),
+  success: new Howl({ src: ["/sounds/success.mp3"], volume: 0.5 }),
+  error: new Howl({ src: ["/sounds/error.mp3"], volume: 0.5 }),
+  notification: new Howl({ src: ["/sounds/notification.mp3"], volume: 0.6 }),
+  toggle: new Howl({ src: ["/sounds/toggle.mp3"], volume: 0.3 }),
+};
+
+type SoundName = keyof typeof sounds;
+
+let soundEnabled = true;
+
+export function playSound(name: SoundName) {
+  if (!soundEnabled) return;
+  sounds[name].play();
+}
+
+export function setSoundEnabled(enabled: boolean) {
+  soundEnabled = enabled;
+  localStorage.setItem("soliris-sound-enabled", String(enabled));
+}
+
+export function isSoundEnabled() {
+  return soundEnabled;
+}
+
+export function initSoundPreference() {
+  const stored = localStorage.getItem("soliris-sound-enabled");
+  soundEnabled = stored === null ? true : stored === "true";
+}
+```
+
+Appeler `initSoundPreference()` une fois au démarrage de l'app (dans le composant racine).
+
+### 4. Utilisation dans les composants
+```typescript
+import { playSound } from "@/lib/sounds";
+
+<button onClick={() => { playSound("click"); handleAction(); }}>
+  Créer une alerte
+</button>
+```
+
+Points d'interaction à équiper en priorité :
+- Boutons principaux (créer alerte, valider, ajouter au suivi).
+- Confirmation de succès (`success`) après une action serveur réussie.
+- Erreur de validation ou requête échouée (`error`).
+- Déclenchement d'une alerte prix en temps réel (`notification`) — cohérent avec le système d'alertes déjà en place.
+- Ouverture/fermeture de menus, panneaux latéraux, accordéons (`toggle`).
+
+### 5. Réglage utilisateur — activer/désactiver le son
+Ajouter un toggle "🔊 Sons" dans les paramètres ou le header du site, relié à `setSoundEnabled()`. Important : par défaut, ne **pas** jouer de son avant une première interaction utilisateur (les navigateurs bloquent l'autoplay audio sans interaction préalable — Howler gère ça nativement en attendant le premier `play()` déclenché par un clic).
+
+### 6. Étapes pour l'IA Replit
+1. Installer `howler` + types.
+2. Ajouter les 5 fichiers son courts dans `public/sounds/` (générer ou trouver des sons libres de droits, très discrets — pas de sons "gamifiés" bruyants, cohérent avec le ton sérieux d'un outil financier).
+3. Créer `src/lib/sounds.ts` comme ci-dessus.
+4. Brancher `playSound()` sur les boutons/actions listés en section 4, en commençant par les alertes prix (déjà le cœur du produit).
+5. Ajouter le toggle marche/arrêt dans l'UI.
+6. Tester que le son ne se déclenche jamais avant une interaction utilisateur (contrainte navigateur).
+
+Livraison en une fois, testée, conformément aux règles habituelles du projet.

@@ -1,0 +1,27 @@
+Contexte : Améliorer significativement la section "Apprendre à trader" (Learn.tsx, learnContent.ts, CandleDetail.tsx, StrategyDetail.tsx, GlossaryDetail.tsx). Le contenu de base est déjà bon (8 chandeliers, 20 stratégies, 57 termes de glossaire) — l'objectif ici est la profondeur, l'interactivité, et l'intégration avec les vraies données de l'app. Fais TIER 1 en premier, montre le résultat, avant de passer à TIER 2 puis TIER 3.
+
+## TIER 1 — Intégration avec les données réelles (le plus gros gain)
+
+1. Pages de patterns de chandeliers (CandleDetail.tsx) : en plus du SVG générique actuel, ajoute une section "Exemple récent" qui interroge le moteur de détection de patterns existant (patternDetect.ts) pour trouver la dernière occurrence réelle de ce pattern spécifique dans l'univers de symboles suivis, et affiche le symbole, la date, et un mini graphique de la période concernée. Si aucune occurrence récente n'existe, affiche un message clair plutôt qu'un espace vide ("Aucune occurrence récente détectée — repassez plus tard").
+
+2. Termes du glossaire qui sont des indicateurs numériques (RSI, MACD, ATR, Bandes de Bollinger, OBV, Momentum, Divergence) : sur leur page de détail, affiche la valeur actuelle en direct. Si l'utilisateur a une watchlist, utilise son premier symbole ; sinon, un symbole populaire par défaut (ex: AAPL). Affiche clairement que c'est une valeur en direct (timestamp de dernière mise à jour).
+
+3. Pages de stratégie (StrategyDetail.tsx) : ajoute un bouton "Essayer en mode paper" qui amène vers le dashboard ou la page pertinente pour appliquer la stratégie sans argent réel.
+
+## TIER 2 — Interactivité et progression
+
+4. Ajoute un court quiz (3-5 questions à choix multiple) à la fin de chaque onglet de Learn.tsx (Bases, Chandeliers, Stratégies, Risques). Question simple, feedback immédiat correct/incorrect avec une phrase d'explication.
+
+5. Ajoute un suivi de progression simple : quelles sections/quiz ont été complétés. Stocke ça côté serveur (nouvelle table légère, pas juste localStorage vu que c'est maintenant un vrai produit avec compte utilisateur) plutôt que dans le navigateur. Affiche un indicateur visuel (ex: barre ou compteur "3/5 sections complétées") en haut de la page Learn.
+
+6. Ajoute "Continuer où vous étiez" : au retour sur /apprendre, propose de reprendre la dernière section non complétée plutôt que de toujours recommencer sur "Bases".
+
+## TIER 3 — Profondeur et polish
+
+7. Étoffe le contenu des pages de détail individuelles (chandeliers, stratégies, glossaire) : ajoute une section "Erreurs fréquentes avec ce pattern/cette stratégie/ce concept" (2-3 points), et 2-3 liens croisés vers des termes de glossaire liés en bas de chaque page. Garde le ton actuel (concret, direct, exemples chiffrés) — ne réécris pas ce qui fonctionne déjà, ajoute autour.
+
+8. Rends le champ "level" des stratégies filtrable dans l'onglet Stratégies de Learn.tsx, avec le même pattern de filtre par boutons déjà utilisé dans l'onglet Glossaire (catFilter).
+
+9. Vérifie que Learn.tsx et les pages de détail utilisent bien le système de couleurs/typographie établi (--accent, --gain, --loss, IBM Plex Mono pour les chiffres) de façon cohérente avec le reste de l'app, pas des couleurs Tailwind génériques (emerald-500, red-500 directement) qui pourraient diverger du thème avec le temps.
+
+Montre le résultat de chaque tier avant de passer au suivant.

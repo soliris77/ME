@@ -1,0 +1,201 @@
+# Spécification technique — Fonctionnalité "Copy Trading" pour Soliris Market
+
+## ⚠️ Précision technique importante sur MetaTrader
+
+MetaTrader (MT4/MT5) n'expose **pas** d'API publique directement — ce n'est qu'un terminal de trading. Pour connecter des comptes MT4/MT5 et faire du copy-trading par API, il faut passer par un service tiers légitime qui fait le pont. Le plus établi et documenté est **MetaApi.cloud**, qui propose :
+- Une **API REST/WebSocket** pour lire positions, historique, soldes d'un compte MT4/MT5 (authentification via un token MetaApi + les identifiants du compte de trading).
+- **CopyFactory**, un module dédié au copy-trading : un compte "stratégie" (master) peut être suivi par des comptes "abonnés" (slaves), avec gestion des ratios de risque, entièrement pilotable par API/SDK (Node.js, Python).
+- Un tier gratuit disponible, utile pour prototyper avant de passer à un plan payant si le volume augmente.
+
+**Avant de commencer le développement :**
+1. Créer un compte développeur sur MetaApi.cloud et lire leur documentation CopyFactory (`https://metaapi.cloud/docs/copyfactory/`).
+2. Vérifier les limites du tier gratuit (nombre de comptes connectés, fréquence de requêtes) pour valider que ça tient la route pour Soliris Market.
+3. Vérifier les ToS de MetaApi et du broker MT4/MT5 utilisé par l'utilisateur — certains brokers interdisent l'usage d'API tierces dans leurs conditions.
+
+Tout ce qui suit part du principe que l'intégration se fait via MetaApi/CopyFactory. `MetaTrader (MT4/MT5)` ci-dessous désigne cette intégration.
+
+---
+
+## 1. Vue d'ensemble de la fonctionnalité
+
+**Objectif :** permettre à un utilisateur de Soliris Market de connecter son compte sur `MetaTrader (MT4/MT5)` afin de :
+- Visualiser les trades publics de traders performants ("leaders") qu'il choisit de suivre.
+- Optionnellement, répliquer automatiquement (copy) une partie de leurs trades sur son propre compte `MetaTrader (MT4/MT5)`, selon des règles de risque qu'il définit (montant max par trade, % du capital, stop-loss global).
+- Suivre dans Soliris Market un tableau de bord de performance de ces traders copiés, en parallèle du reste de l'app.
+
+**Ce que ce n'est PAS :** Soliris Market n'exécute jamais lui-même un ordre — l'exécution reste toujours du côté de `MetaTrader (MT4/MT5)`, via son API officielle de copy-trading si elle existe, ou via une simple réplication manuelle assistée (l'app notifie l'utilisateur, qui valide/exécute lui-même). **Recommandation forte : commencer par la version "notification + validation manuelle" avant d'implémenter l'exécution automatique**, qui est plus risquée légalement et techniquement.
+
+---
+
+## 2. Architecture générale (cohérente avec l'existant)
+
+Le monorepo TypeScript reste inchangé dans sa structure :
+- `api-server` (Express, port interne 3001 en dev / 8080 en prod) : nouvelle couche d'intégration avec `MetaTrader (MT4/MT5)`.
+- `wealthsimple-tracker` (Vite/React) : nouvelles pages/composants pour le copy-trading.
+- PostgreSQL + Drizzle ORM : nouvelles tables pour stocker les connexions, les traders suivis, l'historique des trades copiés.
+
+Nouveau module côté serveur : `lib/integrations/metatrader/` contenant :
+```
+lib/integrations/metatrader/
+  client.ts        // wrapper autour de l'API externe (auth, requêtes)
+  types.ts         // types TypeScript des réponses de l'API externe
+  sync.ts          // job périodique de synchronisation des trades des leaders suivis
+  webhook.ts        // (si l'API le supporte) réception d'événements en temps réel
+```
+
+---
+
+## 3. Authentification de l'utilisateur avec `MetaTrader (MT4/MT5)`
+
+### 3.1 Flux réel avec MetaApi (pas d'OAuth — provisioning par identifiants)
+- Le compte développeur MetaApi de Soliris Market a son propre token API global (`METAAPI_TOKEN`, stocké dans les secrets Replit, jamais côté client).
+- L'utilisateur fournit, dans un formulaire dédié : le login de son compte MT4/MT5, son **mot de passe investisseur** (lecture seule — jamais le mot de passe principal du compte), et le nom du serveur du broker.
+- Le backend appelle l'API de provisioning MetaApi (`POST /users/current/accounts`) pour enregistrer ce compte côté MetaApi et récupérer un `accountId` interne.
+- Cet `accountId` et le mot de passe investisseur sont stockés **chiffrés** en base (AES-256-GCM via `node:crypto`, clé dans `ENCRYPTION_KEY`) — jamais en clair, jamais loggés.
+- Endpoint : `POST /api/integrations/metatrader/connect` → provisionne le compte via MetaApi, stocke les identifiants chiffrés.
+- Endpoint : `DELETE /api/integrations/metatrader/disconnect` → supprime le compte côté MetaApi et efface les identifiants chiffrés en base.
+
+### 3.2 Toujours le mot de passe investisseur, jamais le mot de passe maître
+Le mot de passe investisseur suffit pour lire positions et historique (mode notification, section 4). Le mot de passe maître ne serait nécessaire que pour l'exécution automatique — à isoler dans un flux séparé et optionnel, avec avertissement explicite avant toute saisie.
+
+### 3.3 Schéma Drizzle à ajouter
+
+```typescript
+// lib/db/schema/copyTrading.ts
+import { pgTable, serial, integer, text, timestamp, boolean, numeric } from "drizzle-orm/pg-core";
+import { users } from "./users";
+
+export const brokerConnections = pgTable("broker_connections", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  platform: text("platform").notNull(), // ex: "metatrader"
+  encryptedAccessToken: text("encrypted_access_token"),
+  encryptedRefreshToken: text("encrypted_refresh_token"),
+  encryptedApiKey: text("encrypted_api_key"),
+  externalAccountId: text("external_account_id"),
+  isActive: boolean("is_active").default(true),
+  connectedAt: timestamp("connected_at").defaultNow(),
+  lastSyncAt: timestamp("last_sync_at"),
+});
+
+export const followedTraders = pgTable("followed_traders", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  brokerConnectionId: integer("broker_connection_id").notNull().references(() => brokerConnections.id),
+  externalTraderId: text("external_trader_id").notNull(),
+  traderDisplayName: text("trader_display_name"),
+  autoExecute: boolean("auto_execute").default(false), // false = notification only
+  maxAmountPerTrade: numeric("max_amount_per_trade"),
+  maxPercentOfCapital: numeric("max_percent_of_capital"),
+  stopLossGlobalPercent: numeric("stop_loss_global_percent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const copiedTrades = pgTable("copied_trades", {
+  id: serial("id").primaryKey(),
+  followedTraderId: integer("followed_trader_id").notNull().references(() => followedTraders.id),
+  externalTradeId: text("external_trade_id").notNull(),
+  symbol: text("symbol").notNull(),
+  direction: text("direction").notNull(), // "buy" | "sell"
+  originalAmount: numeric("original_amount"),
+  copiedAmount: numeric("copied_amount"),
+  status: text("status").notNull(), // "pending" | "notified" | "executed" | "rejected" | "failed"
+  openedAt: timestamp("opened_at"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+```
+
+Après ajout, exécuter côté Replit : `cd lib/db && pnpm push` (règle déjà établie du projet).
+
+---
+
+## 4. Synchronisation des trades des leaders suivis
+
+### 4.1 Job périodique
+- Fichier `lib/integrations/metatrader/sync.ts`.
+- Toutes les X minutes (selon les limites de rate-limit de l'API — à vérifier dans leur doc), pour chaque `followedTraders` actif :
+  1. Appeler l'API `MetaTrader (MT4/MT5)` pour récupérer les positions ouvertes/récentes du trader externe.
+  2. Comparer avec `copiedTrades` déjà connus (par `externalTradeId`) pour détecter les nouveaux trades.
+  3. Pour chaque nouveau trade détecté :
+     - Calculer le montant à copier selon les règles de risque de l'utilisateur (`maxAmountPerTrade`, `maxPercentOfCapital`).
+     - Si `autoExecute = false` → créer une entrée `copiedTrades` avec `status = "notified"` et déclencher une notification (email via Resend, déjà en place dans le projet, ou notification in-app).
+     - Si `autoExecute = true` → appeler l'endpoint d'exécution de `MetaTrader (MT4/MT5)` (si leur API le permet), puis mettre `status = "executed"` ou `"failed"`.
+
+### 4.2 Gestion des erreurs et rate limits
+- Respecter scrupuleusement les limites de requêtes documentées par `MetaTrader (MT4/MT5)`.
+- Retry avec backoff exponentiel en cas d'erreur 429/5xx.
+- Logger les échecs de synchronisation dans une table `sync_errors` ou via les logs existants du serveur, sans jamais logger les tokens/clés.
+
+---
+
+## 5. Endpoints API à créer côté `api-server`
+
+```
+POST   /api/integrations/metatrader/connect        // provisionne le compte MT4/MT5 via MetaApi (login + mdp investisseur + serveur)
+DELETE /api/integrations/metatrader/disconnect      // supprime le compte côté MetaApi et efface les identifiants chiffrés
+
+GET    /api/copy-trading/traders/search?q=...         // recherche de traders publics à suivre
+POST   /api/copy-trading/followed-traders              // ajoute un trader à suivre + règles de risque
+PATCH  /api/copy-trading/followed-traders/:id          // modifie les règles (montant max, auto-exécution)
+DELETE /api/copy-trading/followed-traders/:id          // arrête de suivre un trader
+
+GET    /api/copy-trading/copied-trades                 // historique des trades copiés/notifiés pour l'utilisateur
+GET    /api/copy-trading/performance/:followedTraderId  // stats de performance du trader suivi
+```
+
+Toutes les routes doivent être protégées par le middleware d'authentification déjà utilisé ailleurs dans le projet (vérifier la session/utilisateur connecté avant tout accès).
+
+---
+
+## 6. Frontend (Vite/React)
+
+### 6.1 Nouvelles pages
+- `/copy-trading` : page principale, liste des traders suivis + bouton "Suivre un nouveau trader".
+- `/copy-trading/decouvrir` : recherche/découverte de traders publics performants sur `MetaTrader (MT4/MT5)`, avec filtres (rendement, risque, nombre de suiveurs).
+- `/copy-trading/parametres/:followedTraderId` : réglages de risque pour un trader suivi précis.
+
+### 6.2 Composants clés
+- `TraderCard.tsx` : carte résumant un trader (photo, pseudo, rendement %, risque, nombre de suiveurs) — cohérent visuellement avec le design existant du site (mêmes couleurs, mêmes cards que la section marché).
+- `CopyTradeSettingsForm.tsx` : formulaire pour définir montant max par trade, % du capital, stop-loss global, et le toggle "exécution automatique" (désactivé par défaut, avec un avertissement clair sur les risques quand l'utilisateur l'active).
+- `CopiedTradesTable.tsx` : tableau historique des trades copiés, avec statut (notifié / exécuté / échoué), réutilisant si possible le style des tableaux déjà présents dans la section "journal de marché".
+- `BrokerConnectionBanner.tsx` : bannière affichée si l'utilisateur n'a pas encore connecté son compte `MetaTrader (MT4/MT5)`, avec bouton de connexion.
+
+### 6.3 Avertissement obligatoire dans l'UI
+Avant toute activation de `autoExecute`, afficher un texte clair et non-escamotable du type :
+
+> "En activant l'exécution automatique, les trades des traders que tu suis seront reproduits automatiquement sur ton compte MetaTrader (MT4/MT5), dans les limites que tu as définies. Le trading comporte un risque de perte en capital. Soliris Market n'exécute aucun ordre lui-même et ne peut pas garantir les performances passées ou futures des traders suivis."
+
+---
+
+## 7. Sécurité — points non négociables
+
+1. **Jamais de clé API ou de token en clair** en base, dans les logs, ou dans les réponses réseau après la saisie initiale.
+2. **Chiffrement au repos** (AES-256-GCM) avec clé stockée uniquement dans les secrets Replit.
+3. **Scope minimal** : si `MetaTrader (MT4/MT5)` permet de créer une clé API en lecture seule ou avec des permissions limitées (pas de retrait de fonds), l'imposer explicitement dans la doc utilisateur.
+4. **Révocation facile** : bouton "Déconnecter" qui supprime immédiatement les tokens en base et révoque côté `MetaTrader (MT4/MT5)` si leur API le permet.
+5. **Pas de stockage de mot de passe** `MetaTrader (MT4/MT5)` — uniquement OAuth ou clé API, jamais identifiants/mot de passe directs.
+6. **Séparation des permissions** : l'exécution automatique de trades doit être un opt-in explicite et réversible à tout moment, jamais activé par défaut.
+
+---
+
+## 8. Étapes de livraison suggérées pour l'IA Replit
+
+1. **Étape 1** — Ajouter le schéma Drizzle (section 3.3), pousser en base.
+2. **Étape 2** — Implémenter la connexion MetaTrader via MetaApi (provisioning du compte + stockage chiffré des identifiants), sans encore rien synchroniser.
+3. **Étape 3** — Implémenter la recherche/découverte de traders publics (lecture seule, pas de copy encore).
+4. **Étape 4** — Implémenter le suivi d'un trader + le job de synchronisation en mode "notification seulement" (`autoExecute = false` forcé au départ).
+5. **Étape 5** — Construire les pages/composants frontend listés en section 6.
+6. **Étape 6** — Une fois tout validé et testé en mode notification, envisager (optionnel, seulement si l'API de `MetaTrader (MT4/MT5)` le permet proprement) l'exécution automatique, avec tests approfondis avant activation en production.
+
+Chaque étape doit être livrée complète et fonctionnelle avant de passer à la suivante, conformément aux règles de travail déjà en place sur ce projet (livraison de code complet en une session, jamais de travail à moitié fait).
+
+---
+
+## 9. Ce qu'il reste à faire avant de lancer le développement
+
+- Créer un compte MetaApi.cloud et générer le `METAAPI_TOKEN` à ajouter dans les secrets Replit.
+- Décider de la source des "traders à suivre" : soit via le marketplace CopyFactory de MetaApi (stratégies déjà publiques configurées par leurs propriétaires), soit via une liste de comptes MT4/MT5 spécifiques que le geek configure lui-même comme comptes "stratégie". Le premier choix (marketplace) est le plus proche de l'expérience "copier des traders qui font des millions" vue sur Instagram ; le second demande de recruter soi-même des traders volontaires.
+- Vérifier le tier gratuit MetaApi (nombre de comptes, fréquence de sync) suffit pour un lancement, avant d'envisager un plan payant.
+
+Cette spec peut être donnée telle quelle à l'IA Replit pour développement, section par section (voir section 8).

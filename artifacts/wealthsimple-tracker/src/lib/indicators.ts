@@ -777,6 +777,40 @@ export function computeFibonacciLevels(history: OHLCPoint[], lookback = 90): Fib
 }
 
 /**
+ * Volume on Balance (OBV) : cumule le volume en l'ajoutant quand le prix
+ * monte et en le soustrayant quand il baisse. Sert à confirmer une tendance
+ * (OBV qui monte avec le prix = hausse confirmée par le volume).
+ */
+export function computeOBV(history: OHLCPoint[]): number[] {
+  const result: number[] = [];
+  let obv = 0;
+  for (let i = 0; i < history.length; i++) {
+    if (i === 0) {
+      result.push(0);
+      continue;
+    }
+    const prevClose = history[i - 1].close;
+    const vol = history[i].volume ?? 0;
+    if (history[i].close > prevClose) obv += vol;
+    else if (history[i].close < prevClose) obv -= vol;
+    result.push(obv);
+  }
+  return result;
+}
+
+/**
+ * Momentum simple (taux de variation / Rate of Change) : variation en % du
+ * prix de clôture entre aujourd'hui et N séances plus tôt.
+ */
+export function computeMomentum(history: OHLCPoint[], period = 10): number | undefined {
+  if (history.length < period + 1) return undefined;
+  const last = history[history.length - 1].close;
+  const prev = history[history.length - 1 - period].close;
+  if (!prev) return undefined;
+  return ((last - prev) / prev) * 100;
+}
+
+/**
  * Détecte les divergences entre le prix et le RSI/MACD : quand le prix fait
  * un nouveau sommet/creux mais que l'indicateur ne confirme pas, c'est
  * souvent un signal précoce de retournement.

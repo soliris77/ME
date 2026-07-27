@@ -1,0 +1,101 @@
+Contexte : Brief de design complet pour Soliris Market. Applique ça de façon cohérente et disciplinée — un seul système, pas des choix improvisés écran par écran.
+
+## 1. Palette
+
+--bg-base: #0B0E14         /* fond principal — charcoal profond à teinte bleue, pas noir pur */
+--bg-surface: #131722       /* cartes, panneaux, modales */
+--bg-surface-hover: #1A1F2E /* survol des rangées/cartes interactives */
+--border: #232838           /* séparateurs, contours de carte */
+--text-primary: #E8E9ED
+--text-muted: #8B92A5
+--gain: #16A34A              /* réservé EXCLUSIVEMENT au gain/achat */
+--loss: #DC2626              /* réservé EXCLUSIVEMENT à la perte/vente */
+--accent: #D4A72C            /* or/ambre — actions interactives, liens, focus ring, cohérent avec le bandeau paper existant */
+
+Règle stricte : aucun élément décoratif de l'UI n'utilise une teinte proche de --gain/--loss en dehors de leur sens financier exact. Un seul accent (--accent) pour tout ce qui est interactif — pas de bleu, violet ou dégradé additionnel improvisé.
+
+## 2. Typographie
+
+Polices : IBM Plex Mono (Google Fonts) pour tous les chiffres, Instrument Sans (Google Fonts) pour tout le reste. Pas Inter, pas la police système par défaut.
+
+- Titres de section (ex. "Marchés", "Radar de patterns") : Instrument Sans, 24–28px, semi-bold
+- Titre de symbole sélectionné (ex. "AAPL — Apple Inc.") : Instrument Sans, 18–20px, medium
+- Corps / labels UI : Instrument Sans, 14px, regular
+- Données chiffrées (prix, %, volumes, dans tableaux/listes) : IBM Plex Mono, 14px, font-variant-numeric: tabular-nums
+- Valeur totale dans TradeModal (le chiffre le plus important de l'app) : IBM Plex Mono, 32–36px, semi-bold
+- Micro (timestamps, sous-labels) : Instrument Sans, 12px, --text-muted
+
+Espacement : unité de base 4px, utilise les multiples 4/8/12/16/24/32/48 uniquement — pas de valeurs arbitraires.
+
+Coins arrondis : 8px sur boutons/champs, 12px sur cartes/modales — cohérent avec ce qui existe déjà dans le code (rounded-xl).
+
+## 3. Layout — Dashboard principal
+
+┌─────────────────────────────────────────────────────────────┐
+│ [bandeau mode PAPER/LIVE — pleine largeur, toujours visible]  │
+├────────────┬───────────────────────────────┬─────────────────┤
+│            │                               │                 │
+│ Watchlist  │   Graphique chandelier         │  Radar de       │
+│ (liste     │   + indicateurs                │  patterns       │
+│  compacte, │   (symbole sélectionné)        │  (signature,    │
+│  scroll)   │                                 │  balayage       │
+│            │                                 │  continu)       │
+│            ├───────────────────────────────┤                 │
+│            │  Acheter / Vendre              │                 │
+│            │  (ancrés, toujours visibles)   │                 │
+├────────────┴───────────────────────────────┴─────────────────┤
+│ [kill-switch — uniquement visible en mode live]                │
+└─────────────────────────────────────────────────────────────┘
+
+Le graphique reste la zone de travail principale (le plus large). Le radar est un compagnon permanent à droite, pas une carte perdue plus bas dans la page.
+
+## 4. Layout — TradeModal (l'interaction la plus critique du site)
+
+┌───────────────────────────────┐
+│  ACHETER · AAPL                 │  ← le plus gros, gras, coloré selon le côté (vert achat / rouge vente)
+│                                  │
+│  1 234,50 $ CAD                 │  ← 2e plus visible : la VALEUR TOTALE, pas juste la quantité
+│  10 actions × 123,45 $           │  ← détail, plus petit, sous la valeur totale
+│                                  │
+│  Quantité      [ 10         ]   │
+│  Compte        [ Wealthsimple ▾]│
+│  Type d'ordre  [ Marché ▾    ]  │
+│                                  │
+│  [ bandeau mode PAPER/LIVE ]     │  ← rappel, ne peut pas être manqué
+│                                  │
+│  [     Confirmer l'achat     ]  │  ← coloré selon le côté, texte = l'action exacte
+└───────────────────────────────┘
+
+La valeur totale en argent doit toujours être plus visible que la quantité d'actions — c'est le chiffre qui représente le vrai risque.
+
+## 5. Signature — le radar de patterns
+
+Remplace la carte/liste actuelle par une vraie visualisation façon balayage radar : cercle central, ligne qui balaie en continu (rotation lente, ~4–6s par tour). Les patterns détectés apparaissent comme des points positionnés selon force/récence du signal, avec un court fade-in à l'apparition. Reste cliquable pour voir le détail du pattern — fonctionnel, pas juste décoratif.
+
+## 6. Mouvement
+
+- Balayage radar : continu, ~4–6s par tour (voir point 5)
+- Mise à jour de prix : bref flash de fond (vert si hausse, rouge si baisse) sur le chiffre concerné, ~400ms, puis retour au neutre — signal discret qu'un prix vient de bouger
+- Ouverture du TradeModal : transition rapide et délibérée (scale + fade, ~150–200ms) — pas un popup flippant, mais pas lent non plus
+- Survol des éléments interactifs : léger changement de fond (--bg-surface-hover), pas d'effet de scale ou de rebond
+- Kill-switch : le changement d'état doit être instantané, sans transition qui ralentit — c'est un arrêt d'urgence
+
+Pas d'animation additionnelle au-delà de cette liste. Trop de mouvement décoratif donne un résultat qui a l'air généré par IA.
+
+## 7. Rédaction (texte de l'interface)
+
+Le pattern déjà utilisé dans les messages de rejet de risque est le bon standard — précis, jamais vague, jamais dans le ton de l'excuse (ex. "Ordre refusé : la valeur dépasse la limite autorisée de X$"). Applique ce même niveau de précision partout :
+
+- Le texte du bouton et la confirmation qui suit utilisent le même verbe — un clic sur "Acheter" produit une confirmation "Achat confirmé", jamais un générique "Transaction complétée"
+- Les états vides ont une phrase d'action, pas juste un tableau vide (ex. le journal de trading sans historique : dire quoi faire ensuite, pas juste "Aucune donnée")
+- Les erreurs techniques (500, réseau) et les rejets de garde-fous (422) restent visuellement et textuellement distincts — jamais le même ton
+
+## 8. Plancher de qualité (non négociable)
+
+- Focus clavier visible sur tous les éléments interactifs, surtout dans TradeModal (anneau utilisant --accent) — quelqu'un doit pouvoir confirmer un ordre au clavier
+- prefers-reduced-motion respecté : le balayage radar et le flash de prix se désactivent ou se simplifient si activé côté système
+- Mobile : le bandeau de mode et le kill-switch restent pleinement fonctionnels sur petit écran, pas juste visuellement présents
+
+## 9. Discipline
+
+Un seul accent, une seule palette, un seul système typographique — appliqués partout, sans variation improvisée écran par écran. Applique d'abord au TradeModal et au dashboard principal, montre un aperçu avant de propager au reste de l'app.

@@ -53,9 +53,9 @@ export default function Landing() {
       <header className="relative z-10 flex items-center justify-between px-6 py-6 sm:px-10">
         <div className="flex items-center gap-2.5">
           <img
-            src="/lion-emblem.png"
+            src="/soliris-icon.svg"
             alt="Soliris Market"
-            className="emblem-spin h-8 w-8 rounded-full object-cover bg-black"
+            className="emblem-spin h-8 w-8 object-cover bg-black"
           />
           <span className="brand-mark text-[13px] tracking-[0.28em] text-[#c9a227]">SOLIRIS</span>
         </div>
@@ -70,10 +70,10 @@ export default function Landing() {
       <main className="relative z-10 flex flex-col items-center justify-center px-6 pt-[6vh] pb-[10vh] sm:pt-[8vh] text-center">
         <div className="animate-[fadeUp_1.1s_ease-out]">
           <img
-            src="/lion-emblem.png"
+            src="/soliris-icon.svg"
             alt=""
             aria-hidden="true"
-            className="emblem-spin mx-auto h-40 w-40 sm:h-52 sm:w-52 rounded-full object-cover ring-1 ring-[#c9a227]/40 shadow-[0_0_60px_rgba(201,162,39,0.15)]"
+            className="emblem-spin mx-auto h-40 w-40 sm:h-52 sm:w-52 object-contain drop-shadow-[0_0_40px_rgba(201,162,39,0.25)]"
           />
         </div>
 

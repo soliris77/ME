@@ -1,0 +1,87 @@
+Contexte : Liste complète de ce qu'il reste à ajouter à Soliris Market, organisée par priorité réelle — pas juste par catégorie. Ne construis pas tout d'un coup : fais le niveau CRITIQUE, montre le code, attends confirmation avant de passer à IMPORTANT, puis pareil pour AGRÉABLE À AVOIR. C'est comme ça qu'on a évité des trous dans les rounds précédents (comme les boutons Acheter/Vendre construits sans passer par la couche de risque) — un gros bloc de demandes d'un coup donne des implémentations superficielles.
+
+# CRITIQUE — avant toute utilisation avec de l'argent réel
+
+## 1. Authentification
+
+C'est le trou le plus important de tout le système, et il n'a jamais été traité. Si le site est accessible sur un domaine public Replit sans mécanisme de connexion, n'importe qui qui tombe sur l'URL peut voir les positions et soldes réels, et potentiellement cliquer Acheter/Vendre sur le compte Wealthsimple connecté. Tous les garde-fous construits jusqu'ici (idempotence, limites de valeur, exposition, kill-switch) protègent contre les bugs et les doublons — aucun ne protège contre un visiteur qui trouve simplement le lien.
+
+Implémentation recommandée, adaptée à un usage à un seul utilisateur (pas besoin d'un système multi-comptes complet) :
+
+- Une page de connexion avec un seul mot de passe, hashé avec bcrypt et stocké en variable d'environnement ou dans une table à une seule ligne — jamais en clair dans le code.
+- Une session basée sur un cookie signé, httpOnly, secure, avec une expiration raisonnable (quelques heures à quelques jours, pas indéfinie). Puisque Postgres est déjà en place, un store de session Postgres (ex. connect-pg-simple) évite d'introduire une nouvelle dépendance comme Redis juste pour ça.
+- Un middleware qui protège TOUTES les routes API et frontend — en particulier /api/broker/*, /api/orders/*, et tout ce qui touche à la connexion SnapTrade. Une requête non authentifiée vers ces endpoints doit recevoir un 401, pas juste un frontend qui cache visuellement le bouton.
+- Limitation du nombre de tentatives de connexion (ex. blocage temporaire après 5 essais échouées) pour éviter le brute-force sur un mot de passe unique.
+- Le frontend redirige automatiquement vers /login si la session est absente ou expirée, sur n'importe quelle route protégée.
+
+## 2. Confirmation renforcée pour les gros ordres
+
+Le TradeModal actuel a une seule étape de confirmation, peu importe la taille de l'ordre. Ajoute un second palier pour les ordres qui dépassent un seuil configurable (ex. 50% de MAX_ORDER_VALUE) : soit taper le montant exact pour confirmer, soit un court délai obligatoire (2-3 secondes) avant que le bouton de confirmation devienne cliquable. L'objectif est d'ajouter de la friction exactement là où une erreur coûterait le plus cher, sans ralentir les ordres routiniers.
+
+# IMPORTANT — pour un usage sérieux à long terme
+
+## 3. Page de configuration des seuils
+
+MAX_ORDER_VALUE et MAX_PORTFOLIO_EXPOSURE sont actuellement des variables d'environnement, ce qui veut dire un redéploiement pour changer un seuil. Construis une page réglages accessible uniquement en étant authentifié, qui permet de modifier ces valeurs (et d'autres à venir) directement depuis l'interface, avec une confirmation explicite avant sauvegarde et un enregistrement de chaque changement dans le journal d'audit (point suivant). Affiche aussi les valeurs actuelles bien en vue, pas juste modifiables — savoir ce qui est configuré en ce moment est aussi important que pouvoir le changer.
+
+## 4. Journal d'audit
+
+Distinct de rejected_signals (qui logue les signaux refusés) et de orders (qui logue les ordres) : une table séparée qui capture les actions administratives — activation/désactivation du kill-switch, changement de mode paper/live, connexion/déconnexion du courtier, modification des seuils de risque. Chaque entrée avec un timestamp précis et le détail de ce qui a changé (ancienne valeur → nouvelle valeur). Même à un seul utilisateur, ça devient précieux pour reconstruire une chronologie si quelque chose tourne mal — "qu'est-ce qui s'est passé avant que ce trade problématique ait lieu."
+
+## 5. Vue de réconciliation
+
+La logique d'exposition compare déjà les positions réelles du courtier avec la base de données interne, mais ce n'est visible nulle part dans l'interface. Ajoute un panneau (sur la page /courtier ou le dashboard) qui affiche : l'heure de la dernière synchronisation avec SnapTrade, et une comparaison ligne par ligne entre ce que le système croit détenir et ce que le courtier rapporte, avec les écarts mis en évidence visuellement. Ça donne une confiance immédiate sans avoir à fouiller dans les logs.
+
+## 6. Notifications externes
+
+Au-delà des notifications dans l'app, ajoute un canal externe (email via une API transactionnelle simple, ou push web si le PWA du point 17 est en place) pour les événements qui ne peuvent pas attendre que quelqu'un regarde le dashboard : activation du kill-switch, ordre rejeté par les garde-fous, perte journalière maximale atteinte, perte de connexion avec le courtier. Le dashboard n'est utile que si quelqu'un le regarde au bon moment — ces événements-là ne devraient jamais dépendre de ça.
+
+## 7. Dashboard de performance
+
+Une vue distincte du journal de trading brut, qui agrège dans le temps : taux de réussite des trades, ratio risque/récompense moyen réalisé, courbe de perte maximale (drawdown), et surtout une comparaison directe entre la performance en mode paper et en mode live une fois qu'il y a assez de données des deux côtés. C'est ce qui permet d'ajuster les seuils de risque avec des vraies données plutôt qu'en devinant.
+
+## 8. Recherche rapide / palette de commandes
+
+Avec 200+ symboles répartis sur 11 régions, naviguer par clic à travers des listes devient lent. Ajoute une palette de commandes (Ctrl/Cmd+K) avec recherche floue par symbole ou nom d'entreprise, qui permet de sauter directement à n'importe quel titre depuis n'importe quel écran. Ça correspond bien à l'identité "terminal de trading" déjà établie dans le système de design.
+
+## 9. Alertes de prix
+
+Distinct des signaux générés par le moteur de détection : permettre de fixer un prix cible sur n'importe quel symbole (au-dessus ou en-dessous d'un seuil) et recevoir une notification quand il est atteint. Une fonctionnalité classique et directement utile, indépendante de la logique de pattern.
+
+# AGRÉABLE À AVOIR — une fois le reste stable
+
+## 10. Raccourcis clavier
+
+Pour un usage rapide en pleine session : un raccourci pour ouvrir la recherche, un pour ouvrir le TradeModal sur le symbole actuellement sélectionné, des flèches pour naviguer la watchlist. Renforce l'identité terminal plutôt que dashboard générique.
+
+## 11. Listes personnalisées
+
+Au-delà des 11 catégories régionales fixes, permettre de créer ses propres regroupements — "positions actives", "à surveiller cette semaine" — pour organiser l'attention plutôt que de naviguer les mêmes 200+ symboles à chaque fois.
+
+## 12. Vue de comparaison
+
+Superposer 2-3 symboles sur un même graphique pour comparer la performance relative dans le temps — utile pour évaluer un titre contre son secteur ou un indice de référence.
+
+## 13. Export du journal de trading
+
+Export CSV ou PDF de l'historique de trades. Au-delà de la commodité, ça devient pratique pour le suivi fiscal des gains en capital une fois que de l'argent réel est en jeu.
+
+## 14. Calendrier économique et des résultats
+
+Dates de publication de résultats trimestriels pour les titres suivis, et grands événements macroéconomiques (décisions de taux, emploi). Donne un contexte pour comprendre pourquoi un titre est plus volatil qu'à l'habitude un jour donné.
+
+## 15. Fil d'actualités par symbole
+
+Manchettes récentes liées au titre actuellement affiché, à côté du graphique — évite de devoir chercher ailleurs pourquoi un titre bouge.
+
+## 16. Carte de corrélation sectorielle
+
+Lié directement à la limite d'exposition construite plus tôt dans le projet : une visualisation (heatmap) qui montre à quel point les positions actuelles ou la watchlist sont corrélées entre elles. Utile pour repérer une concentration de risque invisible quand plusieurs titres du même secteur bougent ensemble — exactement le scénario mentionné dans la discussion sur l'exposition au niveau du portefeuille.
+
+## 17. Application installable (PWA)
+
+Manifest et icônes pour rendre le site installable comme une app sur mobile, avec support des notifications push. Directement utile pour réagir à un signal depuis le téléphone plutôt que d'être devant l'ordinateur.
+
+## 18. Suivi d'erreurs centralisé
+
+Une error boundary React globale et un logging centralisé qui remonte les erreurs à un seul endroit consultable, plutôt qu'un écran blanc silencieux — exactement le genre de bug qui a lancé ce projet de réparation au tout début. Ça permet de détecter un problème avant qu'il ne soit découvert par accident en pleine utilisation.

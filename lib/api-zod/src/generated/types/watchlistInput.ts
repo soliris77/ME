@@ -9,5 +9,6 @@
 export interface WatchlistInput {
   symbol: string;
   name: string;
+  listName?: string;
   note?: string;
 }

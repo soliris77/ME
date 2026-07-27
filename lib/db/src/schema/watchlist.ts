@@ -7,6 +7,10 @@ export const watchlistTable = pgTable("watchlist", {
   symbol: text("symbol").notNull(),
   name: text("name").notNull(),
   note: text("note"),
+  // Regroupement libre en listes personnalisées (ex: "Techno", "Dividendes",
+  // "Spéculatif"). "Général" par défaut pour ne rien casser des entrées
+  // existantes créées avant l'ajout de cette fonctionnalité.
+  listName: text("list_name").default("Général").notNull(),
   addedAt: timestamp("added_at").defaultNow().notNull(),
 });
 

@@ -47,18 +47,38 @@ router.get("/quotes/:symbol/history/:range", async (req, res) => {
   }
   try {
     const interval = (INTERVAL_MAP[range] ?? "1d") as "1m" | "2m" | "5m" | "15m" | "30m" | "60m" | "90m" | "1h" | "1d" | "5d" | "1wk" | "1mo" | "3mo";
-    const result = await yahooFinance.chart(symbol, {
-      period1: getStartDate(range),
-      interval,
-    });
-    const points = (result.quotes ?? []).map((p: { date: string | number | Date; open?: number; high?: number; low?: number; close?: number; volume?: number }) => ({
-      date: new Date(p.date).toISOString(),
-      open: p.open ?? null,
-      high: p.high ?? null,
-      low: p.low ?? null,
-      close: p.close ?? 0,
-      volume: p.volume ?? null,
-    }));
+
+    const toPoints = (quotes: { date: string | number | Date; open?: number; high?: number; low?: number; close?: number; volume?: number }[]) =>
+      quotes.map((p) => ({
+        date: new Date(p.date).toISOString(),
+        open: p.open ?? null,
+        high: p.high ?? null,
+        low: p.low ?? null,
+        close: p.close ?? 0,
+        volume: p.volume ?? null,
+      }));
+
+    const result = await yahooFinance.chart(symbol, { period1: getStartDate(range), interval });
+    let points = toPoints(result.quotes ?? []);
+
+    // Fallback 1j — marchés fermés (week-end, jour férié) : Yahoo Finance renvoie
+    // 0 bougies intraday pour la journée en cours. On recule jusqu'à 7 jours pour
+    // capturer la dernière session disponible, puis on filtre pour ne garder que
+    // les bougies de ce dernier jour de trading.
+    if (range === "1d" && points.length === 0) {
+      const fallback = await yahooFinance.chart(symbol, {
+        period1: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        interval,
+      });
+      const all = toPoints(fallback.quotes ?? []);
+      if (all.length > 0) {
+        // Dernier jour calendaire ayant des données
+        const lastDay = all[all.length - 1].date.slice(0, 10); // "YYYY-MM-DD"
+        points = all.filter((p) => p.date.startsWith(lastDay));
+        req.log.info({ symbol, lastDay, count: points.length }, "history/1d fallback to last trading session");
+      }
+    }
+
     return res.json(points);
   } catch (err) {
     req.log.error({ err }, "Failed to fetch history");

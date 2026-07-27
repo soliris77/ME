@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import {
   ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, ReferenceLine, Area, AreaChart,
+  ResponsiveContainer, CartesianGrid, ReferenceLine, Area, AreaChart, Brush,
 } from "recharts";
 import {
   computeIndicators, analyzeTradingSignals, detectCandlePatterns, detectPriceGaps, detectSupportResistance,
@@ -13,6 +13,7 @@ import type {
 import {
   TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart,
   Radio, ArrowUpRight, ArrowDownRight, Gauge, GitCompareArrows, History, Sparkles, Target,
+  ShoppingCart, ArrowDownToLine,
 } from "lucide-react";
 import TradingJournal from "@/components/TradingJournal";
 
@@ -21,14 +22,15 @@ interface Props {
   currentPrice: number;
   currency: string;
   symbol?: string;
+  onTrade?: (side: "BUY" | "SELL", source: string) => void;
 }
 
 const SIGNAL_COLORS = {
-  "FORT ACHAT":  { bg: "bg-emerald-500/15", text: "text-emerald-500", border: "border-emerald-500/30" },
-  "ACHAT":       { bg: "bg-green-500/10",   text: "text-green-500",   border: "border-green-500/20" },
-  "NEUTRE":      { bg: "bg-muted",           text: "text-muted-foreground", border: "border-border" },
-  "VENTE":       { bg: "bg-orange-500/10",  text: "text-orange-500",  border: "border-orange-500/20" },
-  "FORTE VENTE": { bg: "bg-red-500/15",     text: "text-red-600",     border: "border-red-500/30" },
+  "FORT ACHAT":  { bg: "bg-[rgba(22,163,74,0.12)]",  text: "text-[#16A34A]",  border: "border-[rgba(22,163,74,0.30)]" },
+  "ACHAT":       { bg: "bg-[rgba(22,163,74,0.07)]",  text: "text-[#16A34A]",  border: "border-[rgba(22,163,74,0.18)]" },
+  "NEUTRE":      { bg: "bg-muted",                    text: "text-muted-foreground", border: "border-border" },
+  "VENTE":       { bg: "bg-[rgba(220,38,38,0.07)]",  text: "text-[#DC2626]",  border: "border-[rgba(220,38,38,0.18)]" },
+  "FORTE VENTE": { bg: "bg-[rgba(220,38,38,0.12)]",  text: "text-[#DC2626]",  border: "border-[rgba(220,38,38,0.30)]" },
 };
 
 type ActiveOverlay = "sma" | "ema" | "bb" | "sr" | "fib";
@@ -242,19 +244,20 @@ function CandlePatternBadge({
   return (
     <div
       id={`pattern-${p.idx}-${p.name}`}
-      className={`border rounded-xl p-3 cursor-pointer transition-all ${
-        highlighted ? "ring-2 ring-primary/60" : ""
-      } ${
-        isUp ? "bg-emerald-500/8 border-emerald-500/20 hover:border-emerald-500/40" :
-        isDown ? "bg-red-500/8 border-red-500/20 hover:border-red-500/40" :
-        "bg-muted/30 border-border hover:border-border/80"
-      }`}
+      className={`border rounded-xl p-3 cursor-pointer transition-all ${highlighted ? "ring-2 ring-primary/60" : ""} ${!isUp && !isDown ? "bg-muted/30 border-border hover:border-border/80" : ""}`}
+      style={isUp || isDown ? {
+        background: isUp ? "rgba(22,163,74,0.08)" : "rgba(220,38,38,0.08)",
+        borderColor: isUp ? "rgba(22,163,74,0.20)" : "rgba(220,38,38,0.20)",
+      } : undefined}
       onClick={() => setShowDetail((v) => !v)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`text-sm font-bold ${isUp ? "text-emerald-600 dark:text-emerald-400" : isDown ? "text-red-600 dark:text-red-400" : "text-foreground"}`}>
+            <span
+              className="text-sm font-bold"
+              style={{ color: isUp ? "#16A34A" : isDown ? "#DC2626" : undefined }}
+            >
               {isUp ? "🟢" : isDown ? "🔴" : "⚪"} {p.name}
             </span>
             <span className="text-xs text-muted-foreground italic">{p.nameEn}</span>
@@ -297,8 +300,8 @@ function CandlePatternBadge({
 }
 
 const ACTION_STYLE: Record<CandlePrediction["action"], { bg: string; text: string; border: string }> = {
-  Acheter: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/25" },
-  Vendre: { bg: "bg-red-500/10", text: "text-red-600 dark:text-red-400", border: "border-red-500/25" },
+  Acheter:  { bg: "bg-[rgba(22,163,74,0.10)]",  text: "text-[#16A34A]",  border: "border-[rgba(22,163,74,0.25)]" },
+  Vendre:   { bg: "bg-[rgba(220,38,38,0.10)]",  text: "text-[#DC2626]",  border: "border-[rgba(220,38,38,0.25)]" },
   Attendre: { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" },
 };
 
@@ -340,11 +343,14 @@ function PredictionCandleChart({
     [data, startIdx, predictedIdx]
   );
 
+  const [pcBrushStart, setPcBrushStart] = useState(() => 0);
+  const [pcBrushEnd, setPcBrushEnd] = useState(() => Math.max(0, chartData.length - 1));
+
   if (chartData.length === 0) return null;
 
   return (
     <div className="mb-3">
-      <div className="h-48 -mx-1">
+      <div className="h-64 -mx-1">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
@@ -365,6 +371,19 @@ function PredictionCandleChart({
                 />
               ))}
             </Bar>
+            <Brush
+              dataKey="date" height={24}
+              stroke="hsl(var(--border) / 0.5)" fill="hsl(var(--card))"
+              travellerWidth={7} tickFormatter={() => ""}
+              startIndex={pcBrushStart}
+              endIndex={Math.min(pcBrushEnd, chartData.length - 1)}
+              onChange={(r) => {
+                if (r && r.startIndex != null && r.endIndex != null) {
+                  setPcBrushStart(r.startIndex);
+                  setPcBrushEnd(r.endIndex);
+                }
+              }}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -377,10 +396,19 @@ function PredictionCandleChart({
   );
 }
 
-function PredictionRow({ pred, highlighted, onJumpToPattern }: { pred: CandlePrediction; highlighted?: boolean; onJumpToPattern?: () => void }) {
+function PredictionRow({
+  pred, highlighted, onJumpToPattern, onTrade,
+}: {
+  pred: CandlePrediction;
+  highlighted?: boolean;
+  onJumpToPattern?: () => void;
+  onTrade?: (side: "BUY" | "SELL", source: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const style = ACTION_STYLE[pred.action];
   const isUp = pred.signal === "haussier";
+  const tradeSide: "BUY" | "SELL" | null =
+    pred.action === "Acheter" ? "BUY" : pred.action === "Vendre" ? "SELL" : null;
 
   return (
     <div
@@ -402,9 +430,26 @@ function PredictionRow({ pred, highlighted, onJumpToPattern }: { pred: CandlePre
           Confiance : <strong className="text-foreground">{pred.confidence}%</strong> ({pred.confidenceLabel})
         </div>
         <div className="hidden sm:block text-xs text-muted-foreground truncate">Zone : {pred.targetZone}</div>
-        <span className={`text-xs font-bold px-2 py-1 rounded-md border ${style.bg} ${style.text} ${style.border} whitespace-nowrap`}>
-          {pred.action}
-        </span>
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <span className={`text-xs font-bold px-2 py-1 rounded-md border ${style.bg} ${style.text} ${style.border} whitespace-nowrap`}>
+            {pred.action}
+          </span>
+          {onTrade && tradeSide && (
+            <button
+              title={tradeSide === "BUY" ? "Acheter maintenant" : "Vendre maintenant"}
+              onClick={(e) => { e.stopPropagation(); onTrade(tradeSide, pred.patternName); }}
+              className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border transition-all whitespace-nowrap ${
+                tradeSide === "BUY"
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600"
+                  : "bg-red-600 hover:bg-red-500 text-white border-red-600"
+              }`}
+            >
+              {tradeSide === "BUY"
+                ? <><ShoppingCart className="w-3 h-3" /> Acheter</>
+                : <><ArrowDownToLine className="w-3 h-3" /> Vendre</>}
+            </button>
+          )}
+        </div>
       </div>
       {open && (
         <div className="px-3 py-2.5 border-t border-card-border bg-background/50 space-y-2">
@@ -547,11 +592,20 @@ function FibLevelRow({ level, currency, isKey }: { level: FibonacciResult["level
 
 function DivergenceBadge({ d }: { d: Divergence }) {
   const isBull = d.type === "haussière";
+  const C = isBull ? "#16A34A" : "#DC2626";
   return (
-    <div className={`border rounded-xl p-3 ${isBull ? "bg-emerald-500/8 border-emerald-500/20" : "bg-red-500/8 border-red-500/20"}`}>
+    <div
+      className="border rounded-xl p-3"
+      style={{
+        background: isBull ? "rgba(22,163,74,0.08)" : "rgba(220,38,38,0.08)",
+        borderColor: isBull ? "rgba(22,163,74,0.20)" : "rgba(220,38,38,0.20)",
+      }}
+    >
       <div className="flex items-center gap-1.5 flex-wrap mb-1">
-        {isBull ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> : <TrendingDown className="w-3.5 h-3.5 text-red-500" />}
-        <span className={`text-sm font-bold ${isBull ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+        {isBull
+          ? <TrendingUp   className="w-3.5 h-3.5" style={{ color: C }} />
+          : <TrendingDown className="w-3.5 h-3.5" style={{ color: C }} />}
+        <span className="text-sm font-bold" style={{ color: C }}>
           Divergence {d.type} ({d.indicator})
         </span>
         <span className="text-xs text-muted-foreground ml-auto">{d.date}</span>
@@ -561,10 +615,154 @@ function DivergenceBadge({ d }: { d: Divergence }) {
   );
 }
 
-export default function TechnicalAnalysis({ history, currentPrice, currency, symbol }: Props) {
+/* ─── PatternRadar — visualisation balayage radar ────────────────────────────
+ * Remplace la grille de CandlePatternBadge par un cercle avec ligne de balayage
+ * continu. Les patterns sont des points positionnés selon :
+ *   - angle   : répartition uniforme des N patterns détectés sur 360°
+ *   - rayon   : force du signal (winRate normalisé → 28–90% du rayon max)
+ *   - couleur : haussier=#16A34A, baissier=#DC2626, neutre=#8B92A5
+ * Cliquable → affiche le CandlePatternBadge du pattern sélectionné.
+ * prefers-reduced-motion → balayage désactivé, dots visibles statiquement.
+ * ─────────────────────────────────────────────────────────────────────────── */
+function PatternRadar({
+  patterns,
+  backtestStats,
+}: {
+  patterns: CandlePattern[];
+  backtestStats: Record<string, PatternBacktestStat>;
+}) {
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  const SIZE   = 220;
+  const CX     = SIZE / 2;
+  const CY     = SIZE / 2;
+  const MAX_R  = 84;
+  const RINGS  = [0.35, 0.65, 1.0];
+
+  // Couleurs de la charte
+  const GRID_C  = "#232838";
+  const ACCENT  = "#D4A72C";
+  const GAIN    = "#16A34A";
+  const LOSS    = "#DC2626";
+  const MUTED_C = "#8B92A5";
+
+  // Sector de traîne (30° CCW depuis la ligne de balayage qui pointe vers 12h)
+  // 12h = 270° SVG. Traîne de 240° → 270° en sens horaire.
+  const tRad = (240 * Math.PI) / 180;
+  const tX = CX + MAX_R * Math.cos(tRad);
+  const tY = CY + MAX_R * Math.sin(tRad);
+  // Arc sens horaire (sweep-flag=1) de (tX,tY) à (CX, CY-MAX_R)
+  const trailPath = `M ${CX} ${CY} L ${tX.toFixed(2)} ${tY.toFixed(2)} A ${MAX_R} ${MAX_R} 0 0 1 ${CX} ${(CY - MAX_R).toFixed(2)} Z`;
+
+  const visible = patterns.slice(0, 12);
+  const n = visible.length;
+
+  const dots = visible.map((p, i) => {
+    const angleDeg = n > 0 ? (i / n) * 360 - 90 : 0;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const stat = backtestStats[p.name];
+    // winRate est un pourcentage (ex. 65), on normalise vers [0,1]
+    const strength = stat ? Math.max(0, Math.min(1, stat.winRate / 100)) : 0.5;
+    const r = (0.28 + strength * 0.62) * MAX_R;
+    const dotColor =
+      p.signal === "haussier" ? GAIN :
+      p.signal === "baissier" ? LOSS : MUTED_C;
+    return {
+      x: CX + r * Math.cos(angleRad),
+      y: CY + r * Math.sin(angleRad),
+      p, dotColor,
+      id: `${p.idx}-${p.name}-${i}`,
+    };
+  });
+
+  const selectedDot = selectedIdx !== null ? (dots[selectedIdx] ?? null) : null;
+
+  const reduced =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-center">
+        <svg
+          width={SIZE}
+          height={SIZE}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          role="img"
+          aria-label="Radar de patterns en chandelier"
+          style={{ display: "block", overflow: "visible" }}
+        >
+          {/* Anneaux de grille */}
+          {RINGS.map((s, i) => (
+            <circle key={i} cx={CX} cy={CY} r={MAX_R * s}
+              fill="none" stroke={GRID_C} strokeWidth={1} />
+          ))}
+          {/* Axes */}
+          <line x1={CX} y1={CY - MAX_R} x2={CX} y2={CY + MAX_R} stroke={GRID_C} strokeWidth={1} />
+          <line x1={CX - MAX_R} y1={CY} x2={CX + MAX_R} y2={CY} stroke={GRID_C} strokeWidth={1} />
+
+          {/* Ligne de balayage + traîne */}
+          {!reduced && (
+            <g style={{ transformOrigin: `${CX}px ${CY}px`, animation: "radarSweep 5s linear infinite" }}>
+              <path d={trailPath} fill={ACCENT} fillOpacity={0.07} stroke="none" />
+              <line x1={CX} y1={CY} x2={CX} y2={CY - MAX_R}
+                stroke={ACCENT} strokeWidth={1.5} strokeLinecap="round" opacity={0.9} />
+            </g>
+          )}
+
+          {/* Point central */}
+          <circle cx={CX} cy={CY} r={2.5} fill={ACCENT} />
+
+          {/* Points de patterns */}
+          {dots.map((d, i) => {
+            const isSel = selectedIdx === i;
+            return (
+              <g
+                key={d.id}
+                role="button"
+                tabIndex={0}
+                aria-label={d.p.name}
+                onClick={() => setSelectedIdx(isSel ? null : i)}
+                onKeyDown={(e) => e.key === "Enter" && setSelectedIdx(isSel ? null : i)}
+                style={{
+                  cursor: "pointer",
+                  animation: reduced ? undefined : `radarFadeIn 0.35s ${i * 0.07}s both`,
+                }}
+              >
+                {isSel && (
+                  <circle cx={d.x} cy={d.y} r={11}
+                    fill="none" stroke={d.dotColor} strokeWidth={1} opacity={0.35} />
+                )}
+                <circle cx={d.x} cy={d.y} r={isSel ? 6 : 4.5}
+                  fill={d.dotColor} opacity={isSel ? 1 : 0.85} />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Détail du pattern sélectionné */}
+      {selectedDot && (
+        <div className="animate-fadeUp">
+          <CandlePatternBadge p={selectedDot.p} backtest={backtestStats[selectedDot.p.name]} />
+        </div>
+      )}
+
+      {patterns.length === 0 && (
+        <p className="text-xs text-center py-3" style={{ color: "#8B92A5" }}>
+          Aucun pattern de chandelier reconnu sur la bougie la plus récente.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function TechnicalAnalysis({ history, currentPrice, currency, symbol, onTrade }: Props) {
   const [overlays, setOverlays] = useState<Set<ActiveOverlay>>(new Set(["sma"]));
   const [showDetails, setShowDetails] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [taZoomStart, setTaZoomStart] = useState(0);
+  const [taZoomEnd, setTaZoomEnd] = useState(0);
 
   const data: IndicatorPoint[] = useMemo(() => computeIndicators(history), [history]);
   const analysis = useMemo(() => analyzeTradingSignals(data, currentPrice), [data, currentPrice]);
@@ -614,6 +812,14 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
   useEffect(() => {
     setLastUpdated(new Date());
   }, [history]);
+
+  // ── Zoom partagé RSI / MACD / Prix — fenêtre initialisée à 50 % des données
+  useEffect(() => {
+    const n = data.length;
+    if (n === 0) return;
+    setTaZoomStart(Math.max(0, n - Math.round(n * 0.5)));
+    setTaZoomEnd(n - 1);
+  }, [data.length]);
 
   const toggleOverlay = (o: ActiveOverlay) => {
     setOverlays((prev) => {
@@ -679,26 +885,20 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
         </button>
       </div>
 
-      {/* Radar en direct — patterns détectés sur la dernière bougie */}
+      {/* Radar de patterns — visualisation balayage continu */}
       <div className="bg-card border border-card-border rounded-xl px-4 py-3">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-3">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: "#D4A72C" }} />
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#D4A72C" }} />
           </span>
-          <Radio className="w-3.5 h-3.5 text-primary" />
-          <span className="text-sm font-semibold">Radar en direct — dernière bougie</span>
-          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Mis à jour à chaque nouvelle donnée</span>
+          <Radio className="w-3.5 h-3.5" style={{ color: "#D4A72C" }} />
+          <span className="text-sm font-semibold">Radar de patterns — dernière bougie</span>
+          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">
+            Mis à jour à chaque nouvelle donnée
+          </span>
         </div>
-        {livePatterns.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Aucun pattern de chandelier reconnu sur la bougie la plus récente en ce moment.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {livePatterns.map((p, i) => (
-              <CandlePatternBadge key={`live-${p.idx}-${p.name}-${i}`} p={p} backtest={backtestStats[p.name]} />
-            ))}
-          </div>
-        )}
+        <PatternRadar patterns={livePatterns} backtestStats={backtestStats} />
       </div>
 
       {/* Indicateur "en direct" — confirme visuellement que tout se rafraîchit tout seul toutes les 10s */}
@@ -728,6 +928,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
                 pred={pred}
                 highlighted={highlightKey === `${pred.patternIdx}-${pred.patternName}`}
                 onJumpToPattern={() => jumpTo(`pattern-${pred.patternIdx}-${pred.patternName}`, `${pred.patternIdx}-${pred.patternName}`)}
+                onTrade={onTrade}
               />
             ))}
           </div>
@@ -753,11 +954,33 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             </div>
             <p className="text-sm text-foreground/80 mt-1 max-w-lg">{analysis.recommendation}</p>
           </div>
-          <div className="shrink-0 text-right">
-            <div className="text-xs text-muted-foreground mb-1">Score de conviction</div>
-            <div className={`text-2xl font-bold font-mono ${colors.text}`}>
-              {analysis.score > 0 ? "+" : ""}{analysis.score}
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground mb-1">Score de conviction</div>
+              <div className={`text-2xl font-bold font-mono ${colors.text}`}>
+                {analysis.score > 0 ? "+" : ""}{analysis.score}
+              </div>
             </div>
+            {onTrade && analysis.overall !== "NEUTRE" && (
+              <div className="flex gap-1.5">
+                {(analysis.overall === "FORT ACHAT" || analysis.overall === "ACHAT") && (
+                  <button
+                    onClick={() => onTrade("BUY", analysis.overall)}
+                    className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 transition-colors whitespace-nowrap"
+                  >
+                    <ShoppingCart className="w-3 h-3" /> Acheter
+                  </button>
+                )}
+                {(analysis.overall === "FORTE VENTE" || analysis.overall === "VENTE") && (
+                  <button
+                    onClick={() => onTrade("SELL", analysis.overall)}
+                    className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border bg-red-600 hover:bg-red-500 text-white border-red-600 transition-colors whitespace-nowrap"
+                  >
+                    <ArrowDownToLine className="w-3 h-3" /> Vendre
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -843,7 +1066,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={260}>
           <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={border} vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
@@ -897,8 +1120,21 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
                 <Line dataKey="ema26" stroke="#f87171" strokeWidth={1.5} strokeDasharray="5 2" dot={false} name="EMA26" connectNulls />
               </>
             )}
+            <Brush
+              dataKey="date" height={28}
+              stroke="hsl(var(--border) / 0.5)" fill="hsl(var(--card))"
+              travellerWidth={8} tickFormatter={() => ""}
+              startIndex={taZoomStart} endIndex={taZoomEnd}
+              onChange={(r) => {
+                if (r && r.startIndex != null && r.endIndex != null) {
+                  setTaZoomStart(r.startIndex);
+                  setTaZoomEnd(r.endIndex);
+                }
+              }}
+            />
           </ComposedChart>
         </ResponsiveContainer>
+        <p className="text-center text-[10px] text-muted-foreground/40 mt-1 tracking-wider">Glissez les ancrages · synchronisé avec RSI et MACD</p>
 
         <div className="flex flex-wrap gap-3 mt-2 px-1">
           <LegendDot color="hsl(var(--primary))" label="Prix" />
@@ -936,7 +1172,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
           </div>
         </div>
         <p className="text-xs text-muted-foreground mb-3">En dessous de 30 : le prix a trop baissé, rebond possible. Au-dessus de 70 : le prix a trop monté, recul possible.</p>
-        <ResponsiveContainer width="100%" height={100}>
+        <ResponsiveContainer width="100%" height={135}>
           <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 4 }}>
             <defs>
               <linearGradient id="rsiGrad" x1="0" y1="0" x2="0" y2="1">
@@ -952,6 +1188,18 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="4 2" strokeWidth={1} label={{ value: "Survente", position: "right", fontSize: 9, fill: "#22c55e" }} />
             <ReferenceLine y={50} stroke={border} strokeDasharray="2 2" strokeWidth={1} />
             <Area dataKey="rsi" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="url(#rsiGrad)" dot={false} name="RSI" connectNulls />
+            <Brush
+              dataKey="date" height={26}
+              stroke="hsl(var(--border) / 0.5)" fill="hsl(var(--card))"
+              travellerWidth={8} tickFormatter={() => ""}
+              startIndex={taZoomStart} endIndex={taZoomEnd}
+              onChange={(r) => {
+                if (r && r.startIndex != null && r.endIndex != null) {
+                  setTaZoomStart(r.startIndex);
+                  setTaZoomEnd(r.endIndex);
+                }
+              }}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -967,7 +1215,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
           </div>
         </div>
         <p className="text-xs text-muted-foreground mb-3">Ligne bleue croise vers le haut la rouge → signal d'achat. Vers le bas → signal de vente. L'histogramme montre la force du momentum.</p>
-        <ResponsiveContainer width="100%" height={110}>
+        <ResponsiveContainer width="100%" height={145}>
           <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={border} vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
@@ -977,6 +1225,18 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             <Bar dataKey="macdHist" name="Histogramme" fill="hsl(var(--muted-foreground) / 0.4)" radius={[1, 1, 0, 0]} />
             <Line dataKey="macdLine" stroke="#60a5fa" strokeWidth={1.5} dot={false} name="MACD" connectNulls />
             <Line dataKey="macdSignal" stroke="#f87171" strokeWidth={1.5} strokeDasharray="5 2" dot={false} name="Signal" connectNulls />
+            <Brush
+              dataKey="date" height={26}
+              stroke="hsl(var(--border) / 0.5)" fill="hsl(var(--card))"
+              travellerWidth={8} tickFormatter={() => ""}
+              startIndex={taZoomStart} endIndex={taZoomEnd}
+              onChange={(r) => {
+                if (r && r.startIndex != null && r.endIndex != null) {
+                  setTaZoomStart(r.startIndex);
+                  setTaZoomEnd(r.endIndex);
+                }
+              }}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

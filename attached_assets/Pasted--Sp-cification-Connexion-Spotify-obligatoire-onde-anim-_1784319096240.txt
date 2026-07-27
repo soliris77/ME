@@ -1,0 +1,162 @@
+# Spécification — Connexion Spotify obligatoire + onde animée sur Soliris Market
+
+## ⚠️ Limite technique à connaître avant de commencer
+
+Spotify protège ses flux audio par DRM : le Web Playback SDK **n'expose pas** les données audio brutes (pas d'accès à un `AnalyserNode` Web Audio sur le flux Spotify). Il est donc **impossible** de créer une onde qui réagit vraiment aux fréquences/au volume réel de la chanson en cours. Spotify a aussi retiré en novembre 2024 ses endpoints "Audio Features"/"Audio Analysis" qui donnaient le tempo — donc même une synchronisation au rythme réel du morceau n'est plus possible via l'API officielle.
+
+**Ce qui est réaliste :** une onde animée stylisée (boucle CSS/Canvas) qui pulse pendant que la musique joue et se fige en pause — une animation d'ambiance, pas une vraie analyse audio. C'est ce que fait la majorité des sites avec lecteur Spotify intégré aujourd'hui, pour cette même raison technique.
+
+---
+
+## 1. Objectif
+- Forcer la connexion Spotify (compte Premium requis) pour activer la musique de fond.
+- Afficher une onde animée qui pulse quand la musique joue, s'arrête en pause.
+
+## 2. Connexion Spotify obligatoire (OAuth + Web Playback SDK)
+
+### 2.1 Enregistrement de l'app côté Spotify
+- Créer une app sur le Spotify for Developers Dashboard, récupérer `Client ID` et `Client Secret`.
+- Configurer l'URL de redirection OAuth : `https://[url-du-site]/api/integrations/spotify/callback`.
+- Scopes nécessaires : `streaming`, `user-read-email`, `user-read-private`, `user-modify-playback-state`, `user-read-playback-state`.
+
+### 2.2 Flux OAuth (Authorization Code + PKCE, recommandé côté navigateur)
+- Endpoint `GET /api/integrations/spotify/login` → redirige vers `https://accounts.spotify.com/authorize` avec les scopes ci-dessus.
+- Endpoint `GET /api/integrations/spotify/callback` → échange le code contre `access_token` + `refresh_token`.
+- Stocker `refresh_token` **chiffré** en base (AES-256-GCM, même pattern que pour MetaTrader), lié à l'utilisateur Soliris Market.
+- `access_token` renouvelé côté serveur via le `refresh_token` quand il expire (~1h), jamais stocké en clair côté client au-delà de la session active.
+
+### 2.3 Message clair à l'utilisateur avant connexion
+Afficher avant le bouton de connexion :
+
+> "La musique de fond nécessite un compte Spotify Premium connecté. Sans Premium, la lecture complète ne sera pas disponible."
+
+### 2.4 Schéma Drizzle
+```typescript
+// lib/db/schema/spotify.ts
+import { pgTable, serial, integer, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { users } from "./users";
+
+export const spotifyConnections = pgTable("spotify_connections", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  spotifyUserId: text("spotify_user_id").notNull(),
+  encryptedRefreshToken: text("encrypted_refresh_token").notNull(),
+  isPremium: boolean("is_premium").default(false),
+  connectedAt: timestamp("connected_at").defaultNow(),
+});
+```
+`cd lib/db && pnpm push` après ajout.
+
+## 3. Lecteur Web Playback SDK
+
+`wealthsimple-tracker/src/components/SpotifyPlayer.tsx` :
+
+```typescript
+import { useEffect, useState, useRef } from "react";
+import { WaveformVisual } from "./WaveformVisual";
+
+export function SpotifyPlayer({ accessToken }: { accessToken: string }) {
+  const [player, setPlayer] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    (window as any).onSpotifyWebPlaybackSDKReady = () => {
+      const p = new (window as any).Spotify.Player({
+        name: "Soliris Market Player",
+        getOAuthToken: (cb: (t: string) => void) => cb(accessToken),
+        volume: 0.4,
+      });
+
+      p.addListener("player_state_changed", (state: any) => {
+        if (!state) return;
+        setIsPlaying(!state.paused);
+      });
+
+      p.connect();
+      setPlayer(p);
+    };
+
+    return () => { document.body.removeChild(script); };
+  }, [accessToken]);
+
+  return (
+    <div>
+      <button onClick={() => player?.togglePlay()}>
+        {isPlaying ? "⏸ Pause" : "▶ Jouer"}
+      </button>
+      <WaveformVisual active={isPlaying} />
+    </div>
+  );
+}
+```
+
+## 4. Composant d'onde animée (stylisée, pas audio-réactive)
+
+`wealthsimple-tracker/src/components/WaveformVisual.tsx` :
+
+```typescript
+import { useEffect, useRef } from "react";
+
+export function WaveformVisual({ active }: { active: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationId: number;
+    const barCount = 24;
+
+    function draw() {
+      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+      const barWidth = canvas!.width / barCount;
+
+      for (let i = 0; i < barCount; i++) {
+        const t = frameRef.current / 15 + i * 0.5;
+        const height = active
+          ? (Math.sin(t) * 0.5 + 0.5) * canvas!.height * 0.8 + 4
+          : 4; // barres plates quand en pause
+        ctx!.fillStyle = "var(--soliris-accent, #4f9eff)";
+        ctx!.fillRect(i * barWidth + 1, canvas!.height - height, barWidth - 2, height);
+      }
+
+      frameRef.current += 1;
+      animationId = requestAnimationFrame(draw);
+    }
+
+    draw();
+    return () => cancelAnimationFrame(animationId);
+  }, [active]);
+
+  return <canvas ref={canvasRef} width={240} height={40} />;
+}
+```
+
+Chaque barre oscille avec un déphasage différent (`i * 0.5`) pour donner une impression organique de mouvement, sans jamais représenter la vraie fréquence de la chanson (impossible techniquement, voir section 0).
+
+## 5. Endpoints à créer
+
+```
+GET    /api/integrations/spotify/login       // démarre OAuth
+GET    /api/integrations/spotify/callback    // échange le code, stocke le refresh_token chiffré
+GET    /api/integrations/spotify/token       // renvoie un access_token valide (renouvelé si besoin) au frontend
+DELETE /api/integrations/spotify/disconnect  // supprime la connexion
+```
+
+## 6. Étapes pour l'IA Replit
+1. Créer l'app Spotify Developer, configurer les secrets (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` dans Replit).
+2. Ajouter le schéma Drizzle (section 2.4), pousser en base.
+3. Implémenter le flux OAuth complet (section 2.2/2.3).
+4. Implémenter `SpotifyPlayer.tsx` (section 3) et `WaveformVisual.tsx` (section 4).
+5. Intégrer dans le layout principal, avec le message clair sur l'exigence Premium avant connexion.
+6. Tester la connexion, la lecture, et l'onde animée sur play/pause.
+
+Livraison complète en une session, conformément aux règles habituelles du projet.

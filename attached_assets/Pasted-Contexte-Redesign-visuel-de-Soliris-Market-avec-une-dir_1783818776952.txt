@@ -1,0 +1,29 @@
+Contexte : Redesign visuel de Soliris Market avec une direction spécifique (pas un thème générique). Applique ce système de design de façon cohérente à travers l'app.
+
+1. Palette (variables CSS globales)
+
+--bg-base: #0B0E14        /* charcoal profond à teinte bleue, pas noir pur */
+--bg-surface: #131722      /* cartes, panneaux */
+--text-primary: #E8E9ED
+--text-muted: #8B92A5
+--gain: #16A34A            /* réservé EXCLUSIVEMENT au gain/achat — jamais utilisé ailleurs */
+--loss: #DC2626            /* réservé EXCLUSIVEMENT à la perte/vente — jamais utilisé ailleurs */
+--accent: #D4A72C          /* or/ambre — actions interactives, liens, focus states, cohérent avec le bandeau paper existant */
+
+Règle stricte : aucun autre élément décoratif de l'UI ne doit utiliser une teinte proche de --gain/--loss, même pour des éléments non liés au trading — ça évite la confusion visuelle avec un vrai signal financier.
+
+2. Typographie
+
+- Tous les nombres (prix, quantités, %, soldes) : IBM Plex Mono (Google Fonts), avec font-variant-numeric: tabular-nums — colonnes alignées, lisible comme un vrai terminal de trading
+- Titres/labels/UI : Instrument Sans (Google Fonts) — pas Inter, pas la police système par défaut
+- Échelle de taille cohérente, pas plus de 4-5 paliers
+
+3. Signature — le radar de patterns
+
+Remplace la carte/liste actuelle du "radar de patterns en chandelier" par une vraie visualisation façon balayage radar : un cercle central avec une ligne qui balaie en continu (rotation lente, ~4-6s par tour). Les patterns détectés apparaissent comme des points positionnés selon force/récence du signal, avec un court fade-in à l'apparition. Doit rester fonctionnel (cliquable pour voir le détail du pattern), pas juste décoratif.
+
+4. Discipline
+
+Un seul accent (--accent) pour tout ce qui est interactif/marque — pas de dégradés multiples, pas de couleurs additionnelles improvisées ailleurs dans l'app. Vert/rouge ne servent qu'au sens financier (gain/perte, achat/vente), jamais comme simple habillage de carte ou de bouton neutre.
+
+Applique d'abord au TradeModal et au dashboard principal, montre un aperçu avant de propager partout ailleurs.

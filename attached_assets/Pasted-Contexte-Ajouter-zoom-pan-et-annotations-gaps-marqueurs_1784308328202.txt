@@ -1,0 +1,19 @@
+Contexte : Ajouter zoom/pan et annotations (gaps, marqueurs de patterns, notes) au graphique principal, en gardant recharts. Fais TIER 1 en premier, montre le résultat, avant de passer à TIER 2 puis TIER 3 — chaque tier doit fonctionner correctement avant d'ajouter le suivant.
+
+## TIER 1 — Zoom / pan
+
+1. Commence par le composant Brush de recharts sous le graphique principal — c'est natif à recharts, rapide à implémenter, et donne déjà un vrai zoom par sélection de plage temporelle.
+
+2. Seulement si ça ne suffit pas pour l'usage voulu : ajoute un zoom à la molette et un pan au glisser directement sur le graphique. Ça demande de garder un état "domaine visible" (index ou timestamps de début/fin) séparé des données complètes, de trancher les données affichées selon ce domaine à chaque rendu, et de brancher onWheel (ajuste le domaine centré sur la position du curseur) et les événements pointer (mousedown/move/up) pour le glissé. Empêche de zoomer en dessous d'un nombre minimum de bougies visibles, et d'aller au-delà des données disponibles dans un sens ou l'autre.
+
+## TIER 2 — Annotations automatiques (utilise ce qui existe déjà)
+
+3. Gaps de prix : calcule automatiquement, pour chaque paire de bougies consécutives, l'écart entre la clôture de l'une et l'ouverture de la suivante. Si l'écart dépasse un seuil configurable (ex: 0,5%), marque-le visuellement entre les deux bougies (bande ombragée légère ou petite icône). Ce concept a déjà sa page dans le glossaire ("Gap de prix") — un lien vers cette page au clic sur le marqueur serait cohérent.
+
+4. Marqueurs de patterns détectés : réutilise le moteur de détection existant (patternDetect.ts, déjà utilisé pour le radar de patterns) pour placer un petit marqueur cliquable directement sur la bougie où un pattern a été détecté, dans la plage actuellement affichée. Le clic affiche le nom du pattern et peut lier vers sa page dans Apprendre à trader (cohérent avec l'intégration ajoutée récemment).
+
+## TIER 3 — Annotations manuelles
+
+5. Permet de cliquer sur une bougie pour ajouter une note personnelle courte (ex: "surveiller ce niveau"). Stocke ça dans une nouvelle table légère (symbole, timestamp ou index de la bougie, texte de la note, date de création) plutôt qu'en local — pour que les notes survivent d'un appareil à l'autre. Affiche comme un petit marqueur cliquable qui montre la note au survol/clic.
+
+Montre le résultat de chaque tier avant de passer au suivant.

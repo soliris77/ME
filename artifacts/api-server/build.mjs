@@ -47,6 +47,10 @@ async function buildAll() {
       "isolated-vm",
       "lightningcss",
       "pg-native",
+      // Reads table.sql via a path relative to its own package dir at
+      // runtime — bundling breaks that lookup because the banner below
+      // rewrites __dirname to the bundle's output directory.
+      "connect-pg-simple",
       "oracledb",
       "mongodb-client-encryption",
       "nodemailer",

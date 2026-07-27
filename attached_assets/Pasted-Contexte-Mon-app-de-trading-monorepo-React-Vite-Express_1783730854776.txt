@@ -1,0 +1,26 @@
+Contexte : Mon app de trading (monorepo React/Vite + Express, Soliris Market) va bientôt exécuter des ordres automatisés basés sur des signaux détectés par mon moteur d'analyse technique. Avant de passer en production, ajoute les fonctionnalités suivantes pour rendre le système fiable et sécuritaire :
+1. Fiabilité
+
+Protection contre la double-exécution (idempotency) : chaque signal généré doit avoir un identifiant unique. Avant de soumettre un ordre, vérifie qu'un ordre avec ce même identifiant n'a pas déjà été soumis dans les dernières 24h (garde ça dans une table/fichier de suivi). Ça évite qu'un retry réseau ou un bug déclenche deux fois le même ordre.
+Flag explicite mode paper/live : une variable d'environnement claire (TRADING_MODE=paper ou TRADING_MODE=live) qui contrôle si les ordres sont réellement soumis ou seulement simulés/loggés. Affiche ce mode bien visible dans le dashboard (bandeau de couleur) pour qu'on ne puisse jamais confondre les deux par erreur.
+Health-check / heartbeat : un endpoint ou un job qui vérifie toutes les X minutes que le service de trading est toujours actif et connecté pendant les heures de marché, et qui envoie une alerte si la connexion est perdue ou si le service a planté.
+
+2. Qualité des données
+
+Vérification de fraîcheur des données : avant d'agir sur un signal, vérifie que les données de yahoo-finance2 utilisées datent de moins de X secondes/minutes. Si les données sont trop vieilles ou incohérentes (gap suspect), ignore le signal et log un avertissement au lieu d'agir dessus.
+Réconciliation périodique des positions : une tâche qui compare régulièrement ce que le système croit détenir (basé sur son historique d'ordres) avec les positions réelles retournées par Wealthsimple/SnapTrade, et qui signale toute divergence.
+
+3. Gestion du risque au niveau du portefeuille
+
+Exposition globale, pas juste par trade : en plus de la limite de taille par position déjà en place, ajoute une limite d'exposition totale (ex : pas plus de 20% du portefeuille dans des positions corrélées ou dans le même secteur en même temps).
+Gestion des fills partiels et du slippage : pour les ordres au marché, prévois le cas où l'ordre n'est que partiellement rempli, et logue l'écart entre le prix attendu et le prix réellement obtenu.
+
+4. Visibilité / observabilité
+
+Log des signaux rejetés : en plus des ordres exécutés, logue aussi les signaux rejetés par les garde-fous de risque (et pourquoi), dans une table/fichier séparé — utile pour ajuster les seuils avec des vraies données plutôt qu'en devinant.
+Notification en temps réel de chaque action : même en mode automatisé, envoie une notification (dashboard, push, ou email) à chaque ordre soumis, rejeté, ou erreur rencontrée.
+
+5. Avant le passage en direct
+
+Parité backtesting/live : vérifie que le module qui génère les signaux en temps réel utilise exactement la même logique que le module de backtesting existant — pas une version dupliquée qui pourrait diverger avec le temps.
+Awareness des heures de marché : le système doit savoir si le marché (TSX, NASDAQ, etc. selon le titre) est actuellement ouvert avant de tenter de soumettre un ordre, et ne rien faire hors session.

@@ -1,0 +1,23 @@
+Contexte : Actuellement, les notifications sont email uniquement (via Resend), avec une seule destination codée en dur (ALERT_NOTIFY_EMAIL) pour les événements critiques, et un champ email par alerte pour les alertes de prix/pattern. Aucune interface utilisateur pour gérer ça. Ajoute le SMS et une vraie interface de préférences.
+
+1. SMS via Twilio
+
+Ajoute Twilio comme second canal, en suivant le même pattern que emailClient.ts (best-effort : un échec d'envoi SMS ne doit jamais faire échouer l'action critique qu'il documente, même principe déjà en place pour l'email). Valide le format du numéro en E.164 avant l'envoi.
+
+2. Table de préférences de notification
+
+Remplace ALERT_NOTIFY_EMAIL par une vraie table (ou étends la table settings existante) qui stocke : email, numéro de téléphone, et pour chaque type d'événement (kill-switch, gros ordre, changement de seuils, alerte de prix, alerte de pattern) quel(s) canal(aux) l'utilisent. Le SMS coûte par message contrairement à l'email — ne l'active pas par défaut sur tout, laisse ça configurable événement par événement plutôt que tout-ou-rien.
+
+3. Étends le schéma des alertes
+
+Ajoute un champ notifyPhone sur alertsTable (lib/db/src/schema/alerts.ts), en miroir de notifyPhone existant — même logique de fallback vers les préférences globales si vide.
+
+4. Interface dans Settings.tsx
+
+Ajoute une section "Notifications" : champs email et téléphone, avec validation avant sauvegarde, et pour chaque type d'événement un choix simple (email / SMS / les deux / aucun). Affiche clairement que le SMS a un coût si tu affiches un avertissement à l'utilisateur — même si ici l'utilisateur c'est toi, ça reste une bonne pratique si le produit est un jour montré à quelqu'un d'autre.
+
+5. Câblage
+
+Mets à jour notifications.ts et alertWorker.ts pour lire les préférences de la nouvelle table au lieu de la variable d'environnement, et envoyer sur le ou les canaux configurés pour chaque type d'événement.
+
+Montre le code une fois fait.

@@ -5,11 +5,19 @@
  * Wealthsimple Market Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { AlertInputAlertType } from './alertInputAlertType';
 import type { AlertInputCondition } from './alertInputCondition';
+import type { AlertInputMinStrength } from './alertInputMinStrength';
+import type { AlertInputPatternSignal } from './alertInputPatternSignal';
 
 export interface AlertInput {
   symbol: string;
   name?: string;
-  condition: AlertInputCondition;
-  targetPrice: number;
+  alertType?: AlertInputAlertType;
+  condition?: AlertInputCondition;
+  targetPrice?: number;
+  patternSignal?: AlertInputPatternSignal;
+  minStrength?: AlertInputMinStrength;
+  notifyEmail?: string;
+  notifyPhone?: string;
 }

@@ -12,5 +12,6 @@ export interface WatchlistItem {
   name: string;
   /** @nullable */
   note?: string | null;
+  listName: string;
   addedAt: string;
 }

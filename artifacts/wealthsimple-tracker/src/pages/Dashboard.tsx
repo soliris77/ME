@@ -1,10 +1,22 @@
-import { useGetMarketOverview } from "@workspace/api-client-react";
+import {
+  useGetMarketOverview,
+  useAddToWatchlist,
+  getGetWatchlistQueryKey,
+} from "@workspace/api-client-react";
 import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link } from "wouter";
-import { ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, Globe, Bitcoin, BarChart3, AlertTriangle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown,
+  Globe, Bitcoin, BarChart3, AlertTriangle, Bookmark,
+} from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import LiveTicker from "@/components/LiveTicker";
+import TradeModal from "@/components/TradeModal";
 import type { Quote } from "@workspace/api-client-react";
+
+// ─── Market overview symbol groups ───────────────────────────────────────────
 
 const CANADA_NORTH_AM = ["^GSPC", "^IXIC", "^DJI", "^RUT"];
 const EUROPE_ASIA = ["^FTSE", "^GDAXI", "^FCHI", "^STOXX50E", "^N225", "^HSI"];
@@ -19,24 +31,111 @@ const MARKET_NAMES: Record<string, string> = {
   "GC=F": "Or", "CL=F": "Pétrole WTI", "SI=F": "Argent",
 };
 
+// ─── All 11 stock categories — mirrors the API's STOCK_CATEGORIES exactly ────
+
 const STOCK_CATS: { label: string; symbols: string[] }[] = [
   {
     label: "Tech US",
-    symbols: ["AAPL", "MSFT", "NVDA", "AMD", "META", "GOOG", "AMZN", "TSLA", "INTC", "NFLX", "ORCL", "CRM", "ADBE", "PYPL", "UBER", "PLTR", "SNOW", "SQ", "COIN", "SHOP"],
+    symbols: [
+      "AAPL", "MSFT", "NVDA", "AMD", "META", "GOOG", "AMZN", "TSLA",
+      "INTC", "NFLX", "ORCL", "CRM", "ADBE", "PYPL", "UBER", "PLTR",
+      "SNOW", "SQ", "COIN", "SHOP", "IBM", "QCOM", "TXN", "AVGO",
+      "CSCO", "NOW", "SPOT", "ABNB", "DASH", "RBLX",
+      "MU", "ARM", "SMCI", "DELL", "HPQ", "PANW", "CRWD", "ZS", "NET",
+      "DDOG", "MDB", "TEAM", "WDAY", "INTU", "ADSK", "ANET", "MRVL",
+      "ASML", "SAP", "APP", "TTD", "ROKU", "PINS", "SNAP", "LYFT", "ZM", "DOCU",
+    ],
   },
   {
     label: "Finance US",
-    symbols: ["JPM", "BAC", "GS", "MS", "V", "MA", "BRK-B", "WFC", "BLK", "C"],
+    symbols: [
+      "JPM", "BAC", "GS", "MS", "V", "MA", "BRK-B", "WFC", "BLK", "C",
+      "AXP", "SCHW", "USB", "PNC", "TFC", "COF",
+      "AIG", "MET", "PRU", "TRV", "ALL", "CB", "ICE", "CME", "SPGI", "MCO",
+      "PGR", "AON", "MMC", "FIS", "FI", "PYPL",
+    ],
   },
   {
     label: "Consommation",
-    symbols: ["WMT", "COST", "MCD", "NKE", "DIS", "SBUX", "TGT", "PG", "KO", "PEP"],
+    symbols: [
+      "WMT", "COST", "MCD", "NKE", "DIS", "SBUX", "TGT", "PG", "KO", "PEP",
+      "HD", "LOW", "CMG", "YUM", "EL", "CL",
+      "MDLZ", "MO", "PM", "KHC", "GIS", "HSY", "STZ", "TJX", "ROST", "DG",
+      "DLTR", "BBY", "ULTA", "LULU", "DECK", "CROX", "YUMC", "DPZ",
+    ],
+  },
+  {
+    label: "Santé",
+    symbols: [
+      "LLY", "UNH", "JNJ", "PFE", "MRK", "ABBV", "TMO", "ABT", "DHR", "BMY",
+      "AMGN", "GILD", "CVS", "CI", "ELV", "HUM", "ISRG", "VRTX", "REGN", "MRNA",
+      "ZTS", "BSX", "MDT", "SYK", "BDX", "IDXX",
+    ],
+  },
+  {
+    label: "Énergie & Industrie",
+    symbols: [
+      "XOM", "CVX", "COP", "SLB", "BA", "CAT", "GE", "HON", "LMT", "UPS", "RTX", "DE",
+      "OXY", "PSX", "VLO", "MPC", "EOG", "WMB", "KMI", "HAL", "BKR",
+      "MMM", "EMR", "ETN", "ITW", "PH", "GD", "NOC", "TDG", "FDX", "CSX", "NSC", "UNP",
+    ],
+  },
+  {
+    label: "Utilities & Matériaux",
+    symbols: [
+      "NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "PEG", "ED",
+      "LIN", "APD", "SHW", "ECL", "FCX", "NEM", "NUE", "DOW", "DD", "PPG",
+    ],
+  },
+  {
+    label: "REITs US",
+    symbols: ["AMT", "PLD", "CCI", "EQIX", "PSA", "O", "SPG", "WELL", "DLR", "AVB"],
   },
   {
     label: "Canada",
-    symbols: ["XEQT.TO", "VEQT.TO", "ZSP.TO", "VFV.TO", "XIU.TO", "SHOP.TO", "RY.TO", "TD.TO", "BNS.TO", "ENB.TO", "CNR.TO", "CP.TO", "SU.TO", "BCE.TO", "MFC.TO", "BAM.TO"],
+    symbols: [
+      "XEQT.TO", "VEQT.TO", "ZSP.TO", "VFV.TO", "XIU.TO",
+      "SHOP.TO", "RY.TO", "TD.TO", "BNS.TO", "ENB.TO",
+      "CNR.TO", "CP.TO", "SU.TO", "BCE.TO", "MFC.TO", "BAM.TO",
+      "BMO.TO", "CM.TO", "TRP.TO", "CNQ.TO", "ATD.TO", "WCN.TO", "GIB-A.TO", "L.TO",
+      "T.TO", "MG.TO", "QSR.TO", "WSP.TO", "FTS.TO", "SLF.TO", "POW.TO",
+      "IMO.TO", "NTR.TO", "K.TO", "AEM.TO", "ABX.TO", "GIL.TO", "DOL.TO",
+      "CSU.TO", "OTEX.TO", "TIH.TO", "RCI-B.TO", "H.TO", "EMA.TO", "AQN.TO",
+    ],
+  },
+  {
+    label: "Europe",
+    symbols: [
+      "SAP.DE", "SIE.DE", "ALV.DE", "MBG.DE", "VOW3.DE", "BMW.DE", "BAS.DE", "DTE.DE", "IFX.DE", "ADS.DE",
+      "MC.PA", "OR.PA", "TTE.PA", "AIR.PA", "SAN.PA", "BNP.PA", "SU.PA", "DG.PA", "CS.PA", "RMS.PA",
+      "AZN.L", "HSBA.L", "SHEL.L", "ULVR.L", "BP.L", "GSK.L", "DGE.L", "RIO.L", "BATS.L", "VOD.L",
+      "NESN.SW", "NOVN.SW", "ROG.SW", "UBSG.SW", "ZURN.SW",
+      "ASML.AS", "PHIA.AS", "INGA.AS", "ADYEN.AS",
+      "ENI.MI", "ISP.MI", "UCG.MI", "ENEL.MI",
+      "IBE.MC", "ITX.MC", "BBVA.MC",
+    ],
+  },
+  {
+    label: "Asie",
+    symbols: [
+      "7203.T", "6758.T", "9984.T", "6098.T", "8306.T", "9432.T", "6501.T",
+      "005930.KS", "000660.KS", "035420.KS",
+      "TSM", "BABA", "JD", "PDD", "BIDU", "NIO", "LI", "XPEV", "NTES",
+      "0700.HK", "9988.HK", "0941.HK", "1299.HK", "0388.HK", "3690.HK",
+      "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
+    ],
+  },
+  {
+    label: "Latam & Afrique",
+    symbols: [
+      "VALE", "PBR", "ITUB", "BBD", "ABEV", "MELI",
+      "GFI", "AU", "NPN.JO", "SBK.JO",
+      "AMX", "FMX", "CX", "GRUPOSAB.MX",
+    ],
   },
 ];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function useLastUpdated(trigger: unknown) {
   const [seconds, setSeconds] = useState(0);
@@ -56,6 +155,8 @@ function SectionRule({ title }: { title: string }) {
     </div>
   );
 }
+
+// ─── Flash quote card (indices / crypto / commodities) ────────────────────────
 
 function FlashQuote({ q }: { q: Quote }) {
   const [flash, setFlash] = useState(false);
@@ -110,11 +211,31 @@ function MarketCardSkeleton() {
   );
 }
 
-function StockRow({ q }: { q: Quote }) {
+// ─── Stock row — with hover quick-actions (Suivre · Acheter · Vendre) ─────────
+
+interface StockRowProps {
+  q: Quote;
+  onTrade: (side: "BUY" | "SELL", q: Quote) => void;
+}
+
+function StockRow({ q, onTrade }: StockRowProps) {
   const cls = changeClass(q.changePercent);
   const up = isUp(q.changePercent);
   const [flash, setFlash] = useState(false);
   const prev = useRef(q.price);
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const add = useAddToWatchlist({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistQueryKey() });
+        toast({ title: `${q.symbol} ajouté à la liste de suivi` });
+      },
+      onError: () => toast({ title: "Déjà suivi ou erreur", variant: "destructive" }),
+    },
+  });
+
   useEffect(() => {
     if (prev.current !== q.price) {
       prev.current = q.price;
@@ -124,12 +245,19 @@ function StockRow({ q }: { q: Quote }) {
     }
     return undefined;
   }, [q.price]);
+
+  const hasPrice = q.price != null && q.price > 0;
+
   return (
-    <Link href={`/quote/${encodeURIComponent(q.symbol)}`}>
-      <div
-        className={`flex items-center justify-between px-4 py-2.5 hover:bg-muted/40 cursor-pointer transition-colors group rounded-lg ${
-          flash ? "bg-primary/5" : ""
-        }`}
+    <div
+      className={`flex items-center group hover:bg-muted/40 transition-colors rounded-lg ${
+        flash ? "bg-primary/5" : ""
+      }`}
+    >
+      {/* Clickable zone — navigates to quote */}
+      <Link
+        href={`/quote/${encodeURIComponent(q.symbol)}`}
+        className="flex-1 flex items-center justify-between px-4 py-2.5 cursor-pointer min-w-0"
       >
         <div className="min-w-0">
           <div className="text-[13px] font-bold text-foreground group-hover:text-primary transition-colors font-mono">{q.symbol}</div>
@@ -143,10 +271,56 @@ function StockRow({ q }: { q: Quote }) {
             {formatPercent(q.changePercent)}
           </div>
         </div>
+      </Link>
+
+      {/* Quick-action buttons — revealed on row hover */}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 pr-2 shrink-0">
+        <button
+          title={`Suivre ${q.symbol}`}
+          disabled={add.isPending}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            add.mutate({ data: { symbol: q.symbol, name: q.name } });
+          }}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+        >
+          <Bookmark className="w-3.5 h-3.5" />
+        </button>
+        {hasPrice && (
+          <>
+            <button
+              title={`Acheter ${q.symbol}`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onTrade("BUY", q);
+              }}
+              className="p-1.5 rounded-md transition-colors hover:bg-emerald-500/10"
+              style={{ color: "#16A34A" }}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              title={`Vendre ${q.symbol}`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onTrade("SELL", q);
+              }}
+              className="p-1.5 rounded-md transition-colors hover:bg-red-500/10"
+              style={{ color: "#DC2626" }}
+            >
+              <TrendingDown className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
+
+// ─── Market section (indices cards) ──────────────────────────────────────────
 
 function MarketSection({ title, symbols, allQuotes, loading }: {
   title: string; symbols: string[]; allQuotes: Quote[]; loading: boolean;
@@ -176,10 +350,7 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
   const filtered = allQuotes.filter((q) => symbols.includes(q.symbol));
   return (
     <div className="bg-card border border-card-border rounded-xl overflow-hidden">
-      <div
-        className="px-4 py-3 border-b border-border/60 flex items-center gap-2"
-        style={{ background: "linear-gradient(to right, hsl(var(--card)), hsl(var(--primary) / 0.03))" }}
-      >
+      <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">{title}</span>
       </div>
       <div className="divide-y divide-border/50">
@@ -226,21 +397,29 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
   );
 }
 
-function PopularStocksTabs({ allQuotes, loading }: { allQuotes: Quote[]; loading: boolean }) {
+// ─── Popular stocks tabs (11 categories) ─────────────────────────────────────
+
+interface PopularStocksTabsProps {
+  allQuotes: Quote[];
+  loading: boolean;
+  onTrade: (side: "BUY" | "SELL", q: Quote) => void;
+}
+
+function PopularStocksTabs({ allQuotes, loading, onTrade }: PopularStocksTabsProps) {
   const [activeTab, setActiveTab] = useState(0);
   const filtered = allQuotes.filter((q) => STOCK_CATS[activeTab].symbols.includes(q.symbol));
 
   return (
     <div className="bg-card border border-card-border rounded-xl overflow-hidden">
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-5 py-3.5 border-b border-border/60"
-        style={{ background: "linear-gradient(to right, hsl(var(--card)), hsl(var(--primary) / 0.04))" }}
-      >
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-3.5 h-3.5 text-primary/70" />
           <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">Actions populaires</span>
         </div>
+        <span className="text-[10px] text-muted-foreground/50 hidden sm:block">
+          Survolez une ligne pour Suivre · Acheter · Vendre
+        </span>
       </div>
 
       {/* Tabs */}
@@ -279,7 +458,9 @@ function PopularStocksTabs({ allQuotes, loading }: { allQuotes: Quote[]; loading
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
-            {filtered.map((q) => <StockRow key={q.symbol} q={q} />)}
+            {filtered.map((q) => (
+              <StockRow key={q.symbol} q={q} onTrade={onTrade} />
+            ))}
             {filtered.length === 0 && (
               <div className="col-span-4 py-6 text-center text-sm text-muted-foreground">
                 Données en cours de chargement…
@@ -292,15 +473,30 @@ function PopularStocksTabs({ allQuotes, loading }: { allQuotes: Quote[]; loading
   );
 }
 
-function GainLossSection({ title, quotes, loading, isGain }: {
-  title: string; quotes: Quote[] | undefined; loading: boolean; isGain: boolean;
+// ─── Gainers / Losers ─────────────────────────────────────────────────────────
+
+function GainLossSection({ title, quotes, loading, isGain, onTrade }: {
+  title: string;
+  quotes: Quote[] | undefined;
+  loading: boolean;
+  isGain: boolean;
+  onTrade: (side: "BUY" | "SELL", q: Quote) => void;
 }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const add = useAddToWatchlist({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistQueryKey() });
+        toast({ title: `${variables.data.symbol} ajouté à la liste de suivi` });
+      },
+      onError: () => toast({ title: "Déjà suivi ou erreur", variant: "destructive" }),
+    },
+  });
+
   return (
     <div className="bg-card border border-card-border rounded-xl overflow-hidden">
-      <div
-        className="px-5 py-3.5 border-b border-border/60 flex items-center gap-2"
-        style={{ background: "linear-gradient(to right, hsl(var(--card)), hsl(var(--primary) / 0.03))" }}
-      >
+      <div className="px-5 py-3.5 border-b border-border/60 flex items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">{title}</span>
       </div>
       <div className="divide-y divide-border/40">
@@ -312,8 +508,14 @@ function GainLossSection({ title, quotes, loading, isGain }: {
               </div>
             ))
           : quotes?.slice(0, 8)?.map((q) => (
-              <Link key={q.symbol} href={`/quote/${encodeURIComponent(q.symbol)}`}>
-                <div className="flex items-center justify-between px-5 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors">
+              <div
+                key={q.symbol}
+                className="flex items-center group hover:bg-muted/30 transition-colors"
+              >
+                <Link
+                  href={`/quote/${encodeURIComponent(q.symbol)}`}
+                  className="flex-1 flex items-center justify-between px-5 py-2.5 cursor-pointer"
+                >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[13px] font-bold font-mono text-foreground">{q.symbol}</span>
                     <span className="text-[11px] text-muted-foreground truncate max-w-28">{q.name}</span>
@@ -321,8 +523,38 @@ function GainLossSection({ title, quotes, loading, isGain }: {
                   <span className={`text-[13px] font-mono font-bold ${isGain ? "gain" : "loss"}`}>
                     {isGain ? "+" : ""}{formatPercent(q.changePercent)}
                   </span>
+                </Link>
+                {/* Quick actions */}
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 pr-3 shrink-0">
+                  <button
+                    title={`Suivre ${q.symbol}`}
+                    onClick={() => add.mutate({ data: { symbol: q.symbol, name: q.name } })}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Bookmark className="w-3 h-3" />
+                  </button>
+                  {q.price != null && q.price > 0 && (
+                    <>
+                      <button
+                        title={`Acheter ${q.symbol}`}
+                        onClick={() => onTrade("BUY", q)}
+                        className="p-1.5 rounded-md hover:bg-emerald-500/10 transition-colors"
+                        style={{ color: "#16A34A" }}
+                      >
+                        <TrendingUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        title={`Vendre ${q.symbol}`}
+                        onClick={() => onTrade("SELL", q)}
+                        className="p-1.5 rounded-md hover:bg-red-500/10 transition-colors"
+                        style={{ color: "#DC2626" }}
+                      >
+                        <TrendingDown className="w-3 h-3" />
+                      </button>
+                    </>
+                  )}
                 </div>
-              </Link>
+              </div>
             ))}
         {!loading && (quotes?.length ?? 0) === 0 && (
           <div className="px-5 py-4 text-sm text-muted-foreground">{isGain ? "Aucune hausse" : "Aucune baisse"}</div>
@@ -332,6 +564,10 @@ function GainLossSection({ title, quotes, loading, isGain }: {
   );
 }
 
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+type TradeModalState = { side: "BUY" | "SELL"; q: Quote } | null;
+
 export default function Dashboard() {
   const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useGetMarketOverview({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -340,6 +576,12 @@ export default function Dashboard() {
   const secondsSince = useLastUpdated(dataUpdatedAt);
   const allIndices: Quote[] = data?.indices ?? [];
   const allPopular: Quote[] = data?.wealthsimplePopular ?? [];
+
+  const [tradeModal, setTradeModal] = useState<TradeModalState>(null);
+
+  const handleTrade = useCallback((side: "BUY" | "SELL", q: Quote) => {
+    setTradeModal({ side, q });
+  }, []);
 
   if (isError) {
     const errMsg = (error as { message?: string } | null)?.message ?? String(error);
@@ -389,8 +631,8 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2">
               <span
-                className="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot inline-block"
-                style={{ boxShadow: "0 0 6px hsl(142 68% 52% / 0.8)" }}
+                className="w-1.5 h-1.5 rounded-full live-dot inline-block"
+                style={{ background: "#D4A72C", boxShadow: "0 0 6px rgba(212,167,44,0.7)" }}
               />
               <span className="text-[11px] text-muted-foreground tracking-wide">
                 En direct — mis à jour il y a {secondsSince < 10 ? "moins de 10s" : `${secondsSince}s`} · auto 10s
@@ -422,20 +664,45 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Popular stocks */}
+        {/* Popular stocks — 11 categories, all with quick-actions */}
         <div className="mb-7">
-          <PopularStocksTabs allQuotes={allPopular} loading={isLoading} />
+          <PopularStocksTabs allQuotes={allPopular} loading={isLoading} onTrade={handleTrade} />
         </div>
 
-        {/* Gainers / Losers */}
+        {/* Gainers / Losers — also with quick-actions */}
         <div>
           <SectionRule title="Mouvements du jour" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <GainLossSection title="Meilleures hausses" quotes={data?.topGainers} loading={isLoading} isGain={true} />
-            <GainLossSection title="Pires baisses" quotes={data?.topLosers} loading={isLoading} isGain={false} />
+            <GainLossSection
+              title="Meilleures hausses"
+              quotes={data?.topGainers}
+              loading={isLoading}
+              isGain={true}
+              onTrade={handleTrade}
+            />
+            <GainLossSection
+              title="Pires baisses"
+              quotes={data?.topLosers}
+              loading={isLoading}
+              isGain={false}
+              onTrade={handleTrade}
+            />
           </div>
         </div>
       </div>
+
+      {/* Trade modal — wired to broker API */}
+      {tradeModal && (
+        <TradeModal
+          open={true}
+          side={tradeModal.side}
+          symbol={tradeModal.q.symbol}
+          currentPrice={tradeModal.q.price ?? 0}
+          currency={tradeModal.q.currency ?? "USD"}
+          source="Tableau de bord"
+          onClose={() => setTradeModal(null)}
+        />
+      )}
     </div>
   );
 }

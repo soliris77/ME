@@ -17,6 +17,10 @@ tags:
     description: Price alert management
   - name: market
     description: Market overview and summaries
+  - name: learn
+    description: Apprendre à trader progress tracking
+  - name: notes
+    description: Personal candle annotations
 paths:
   /healthz:
     get:
@@ -194,6 +198,33 @@ paths:
                 $ref: "#/components/schemas/WatchlistItem"
 
   /watchlist/{id}:
+    patch:
+      operationId: updateWatchlistItem
+      tags: [watchlist]
+      summary: Move a watchlist item to another custom list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listName]
+              properties:
+                listName:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchlistItem"
     delete:
       operationId: removeFromWatchlist
       tags: [watchlist]
@@ -207,6 +238,99 @@ paths:
       responses:
         "204":
           description: Removed
+
+  /notes:
+    get:
+      operationId: getNotes
+      tags: [notes]
+      summary: Get chart notes for a symbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notes for the symbol
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChartNote"
+    post:
+      operationId: addNote
+      tags: [notes]
+      summary: Add a note to a candle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChartNoteInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChartNote"
+
+  /notes/{id}:
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      summary: Delete a chart note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /learn-progress:
+    get:
+      operationId: getLearnProgress
+      tags: [learn]
+      summary: Get progress for all "Apprendre à trader" sections
+      responses:
+        "200":
+          description: Section progress
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LearnProgress"
+
+  /learn-progress/{sectionId}:
+    put:
+      operationId: updateLearnProgress
+      tags: [learn]
+      summary: Mark a "Apprendre à trader" section (and optional quiz result) as completed or not
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearnProgressInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearnProgress"
 
   /alerts:
     get:
@@ -417,7 +541,7 @@ components:
 
     WatchlistItem:
       type: object
-      required: [id, symbol, name, addedAt]
+      required: [id, symbol, name, addedAt, listName]
       properties:
         id:
           type: integer
@@ -427,6 +551,8 @@ components:
           type: string
         note:
           type: ["string", "null"]
+        listName:
+          type: string
         addedAt:
           type: string
 
@@ -438,8 +564,64 @@ components:
           type: string
         name:
           type: string
+        listName:
+          type: string
         note:
           type: string
+
+    ChartNote:
+      type: object
+      required: [id, symbol, candleDate, text, createdAt]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        candleDate:
+          type: string
+        text:
+          type: string
+        createdAt:
+          type: string
+
+    ChartNoteInput:
+      type: object
+      required: [symbol, candleDate, text]
+      properties:
+        symbol:
+          type: string
+        candleDate:
+          type: string
+        text:
+          type: string
+
+    LearnProgress:
+      type: object
+      required: [sectionId, completed, updatedAt]
+      properties:
+        sectionId:
+          type: string
+        completed:
+          type: boolean
+        quizScore:
+          type: ["integer", "null"]
+        quizTotal:
+          type: ["integer", "null"]
+        completedAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+
+    LearnProgressInput:
+      type: object
+      required: [completed]
+      properties:
+        completed:
+          type: boolean
+        quizScore:
+          type: integer
+        quizTotal:
+          type: integer
 
     Alert:
       type: object
@@ -467,6 +649,10 @@ components:
           enum: [faible, moyen, fort, null]
         active:
           type: boolean
+        notifyEmail:
+          type: ["string", "null"]
+        notifyPhone:
+          type: ["string", "null"]
         triggeredAt:
           type: ["string", "null"]
         createdAt:
@@ -494,3 +680,7 @@ components:
         minStrength:
           type: string
           enum: [faible, moyen, fort]
+        notifyEmail:
+          type: string
+        notifyPhone:
+          type: string

@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { RefreshCw, AlertTriangle } from "lucide-react";
+import { reportClientError } from "@/lib/report-error";
 
 interface Props {
   children: ReactNode;
@@ -15,6 +16,10 @@ export class PageErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    reportClientError("page-error-boundary", error.message, error.stack, this.props.pageName);
   }
 
   render() {

@@ -1,0 +1,23 @@
+Contexte : Suite à la review du code de submitOrder()/checkOrderRisk(), voici ce qu'il reste à vérifier ou corriger avant l'activation live. Montre le code des changements, pas un résumé.
+
+1. SignalId pour les clics manuels
+
+Montre le code de TradeModal (ou ce qui appelle POST /api/broker/orders côté frontend) qui construit le signalId. Confirme qu'un identifiant unique est généré à chaque clic Acheter/Vendre (ex : crypto.randomUUID() côté client ou serveur), et pas une valeur vide ou réutilisée entre deux clics différents. Corrige si ce n'est pas le cas.
+
+Confirme aussi que la vérification "signal déjà traité dans les 24h" est une opération atomique en base (contrainte unique sur signalId + upsert / INSERT ... ON CONFLICT), pas un SELECT suivi d'un INSERT séparé — un double-clic rapide sur le bouton doit être bloqué même si les deux requêtes arrivent presque en même temps.
+
+2. Jours fériés
+
+Ajoute une vérification basique des jours fériés boursiers courants (au moins Nouvel An, Noël, Action de grâce) dans isMarketOpen(), ou confirme explicitement que ce n'est pas nécessaire si SnapTrade rejette déjà les ordres hors session de son côté.
+
+3. Couverture internationale
+
+Confirme si les boutons Acheter/Vendre apparaissent pour des titres hors Amérique du Nord (Europe, Asie, etc. dans la liste des 200+ symboles). Si oui, étends getExchangeForSymbol()/isMarketOpen() pour ces bourses. Si les boutons ne devraient pas apparaître pour ces titres (non exécutables via Wealthsimple), désactive-les plutôt pour ces cas.
+
+4. Exposition basée sur la position réelle
+
+Modifie getCurrentExposureByCurrency() pour croiser (ou remplacer) le calcul basé sur la table orders avec les vraies positions retournées par GET /api/broker/positions/:accountId, pour éviter une dérive si un trade est fait manuellement dans l'app Wealthsimple en dehors du système.
+
+5. Vente à découvert
+
+Confirme si le compte Wealthsimple connecté permet la vente à découvert. Si non, aucun changement requis. Si oui, le check d'exposition doit aussi s'appliquer aux ventes qui ouvrent une position courte, pas seulement aux achats.

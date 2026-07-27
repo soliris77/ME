@@ -6,6 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
+import { playSound } from "@/lib/sounds";
 import { formatPrice } from "@/lib/format";
 import { Bell, BellOff, Plus, Trash2, X, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -40,10 +41,11 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetAlertsQueryKey() });
+        playSound("success");
         toast({ title: "Alerte créée avec succès" });
         onClose();
       },
-      onError: () => toast({ title: "Erreur lors de la création", variant: "destructive" }),
+      onError: () => { playSound("error"); toast({ title: "Erreur lors de la création", variant: "destructive" }); },
     },
   });
 
@@ -287,6 +289,7 @@ export default function Alerts() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetAlertsQueryKey() });
+        playSound("click");
         toast({ title: "Alerte supprimée" });
       },
     },
@@ -311,7 +314,7 @@ export default function Alerts() {
           <p className="text-sm text-muted-foreground mt-0.5">{active.length} alerte{active.length !== 1 ? "s" : ""} active{active.length !== 1 ? "s" : ""}</p>
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => { playSound("click"); setShowCreate(true); }}
           className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
         >
           <Plus className="w-4 h-4" />
@@ -355,7 +358,7 @@ export default function Alerts() {
           <p className="font-semibold text-foreground mb-1">Aucune alerte configurée</p>
           <p className="text-sm text-muted-foreground mb-4">Créez une alerte de prix, ou une alerte intelligente basée sur les patterns de chandeliers.</p>
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => { playSound("click"); setShowCreate(true); }}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
           >
             <Plus className="w-4 h-4" />

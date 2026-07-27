@@ -71,6 +71,23 @@ export declare const watchlistTable: import("drizzle-orm/pg-core").PgTableWithCo
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        listName: import("drizzle-orm/pg-core").PgColumn<{
+            name: "list_name";
+            tableName: "watchlist";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         addedAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "added_at";
             tableName: "watchlist";
@@ -95,6 +112,7 @@ export declare const insertWatchlistSchema: z.ZodObject<{
     symbol: z.ZodString;
     name: z.ZodString;
     note: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    listName: z.ZodOptional<z.ZodString>;
 }, {
     out: {};
     in: {};

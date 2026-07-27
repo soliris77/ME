@@ -519,3 +519,594 @@ export const GLOSSAIRE: GlossaryTerm[] = [
   { slug: "beta", term: "Bêta", definition: "Mesure de la volatilité d'une action par rapport au marché global. Bêta de 1,5 = 50% plus volatile que le marché.", category: "Avancé" },
   { slug: "capitalisation-vs-flottant", term: "Flottant (Float)", definition: "Nombre d'actions réellement disponibles à la négociation publique. Un flottant faible peut causer une forte volatilité.", category: "Avancé" },
 ];
+
+// ── Erreurs fréquentes par chandelier ────────────────────────────────────────
+export const CANDLE_MISTAKES: Record<string, string[]> = {
+  "marteau-hammer": [
+    "Acheter dès que la bougie apparaît sans attendre la confirmation de la bougie suivante.",
+    "Confondre un marteau dans une tendance haussière (pas de signal de retournement) avec un marteau au bas d'une baisse.",
+    "Ignorer le volume — un marteau sans volume élevé est beaucoup moins fiable.",
+  ],
+  "etoile-filante-shooting-star": [
+    "Vendre à découvert sans attendre la confirmation de la bougie suivante rouge.",
+    "Chercher ce pattern en plein milieu d'une tendance plutôt qu'uniquement au sommet d'une hausse.",
+    "Négliger de vérifier que la mèche supérieure est au moins deux fois la longueur du corps.",
+  ],
+  "doji": [
+    "Interpréter le doji seul comme un signal de vente ou d'achat, sans attendre la bougie suivante.",
+    "Ignorer le contexte — un doji dans un marché latéral ne signifie rien de particulier.",
+    "Confondre tous les types de doji (libellule, pierre tombale, doji neutre) qui ont des significations différentes.",
+  ],
+  "engulfing-haussier": [
+    "Entrer en position sans vérifier que le pattern est bien au bas d'une tendance baissière.",
+    "Accepter un engulfing partiel (la bougie verte n'engloutit pas entièrement la rouge) comme signal valide.",
+    "Ne pas tenir compte du volume — une bougie verte sans volume significatif diminue la fiabilité.",
+  ],
+  "engulfing-baissier": [
+    "L'utiliser comme signal de vente à découvert sans l'identifier clairement au sommet d'une tendance haussière.",
+    "Accepter que la bougie rouge n'engloutisse pas complètement le corps de la bougie verte précédente.",
+    "Oublier de placer un stop-loss au-dessus du sommet de la bougie rouge.",
+  ],
+  "etoile-du-matin-morning-star": [
+    "Acheter dès la 2e bougie (petite) plutôt qu'attendre la confirmation de la 3e bougie verte.",
+    "Ne pas vérifier que la 3e bougie ferme au-dessus de la moitié du corps de la 1re bougie rouge.",
+    "Utiliser le pattern dans un marché latéral où il perd toute sa valeur prédictive.",
+  ],
+  "etoile-du-soir-evening-star": [
+    "Vendre dès l'apparition de la petite bougie centrale sans attendre la confirmation de la grande rouge.",
+    "Ne pas combiner avec un RSI > 70 pour renforcer la conviction du signal.",
+    "Confondre avec une simple pause dans une tendance haussière solide sans context de surachat.",
+  ],
+  "trois-soldats-blancs": [
+    "Acheter après que le pattern soit complètement formé alors que le prix est déjà très éloigné du support.",
+    "Ignorer que si les mèches supérieures sont longues, le pattern est moins fiable (vendeurs encore présents).",
+    "Entrer en pleine euphorie de marché sans vérifier si la zone est proche d'une résistance majeure.",
+  ],
+};
+
+// ── Erreurs fréquentes par stratégie ─────────────────────────────────────────
+export const STRATEGY_MISTAKES: Record<string, string[]> = {
+  "suivi-de-tendance": [
+    "Entrer dans la tendance trop tard, après que le mouvement principal soit déjà épuisé.",
+    "Ne pas sortir quand le prix franchit la MM20 dans l'autre sens — rester accroché à l'espoir.",
+    "Tenter d'appliquer la stratégie dans un marché clairement latéral.",
+  ],
+  "retournement-support-resistance": [
+    "Confondre un niveau de support testé une seule fois avec un support solide (il faut au moins 2-3 rebonds).",
+    "Entrer sur le premier contact avec le support sans attendre un chandelier de confirmation.",
+    "Ne pas placer le stop-loss juste sous le support, mais trop loin ou trop proche.",
+  ],
+  "cassure-breakout": [
+    "Entrer sur une cassure sans vérifier que le volume est supérieur à la moyenne — les fausses cassures sans volume sont fréquentes.",
+    "Ne pas attendre que la bougie ferme au-dessus de la résistance avant d'entrer.",
+    "Viser un objectif trop ambitieux au lieu de mesurer la hauteur du range comme cible initiale.",
+  ],
+  "dollar-cost-averaging-dca": [
+    "Paniquer et arrêter les achats automatiques quand le marché baisse — c'est précisément le meilleur moment.",
+    "Appliquer le DCA sur un actif très risqué ou une seule action au lieu d'un ETF diversifié.",
+    "Choisir un montant mensuel trop élevé qui crée un stress financier et pousse à interrompre la stratégie.",
+  ],
+  "swing-trading": [
+    "Vérifier son graphique toutes les heures au lieu de faire confiance à l'analyse faite en soirée.",
+    "Garder la position bien au-delà de l'objectif fixé par espoir de gain supplémentaire.",
+    "Ne pas tenir compte du risque de gap à l'ouverture, surtout avant un rapport de résultats.",
+  ],
+  "day-trading-intraday": [
+    "Continuer à trader après 2-3 pertes consécutives dans la même journée au lieu de s'arrêter.",
+    "Trader pendant les heures creuses de l'après-midi (12h-14h HNE) où la liquidité est faible.",
+    "Sous-estimer l'impact des frais de transaction qui s'accumulent sur des dizaines de trades.",
+  ],
+  "position-trading-long-terme": [
+    "Paniquer lors d'une correction de 10-15% et vendre alors que la tendance de fond est intacte.",
+    "Ne jamais réévaluer la thèse fondamentale — si les bénéfices de l'entreprise s'effondrent, il faut sortir.",
+    "Confondre une consolidation normale avec un changement de tendance de fond.",
+  ],
+  "momentum-trading": [
+    "Entrer après une hausse de 20%+ déjà faite en pensant que le mouvement va continuer indéfiniment.",
+    "Utiliser une taille de position trop grande sur un titre très volatile sans stop-loss serré.",
+    "Ignorer le RSI — acheter un titre avec un RSI > 80 augmente drastiquement le risque de retournement brutal.",
+  ],
+  "retour-a-la-moyenne-mean-reversion": [
+    "Appliquer cette stratégie dans un marché en forte tendance directionnelle — le prix peut continuer loin de la moyenne.",
+    "Entrer dès que le RSI touche 30 sans vérifier que le marché est effectivement dans un range.",
+    "Viser la MM50 ou MM200 comme cible au lieu de se contenter de la MM20, plus prudente.",
+  ],
+  "scalping": [
+    "Sous-estimer l'effet des frais de transaction qui peuvent annuler tous les gains sur de petits mouvements.",
+    "Trader des actifs peu liquides avec un spread large qui gruge immédiatement la marge de profit.",
+    "Ne pas fixer de limite de pertes journalières et continuer à scalper après une série perdante.",
+  ],
+  "trading-sur-nouvelles": [
+    "Entrer au moment exact de l'annonce — le slippage et la volatilité initiale sont souvent défavorables.",
+    "Supposer que 'bonne nouvelle = prix monte' sans comprendre que le marché escompte souvent la nouvelle à l'avance.",
+    "Utiliser une taille de position normale alors que la volatilité est 3 à 5 fois plus élevée qu'en temps normal.",
+  ],
+  "rotation-sectorielle": [
+    "Tout réallouer d'un seul coup au lieu de faire la rotation progressivement sur plusieurs semaines.",
+    "Confondre un mouvement sectoriel de quelques jours avec un vrai changement de cycle économique.",
+    "Négliger de suivre les indicateurs macroéconomiques et se baser uniquement sur la performance récente.",
+  ],
+  "trading-par-paires-pairs-trading": [
+    "Supposer que deux actifs resteront corrélés indéfiniment — les corrélations peuvent changer avec le temps.",
+    "Mal calibrer la taille des deux positions et créer une exposition directionnelle non voulue au marché.",
+    "Ignorer le coût du financement de la vente à découvert qui érode la rentabilité sur la durée.",
+  ],
+  "investissement-de-valeur-value-investing": [
+    "Acheter une action 'bon marché' sans analyser pourquoi le marché la sous-évalue — parfois c'est mérité.",
+    "Manquer de patience et vendre après quelques mois alors que la stratégie fonctionne sur des années.",
+    "Se concentrer uniquement sur le P/E ratio sans regarder la dette, les flux de trésorerie et la croissance.",
+  ],
+  "investissement-de-croissance-growth-investing": [
+    "Payer n'importe quelle valorisation sans considérer si la croissance future est déjà intégrée dans le prix.",
+    "Ne pas réduire la position quand la croissance des revenus ralentit significativement.",
+    "Surpondérer les actions de croissance dans un environnement de hausse de taux d'intérêt qui les pénalise.",
+  ],
+  "croissance-du-dividende": [
+    "Choisir les actions uniquement sur la base d'un dividende élevé sans vérifier la durabilité du payout ratio.",
+    "Ignorer la croissance du dividende et privilégier un rendement immédiat élevé souvent signe de détresse.",
+    "Ne pas diversifier entre secteurs et concentrer le portefeuille dans les utilities et télécoms seulement.",
+  ],
+  "pyramidage-position": [
+    "Ajouter à une position perdante ('moyennage à la baisse') en confondant ça avec le pyramidage.",
+    "Ne pas remonter le stop-loss à chaque ajout, laissant le risque total exploser avec la taille de position.",
+    "Ajouter sans que le prix ait confirmé un nouveau plus haut — entrer trop tôt dans la séquence.",
+  ],
+  "routine-entrainement-backtesting": [
+    "Adapter inconsciemment les règles pour que ça fonctionne sur les données passées (overfitting).",
+    "Backtester sur seulement quelques mois au lieu d'inclure différentes conditions de marché (bull, bear, latéral).",
+    "Croire que des résultats parfaits en backtest garantissent des résultats équivalents en conditions réelles.",
+  ],
+  "routine-entrainement-papier": [
+    "Ne pas respecter les règles de gestion du risque en paper trading parce qu'il n'y a pas d'argent réel en jeu.",
+    "Passer à l'argent réel trop vite, après seulement 5-10 trades simulés, sans base statistique suffisante.",
+    "Sous-estimer l'impact émotionnel quand de l'argent réel est en jeu — le comportement change radicalement.",
+  ],
+  "grid-trading": [
+    "Définir une grille trop étroite qui se retrouve complètement hors range lors d'un mouvement directionnel fort.",
+    "Appliquer la stratégie sur un actif en forte tendance au lieu d'un actif oscillant dans un range stable.",
+    "Ne pas prévoir de mécanisme de sortie si le prix sort définitivement de la fourchette définie.",
+  ],
+};
+
+// ── Erreurs fréquentes par terme de glossaire ─────────────────────────────────
+export const GLOSSARY_MISTAKES: Record<string, string[]> = {
+  "action-stock": [
+    "Croire qu'acheter une action rend propriétaire d'une entreprise avec droits de gestion — les droits réels sont très limités.",
+    "Confondre la valeur d'une action (prix) avec la valeur réelle de l'entreprise (capitalisation boursière).",
+  ],
+  "etf-fnb": [
+    "Penser qu'un ETF est toujours diversifié — certains ETFs sectoriels ou à effet de levier sont très concentrés et risqués.",
+    "Ignorer le ratio de frais de gestion (MER) qui varie beaucoup d'un ETF à l'autre.",
+  ],
+  "indice-boursier": [
+    "Confondre l'indice lui-même avec un actif qu'on peut acheter directement — on achète un ETF qui réplique l'indice.",
+    "Croire que si l'indice monte, toutes les actions qu'il contient montent aussi.",
+  ],
+  "capitalisation-boursiere": [
+    "Confondre un prix d'action bas avec une 'petite' entreprise — une action à 5 $ peut représenter une capitalisation de plusieurs milliards.",
+    "Ignorer que la capitalisation boursière ne reflète pas nécessairement la valeur comptable réelle des actifs.",
+  ],
+  "volume": [
+    "Ignorer le volume et trader un signal de prix sans confirmer avec le volume — les mouvements sans volume sont souvent des faux signaux.",
+    "Comparer le volume absolu entre deux actifs différents au lieu de le comparer à la moyenne historique du même actif.",
+  ],
+  "spread": [
+    "Négliger le spread sur les actifs peu liquides où il peut représenter plusieurs pourcents du prix.",
+    "Oublier que le spread est payé à chaque achat et à chaque vente, doublant son coût effectif.",
+  ],
+  "dividende": [
+    "Acheter une action juste avant le dividende ('dividend capture') sans comprendre que le prix baisse du montant du dividende à la date ex-dividende.",
+    "Confondre le rendement du dividende actuel avec la croissance future du dividende.",
+  ],
+  "liquidite": [
+    "Entrer dans une position illiquide sans réaliser qu'il sera difficile d'en sortir rapidement sans impacter le prix.",
+    "Croire qu'un actif populaire est forcément liquide — sur les cryptos ou les penny stocks, la liquidité peut s'évaporer rapidement.",
+  ],
+  "tendance-haussiere-bullish": [
+    "Qualifier une hausse de deux jours de 'tendance haussière' — une vraie tendance se confirme sur plusieurs semaines.",
+    "Confondre une correction dans une tendance haussière avec un retournement baissier.",
+  ],
+  "tendance-baissiere-bearish": [
+    "Paniquer et tout vendre lors d'une correction normale dans une tendance haussière de fond.",
+    "Croire qu'une tendance baissière va durer indéfiniment sans considérer les niveaux de support.",
+  ],
+  "marche-lateral-sideways": [
+    "Appliquer des stratégies de suivi de tendance dans un marché latéral, générant de nombreuses fausses sorties.",
+    "Sous-estimer la durée possible d'un marché latéral — il peut durer des mois avant une vraie cassure.",
+  ],
+  "support": [
+    "Considérer un support comme absolu — tout support peut être enfoncé, toujours utiliser un stop-loss.",
+    "Placer un ordre d'achat exactement au niveau du support sans anticiper qu'il peut être légèrement dépassé avant de rebondir.",
+  ],
+  "resistance": [
+    "Vendre systématiquement à la résistance sans réaliser qu'une cassure franche transforme la résistance en nouveau support.",
+    "Identifier une résistance sur une seule période temporelle sans vérifier sa cohérence sur des timeframes supérieurs.",
+  ],
+  "cassure-breakout-def": [
+    "Considérer toute clôture au-dessus d'une résistance comme une vraie cassure — attendre le volume de confirmation.",
+    "Ignorer les fausses cassures fréquentes qui piègent les acheteurs trop rapides avant que le prix revienne dans la range.",
+  ],
+  "retracement-fibonacci": [
+    "Traiter les niveaux de Fibonacci comme des zones de support/résistance magiques au lieu de zones de probabilité.",
+    "Appliquer les retracements sur des mouvements trop courts qui n'ont pas de swing clair à mesurer.",
+  ],
+  "rsi": [
+    "Vendre automatiquement quand le RSI dépasse 70 sans réaliser qu'en forte tendance il peut rester au-dessus de 70 longtemps.",
+    "Utiliser le RSI sans tenir compte du contexte — en tendance baissière, le RSI à 50 peut déjà signaler une résistance.",
+  ],
+  "macd": [
+    "Interpréter chaque croisement de lignes comme un signal d'achat ou de vente fiable — les faux croisements sont fréquents dans les marchés latéraux.",
+    "Ignorer la position de l'histogramme par rapport à zéro qui donne plus d'information que le simple croisement.",
+  ],
+  "moyenne-mobile-mm-sma": [
+    "Changer la période de la MM constamment selon ce qui 'aurait fonctionné' sur le passé — choisissez une période et restez cohérent.",
+    "Utiliser la MM comme signal d'entrée seul, sans confirmation d'un autre indicateur ou d'un chandelier.",
+  ],
+  "bandes-de-bollinger": [
+    "Acheter systématiquement quand le prix touche la bande basse sans réaliser qu'en forte tendance baissière le prix peut longer la bande.",
+    "Confondre un rétrécissement des bandes (faible volatilité) avec un signal directionnel — c'est simplement une compression avant un mouvement.",
+  ],
+  "volume-on-balance-obv": [
+    "Ignorer les divergences entre l'OBV et le prix qui sont souvent les signaux les plus précieux de ce cet indicateur.",
+    "Comparer les valeurs absolues de l'OBV entre différents actifs — seule la direction et les divergences importent.",
+  ],
+  "stop-loss": [
+    "Déplacer son stop-loss vers le bas pour éviter d'être stoppé — c'est la cause principale des grosses pertes.",
+    "Placer le stop-loss à un niveau rond (ex: exactement à 100 $) où de nombreux stops sont concentrés et souvent chassés par les institutions.",
+  ],
+  "take-profit": [
+    "Ne jamais utiliser de take-profit et laisser les gains s'évaporer par excès de confiance.",
+    "Fixer un take-profit arbitraire sans le baser sur le prochain niveau de résistance ou le rapport risque/gain.",
+  ],
+  "rapport-risque-gain-rr": [
+    "Accepter des trades avec un R:R inférieur à 1:2 en espérant compenser avec un taux de réussite élevé.",
+    "Calculer le R:R après l'entrée au lieu de le valider comme condition d'entrée avant de trader.",
+  ],
+  "taille-de-position": [
+    "Utiliser toujours la même taille de position fixe en dollars au lieu de l'adapter au stop-loss pour maintenir un risque constant en %.",
+    "Augmenter la taille de position après une série gagnante — l'overconfidence mène souvent à un trade catastrophique.",
+  ],
+  "drawdown": [
+    "Confondre le drawdown maximum (pire cas historique) avec le drawdown actuel dans l'évaluation d'une stratégie.",
+    "Sous-estimer l'impact psychologique d'un drawdown de 30% qui est mathématiquement plus difficile à récupérer que prévu.",
+  ],
+  "levier-leverage": [
+    "Penser que le levier amplifie uniquement les gains — il amplifie également les pertes du même facteur.",
+    "Utiliser le levier maximal disponible sans calculer qu'une petite correction peut liquider toute la position.",
+  ],
+  "diversification": [
+    "Croire qu'acheter 10 actions technologiques est une diversification — la diversification réelle exige des actifs peu corrélés.",
+    "Sur-diversifier avec 30+ positions qu'il est impossible de suivre correctement, diluant les gains sans réduire proportionnellement le risque.",
+  ],
+  "correlation": [
+    "Supposer que les corrélations historiques restent stables en période de crise — elles ont tendance à converger vers 1 lors des krachs.",
+    "Confondre corrélation et causalité — deux actifs corrélés ne signifie pas que l'un influence l'autre.",
+  ],
+  "pe-ratio-per": [
+    "Comparer le P/E d'une entreprise de croissance avec celui d'une entreprise mature sans tenir compte des différences sectorielles.",
+    "Utiliser uniquement le P/E historique sans considérer le P/E forward (basé sur les bénéfices futurs estimés).",
+  ],
+  "short-selling-vente-a-decouvert": [
+    "Ignorer que la perte potentielle est théoriquement illimitée car le prix peut monter indéfiniment.",
+    "Ne pas tenir compte du coût d'emprunt des actions qui s'accumule chaque jour la position est ouverte.",
+  ],
+  "chandelier-japonais": [
+    "Chercher des patterns parfaits qui correspondent exactement aux illustrations du livre — les chandeliers réels sont rarement parfaits.",
+    "Prendre des décisions sur un seul chandelier sans le contexte de la tendance générale et des niveaux clés.",
+  ],
+  "bougie-verte-bougie-rouge": [
+    "Croire que la couleur seule détermine la force du mouvement — une petite bougie verte avec de longues mèches est souvent indécise.",
+    "Confondre des applications qui utilisent la convention inversée (blanc/noir ou bleu/rouge) et mal interpréter les signaux.",
+  ],
+  "meche-wick-shadow": [
+    "Ignorer les mèches longues qui représentent souvent des rejections importantes de niveaux de prix clés.",
+    "Ne pas utiliser le bas de la mèche inférieure comme niveau naturel pour placer un stop-loss.",
+  ],
+  "ipo-introduction-en-bourse": [
+    "Acheter à l'ouverture d'une IPO au prix le plus haut de la journée dans l'euphorie — les IPOs plongent souvent dans les premières heures.",
+    "Supposer qu'une IPO médiatisée est un bon investissement — les performances post-IPO à 1 an sont souvent décevantes.",
+  ],
+  "bear-market": [
+    "Essayer d'attraper le creux exact d'un bear market — il vaut mieux acheter en plusieurs fois lors de la reprise.",
+    "Confondre une correction de 10-15% avec un vrai bear market (baisse de 20%+ depuis le sommet).",
+  ],
+  "bull-market": [
+    "Penser que le bull market va continuer indéfiniment et négliger la gestion du risque.",
+    "Attribuer toutes ses performances positives à ses compétences plutôt qu'à la marée haussière générale.",
+  ],
+  "swing-trading-def": [
+    "Confondre le swing trading avec le day trading — les positions se gardent plusieurs jours à semaines, pas des heures.",
+    "Vérifier le graphique toutes les heures au lieu de faire une analyse en soirée et laisser le trade évoluer.",
+  ],
+  "day-trading-def": [
+    "Sous-estimer le temps plein requis — le day trading réussi demande une présence constante devant l'écran.",
+    "Penser qu'il suffit de quelques semaines de pratique pour être profitable alors que la courbe d'apprentissage est de 1-2 ans minimum.",
+  ],
+  "scalping-def": [
+    "Négliger l'impact des frais de transaction sur les petits gains visés — ils peuvent transformer un scalp profitable en perte.",
+    "Trader des actifs peu liquides en scalping où le spread seul consomme la marge de profit.",
+  ],
+  "position-trading-def": [
+    "Confondre le position trading avec l'investissement passif — le position trader suit activement sa thèse et sort si elle est invalidée.",
+    "Ignorer les résultats trimestriels et l'évolution fondamentale de l'entreprise pendant la durée de la position.",
+  ],
+  "momentum-def": [
+    "Confondre un fort momentum avec une tendance durable — le momentum peut s'épuiser rapidement après un catalyseur.",
+    "Entrer sur un titre avec un momentum déjà extrême (RSI > 85) en espérant que la hausse continue.",
+  ],
+  "atr": [
+    "Utiliser le même stop-loss en dollars pour tous les actifs au lieu d'un stop basé sur l'ATR propre à chaque actif.",
+    "Ignorer que l'ATR est une mesure de volatilité, pas de direction — il ne dit pas où le prix va aller.",
+  ],
+  "structure-de-marche": [
+    "Analyser la structure de marché uniquement sur un seul timeframe au lieu de vérifier la cohérence avec les timeframes supérieurs.",
+    "Considérer que la structure est toujours valide après une nouvelle annonce majeure qui peut invalider l'analyse instantanément.",
+  ],
+  "divergence": [
+    "Agir sur une divergence sans attendre une confirmation de l'action des prix — les divergences peuvent durer plus longtemps qu'on ne le pense.",
+    "Chercher des divergences uniquement sur le RSI et ignorer d'autres indicateurs comme le MACD ou l'OBV.",
+  ],
+  "gap-de-prix": [
+    "Supposer que tous les gaps vont toujours se refermer — certains gaps de continuation dans une forte tendance ne se referment jamais.",
+    "Entrer dans un trade uniquement pour 'combler le gap' sans tenir compte du contexte global de la tendance.",
+  ],
+  "slippage": [
+    "Utiliser des ordres au marché sur des actifs peu liquides et subir un slippage qui transforme un trade rentable en perdant.",
+    "Ignorer le slippage dans ses calculs de risque/gain, surtout pour les stratégies de scalping où les marges sont minces.",
+  ],
+  "money-management": [
+    "Ignorer le money management pendant une série gagnante et augmenter démesurément la taille des positions.",
+    "Croire qu'un bon ratio de réussite compense un mauvais money management — une seule grosse perte peut effacer des semaines de gains.",
+  ],
+  "backtesting": [
+    "Créer une stratégie en s'adaptant aux données historiques (overfitting) qui ne fonctionnera pas en conditions réelles.",
+    "Oublier d'inclure les frais de transaction et le slippage dans les calculs de backtesting, surestimant la rentabilité.",
+  ],
+  "paper-trading": [
+    "Ne pas reproduire fidèlement les conditions réelles — taille de position réaliste, respect strict des règles, inclusion des frais.",
+    "Croire que la rentabilité en paper trading garantit la rentabilité en argent réel — l'absence d'émotion change tout.",
+  ],
+  "rotation-sectorielle-def": [
+    "Confondre une rotation sectorielle de quelques jours (bruit de marché) avec un vrai changement de cycle économique.",
+    "Réallouer tout le capital d'un coup au lieu de le faire progressivement pour réduire le risque de mauvais timing.",
+  ],
+  "penny-stock": [
+    "Croire qu'un prix d'action bas implique une valorisation attractive — une penny stock peut être surévaluée.",
+    "Ignorer la faible liquidité qui peut rendre impossible la sortie de position à un prix raisonnable.",
+  ],
+  "blue-chip": [
+    "Croire qu'une blue chip est totalement sans risque — même les grandes entreprises peuvent perdre 50%+ lors d'une crise.",
+    "Surpayer une blue chip en période d'euphorie et l'acheter à un P/E très élevé par rapport à son historique.",
+  ],
+  "market-order-limit-order": [
+    "Toujours utiliser des ordres au marché sur des actifs peu liquides et subir un prix d'exécution très défavorable.",
+    "Placer un ordre limite trop loin du prix actuel par souci d'économie et manquer l'entrée sur une bonne opportunité.",
+  ],
+  "pre-market-after-hours": [
+    "Trader pendant le pre-market ou after-hours sans réaliser que le spread est beaucoup plus large et la liquidité très faible.",
+    "Prendre des décisions basées sur le prix after-hours sans considérer qu'il peut diverger fortement du prix à l'ouverture.",
+  ],
+  "quantite-vs-prix-moyen": [
+    "Moyenner à la baisse sur un titre en forte tendance baissière en espérant récupérer — augmenter le risque sur un perdant.",
+    "Confondre le prix moyen pondéré avec le prix d'équilibre psychologique — le marché ignore votre prix d'achat.",
+  ],
+  "beta": [
+    "Utiliser le bêta comme seule mesure de risque sans tenir compte du risque spécifique à l'entreprise (risque idiosyncratique).",
+    "Supposer que le bêta est stable dans le temps alors qu'il peut changer significativement selon les phases de marché.",
+  ],
+  "capitalisation-vs-flottant": [
+    "Confondre la capitalisation boursière totale avec le flottant disponible — un faible flottant crée une volatilité bien plus grande.",
+    "Ignorer le flottant lors du trading de penny stocks ou de small caps où des volumes modestes peuvent faire bouger le prix de plusieurs pourcents.",
+  ],
+};
+
+// ── Liens croisés vers le glossaire par chandelier ───────────────────────────
+export const CANDLE_RELATED_GLOSSARY: Record<string, string[]> = {
+  "marteau-hammer": ["support", "volume", "tendance-baissiere-bearish"],
+  "etoile-filante-shooting-star": ["resistance", "volume", "tendance-haussiere-bullish"],
+  "doji": ["marche-lateral-sideways", "rsi", "chandelier-japonais"],
+  "engulfing-haussier": ["support", "volume", "momentum-def"],
+  "engulfing-baissier": ["resistance", "volume", "stop-loss"],
+  "etoile-du-matin-morning-star": ["tendance-baissiere-bearish", "support", "rsi"],
+  "etoile-du-soir-evening-star": ["resistance", "rsi", "tendance-haussiere-bullish"],
+  "trois-soldats-blancs": ["tendance-haussiere-bullish", "volume", "momentum-def"],
+};
+
+// ── Liens croisés vers le glossaire par stratégie ────────────────────────────
+export const STRATEGY_RELATED_GLOSSARY: Record<string, string[]> = {
+  "suivi-de-tendance": ["tendance-haussiere-bullish", "moyenne-mobile-mm-sma", "structure-de-marche"],
+  "retournement-support-resistance": ["support", "resistance", "chandelier-japonais"],
+  "cassure-breakout": ["cassure-breakout-def", "volume", "resistance"],
+  "dollar-cost-averaging-dca": ["quantite-vs-prix-moyen", "diversification", "etf-fnb"],
+  "swing-trading": ["swing-trading-def", "rapport-risque-gain-rr", "stop-loss"],
+  "day-trading-intraday": ["day-trading-def", "spread", "atr"],
+  "position-trading-long-terme": ["position-trading-def", "pe-ratio-per", "tendance-haussiere-bullish"],
+  "momentum-trading": ["momentum-def", "rsi", "volume"],
+  "retour-a-la-moyenne-mean-reversion": ["bandes-de-bollinger", "rsi", "marche-lateral-sideways"],
+  "scalping": ["scalping-def", "spread", "liquidite"],
+  "trading-sur-nouvelles": ["gap-de-prix", "slippage", "volume"],
+  "rotation-sectorielle": ["rotation-sectorielle-def", "etf-fnb", "correlation"],
+  "trading-par-paires-pairs-trading": ["correlation", "short-selling-vente-a-decouvert", "diversification"],
+  "investissement-de-valeur-value-investing": ["pe-ratio-per", "dividende", "blue-chip"],
+  "investissement-de-croissance-growth-investing": ["pe-ratio-per", "capitalisation-boursiere", "beta"],
+  "croissance-du-dividende": ["dividende", "quantite-vs-prix-moyen", "blue-chip"],
+  "pyramidage-position": ["taille-de-position", "stop-loss", "rapport-risque-gain-rr"],
+  "routine-entrainement-backtesting": ["backtesting", "structure-de-marche", "money-management"],
+  "routine-entrainement-papier": ["paper-trading", "taille-de-position", "money-management"],
+  "grid-trading": ["marche-lateral-sideways", "levier-leverage", "atr"],
+};
+
+// ── Quiz de fin de section ────────────────────────────────────────────────────
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
+export const QUIZZES: Record<"bases" | "chandeliers" | "strategies" | "risques", QuizQuestion[]> = {
+  bases: [
+    {
+      question: "Qu'est-ce qui détermine principalement le prix d'une action en bourse ?",
+      options: [
+        "Le gouvernement fixe un prix officiel chaque matin",
+        "L'offre et la demande entre acheteurs et vendeurs",
+        "Le bilan comptable de l'entreprise mis à jour chaque jour",
+        "La banque centrale du pays où l'entreprise est enregistrée",
+      ],
+      correctIndex: 1,
+      explanation: "Le prix est déterminé par l'offre et la demande : plus d'acheteurs que de vendeurs → prix monte, et vice versa.",
+    },
+    {
+      question: "Quelle est la principale différence entre une action et un ETF (FNB) ?",
+      options: [
+        "Un ETF ne peut être acheté que par les institutions financières",
+        "Une action est plus sûre car garantie par le gouvernement",
+        "Un ETF regroupe plusieurs actifs, ce qui le rend généralement plus diversifié qu'une seule action",
+        "Un ETF génère toujours un dividende mensuel contrairement aux actions",
+      ],
+      correctIndex: 2,
+      explanation: "Un ETF contient un panier de titres (ex: XEQT.TO = ~10 000 actions mondiales), réduisant le risque de concentration sur une seule entreprise.",
+    },
+    {
+      question: "Laquelle de ces erreurs est citée comme la plus courante chez les débutants ?",
+      options: [
+        "Acheter trop tôt dans la journée",
+        "Investir dans des ETF au lieu d'actions individuelles",
+        "Ne pas utiliser de stop-loss",
+        "Trader sur les marchés canadiens au lieu des marchés américains",
+      ],
+      correctIndex: 2,
+      explanation: "Sans stop-loss, une petite erreur peut devenir catastrophique — c'est la règle de protection #1 pour tout trader.",
+    },
+    {
+      question: "À quelle heure le marché de Toronto (TSX) ferme-t-il ?",
+      options: ["15h00 HNE", "16h00 HNE", "17h00 HNE", "Il est ouvert 24h/24"],
+      correctIndex: 1,
+      explanation: "Le TSX et les bourses américaines (NYSE/NASDAQ) sont ouverts de 9h30 à 16h00 HNE, du lundi au vendredi.",
+    },
+  ],
+  chandeliers: [
+    {
+      question: "Que signale un Marteau (Hammer) ?",
+      options: [
+        "Une continuation de la tendance baissière",
+        "Une indécision totale du marché",
+        "Un possible retournement haussier après une baisse",
+        "Un signal de vente à court terme",
+      ],
+      correctIndex: 2,
+      explanation: "Le Marteau, avec sa longue mèche inférieure, montre que les vendeurs ont tenté de pousser le prix vers le bas mais les acheteurs ont repris le contrôle.",
+    },
+    {
+      question: "Quel est le principal risque d'utiliser un Doji comme signal d'entrée seul ?",
+      options: [
+        "Le Doji est un signal exclusivement baissier",
+        "Le Doji ne donne pas de direction — il faut attendre la bougie suivante pour confirmer",
+        "Le Doji n'est valide que sur le marché des cryptomonnaies",
+        "Le Doji indique toujours une manipulation des prix par les institutions",
+      ],
+      correctIndex: 1,
+      explanation: "Le Doji signale l'indécision, pas une direction. Il faut toujours attendre la bougie suivante pour confirmer la direction probable.",
+    },
+    {
+      question: "Pour qu'un Engulfing haussier soit fiable, où doit-il apparaître idéalement ?",
+      options: [
+        "Au milieu d'une tendance haussière bien établie",
+        "N'importe où sur le graphique",
+        "Au bas d'une tendance baissière",
+        "Uniquement sur des graphiques en timeframe mensuel",
+      ],
+      correctIndex: 2,
+      explanation: "L'Engulfing haussier est très fiable au bas d'une tendance baissière — la grande bougie verte qui engloutit la rouge signale que les acheteurs ont pris le contrôle.",
+    },
+    {
+      question: "L'Étoile du matin (Morning Star) est composée de combien de bougies ?",
+      options: ["1 bougie", "2 bougies", "3 bougies", "5 bougies"],
+      correctIndex: 2,
+      explanation: "L'Étoile du matin est un pattern de 3 bougies : une grande rouge, une petite (indécision), puis une grande verte qui confirme le retournement haussier.",
+    },
+  ],
+  strategies: [
+    {
+      question: "Quelle stratégie consiste à investir la même somme à intervalles réguliers peu importe le prix ?",
+      options: [
+        "Swing Trading",
+        "Dollar Cost Averaging (DCA)",
+        "Scalping",
+        "Trading sur nouvelles",
+      ],
+      correctIndex: 1,
+      explanation: "Le DCA élimine le stress du 'bon moment' en investissant un montant fixe chaque mois — idéal pour les débutants sur des ETF diversifiés.",
+    },
+    {
+      question: "Quelle est la principale limite du suivi de tendance (Trend Following) ?",
+      options: [
+        "Il nécessite beaucoup de temps devant l'écran",
+        "Il est très peu efficace sur les marchés en forte tendance",
+        "Il est peu efficace sur les marchés latéraux sans direction claire",
+        "Il exige un capital minimum de 50 000 $",
+      ],
+      correctIndex: 2,
+      explanation: "Le suivi de tendance génère de nombreux faux signaux quand le marché oscille sans direction — il faut d'abord confirmer qu'une vraie tendance est en place.",
+    },
+    {
+      question: "Lors d'une stratégie de Cassure (Breakout), quel élément est indispensable à vérifier ?",
+      options: [
+        "Que le RSI soit en dessous de 30",
+        "Que le volume de la bougie de cassure soit supérieur à la moyenne",
+        "Que l'entreprise ait annoncé de bons résultats trimestriels",
+        "Que la cassure se produise un lundi matin",
+      ],
+      correctIndex: 1,
+      explanation: "Un breakout sans volume élevé est souvent une fausse cassure — le volume confirme que de vrais acheteurs/vendeurs participent au mouvement.",
+    },
+    {
+      question: "Quelle stratégie est décrite comme particulièrement adaptée à quelqu'un qui a un horaire de travail normal et ne peut pas surveiller l'écran toute la journée ?",
+      options: [
+        "Scalping",
+        "Day Trading Intraday",
+        "Swing Trading",
+        "Grid Trading",
+      ],
+      correctIndex: 2,
+      explanation: "Le Swing Trading implique de garder une position 3 à 15 jours en revérifiant chaque soir — compatible avec un emploi à temps plein.",
+    },
+  ],
+  risques: [
+    {
+      question: "Selon la règle des 1-2%, avec un capital de 5 000 $, quel est le risque maximum par trade ?",
+      options: ["500 $", "50 à 100 $", "1 000 $", "250 $"],
+      correctIndex: 1,
+      explanation: "1% de 5 000 $ = 50 $, et 2% = 100 $. Cette règle permet de survivre à 10 mauvaises trades consécutives sans perdre plus de 10-20% du capital.",
+    },
+    {
+      question: "Qu'est-ce que le 'revenge trading' ?",
+      options: [
+        "Trader contre la tendance principale du marché",
+        "Prendre des trades impulsifs après une perte pour tenter de récupérer rapidement",
+        "Copier les trades d'un autre trader qui vous a devancé",
+        "Vendre à découvert une action d'un concurrent",
+      ],
+      correctIndex: 1,
+      explanation: "Le revenge trading — trader impulsivement après une perte — est l'une des erreurs psychologiques les plus coûteuses car la discipline est compromise.",
+    },
+    {
+      question: "Si votre prix d'entrée est 100 $, votre stop-loss à 95 $ et votre objectif à 115 $, quel est votre rapport risque/gain (R:R) ?",
+      options: ["1:1", "1:2", "3:1", "1:3"],
+      correctIndex: 2,
+      explanation: "Risque = 5 $, Gain potentiel = 15 $. R:R = 15/5 = 3:1 — excellent. Il faut toujours viser un minimum de 2:1 avant d'entrer dans un trade.",
+    },
+    {
+      question: "Où doit idéalement être placé un stop-loss pour être logique et efficace ?",
+      options: [
+        "Exactement 10% sous le prix d'achat, peu importe le graphique",
+        "À un niveau qui minimise la perte à zéro dollar",
+        "Juste en dessous d'un support identifié ou de la mèche basse du chandelier d'entrée",
+        "Au même niveau pour tous les trades afin de simplifier la gestion",
+      ],
+      correctIndex: 2,
+      explanation: "Un stop-loss logique se place sous un support technique ou la mèche basse — un niveau où, si atteint, votre thèse de départ est clairement invalidée.",
+    },
+  ],
+};

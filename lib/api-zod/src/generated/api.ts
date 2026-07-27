@@ -180,6 +180,34 @@ export const SearchSymbolsResponse = zod.array(SearchSymbolsResponseItem)
 
 
 /**
+ * @summary Get market-moving news (free — Yahoo Finance + Google News RSS, no API key)
+ */
+export const GetMarketNewsQueryParams = zod.object({
+  "tickers": zod.coerce.string().optional().describe('Comma-separated ticker symbols to include ticker-specific news for'),
+  "limit": zod.coerce.number().optional()
+})
+
+export const GetMarketNewsResponseItem = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "source": zod.string(),
+  "url": zod.string(),
+  "publishedAt": zod.string(),
+  "theme": zod.string(),
+  "overallSentimentScore": zod.number(),
+  "overallSentimentLabel": zod.enum(['haussier', 'baissier', 'neutre']),
+  "tickers": zod.array(zod.object({
+  "ticker": zod.string(),
+  "relevanceScore": zod.number(),
+  "sentimentScore": zod.number(),
+  "sentimentLabel": zod.enum(['haussier', 'baissier', 'neutre'])
+}))
+})
+export const GetMarketNewsResponse = zod.array(GetMarketNewsResponseItem)
+
+
+/**
  * @summary Get all watchlist items
  */
 export const GetWatchlistResponseItem = zod.object({
@@ -187,6 +215,7 @@ export const GetWatchlistResponseItem = zod.object({
   "symbol": zod.string(),
   "name": zod.string(),
   "note": zod.string().nullish(),
+  "listName": zod.string(),
   "addedAt": zod.string()
 })
 export const GetWatchlistResponse = zod.array(GetWatchlistResponseItem)
@@ -198,6 +227,7 @@ export const GetWatchlistResponse = zod.array(GetWatchlistResponseItem)
 export const AddToWatchlistBody = zod.object({
   "symbol": zod.string(),
   "name": zod.string(),
+  "listName": zod.string().optional(),
   "note": zod.string().optional()
 })
 
@@ -206,6 +236,28 @@ export const AddToWatchlistResponse = zod.object({
   "symbol": zod.string(),
   "name": zod.string(),
   "note": zod.string().nullish(),
+  "listName": zod.string(),
+  "addedAt": zod.string()
+})
+
+
+/**
+ * @summary Move a watchlist item to another custom list
+ */
+export const UpdateWatchlistItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateWatchlistItemBody = zod.object({
+  "listName": zod.string()
+})
+
+export const UpdateWatchlistItemResponse = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "note": zod.string().nullish(),
+  "listName": zod.string(),
   "addedAt": zod.string()
 })
 
@@ -221,15 +273,102 @@ export const RemoveFromWatchlistResponse = zod.void()
 
 
 /**
+ * @summary Get chart notes for a symbol
+ */
+export const GetNotesQueryParams = zod.object({
+  "symbol": zod.coerce.string()
+})
+
+export const GetNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "candleDate": zod.string(),
+  "text": zod.string(),
+  "createdAt": zod.string()
+})
+export const GetNotesResponse = zod.array(GetNotesResponseItem)
+
+
+/**
+ * @summary Add a note to a candle
+ */
+export const AddNoteBody = zod.object({
+  "symbol": zod.string(),
+  "candleDate": zod.string(),
+  "text": zod.string()
+})
+
+export const AddNoteResponse = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "candleDate": zod.string(),
+  "text": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a chart note
+ */
+export const DeleteNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteNoteResponse = zod.void()
+
+
+/**
+ * @summary Get progress for all "Apprendre à trader" sections
+ */
+export const GetLearnProgressResponseItem = zod.object({
+  "sectionId": zod.string(),
+  "completed": zod.boolean(),
+  "quizScore": zod.number().nullish(),
+  "quizTotal": zod.number().nullish(),
+  "completedAt": zod.string().nullish(),
+  "updatedAt": zod.string()
+})
+export const GetLearnProgressResponse = zod.array(GetLearnProgressResponseItem)
+
+
+/**
+ * @summary Mark a "Apprendre à trader" section (and optional quiz result) as completed or not
+ */
+export const UpdateLearnProgressParams = zod.object({
+  "sectionId": zod.coerce.string()
+})
+
+export const UpdateLearnProgressBody = zod.object({
+  "completed": zod.boolean(),
+  "quizScore": zod.number().optional(),
+  "quizTotal": zod.number().optional()
+})
+
+export const UpdateLearnProgressResponse = zod.object({
+  "sectionId": zod.string(),
+  "completed": zod.boolean(),
+  "quizScore": zod.number().nullish(),
+  "quizTotal": zod.number().nullish(),
+  "completedAt": zod.string().nullish(),
+  "updatedAt": zod.string()
+})
+
+
+/**
  * @summary Get all price alerts
  */
 export const GetAlertsResponseItem = zod.object({
   "id": zod.number(),
   "symbol": zod.string(),
   "name": zod.string().nullish(),
-  "condition": zod.enum(['above', 'below']),
-  "targetPrice": zod.number(),
+  "alertType": zod.enum(['price', 'pattern']),
+  "condition": zod.union([zod.literal('above'),zod.literal('below'),zod.literal(null)]).nullish(),
+  "targetPrice": zod.number().nullish(),
+  "patternSignal": zod.union([zod.literal('haussier'),zod.literal('baissier'),zod.literal(null)]).nullish(),
+  "minStrength": zod.union([zod.literal('faible'),zod.literal('moyen'),zod.literal('fort'),zod.literal(null)]).nullish(),
   "active": zod.boolean(),
+  "notifyEmail": zod.string().nullish(),
+  "notifyPhone": zod.string().nullish(),
   "triggeredAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -242,17 +381,27 @@ export const GetAlertsResponse = zod.array(GetAlertsResponseItem)
 export const CreateAlertBody = zod.object({
   "symbol": zod.string(),
   "name": zod.string().optional(),
-  "condition": zod.enum(['above', 'below']),
-  "targetPrice": zod.number()
+  "alertType": zod.enum(['price', 'pattern']).optional(),
+  "condition": zod.enum(['above', 'below']).optional(),
+  "targetPrice": zod.number().optional(),
+  "patternSignal": zod.enum(['haussier', 'baissier']).optional(),
+  "minStrength": zod.enum(['faible', 'moyen', 'fort']).optional(),
+  "notifyEmail": zod.string().optional(),
+  "notifyPhone": zod.string().optional()
 })
 
 export const CreateAlertResponse = zod.object({
   "id": zod.number(),
   "symbol": zod.string(),
   "name": zod.string().nullish(),
-  "condition": zod.enum(['above', 'below']),
-  "targetPrice": zod.number(),
+  "alertType": zod.enum(['price', 'pattern']),
+  "condition": zod.union([zod.literal('above'),zod.literal('below'),zod.literal(null)]).nullish(),
+  "targetPrice": zod.number().nullish(),
+  "patternSignal": zod.union([zod.literal('haussier'),zod.literal('baissier'),zod.literal(null)]).nullish(),
+  "minStrength": zod.union([zod.literal('faible'),zod.literal('moyen'),zod.literal('fort'),zod.literal(null)]).nullish(),
   "active": zod.boolean(),
+  "notifyEmail": zod.string().nullish(),
+  "notifyPhone": zod.string().nullish(),
   "triggeredAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -279,9 +428,14 @@ export const GetTriggeredAlertsResponse = zod.object({
   "id": zod.number(),
   "symbol": zod.string(),
   "name": zod.string().nullish(),
-  "condition": zod.enum(['above', 'below']),
-  "targetPrice": zod.number(),
+  "alertType": zod.enum(['price', 'pattern']),
+  "condition": zod.union([zod.literal('above'),zod.literal('below'),zod.literal(null)]).nullish(),
+  "targetPrice": zod.number().nullish(),
+  "patternSignal": zod.union([zod.literal('haussier'),zod.literal('baissier'),zod.literal(null)]).nullish(),
+  "minStrength": zod.union([zod.literal('faible'),zod.literal('moyen'),zod.literal('fort'),zod.literal(null)]).nullish(),
   "active": zod.boolean(),
+  "notifyEmail": zod.string().nullish(),
+  "notifyPhone": zod.string().nullish(),
   "triggeredAt": zod.string().nullish(),
   "createdAt": zod.string()
 })

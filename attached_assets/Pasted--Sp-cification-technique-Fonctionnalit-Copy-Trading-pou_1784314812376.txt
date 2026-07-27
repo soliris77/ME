@@ -1,0 +1,199 @@
+# Spécification technique — Fonctionnalité "Copy Trading" pour Soliris Market
+
+## ⚠️ Point bloquant à régler avant l'implémentation
+
+Cette spec est écrite pour être **branchée sur une API de courtage légitime et documentée** (type eToro, Bybit, MetaTrader, ou tout broker proposant une API REST officielle pour développeurs). Le nom exact de la plateforme cible n'a pas encore été confirmé. **Avant de commencer le développement, il faut :**
+
+1. Identifier le nom exact et correct de la plateforme.
+2. Vérifier qu'elle propose une **API publique documentée** avec authentification (OAuth2 ou clé API) permettant de lire les positions/trades d'un trader public/vérifié.
+3. Lire ses conditions d'utilisation (ToS) pour confirmer que l'accès programmatique aux données de trades publics est autorisé.
+
+Si la plateforme n'a **pas** d'API officielle, cette fonctionnalité ne doit **pas** être construite par scraping — ça violerait quasi systématiquement les ToS de ce type de site et exposerait le compte de l'utilisateur à une suspension. Dans ce cas, il faut soit trouver une alternative avec API, soit abandonner cette feature.
+
+Tout ce qui suit part du principe qu'une API légitime existe. Remplacer partout `[PLATEFORME]` par le nom réel une fois confirmé.
+
+---
+
+## 1. Vue d'ensemble de la fonctionnalité
+
+**Objectif :** permettre à un utilisateur de Soliris Market de connecter son compte sur `[PLATEFORME]` afin de :
+- Visualiser les trades publics de traders performants ("leaders") qu'il choisit de suivre.
+- Optionnellement, répliquer automatiquement (copy) une partie de leurs trades sur son propre compte `[PLATEFORME]`, selon des règles de risque qu'il définit (montant max par trade, % du capital, stop-loss global).
+- Suivre dans Soliris Market un tableau de bord de performance de ces traders copiés, en parallèle du reste de l'app.
+
+**Ce que ce n'est PAS :** Soliris Market n'exécute jamais lui-même un ordre — l'exécution reste toujours du côté de `[PLATEFORME]`, via son API officielle de copy-trading si elle existe, ou via une simple réplication manuelle assistée (l'app notifie l'utilisateur, qui valide/exécute lui-même). **Recommandation forte : commencer par la version "notification + validation manuelle" avant d'implémenter l'exécution automatique**, qui est plus risquée légalement et techniquement.
+
+---
+
+## 2. Architecture générale (cohérente avec l'existant)
+
+Le monorepo TypeScript reste inchangé dans sa structure :
+- `api-server` (Express, port interne 3001 en dev / 8080 en prod) : nouvelle couche d'intégration avec `[PLATEFORME]`.
+- `wealthsimple-tracker` (Vite/React) : nouvelles pages/composants pour le copy-trading.
+- PostgreSQL + Drizzle ORM : nouvelles tables pour stocker les connexions, les traders suivis, l'historique des trades copiés.
+
+Nouveau module côté serveur : `lib/integrations/[plateforme]/` contenant :
+```
+lib/integrations/[plateforme]/
+  client.ts        // wrapper autour de l'API externe (auth, requêtes)
+  types.ts         // types TypeScript des réponses de l'API externe
+  sync.ts          // job périodique de synchronisation des trades des leaders suivis
+  webhook.ts        // (si l'API le supporte) réception d'événements en temps réel
+```
+
+---
+
+## 3. Authentification de l'utilisateur avec `[PLATEFORME]`
+
+### 3.1 Cas OAuth2 (préférable si disponible)
+- Ajouter un flux OAuth2 standard : redirection vers `[PLATEFORME]`, callback vers `api-server`, échange du code contre un `access_token` + `refresh_token`.
+- Stocker les tokens **chiffrés** en base (jamais en clair), avec une librairie comme `node:crypto` (AES-256-GCM) et une clé de chiffrement stockée dans les secrets Replit (`ENCRYPTION_KEY`), jamais dans le code.
+- Endpoint : `GET /api/integrations/[plateforme]/oauth/start` → redirige.
+- Endpoint : `GET /api/integrations/[plateforme]/oauth/callback` → échange le code, stocke les tokens, redirige vers le dashboard.
+
+### 3.2 Cas clé API utilisateur (si pas d'OAuth)
+- L'utilisateur colle sa clé API `[PLATEFORME]` (générée depuis son propre compte, en lecture seule idéalement) dans un formulaire dédié.
+- Même règle : chiffrement en base, jamais de log de la clé, jamais renvoyée en clair au frontend après la première saisie (afficher seulement les 4 derniers caractères).
+
+### 3.3 Schéma Drizzle à ajouter
+
+```typescript
+// lib/db/schema/copyTrading.ts
+import { pgTable, serial, integer, text, timestamp, boolean, numeric } from "drizzle-orm/pg-core";
+import { users } from "./users";
+
+export const brokerConnections = pgTable("broker_connections", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  platform: text("platform").notNull(), // ex: "[plateforme]"
+  encryptedAccessToken: text("encrypted_access_token"),
+  encryptedRefreshToken: text("encrypted_refresh_token"),
+  encryptedApiKey: text("encrypted_api_key"),
+  externalAccountId: text("external_account_id"),
+  isActive: boolean("is_active").default(true),
+  connectedAt: timestamp("connected_at").defaultNow(),
+  lastSyncAt: timestamp("last_sync_at"),
+});
+
+export const followedTraders = pgTable("followed_traders", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  brokerConnectionId: integer("broker_connection_id").notNull().references(() => brokerConnections.id),
+  externalTraderId: text("external_trader_id").notNull(),
+  traderDisplayName: text("trader_display_name"),
+  autoExecute: boolean("auto_execute").default(false), // false = notification only
+  maxAmountPerTrade: numeric("max_amount_per_trade"),
+  maxPercentOfCapital: numeric("max_percent_of_capital"),
+  stopLossGlobalPercent: numeric("stop_loss_global_percent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const copiedTrades = pgTable("copied_trades", {
+  id: serial("id").primaryKey(),
+  followedTraderId: integer("followed_trader_id").notNull().references(() => followedTraders.id),
+  externalTradeId: text("external_trade_id").notNull(),
+  symbol: text("symbol").notNull(),
+  direction: text("direction").notNull(), // "buy" | "sell"
+  originalAmount: numeric("original_amount"),
+  copiedAmount: numeric("copied_amount"),
+  status: text("status").notNull(), // "pending" | "notified" | "executed" | "rejected" | "failed"
+  openedAt: timestamp("opened_at"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+```
+
+Après ajout, exécuter côté Replit : `cd lib/db && pnpm push` (règle déjà établie du projet).
+
+---
+
+## 4. Synchronisation des trades des leaders suivis
+
+### 4.1 Job périodique
+- Fichier `lib/integrations/[plateforme]/sync.ts`.
+- Toutes les X minutes (selon les limites de rate-limit de l'API — à vérifier dans leur doc), pour chaque `followedTraders` actif :
+  1. Appeler l'API `[PLATEFORME]` pour récupérer les positions ouvertes/récentes du trader externe.
+  2. Comparer avec `copiedTrades` déjà connus (par `externalTradeId`) pour détecter les nouveaux trades.
+  3. Pour chaque nouveau trade détecté :
+     - Calculer le montant à copier selon les règles de risque de l'utilisateur (`maxAmountPerTrade`, `maxPercentOfCapital`).
+     - Si `autoExecute = false` → créer une entrée `copiedTrades` avec `status = "notified"` et déclencher une notification (email via Resend, déjà en place dans le projet, ou notification in-app).
+     - Si `autoExecute = true` → appeler l'endpoint d'exécution de `[PLATEFORME]` (si leur API le permet), puis mettre `status = "executed"` ou `"failed"`.
+
+### 4.2 Gestion des erreurs et rate limits
+- Respecter scrupuleusement les limites de requêtes documentées par `[PLATEFORME]`.
+- Retry avec backoff exponentiel en cas d'erreur 429/5xx.
+- Logger les échecs de synchronisation dans une table `sync_errors` ou via les logs existants du serveur, sans jamais logger les tokens/clés.
+
+---
+
+## 5. Endpoints API à créer côté `api-server`
+
+```
+POST   /api/integrations/[plateforme]/connect        // démarre la connexion (OAuth ou clé API)
+GET    /api/integrations/[plateforme]/oauth/callback // callback OAuth
+DELETE /api/integrations/[plateforme]/disconnect      // révoque et supprime les tokens
+
+GET    /api/copy-trading/traders/search?q=...         // recherche de traders publics à suivre
+POST   /api/copy-trading/followed-traders              // ajoute un trader à suivre + règles de risque
+PATCH  /api/copy-trading/followed-traders/:id          // modifie les règles (montant max, auto-exécution)
+DELETE /api/copy-trading/followed-traders/:id          // arrête de suivre un trader
+
+GET    /api/copy-trading/copied-trades                 // historique des trades copiés/notifiés pour l'utilisateur
+GET    /api/copy-trading/performance/:followedTraderId  // stats de performance du trader suivi
+```
+
+Toutes les routes doivent être protégées par le middleware d'authentification déjà utilisé ailleurs dans le projet (vérifier la session/utilisateur connecté avant tout accès).
+
+---
+
+## 6. Frontend (Vite/React)
+
+### 6.1 Nouvelles pages
+- `/copy-trading` : page principale, liste des traders suivis + bouton "Suivre un nouveau trader".
+- `/copy-trading/decouvrir` : recherche/découverte de traders publics performants sur `[PLATEFORME]`, avec filtres (rendement, risque, nombre de suiveurs).
+- `/copy-trading/parametres/:followedTraderId` : réglages de risque pour un trader suivi précis.
+
+### 6.2 Composants clés
+- `TraderCard.tsx` : carte résumant un trader (photo, pseudo, rendement %, risque, nombre de suiveurs) — cohérent visuellement avec le design existant du site (mêmes couleurs, mêmes cards que la section marché).
+- `CopyTradeSettingsForm.tsx` : formulaire pour définir montant max par trade, % du capital, stop-loss global, et le toggle "exécution automatique" (désactivé par défaut, avec un avertissement clair sur les risques quand l'utilisateur l'active).
+- `CopiedTradesTable.tsx` : tableau historique des trades copiés, avec statut (notifié / exécuté / échoué), réutilisant si possible le style des tableaux déjà présents dans la section "journal de marché".
+- `BrokerConnectionBanner.tsx` : bannière affichée si l'utilisateur n'a pas encore connecté son compte `[PLATEFORME]`, avec bouton de connexion.
+
+### 6.3 Avertissement obligatoire dans l'UI
+Avant toute activation de `autoExecute`, afficher un texte clair et non-escamotable du type :
+
+> "En activant l'exécution automatique, les trades des traders que tu suis seront reproduits automatiquement sur ton compte [PLATEFORME], dans les limites que tu as définies. Le trading comporte un risque de perte en capital. Soliris Market n'exécute aucun ordre lui-même et ne peut pas garantir les performances passées ou futures des traders suivis."
+
+---
+
+## 7. Sécurité — points non négociables
+
+1. **Jamais de clé API ou de token en clair** en base, dans les logs, ou dans les réponses réseau après la saisie initiale.
+2. **Chiffrement au repos** (AES-256-GCM) avec clé stockée uniquement dans les secrets Replit.
+3. **Scope minimal** : si `[PLATEFORME]` permet de créer une clé API en lecture seule ou avec des permissions limitées (pas de retrait de fonds), l'imposer explicitement dans la doc utilisateur.
+4. **Révocation facile** : bouton "Déconnecter" qui supprime immédiatement les tokens en base et révoque côté `[PLATEFORME]` si leur API le permet.
+5. **Pas de stockage de mot de passe** `[PLATEFORME]` — uniquement OAuth ou clé API, jamais identifiants/mot de passe directs.
+6. **Séparation des permissions** : l'exécution automatique de trades doit être un opt-in explicite et réversible à tout moment, jamais activé par défaut.
+
+---
+
+## 8. Étapes de livraison suggérées pour l'IA Replit
+
+1. **Étape 1** — Ajouter le schéma Drizzle (section 3.3), pousser en base.
+2. **Étape 2** — Implémenter la connexion `[PLATEFORME]` (OAuth ou clé API) avec chiffrement, sans encore rien synchroniser.
+3. **Étape 3** — Implémenter la recherche/découverte de traders publics (lecture seule, pas de copy encore).
+4. **Étape 4** — Implémenter le suivi d'un trader + le job de synchronisation en mode "notification seulement" (`autoExecute = false` forcé au départ).
+5. **Étape 5** — Construire les pages/composants frontend listés en section 6.
+6. **Étape 6** — Une fois tout validé et testé en mode notification, envisager (optionnel, seulement si l'API de `[PLATEFORME]` le permet proprement) l'exécution automatique, avec tests approfondis avant activation en production.
+
+Chaque étape doit être livrée complète et fonctionnelle avant de passer à la suivante, conformément aux règles de travail déjà en place sur ce projet (livraison de code complet en une session, jamais de travail à moitié fait).
+
+---
+
+## 9. Ce qu'il reste à fournir avant de commencer le code
+
+- Le nom exact et confirmé de `[PLATEFORME]`.
+- Un lien vers sa documentation API officielle (auth, endpoints de lecture des trades publics, éventuellement endpoints d'exécution).
+- Confirmation que l'usage prévu (copy-trading via API) est conforme à leurs conditions d'utilisation.
+
+Une fois ces trois éléments en main, cette spec peut être directement complétée (remplacer `[PLATEFORME]` partout) et donnée telle quelle à l'IA Replit pour développement.

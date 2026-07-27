@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { BookOpen, TrendingUp, BarChart2, ShieldAlert, Lightbulb, ChevronDown, ChevronUp, Search } from "lucide-react";
-import { CANDLES, STRATEGIES, GLOSSAIRE } from "@/data/learnContent";
+import { BookOpen, TrendingUp, BarChart2, ShieldAlert, Lightbulb, ChevronDown, ChevronUp, Search, CheckCircle2, ArrowRight, RotateCcw } from "lucide-react";
+import { CANDLES, STRATEGIES, GLOSSAIRE, QUIZZES, type QuizQuestion } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { useGetLearnProgress, useUpdateLearnProgress, getGetLearnProgressQueryKey, type LearnProgress } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Tab = "bases" | "chandeliers" | "strategies" | "risques" | "glossaire";
 
@@ -25,8 +27,8 @@ const TABS: { id: Tab; label: string; icon: typeof BookOpen; title: string; desc
     id: "strategies",
     label: "Stratégies débutant",
     icon: Lightbulb,
-    title: "4 stratégies de trading pour débutants | Soliris Market",
-    description: "Suivi de tendance, retournement sur support/résistance, cassure (breakout) et dollar cost averaging (DCA) — avantages, limites et étapes concrètes.",
+    title: "Stratégies de trading pour débutants | Soliris Market",
+    description: "Suivi de tendance, retournement sur support/résistance, cassure (breakout), DCA et bien d'autres — avantages, limites et étapes concrètes.",
   },
   {
     id: "risques",
@@ -44,6 +46,8 @@ const TABS: { id: Tab; label: string; icon: typeof BookOpen; title: string; desc
   },
 ];
 
+const SECTION_ORDER: Tab[] = ["bases", "chandeliers", "strategies", "risques", "glossaire"];
+
 // ── Accordion ────────────────────────────────────────────────────────────────
 function Accordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -58,6 +62,146 @@ function Accordion({ title, children, defaultOpen = false }: { title: string; ch
       </button>
       {open && <div className="px-4 pb-4">{children}</div>}
     </div>
+  );
+}
+
+// ── Quiz ─────────────────────────────────────────────────────────────────────
+function SectionQuiz({
+  questions,
+  previous,
+  onFinish,
+}: {
+  questions: QuizQuestion[];
+  previous?: LearnProgress;
+  onFinish: (score: number, total: number) => void;
+}) {
+  const [active, setActive] = useState(false);
+  const [idx, setIdx] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [score, setScore] = useState(0);
+  const [finished, setFinished] = useState(false);
+
+  function start() {
+    setActive(true);
+    setIdx(0);
+    setSelected(null);
+    setScore(0);
+    setFinished(false);
+  }
+
+  function choose(i: number) {
+    if (selected !== null) return;
+    setSelected(i);
+    if (i === questions[idx].correctIndex) setScore((s) => s + 1);
+  }
+
+  function next() {
+    if (idx + 1 < questions.length) {
+      setIdx((v) => v + 1);
+      setSelected(null);
+    } else {
+      setFinished(true);
+      onFinish(score, questions.length);
+    }
+  }
+
+  if (!active) {
+    return (
+      <div className="bg-card border border-card-border rounded-xl p-5 text-center">
+        {previous?.completed && (
+          <p className="text-xs gain font-medium mb-2 flex items-center justify-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Quiz complété — score : <span className="font-mono">{previous.quizScore}/{previous.quizTotal}</span>
+          </p>
+        )}
+        <p className="text-sm font-semibold mb-1">🧠 Testez vos connaissances</p>
+        <p className="text-xs text-muted-foreground mb-3">{questions.length} questions rapides sur cette section.</p>
+        <button
+          onClick={start}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          {previous?.completed ? <RotateCcw className="w-3.5 h-3.5" /> : null}
+          {previous?.completed ? "Refaire le quiz" : "Commencer le quiz"}
+        </button>
+      </div>
+    );
+  }
+
+  if (finished) {
+    const pct = Math.round((score / questions.length) * 100);
+    return (
+      <div className="bg-card border border-card-border rounded-xl p-5 text-center">
+        <p className={`text-2xl font-bold font-mono ${pct >= 70 ? "gain" : pct >= 40 ? "" : "loss"}`}>{score}/{questions.length}</p>
+        <p className="text-sm text-muted-foreground mt-1 mb-3">
+          {pct >= 70 ? "Excellent travail ! Vous maîtrisez cette section. 🎉" : pct >= 40 ? "Pas mal, mais relisez les points manqués avant de continuer." : "Reprenez le contenu ci-dessus puis retentez le quiz."}
+        </p>
+        <button
+          onClick={start}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> Refaire le quiz
+        </button>
+      </div>
+    );
+  }
+
+  const q = questions[idx];
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-muted-foreground">Question {idx + 1}/{questions.length}</span>
+        <div className="flex gap-1">
+          {questions.map((_, i) => (
+            <span key={i} className={`w-1.5 h-1.5 rounded-full ${i < idx ? "bg-primary" : i === idx ? "bg-primary/50" : "bg-muted"}`} />
+          ))}
+        </div>
+      </div>
+      <p className="text-sm font-semibold mb-3">{q.question}</p>
+      <div className="space-y-2 mb-3">
+        {q.options.map((opt, i) => {
+          const isCorrect = i === q.correctIndex;
+          const isSelected = i === selected;
+          let cls = "border-border hover:bg-muted/50";
+          if (selected !== null) {
+            if (isCorrect) cls = "border-[color:var(--gain,#16A34A)] bg-[rgba(22,163,74,0.08)]";
+            else if (isSelected) cls = "border-[color:var(--loss,#DC2626)] bg-[rgba(220,38,38,0.08)]";
+            else cls = "border-border opacity-60";
+          }
+          return (
+            <button
+              key={i}
+              onClick={() => choose(i)}
+              disabled={selected !== null}
+              className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${cls}`}
+            >
+              <span className={isCorrect && selected !== null ? "gain font-medium" : isSelected && !isCorrect ? "loss font-medium" : ""}>{opt}</span>
+            </button>
+          );
+        })}
+      </div>
+      {selected !== null && (
+        <div className="bg-muted/50 rounded-lg p-3 mb-3">
+          <p className="text-xs text-foreground/80 leading-relaxed">💡 {q.explanation}</p>
+        </div>
+      )}
+      {selected !== null && (
+        <button
+          onClick={next}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          {idx + 1 < questions.length ? "Question suivante" : "Voir mon résultat"} <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SectionQuizBlock({ sectionId, progress, onMarkComplete }: { sectionId: Exclude<Tab, "glossaire">; progress?: LearnProgress; onMarkComplete: (sectionId: string, score: number, total: number) => void }) {
+  return (
+    <SectionQuiz
+      questions={QUIZZES[sectionId]}
+      previous={progress}
+      onFinish={(score, total) => onMarkComplete(sectionId, score, total)}
+    />
   );
 }
 
@@ -96,7 +240,7 @@ function BasesTab() {
               <div>⬇️ <strong>Bas</strong> : plus bas atteint (mèche basse)</div>
             </div>
           </div>
-          <p>Une bougie <span className="text-emerald-500 font-semibold">verte</span> = clôture &gt; ouverture (le prix a monté). Une bougie <span className="text-red-500 font-semibold">rouge</span> = clôture &lt; ouverture.</p>
+          <p>Une bougie <span className="gain font-semibold">verte</span> = clôture &gt; ouverture (le prix a monté). Une bougie <span className="loss font-semibold">rouge</span> = clôture &lt; ouverture.</p>
         </div>
       </Accordion>
 
@@ -149,7 +293,7 @@ function BasesTab() {
             { no: "5", error: "Investir de l'argent qu'on ne peut pas se permettre de perdre", fix: "N'investissez que l'argent que vous seriez à l'aise de perdre entièrement dans le pire scénario." },
           ].map((e) => (
             <div key={e.no} className="flex gap-3 bg-red-500/5 border border-red-500/15 rounded-lg p-3">
-              <span className="text-red-500 font-bold text-sm shrink-0">#{e.no}</span>
+              <span className="loss font-bold text-sm shrink-0">#{e.no}</span>
               <div>
                 <div className="text-sm font-semibold text-foreground">{e.error}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">✅ {e.fix}</div>
@@ -203,12 +347,29 @@ function ChandeliersTab() {
 }
 
 function StrategiesTab() {
+  const [levelFilter, setLevelFilter] = useState("Tous");
+  const levels = ["Tous", ...Array.from(new Set(STRATEGIES.map((s) => s.level)))];
+  const filtered = levelFilter === "Tous" ? STRATEGIES : STRATEGIES.filter((s) => s.level === levelFilter);
+
   return (
     <div className="space-y-4">
       <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm">
         <strong>⚠️ Important :</strong> Aucune stratégie ne fonctionne 100% du temps. L'objectif est d'avoir une <strong>espérance mathématique positive</strong> sur le long terme — gagner plus que vous ne perdez en moyenne.
       </div>
-      {STRATEGIES.map((s) => (
+
+      <div className="flex flex-wrap gap-1.5">
+        {levels.map((l) => (
+          <button
+            key={l}
+            onClick={() => setLevelFilter(l)}
+            className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${levelFilter === l ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {filtered.map((s) => (
         <Link key={s.slug} href={`/apprendre/strategies/${s.slug}`}>
         <div className={`border rounded-xl p-5 ${s.bg} border-current/20 cursor-pointer hover:opacity-90 transition-opacity`}>
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -229,17 +390,21 @@ function StrategiesTab() {
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="bg-emerald-500/10 rounded-lg p-2">
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">✅ Avantages</span>
+              <span className="font-semibold gain">✅ Avantages</span>
               <p className="text-foreground/70 mt-0.5">{s.pros}</p>
             </div>
             <div className="bg-red-500/10 rounded-lg p-2">
-              <span className="font-semibold text-red-600 dark:text-red-400">⚠️ Limites</span>
+              <span className="font-semibold loss">⚠️ Limites</span>
               <p className="text-foreground/70 mt-0.5">{s.cons}</p>
             </div>
           </div>
         </div>
         </Link>
       ))}
+
+      {filtered.length === 0 && (
+        <p className="text-sm text-center text-muted-foreground py-6">Aucune stratégie pour ce niveau</p>
+      )}
     </div>
   );
 }
@@ -248,7 +413,7 @@ function RisquesTab() {
   return (
     <div className="space-y-4">
       <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-        <p className="text-sm font-bold text-red-600 dark:text-red-400 mb-1">La règle n°1 du trading</p>
+        <p className="text-sm font-bold loss mb-1">La règle n°1 du trading</p>
         <p className="text-sm text-foreground/80 leading-relaxed">
           <strong>Ne perdez jamais plus que vous ne pouvez vous permettre.</strong> Même les meilleurs traders au monde perdent régulièrement. La différence, c'est qu'ils contrôlent leurs pertes pour que les gains les dépassent sur le long terme.
         </p>
@@ -257,9 +422,9 @@ function RisquesTab() {
       <Accordion title="📐 La règle des 1-2% par position" defaultOpen>
         <div className="text-sm text-foreground/80 leading-relaxed mt-2 space-y-2">
           <p>Ne risquez jamais plus de <strong>1 à 2% de votre capital total</strong> sur une seule trade. Exemple :</p>
-          <div className="bg-muted rounded-lg p-3 text-xs space-y-1">
+          <div className="bg-muted rounded-lg p-3 text-xs space-y-1 font-mono">
             <div>Capital total : 5 000 $</div>
-            <div>Risque max par trade (1%) : <strong className="text-emerald-500">50 $</strong></div>
+            <div>Risque max par trade (1%) : <strong className="gain">50 $</strong></div>
             <div>Stop-loss à 5% sous le prix d'entrée</div>
             <div>Taille de position : 50 ÷ 5% = <strong className="text-primary">1 000 $</strong></div>
           </div>
@@ -282,10 +447,10 @@ function RisquesTab() {
       <Accordion title="⚖️ Calculer son rapport risque/gain (R:R)">
         <div className="text-sm text-foreground/80 leading-relaxed mt-2 space-y-2">
           <p>Avant d'entrer dans une trade, calculez toujours :</p>
-          <div className="bg-muted rounded-lg p-3 text-xs space-y-1">
+          <div className="bg-muted rounded-lg p-3 text-xs space-y-1 font-mono">
             <div>Prix d'entrée : 100 $</div>
-            <div>Stop-loss : 95 $ → Risque = <strong className="text-red-500">5 $</strong></div>
-            <div>Objectif : 115 $ → Gain potentiel = <strong className="text-emerald-500">15 $</strong></div>
+            <div>Stop-loss : 95 $ → Risque = <strong className="loss">5 $</strong></div>
+            <div>Objectif : 115 $ → Gain potentiel = <strong className="gain">15 $</strong></div>
             <div>R:R = 15/5 = <strong className="text-primary">3:1</strong> ✅ Excellent</div>
           </div>
           <p>Visez toujours un minimum de <strong>2:1</strong> (gagner au moins 2 $ pour chaque 1 $ risqué).</p>
@@ -311,9 +476,17 @@ function RisquesTab() {
   );
 }
 
-function GlossaireTab() {
+function GlossaireTab({ progress, onVisited }: { progress?: LearnProgress; onVisited: () => void }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("Tous");
+  const markedRef = useRef(false);
+
+  useEffect(() => {
+    if (!markedRef.current && progress && !progress.completed) {
+      markedRef.current = true;
+      onVisited();
+    }
+  }, [progress, onVisited]);
 
   const categories = ["Tous", ...Array.from(new Set(GLOSSAIRE.map((g) => g.category)))];
   const filtered = GLOSSAIRE.filter((g) => {
@@ -375,12 +548,51 @@ export default function Learn() {
 
   usePageMeta(activeTab.title, activeTab.description);
 
+  const queryClient = useQueryClient();
+  const { data: progress } = useGetLearnProgress();
+  const progressBySection = new Map((progress ?? []).map((p) => [p.sectionId, p]));
+
+  const mark = useUpdateLearnProgress({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetLearnProgressQueryKey() }),
+    },
+  });
+
+  const handleMarkComplete = (sectionId: string, score: number, total: number) => {
+    mark.mutate({ sectionId, data: { completed: true, quizScore: score, quizTotal: total } });
+  };
+
+  const handleGlossaryVisited = () => {
+    mark.mutate({ sectionId: "glossaire", data: { completed: true } });
+  };
+
+  const completedCount = SECTION_ORDER.filter((id) => progressBySection.get(id)?.completed).length;
+  const nextIncomplete = SECTION_ORDER.find((id) => !progressBySection.get(id)?.completed);
+  const showResumeBanner = !params?.tab && completedCount > 0 && nextIncomplete && nextIncomplete !== "bases";
+
   return (
     <div className="p-6 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-xl font-bold">Apprendre à trader</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Guide complet pour débutants — des bases aux stratégies avancées, en français</p>
+        <div className="flex items-center gap-2 mt-3">
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-xs">
+            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(completedCount / SECTION_ORDER.length) * 100}%` }} />
+          </div>
+          <span className="text-xs font-medium text-muted-foreground font-mono">{completedCount}/{SECTION_ORDER.length} sections complétées</span>
+        </div>
       </div>
+
+      {showResumeBanner && (
+        <Link href={`/apprendre/${nextIncomplete}`}>
+          <div className="mb-6 flex items-center justify-between gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 cursor-pointer hover:bg-primary/10 transition-colors">
+            <p className="text-sm">
+              👋 Reprendre où vous étiez : <strong>{TABS.find((t) => t.id === nextIncomplete)?.label}</strong>
+            </p>
+            <ArrowRight className="w-4 h-4 text-primary shrink-0" />
+          </div>
+        </Link>
+      )}
 
       <div className="flex flex-wrap gap-1 mb-6 border-b border-border pb-4">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -393,15 +605,36 @@ export default function Learn() {
           >
             <Icon className="w-3.5 h-3.5" />
             {label}
+            {progressBySection.get(id)?.completed && <CheckCircle2 className="w-3 h-3 gain" />}
           </Link>
         ))}
       </div>
 
-      {tab === "bases" && <BasesTab />}
-      {tab === "chandeliers" && <ChandeliersTab />}
-      {tab === "strategies" && <StrategiesTab />}
-      {tab === "risques" && <RisquesTab />}
-      {tab === "glossaire" && <GlossaireTab />}
+      {tab === "bases" && (
+        <div className="space-y-4">
+          <BasesTab />
+          <SectionQuizBlock sectionId="bases" progress={progressBySection.get("bases")} onMarkComplete={handleMarkComplete} />
+        </div>
+      )}
+      {tab === "chandeliers" && (
+        <div className="space-y-4">
+          <ChandeliersTab />
+          <SectionQuizBlock sectionId="chandeliers" progress={progressBySection.get("chandeliers")} onMarkComplete={handleMarkComplete} />
+        </div>
+      )}
+      {tab === "strategies" && (
+        <div className="space-y-4">
+          <StrategiesTab />
+          <SectionQuizBlock sectionId="strategies" progress={progressBySection.get("strategies")} onMarkComplete={handleMarkComplete} />
+        </div>
+      )}
+      {tab === "risques" && (
+        <div className="space-y-4">
+          <RisquesTab />
+          <SectionQuizBlock sectionId="risques" progress={progressBySection.get("risques")} onMarkComplete={handleMarkComplete} />
+        </div>
+      )}
+      {tab === "glossaire" && <GlossaireTab progress={progressBySection.get("glossaire")} onVisited={handleGlossaryVisited} />}
     </div>
   );
 }

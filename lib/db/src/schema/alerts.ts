@@ -16,9 +16,12 @@ export const alertsTable = pgTable("alerts", {
   active: boolean("active").default(true).notNull(),
   triggeredAt: timestamp("triggered_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  // Optional per-alert destination. Falls back to ALERT_NOTIFY_EMAIL env var
-  // when null — see lib/emailClient.ts.
+  // Optional per-alert destination. Falls back to the global notification
+  // preferences (email/téléphone) when null — voir lib/notificationPrefs.ts.
   notifyEmail: text("notify_email"),
+  // Numéro de téléphone (E.164) pour le SMS — même logique de fallback que
+  // notifyEmail : si vide, on utilise le téléphone des préférences globales.
+  notifyPhone: text("notify_phone"),
 });
 
 export const insertAlertSchema = createInsertSchema(alertsTable).omit({ id: true, active: true, triggeredAt: true, createdAt: true });

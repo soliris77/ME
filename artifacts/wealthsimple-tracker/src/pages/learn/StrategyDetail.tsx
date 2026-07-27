@@ -1,6 +1,6 @@
 import { Link, useParams } from "wouter";
-import { ArrowLeft } from "lucide-react";
-import { STRATEGIES } from "@/data/learnContent";
+import { ArrowLeft, FlaskConical, AlertTriangle } from "lucide-react";
+import { STRATEGIES, STRATEGY_MISTAKES, STRATEGY_RELATED_GLOSSARY, GLOSSAIRE } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import NotFound from "@/pages/not-found";
 
@@ -45,15 +45,61 @@ export default function StrategyDetail() {
 
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-emerald-500/10 rounded-lg p-3">
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">✅ Avantages</span>
+            <span className="font-semibold gain">✅ Avantages</span>
             <p className="text-foreground/70 mt-1">{strategy.pros}</p>
           </div>
           <div className="bg-red-500/10 rounded-lg p-3">
-            <span className="font-semibold text-red-600 dark:text-red-400">⚠️ Limites</span>
+            <span className="font-semibold loss">⚠️ Limites</span>
             <p className="text-foreground/70 mt-1">{strategy.cons}</p>
           </div>
         </div>
+
+        <Link
+          href="/dashboard"
+          className="mt-4 inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          <FlaskConical className="w-3.5 h-3.5" />
+          Essayer en mode paper
+        </Link>
+        <p className="text-[10px] text-muted-foreground/60 mt-1.5">Applique cette stratégie sur le tableau de bord, sans argent réel.</p>
       </div>
+
+      {(STRATEGY_MISTAKES[strategy.slug]?.length || STRATEGY_RELATED_GLOSSARY[strategy.slug]?.length) ? (
+        <div className="grid sm:grid-cols-2 gap-3 mt-6">
+          {STRATEGY_MISTAKES[strategy.slug]?.length ? (
+            <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-4">
+              <p className="text-sm font-semibold loss mb-2 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Erreurs fréquentes</p>
+              <ul className="space-y-1.5">
+                {STRATEGY_MISTAKES[strategy.slug].map((m, i) => (
+                  <li key={i} className="text-xs text-foreground/80 leading-relaxed flex gap-1.5">
+                    <span className="loss shrink-0">•</span>{m}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {STRATEGY_RELATED_GLOSSARY[strategy.slug]?.length ? (
+            <div className="border border-border bg-muted/20 rounded-xl p-4">
+              <p className="text-sm font-semibold text-primary mb-2">📖 Termes liés</p>
+              <div className="flex flex-wrap gap-1.5">
+                {STRATEGY_RELATED_GLOSSARY[strategy.slug].map((slug) => {
+                  const term = GLOSSAIRE.find((g) => g.slug === slug);
+                  if (!term) return null;
+                  return (
+                    <Link
+                      key={slug}
+                      href={`/apprendre/glossaire/${slug}`}
+                      className="text-xs px-2.5 py-1 rounded-full bg-background border border-border hover:border-primary/40 transition-colors"
+                    >
+                      {term.term}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-8">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Autres stratégies</h2>

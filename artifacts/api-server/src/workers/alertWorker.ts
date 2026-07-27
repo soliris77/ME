@@ -2,6 +2,8 @@ import { db, alertsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getQuotes, yahooFinance } from "../lib/yahoo";
 import { sendEmail, alertEmailHtml, patternAlertEmailHtml } from "../lib/emailClient";
+import { sendSms } from "../lib/smsClient";
+import { resolveDestinations } from "../lib/notificationPrefs";
 import { detectCandlePatterns, type OHLCPoint, type CandlePattern } from "../lib/patternDetect";
 import { logger } from "../lib/logger";
 
@@ -14,6 +16,26 @@ function isTriggered(condition: string, target: number, current: number): boolea
 }
 
 const STRENGTH_RANK: Record<string, number> = { faible: 1, moyen: 2, fort: 3 };
+
+/**
+ * Résout les destinations effectives (email + téléphone) et les canaux à
+ * utiliser pour un déclenchement d'alerte donné : la surcharge par-alerte
+ * (notifyEmail/notifyPhone) a priorité sur les préférences globales, mais le
+ * *canal* (email/sms/both/none) reste toujours celui configuré globalement
+ * pour ce type d'événement (priceAlert ou patternAlert).
+ */
+async function resolveAlertDestination(
+  alert: { notifyEmail: string | null; notifyPhone: string | null },
+  eventType: "priceAlert" | "patternAlert",
+): Promise<{ email: string | null; phone: string | null; sendEmail: boolean; sendSms: boolean }> {
+  const globalPrefs = await resolveDestinations(eventType);
+  return {
+    email: alert.notifyEmail ?? globalPrefs.email,
+    phone: alert.notifyPhone ?? globalPrefs.phone,
+    sendEmail: globalPrefs.sendEmail,
+    sendSms: globalPrefs.sendSms,
+  };
+}
 
 /**
  * Cherche un pattern qui vient tout juste d'apparaître (sur les 2 dernières
@@ -52,10 +74,10 @@ async function fetchRecentOHLC(symbol: string): Promise<OHLCPoint[]> {
 
 /**
  * Checks all active alerts (prix ET pattern/signal) against les données
- * courantes, marque les alertes déclenchées comme inactives, et envoie un
- * email pour chacune. Safe to call concurrently-adjacent runs won't double-fire
- * because we flip `active` to false in the same query that reads the trigger
- * condition.
+ * courantes, marque les alertes déclenchées comme inactives, et envoie une
+ * notification (email et/ou SMS, selon les préférences) pour chacune. Safe to
+ * call concurrently-adjacent runs won't double-fire because we flip `active`
+ * to false in the same query that reads the trigger condition.
  */
 export async function checkAlerts(): Promise<void> {
   const active = await db.select().from(alertsTable).where(eq(alertsTable.active, true));
@@ -63,7 +85,6 @@ export async function checkAlerts(): Promise<void> {
 
   const priceAlerts = active.filter((a) => a.alertType !== "pattern");
   const patternAlerts = active.filter((a) => a.alertType === "pattern");
-  const defaultTo = process.env.ALERT_NOTIFY_EMAIL;
 
   // --- 1. Alertes de prix (comportement historique) ---
   if (priceAlerts.length > 0) {
@@ -82,15 +103,24 @@ export async function checkAlerts(): Promise<void> {
         try {
           await db.update(alertsTable).set({ active: false, triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
 
-          const to = alert.notifyEmail ?? defaultTo;
-          if (to) {
+          const dest = await resolveAlertDestination(alert, "priceAlert");
+          if (dest.sendEmail && dest.email) {
             await sendEmail({
-              to,
+              to: dest.email,
               subject: `🔔 ${alert.symbol} a atteint ${target.toFixed(2)} $`,
               html: alertEmailHtml({ symbol: alert.symbol, name: alert.name, condition: alert.condition, targetPrice: target, currentPrice }),
             });
-          } else {
-            logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Alert triggered but no destination email configured (set ALERT_NOTIFY_EMAIL)");
+          } else if (dest.sendEmail) {
+            logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Price alert triggered but email channel enabled with no destination configured");
+          }
+          if (dest.sendSms && dest.phone) {
+            const conditionText = alert.condition === "above" ? "est monté au-dessus de" : "est descendu en dessous de";
+            await sendSms({
+              to: dest.phone,
+              body: `🔔 ${alert.name ?? alert.symbol} (${alert.symbol}) ${conditionText} ${target.toFixed(2)} $. Prix actuel : ${currentPrice.toFixed(2)} $.`,
+            });
+          } else if (dest.sendSms) {
+            logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Price alert triggered but SMS channel enabled with no phone number configured");
           }
           logger.info({ alertId: alert.id, symbol: alert.symbol, target, currentPrice }, "Price alert triggered");
         } catch (err) {
@@ -114,10 +144,10 @@ export async function checkAlerts(): Promise<void> {
 
       await db.update(alertsTable).set({ active: false, triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
 
-      const to = alert.notifyEmail ?? defaultTo;
-      if (to) {
+      const dest = await resolveAlertDestination(alert, "patternAlert");
+      if (dest.sendEmail && dest.email) {
         await sendEmail({
-          to,
+          to: dest.email,
           subject: `📊 ${alert.symbol} — ${match.name} détecté (${match.signal})`,
           html: patternAlertEmailHtml({
             symbol: alert.symbol,
@@ -129,8 +159,16 @@ export async function checkAlerts(): Promise<void> {
             howToUse: match.howToUse,
           }),
         });
-      } else {
-        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Pattern alert triggered but no destination email configured (set ALERT_NOTIFY_EMAIL)");
+      } else if (dest.sendEmail) {
+        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Pattern alert triggered but email channel enabled with no destination configured");
+      }
+      if (dest.sendSms && dest.phone) {
+        await sendSms({
+          to: dest.phone,
+          body: `📊 ${alert.name ?? alert.symbol} (${alert.symbol}) — pattern ${match.name} détecté (signal ${match.signal}, force ${match.strength}).`,
+        });
+      } else if (dest.sendSms) {
+        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Pattern alert triggered but SMS channel enabled with no phone number configured");
       }
       logger.info({ alertId: alert.id, symbol: alert.symbol, pattern: match.name, signal: match.signal }, "Pattern alert triggered");
     } catch (err) {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, alertsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { isValidE164 } from "../lib/smsClient";
 
 const router = Router();
 
@@ -16,6 +17,7 @@ function serialize(a: typeof alertsTable.$inferSelect) {
     minStrength: a.minStrength ?? null,
     active: a.active,
     notifyEmail: a.notifyEmail ?? null,
+    notifyPhone: a.notifyPhone ?? null,
     triggeredAt: a.triggeredAt ? a.triggeredAt.toISOString() : null,
     createdAt: a.createdAt.toISOString(),
   };
@@ -41,12 +43,17 @@ router.post("/alerts", async (req, res) => {
     patternSignal?: string;
     minStrength?: string;
     notifyEmail?: string;
+    notifyPhone?: string;
   };
-  const { symbol, name, notifyEmail } = body;
+  const { symbol, name, notifyEmail, notifyPhone } = body;
   const alertType = body.alertType === "pattern" ? "pattern" : "price";
 
   if (!symbol) {
     return res.status(400).json({ error: "symbol is required" });
+  }
+
+  if (notifyPhone && !isValidE164(notifyPhone)) {
+    return res.status(400).json({ error: "notifyPhone must be in E.164 format, e.g. +15145551234" });
   }
 
   if (alertType === "price") {
@@ -78,6 +85,7 @@ router.post("/alerts", async (req, res) => {
         minStrength: alertType === "pattern" ? body.minStrength ?? null : null,
         active: true,
         notifyEmail: notifyEmail ?? null,
+        notifyPhone: notifyPhone ?? null,
       })
       .returning();
     return res.status(201).json(serialize(alert));
