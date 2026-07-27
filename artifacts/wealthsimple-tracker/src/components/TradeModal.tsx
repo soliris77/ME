@@ -34,9 +34,25 @@ interface Account {
   name?: string;
   number?: string;
   type?: string;
+  institution_name?: string;
   brokerage?: { name?: string };
-  balance?: number;
+  balance?: { total?: { amount?: number; currency?: string } } | number | null;
   currency?: string;
+  meta?: { type?: string; currency?: string; unifiedAccountType?: string };
+}
+
+function fmtAccountBalance(acc: Account): string {
+  const b = acc.balance;
+  if (b == null) return "";
+  if (typeof b === "number") {
+    const cur = acc.currency ?? acc.meta?.currency ?? "";
+    return ` — ${cur} ${b.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (typeof b === "object" && b.total != null) {
+    const { amount = 0, currency = "" } = b.total;
+    return ` — ${currency} ${amount.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return "";
 }
 
 interface TradeResult {
@@ -328,7 +344,9 @@ export default function TradeModal({
                 >
                   {accounts.map((acc, i) => (
                     <option key={acc.id ?? i} value={acc.id ?? ""}>
-                      {acc.name ?? acc.number ?? "Compte"}{acc.type ? ` (${acc.type})` : ""}
+                      {acc.name ?? acc.number ?? "Compte"}
+                      {acc.meta?.unifiedAccountType ? ` (${acc.meta.unifiedAccountType})` : acc.type ? ` (${acc.type})` : ""}
+                      {fmtAccountBalance(acc)}
                     </option>
                   ))}
                 </select>
