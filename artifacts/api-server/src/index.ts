@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startAlertWorker } from "./workers/alertWorker";
 import { db, brokerConnectionsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
+import { persistConsumerKeyIfNeeded } from "./lib/snaptrade";
 
 const rawPort = process.env["PORT"];
 
@@ -83,6 +84,12 @@ app.listen(port, (err) => {
 
   const alertIntervalMs = Number(process.env.ALERT_CHECK_INTERVAL_MS ?? "90000");
   startAlertWorker(Number.isFinite(alertIntervalMs) && alertIntervalMs > 0 ? alertIntervalMs : undefined);
+
+  // Persiste le consumerKey SnapTrade en base dès que possible (survit aux
+  // suppressions de secrets et aux remixes sans re-saisie).
+  persistConsumerKeyIfNeeded().catch((err) =>
+    logger.warn({ err }, "snaptrade: persistConsumerKeyIfNeeded a échoué au démarrage")
+  );
 
   // Auto-setup asynchrone — ne bloque pas le démarrage du serveur
   autoSetupBrokerIfNeeded().catch((err) =>

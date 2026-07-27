@@ -21,7 +21,7 @@ import {
   listAccounts,
   listPositions,
   listBalances,
-  getSnaptradeClient,
+  getSnaptradeClientAsync,
 } from "../lib/snaptrade";
 import { getTradingMode, setTradingMode } from "../lib/tradingMode";
 import { submitOrder, OrderValidationError } from "../lib/orderEngine";
@@ -174,7 +174,8 @@ router.get("/broker/status", async (_req, res) => {
   let apiOk = false;
   if (hasCredentials) {
     try {
-      await getSnaptradeClient().apiStatus.check();
+      const client = await getSnaptradeClientAsync();
+      await client.apiStatus.check();
       apiOk = true;
     } catch {
       apiOk = false;

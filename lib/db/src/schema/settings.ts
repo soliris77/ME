@@ -20,6 +20,10 @@ export const appSettingsTable = pgTable("app_settings", {
   // aux remixes / transferts de projet sans avoir à re-saisir le secret.
   // Si null → pas encore configuré (premier lancement) ou géré par AUTH_PASSWORD.
   passwordHash: text("password_hash"),
+  // Consumer key SnapTrade — persisté en base au premier démarrage avec le secret
+  // Replit, puis lu depuis la DB en priorité. Survit aux suppressions de secrets
+  // et aux remixes sans nécessiter de re-saisie.
+  snaptradeConsumerKey: text("snaptrade_consumer_key"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
