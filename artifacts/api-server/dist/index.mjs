@@ -125415,6 +125415,11 @@ async function submitOrder(input) {
   let snaptradeOrderId = null;
   let orderStatus = "submitted";
   let errorMessage = null;
+  const wholeQty = Math.floor(quantity);
+  if (wholeQty < 1) {
+    await db.update(ordersTable).set({ status: "error", errorMessage: "La quantit\xE9 doit \xEAtre d'au moins 1 action enti\xE8re. Wealthsimple ne supporte pas les fractions." }).where(eq(ordersTable.id, pendingOrder.id));
+    return { status: "accepted", order: { ...pendingOrder, status: "error", errorMessage: "La quantit\xE9 doit \xEAtre d'au moins 1 action enti\xE8re." } };
+  }
   try {
     const result = await placeOrder({
       userId: brokerConnection.snaptradeUserId,
@@ -125422,7 +125427,7 @@ async function submitOrder(input) {
       accountId,
       symbol: symbol2.toUpperCase(),
       side,
-      quantity,
+      quantity: wholeQty,
       clientOrderId: signalId
     });
     snaptradeOrderId = result?.id ?? result?.brokerage_order_id ?? null;

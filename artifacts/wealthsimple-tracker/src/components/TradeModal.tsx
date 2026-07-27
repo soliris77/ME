@@ -65,6 +65,7 @@ interface TradeResult {
   status: string;
   expectedPrice: string | null;
   snaptradeOrderId: string | null;
+  errorMessage: string | null;
 }
 
 interface Props {
@@ -306,10 +307,14 @@ export default function TradeModal({
             <input
               id={`${uid}-qty`}
               type="number"
-              min="0.001"
+              min="1"
               step="1"
               value={qty}
-              onChange={(e) => setQty(e.target.value)}
+              onChange={(e) => {
+                // Forcer les entiers — Wealthsimple ne supporte pas les fractions
+                const v = e.target.value;
+                setQty(v.includes(".") ? String(Math.floor(Number(v))) : v);
+              }}
               className="w-full rounded-lg px-4 py-3 text-[14px] focus:outline-none"
               style={{ ...MONO, background: BASE_BG, border: `1px solid ${BORDER_C}`, color: "#E8E9ED", transition: "border-color 0.15s" }}
               onFocus={(e)  => (e.currentTarget.style.borderColor = ACCENT)}
@@ -462,6 +467,18 @@ export default function TradeModal({
                 <div>Statut : <strong style={{ color: "#E8E9ED" }}>{result.status}</strong></div>
                 {result.snaptradeOrderId && (
                   <div>ID SnapTrade : {result.snaptradeOrderId}</div>
+                )}
+                {result.errorMessage && (
+                  <div className="mt-1.5 leading-relaxed" style={{ color: LOSS, fontFamily: "inherit", fontSize: 12 }}>
+                    {(() => {
+                      // Extraire le message lisible depuis l'erreur SnapTrade brute
+                      try {
+                        const m = result.errorMessage.match(/"detail"\s*:\s*"([^"]+)"/);
+                        if (m) return m[1];
+                      } catch { /* ignore */ }
+                      return result.errorMessage;
+                    })()}
+                  </div>
                 )}
               </div>
             </div>
