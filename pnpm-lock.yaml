@@ -156,6 +156,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      snaptrade-typescript-sdk:
+        specifier: ^10.0.18
+        version: 10.0.18
     devDependencies:
       prettier:
         specifier: ^3.8.4
