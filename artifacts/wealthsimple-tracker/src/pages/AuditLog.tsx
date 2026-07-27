@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { ScrollText, ShieldOff, ShieldCheck, Settings2, Building2, RefreshCw, Loader2 } from "lucide-react";
+import { ScrollText, ShieldOff, ShieldCheck, Settings2, Building2, RefreshCw, Loader2, ArrowRight } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,6 +26,96 @@ function iconFor(action: string) {
   if (action.startsWith("settings.")) return <Settings2 className="w-4 h-4 text-primary" />;
   if (action.startsWith("broker.")) return <Building2 className="w-4 h-4 text-muted-foreground" />;
   return <ScrollText className="w-4 h-4 text-muted-foreground" />;
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  mode: "Mode",
+  maxOrderValue: "Valeur max. par ordre",
+  maxPortfolioExposure: "Exposition max. portefeuille",
+  largeOrderFrictionPct: "Seuil confirmation renforcée",
+  email: "Courriel",
+  phone: "Téléphone",
+  killSwitchChannel: "Canal — kill-switch",
+  largeOrderChannel: "Canal — gros ordres",
+  priceAlertChannel: "Canal — alertes prix",
+  patternAlertChannel: "Canal — signaux techniques",
+  thresholdChangeChannel: "Canal — changements de seuils",
+};
+
+function fmtValue(key: string, val: unknown): string {
+  if (val === null || val === undefined) return "—";
+  if (key === "largeOrderFrictionPct") return `${Math.round(Number(val) * 100)} %`;
+  if (key === "maxOrderValue" || key === "maxPortfolioExposure") return `${Number(val).toLocaleString("fr-CA")} $`;
+  if (typeof val === "boolean") return val ? "Oui" : "Non";
+  return String(val);
+}
+
+function DetailsRenderer({ action, details }: { action: string; details: Record<string, unknown> }) {
+  const keys = Object.keys(details);
+  if (keys.length === 0) return null;
+
+  // Changements avant/après (settings, notifications)
+  if ("before" in details && "after" in details) {
+    const before = details.before as Record<string, unknown>;
+    const after  = details.after  as Record<string, unknown>;
+    const changed = Object.keys(after).filter(
+      (k) => k !== "updatedAt" && JSON.stringify(after[k]) !== JSON.stringify(before[k])
+    );
+    if (changed.length === 0) return null;
+    return (
+      <div className="mt-2 space-y-1">
+        {changed.map((k) => (
+          <div key={k} className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+            <span className="font-medium text-foreground/80">{FIELD_LABELS[k] ?? k}</span>
+            <span>{fmtValue(k, before[k])}</span>
+            <ArrowRight className="w-3 h-3 shrink-0" />
+            <span className="font-medium text-foreground">{fmtValue(k, after[k])}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Changements directs from/to par champ (ex. settings.update)
+  const fromToKeys = keys.filter(
+    (k) => typeof details[k] === "object" && details[k] !== null &&
+           "from" in (details[k] as object) && "to" in (details[k] as object)
+  );
+  if (fromToKeys.length > 0) {
+    return (
+      <div className="mt-2 space-y-1">
+        {fromToKeys.map((k) => {
+          const d = details[k] as { from: unknown; to: unknown };
+          return (
+            <div key={k} className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+              <span className="font-medium text-foreground/80">{FIELD_LABELS[k] ?? k}</span>
+              <span>{fmtValue(k, d.from)}</span>
+              <ArrowRight className="w-3 h-3 shrink-0" />
+              <span className="font-medium text-foreground">{fmtValue(k, d.to)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Paires clé/valeur simples (ex. trading_mode.change, broker.*)
+  // Exclure les champs trop verbeux (objets imbriqués complexes)
+  const simple = keys.filter((k) => {
+    const v = details[k];
+    return v === null || typeof v !== "object" || Array.isArray(v);
+  });
+  if (simple.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+      {simple.map((k) => (
+        <span key={k} className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">{FIELD_LABELS[k] ?? k} : </span>
+          {fmtValue(k, details[k])}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function AuditLogPage() {
@@ -78,9 +168,7 @@ export default function AuditLogPage() {
                 </div>
                 <p className="text-xs text-muted-foreground font-mono mt-0.5">{entry.action}</p>
                 {entry.details && Object.keys(entry.details).length > 0 && (
-                  <pre className="mt-2 text-xs bg-background border border-border rounded-md p-2.5 overflow-x-auto text-muted-foreground">
-                    {JSON.stringify(entry.details, null, 2)}
-                  </pre>
+                  <DetailsRenderer action={entry.action} details={entry.details} />
                 )}
               </div>
             </div>
