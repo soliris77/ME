@@ -1,17 +1,15 @@
 import nodemailer from "nodemailer";
 import { logger } from "./logger";
+import { resolveCred } from "./persistCreds";
 
 /**
  * Client email via Gmail SMTP (nodemailer).
  *
- * Variables d'environnement requises :
- * - GMAIL_USER   : adresse Gmail expéditrice (ex. moncompte@gmail.com)
- * - GMAIL_APP_PASSWORD : mot de passe d'application Google (16 caractères,
- *   généré sur myaccount.google.com → Sécurité → Mots de passe des applications)
+ * Credentials résolus dans cet ordre :
+ *   1. DB (app_settings) — persistés au démarrage depuis les secrets Replit
+ *   2. Variables d'environnement Replit (fallback)
  *
- * Best-effort : si les identifiants sont absents, sendEmail() log un avertissement
- * et retourne false — un échec d'email ne doit jamais faire échouer l'action
- * critique qu'il documente.
+ * Best-effort : un échec email ne fait jamais échouer l'action critique qu'il documente.
  */
 
 interface SendEmailParams {
@@ -20,30 +18,27 @@ interface SendEmailParams {
   html: string;
 }
 
-function getTransporter() {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) return null;
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
-}
-
 export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
-  const transporter = getTransporter();
-  const from = process.env.GMAIL_USER;
+  const [user, pass] = await Promise.all([
+    resolveCred("gmailUser",        "GMAIL_USER"),
+    resolveCred("gmailAppPassword", "GMAIL_APP_PASSWORD"),
+  ]);
 
-  if (!transporter || !from) {
+  if (!user || !pass) {
     logger.warn(
       { to, subject },
-      "GMAIL_USER ou GMAIL_APP_PASSWORD non configuré — envoi email ignoré (l'alerte est quand même enregistrée en DB)",
+      "Credentials Gmail absents (DB et env var) — envoi email ignoré (alerte enregistrée en DB)",
     );
     return false;
   }
 
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
+  });
+
   try {
-    await transporter.sendMail({ from, to, subject, html });
+    await transporter.sendMail({ from: user, to, subject, html });
     logger.info({ to, subject }, "Email envoyé avec succès");
     return true;
   } catch (err) {

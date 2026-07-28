@@ -24,6 +24,14 @@ export const appSettingsTable = pgTable("app_settings", {
   // Replit, puis lu depuis la DB en priorité. Survit aux suppressions de secrets
   // et aux remixes sans nécessiter de re-saisie.
   snaptradeConsumerKey: text("snaptrade_consumer_key"),
+  // Credentials externes — persistés depuis les secrets Replit au premier
+  // démarrage puis lus depuis la DB en priorité. Survivent aux remixes et
+  // suppressions de secrets sans re-saisie.
+  twilioAccountSid:   text("twilio_account_sid"),
+  twilioAuthToken:    text("twilio_auth_token"),
+  twilioFromNumber:   text("twilio_from_number"),
+  gmailUser:          text("gmail_user"),
+  gmailAppPassword:   text("gmail_app_password"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

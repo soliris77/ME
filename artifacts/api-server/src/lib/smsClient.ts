@@ -1,17 +1,14 @@
 import { logger } from "./logger";
+import { resolveCred } from "./persistCreds";
 
 /**
- * Minimal SMS sender using the Twilio REST API directly (no SDK dependency),
- * following the same pattern as emailClient.ts.
+ * Client SMS via l'API REST Twilio.
  *
- * Required env vars:
- * - TWILIO_ACCOUNT_SID
- * - TWILIO_AUTH_TOKEN
- * - TWILIO_FROM_NUMBER: numéro Twilio expéditeur, au format E.164 (ex. +15145551234)
+ * Credentials résolus dans cet ordre :
+ *   1. DB (app_settings) — persistés au démarrage depuis les secrets Replit
+ *   2. Variables d'environnement Replit (fallback)
  *
- * Best-effort, comme l'email : si les identifiants ne sont pas configurés, ou
- * si l'envoi échoue, on journalise et on retourne false — un échec de SMS ne
- * doit jamais faire échouer l'action critique qu'il documente.
+ * Best-effort : un échec SMS ne fait jamais échouer l'action critique qu'il documente.
  */
 
 const E164_RE = /^\+[1-9]\d{1,14}$/;
@@ -26,14 +23,16 @@ interface SendSmsParams {
 }
 
 export async function sendSms({ to, body }: SendSmsParams): Promise<boolean> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
+  const [accountSid, authToken, from] = await Promise.all([
+    resolveCred("twilioAccountSid", "TWILIO_ACCOUNT_SID"),
+    resolveCred("twilioAuthToken",  "TWILIO_AUTH_TOKEN"),
+    resolveCred("twilioFromNumber", "TWILIO_FROM_NUMBER"),
+  ]);
 
   if (!accountSid || !authToken || !from) {
     logger.warn(
       { to },
-      "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN ou TWILIO_FROM_NUMBER non configuré — envoi SMS ignoré",
+      "Credentials Twilio absents (DB et env var) — envoi SMS ignoré",
     );
     return false;
   }
@@ -44,15 +43,18 @@ export async function sendSms({ to, body }: SendSmsParams): Promise<boolean> {
   }
 
   try {
-    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+        signal: AbortSignal.timeout(10_000),
       },
-      body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
-      signal: AbortSignal.timeout(10_000),
-    });
+    );
 
     if (!resp.ok) {
       const respBody = await resp.text().catch(() => "");
@@ -60,6 +62,7 @@ export async function sendSms({ to, body }: SendSmsParams): Promise<boolean> {
       return false;
     }
 
+    logger.info({ to }, "SMS envoyé avec succès");
     return true;
   } catch (err) {
     logger.error({ err }, "Échec de l'envoi du SMS");

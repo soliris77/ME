@@ -4,6 +4,7 @@ import { startAlertWorker } from "./workers/alertWorker";
 import { db, brokerConnectionsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
 import { persistConsumerKeyIfNeeded } from "./lib/snaptrade";
+import { persistExternalCredsIfNeeded } from "./lib/persistCreds";
 
 const rawPort = process.env["PORT"];
 
@@ -89,6 +90,12 @@ app.listen(port, (err) => {
   // suppressions de secrets et aux remixes sans re-saisie).
   persistConsumerKeyIfNeeded().catch((err) =>
     logger.warn({ err }, "snaptrade: persistConsumerKeyIfNeeded a échoué au démarrage")
+  );
+
+  // Persiste les credentials externes (Twilio, Gmail) en base — même pattern
+  // que SnapTrade : lu depuis la DB en priorité, env var en fallback.
+  persistExternalCredsIfNeeded().catch((err) =>
+    logger.warn({ err }, "persistExternalCredsIfNeeded a échoué au démarrage")
   );
 
   // Auto-setup asynchrone — ne bloque pas le démarrage du serveur

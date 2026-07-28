@@ -104533,7 +104533,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     const flattenRef = (zodSchema, params2) => {
       const seen = this.seen.get(zodSchema);
       const schema2 = seen.def ?? seen.schema;
-      const _cached = { ...schema2 };
+      const _cached2 = { ...schema2 };
       if (seen.ref === null) {
         return;
       }
@@ -104547,7 +104547,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           schema2.allOf.push(refSchema);
         } else {
           Object.assign(schema2, refSchema);
-          Object.assign(schema2, _cached);
+          Object.assign(schema2, _cached2);
         }
       }
       if (!seen.isParent)
@@ -106167,6 +106167,14 @@ var appSettingsTable = pgTable("app_settings", {
   // Replit, puis lu depuis la DB en priorité. Survit aux suppressions de secrets
   // et aux remixes sans nécessiter de re-saisie.
   snaptradeConsumerKey: text("snaptrade_consumer_key"),
+  // Credentials externes — persistés depuis les secrets Replit au premier
+  // démarrage puis lus depuis la DB en priorité. Survivent aux remixes et
+  // suppressions de secrets sans re-saisie.
+  twilioAccountSid: text("twilio_account_sid"),
+  twilioAuthToken: text("twilio_auth_token"),
+  twilioFromNumber: text("twilio_from_number"),
+  gmailUser: text("gmail_user"),
+  gmailAppPassword: text("gmail_app_password"),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 var notificationPreferencesTable = pgTable("notification_preferences", {
@@ -106403,19 +106411,72 @@ var watchlist_default = router5;
 var import_express6 = __toESM(require_express2(), 1);
 init_drizzle_orm();
 
+// src/lib/persistCreds.ts
+init_drizzle_orm();
+var _cached = null;
+async function getRow() {
+  if (_cached) return _cached;
+  try {
+    const [row] = await db.select().from(appSettingsTable).limit(1);
+    if (row) _cached = row;
+    return _cached;
+  } catch {
+    return null;
+  }
+}
+async function persistExternalCredsIfNeeded() {
+  const row = await getRow();
+  if (!row) return;
+  const updates = {};
+  if (!row.twilioAccountSid && process.env.TWILIO_ACCOUNT_SID) {
+    updates.twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+  }
+  if (!row.twilioAuthToken && process.env.TWILIO_AUTH_TOKEN) {
+    updates.twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  }
+  if (!row.twilioFromNumber && process.env.TWILIO_FROM_NUMBER) {
+    updates.twilioFromNumber = process.env.TWILIO_FROM_NUMBER;
+  }
+  if (!row.gmailUser && process.env.GMAIL_USER) {
+    updates.gmailUser = process.env.GMAIL_USER;
+  }
+  if (!row.gmailAppPassword && process.env.GMAIL_APP_PASSWORD) {
+    updates.gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+  }
+  if (Object.keys(updates).length === 0) return;
+  try {
+    await db.update(appSettingsTable).set(updates).where(eq(appSettingsTable.id, row.id));
+    _cached = null;
+    logger.info(
+      { persisted: Object.keys(updates) },
+      "credentials externes persist\xE9s en base \u2014 survivront aux remixes et suppressions de secrets"
+    );
+  } catch (err) {
+    logger.warn({ err }, "impossible de persister les credentials externes en base");
+  }
+}
+async function resolveCred(dbKey, envKey) {
+  const row = await getRow();
+  const dbVal = row?.[dbKey];
+  if (dbVal) return dbVal;
+  return process.env[envKey] ?? null;
+}
+
 // src/lib/smsClient.ts
 var E164_RE = /^\+[1-9]\d{1,14}$/;
 function isValidE164(phone) {
   return E164_RE.test(phone.trim());
 }
 async function sendSms({ to, body }) {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
+  const [accountSid, authToken, from] = await Promise.all([
+    resolveCred("twilioAccountSid", "TWILIO_ACCOUNT_SID"),
+    resolveCred("twilioAuthToken", "TWILIO_AUTH_TOKEN"),
+    resolveCred("twilioFromNumber", "TWILIO_FROM_NUMBER")
+  ]);
   if (!accountSid || !authToken || !from) {
     logger.warn(
       { to },
-      "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN ou TWILIO_FROM_NUMBER non configur\xE9 \u2014 envoi SMS ignor\xE9"
+      "Credentials Twilio absents (DB et env var) \u2014 envoi SMS ignor\xE9"
     );
     return false;
   }
@@ -106424,20 +106485,24 @@ async function sendSms({ to, body }) {
     return false;
   }
   try {
-    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
-      signal: AbortSignal.timeout(1e4)
-    });
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+        signal: AbortSignal.timeout(1e4)
+      }
+    );
     if (!resp.ok) {
       const respBody = await resp.text().catch(() => "");
       logger.error({ status: resp.status, body: respBody }, "Erreur de l'API Twilio lors de l'envoi du SMS");
       return false;
     }
+    logger.info({ to }, "SMS envoy\xE9 avec succ\xE8s");
     return true;
   } catch (err) {
     logger.error({ err }, "\xC9chec de l'envoi du SMS");
@@ -112928,11 +112993,11 @@ var LocalJWKSet = class {
     }
     if (length !== 1) {
       const error40 = new JWKSMultipleMatchingKeys();
-      const _cached = this.#cached;
+      const _cached2 = this.#cached;
       error40[Symbol.asyncIterator] = async function* () {
         for (const jwk2 of candidates) {
           try {
-            yield await importWithAlgCache(_cached, jwk2, alg);
+            yield await importWithAlgCache(_cached2, jwk2, alg);
           } catch {
           }
         }
@@ -124717,34 +124782,29 @@ async function listAuditLog(limit2 = 100) {
 }
 
 // src/lib/emailClient.ts
+import nodemailer from "nodemailer";
 async function sendEmail({ to, subject, html }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM;
-  if (!apiKey || !from) {
+  const [user, pass] = await Promise.all([
+    resolveCred("gmailUser", "GMAIL_USER"),
+    resolveCred("gmailAppPassword", "GMAIL_APP_PASSWORD")
+  ]);
+  if (!user || !pass) {
     logger.warn(
       { to, subject },
-      "RESEND_API_KEY or RESEND_FROM not set \u2014 skipping email send (alert will still be marked triggered in DB)"
+      "Credentials Gmail absents (DB et env var) \u2014 envoi email ignor\xE9 (alerte enregistr\xE9e en DB)"
     );
     return false;
   }
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass }
+  });
   try {
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ from, to, subject, html }),
-      signal: AbortSignal.timeout(1e4)
-    });
-    if (!resp.ok) {
-      const body = await resp.text().catch(() => "");
-      logger.error({ status: resp.status, body }, "Resend API error while sending alert email");
-      return false;
-    }
+    await transporter.sendMail({ from: user, to, subject, html });
+    logger.info({ to, subject }, "Email envoy\xE9 avec succ\xE8s");
     return true;
   } catch (err) {
-    logger.error({ err }, "Failed to send alert email");
+    logger.error({ err, to, subject }, "\xC9chec de l'envoi de l'email");
     return false;
   }
 }
@@ -124760,7 +124820,7 @@ function alertEmailHtml(params) {
       </p>
       <p style="font-size: 14px; color: #666;">Prix actuel : ${currentPrice.toFixed(2)} $</p>
       <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par WS March\xE9s. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
         cr\xE9e-en une nouvelle si tu veux continuer \xE0 suivre ce titre.
       </p>
     </div>
@@ -124780,7 +124840,7 @@ function patternAlertEmailHtml(params) {
       <p style="font-size: 14px; color: #666;">${description}</p>
       <p style="font-size: 13px; color: #666; font-style: italic; border-left: 3px solid ${signalColor}; padding-left: 10px;">${howToUse}</p>
       <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par WS March\xE9s. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
         cr\xE9e-en une nouvelle si tu veux continuer \xE0 suivre ce titre.
         \u26A0\uFE0F Ce n'est pas un conseil financier \u2014 valide toujours par ton propre jugement.
       </p>
@@ -130226,6 +130286,9 @@ app_default.listen(port, (err) => {
   startAlertWorker(Number.isFinite(alertIntervalMs) && alertIntervalMs > 0 ? alertIntervalMs : void 0);
   persistConsumerKeyIfNeeded().catch(
     (err2) => logger.warn({ err: err2 }, "snaptrade: persistConsumerKeyIfNeeded a \xE9chou\xE9 au d\xE9marrage")
+  );
+  persistExternalCredsIfNeeded().catch(
+    (err2) => logger.warn({ err: err2 }, "persistExternalCredsIfNeeded a \xE9chou\xE9 au d\xE9marrage")
   );
   autoSetupBrokerIfNeeded().catch(
     (err2) => logger.error({ err: err2 }, "broker: erreur inattendue dans autoSetupBrokerIfNeeded")
