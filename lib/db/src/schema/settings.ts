@@ -30,8 +30,6 @@ export const appSettingsTable = pgTable("app_settings", {
   twilioAccountSid:   text("twilio_account_sid"),
   twilioAuthToken:    text("twilio_auth_token"),
   twilioFromNumber:   text("twilio_from_number"),
-  gmailUser:          text("gmail_user"),
-  gmailAppPassword:   text("gmail_app_password"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

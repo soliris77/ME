@@ -17,8 +17,6 @@ type CredsRow = {
   twilioAccountSid: string | null;
   twilioAuthToken: string | null;
   twilioFromNumber: string | null;
-  gmailUser: string | null;
-  gmailAppPassword: string | null;
 };
 
 let _cached: CredsRow | null = null;
@@ -55,13 +53,6 @@ export async function persistExternalCredsIfNeeded(): Promise<void> {
   if (!row.twilioFromNumber && process.env.TWILIO_FROM_NUMBER) {
     updates.twilioFromNumber = process.env.TWILIO_FROM_NUMBER;
   }
-  if (!row.gmailUser && process.env.GMAIL_USER) {
-    updates.gmailUser = process.env.GMAIL_USER;
-  }
-  if (!row.gmailAppPassword && process.env.GMAIL_APP_PASSWORD) {
-    updates.gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
-  }
-
   if (Object.keys(updates).length === 0) return;
 
   try {

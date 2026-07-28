@@ -106173,8 +106173,6 @@ var appSettingsTable = pgTable("app_settings", {
   twilioAccountSid: text("twilio_account_sid"),
   twilioAuthToken: text("twilio_auth_token"),
   twilioFromNumber: text("twilio_from_number"),
-  gmailUser: text("gmail_user"),
-  gmailAppPassword: text("gmail_app_password"),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 var notificationPreferencesTable = pgTable("notification_preferences", {
@@ -106436,12 +106434,6 @@ async function persistExternalCredsIfNeeded() {
   }
   if (!row.twilioFromNumber && process.env.TWILIO_FROM_NUMBER) {
     updates.twilioFromNumber = process.env.TWILIO_FROM_NUMBER;
-  }
-  if (!row.gmailUser && process.env.GMAIL_USER) {
-    updates.gmailUser = process.env.GMAIL_USER;
-  }
-  if (!row.gmailAppPassword && process.env.GMAIL_APP_PASSWORD) {
-    updates.gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
   }
   if (Object.keys(updates).length === 0) return;
   try {
@@ -124782,31 +124774,12 @@ async function listAuditLog(limit2 = 100) {
 }
 
 // src/lib/emailClient.ts
-import nodemailer from "nodemailer";
-async function sendEmail({ to, subject, html }) {
-  const [user, pass] = await Promise.all([
-    resolveCred("gmailUser", "GMAIL_USER"),
-    resolveCred("gmailAppPassword", "GMAIL_APP_PASSWORD")
-  ]);
-  if (!user || !pass) {
-    logger.warn(
-      { to, subject },
-      "Credentials Gmail absents (DB et env var) \u2014 envoi email ignor\xE9 (alerte enregistr\xE9e en DB)"
-    );
-    return false;
-  }
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass }
-  });
-  try {
-    await transporter.sendMail({ from: user, to, subject, html });
-    logger.info({ to, subject }, "Email envoy\xE9 avec succ\xE8s");
-    return true;
-  } catch (err) {
-    logger.error({ err, to, subject }, "\xC9chec de l'envoi de l'email");
-    return false;
-  }
+async function sendEmail({ to, subject }) {
+  logger.warn(
+    { to, subject },
+    "Canal email non configur\xE9 \u2014 notification ignor\xE9e (l'\xE9v\xE9nement est quand m\xEAme enregistr\xE9 en DB)"
+  );
+  return false;
 }
 function alertEmailHtml(params) {
   const { symbol: symbol2, name: name2, condition, targetPrice, currentPrice } = params;
@@ -124840,9 +124813,8 @@ function patternAlertEmailHtml(params) {
       <p style="font-size: 14px; color: #666;">${description}</p>
       <p style="font-size: 13px; color: #666; font-style: italic; border-left: 3px solid ${signalColor}; padding-left: 10px;">${howToUse}</p>
       <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
-        cr\xE9e-en une nouvelle si tu veux continuer \xE0 suivre ce titre.
-        \u26A0\uFE0F Ce n'est pas un conseil financier \u2014 valide toujours par ton propre jugement.
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement.
+        \u26A0\uFE0F Ce n'est pas un conseil financier.
       </p>
     </div>
   `;

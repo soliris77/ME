@@ -6,69 +6,12 @@ settings:
 
 catalogs:
   default:
-    '@replit/vite-plugin-cartographer':
-      specifier: ^0.5.21
-      version: 0.5.21
-    '@replit/vite-plugin-dev-banner':
-      specifier: ^0.1.1
-      version: 0.1.2
-    '@replit/vite-plugin-runtime-error-modal':
-      specifier: ^0.0.6
-      version: 0.0.6
-    '@tailwindcss/vite':
-      specifier: ^4.1.14
-      version: 4.3.1
-    '@tanstack/react-query':
-      specifier: ^5.90.21
-      version: 5.101.0
     '@types/node':
       specifier: ^25.3.3
       version: 25.9.4
-    '@types/react':
-      specifier: ^19.2.0
-      version: 19.2.17
-    '@types/react-dom':
-      specifier: ^19.2.0
-      version: 19.2.3
-    '@vitejs/plugin-react':
-      specifier: ^5.0.4
-      version: 5.2.0
-    class-variance-authority:
-      specifier: ^0.7.1
-      version: 0.7.1
-    clsx:
-      specifier: ^2.1.1
-      version: 2.1.1
     drizzle-orm:
       specifier: ^0.45.2
       version: 0.45.2
-    framer-motion:
-      specifier: ^12.23.24
-      version: 12.40.0
-    lucide-react:
-      specifier: ^0.545.0
-      version: 0.545.0
-    react:
-      specifier: 19.1.0
-      version: 19.1.0
-    react-dom:
-      specifier: 19.1.0
-      version: 19.1.0
-    tailwind-merge:
-      specifier: ^3.3.1
-      version: 3.6.0
-    tailwindcss:
-      specifier: ^4.1.14
-      version: 4.3.1
-    tsx:
-      specifier: ^4.21.0
-      version: 4.22.4
-    vite:
-      specifier: ^7.3.2
-      version: 7.3.5
-    zod:
-      specifier: ^3.25.76
-      version: 3.25.76
 
 overrides:
   esbuild>@esbuild/darwin-arm64: '-'
@@ -170,9 +113,6 @@ importers:
 
   artifacts/api-server:
     dependencies:
-      '@types/nodemailer':
-        specifier: ^8.0.1
-        version: 8.0.1
       '@whop/sdk':
         specifier: ^0.0.40
         version: 0.0.40
@@ -206,9 +146,6 @@ importers:
       express-session:
         specifier: ^1.19.0
         version: 1.19.0
-      nodemailer:
-        specifier: ^9.0.3
-        version: 9.0.3
       pino:
         specifier: ^9.14.0
         version: 9.14.0
@@ -1747,9 +1684,6 @@ packages:
   '@types/node@6.14.13':
     resolution: {integrity: sha512-J1F0XJ/9zxlZel5ZlbeSuHW2OpabrUAqpFuC2sm2I3by8sERQ8+KCjNKUcq8QHuzpGMWiJpo9ZxeHrqrP2KzQw==}
 
-  '@types/nodemailer@8.0.1':
-    resolution: {integrity: sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==}
-
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
 
@@ -2711,10 +2645,6 @@ packages:
   node-releases@2.0.48:
     resolution: {integrity: sha512-1uz8041X6LoI6ZSdZacM9lVY28vuzDlSKitnpbSNK0RfKoIJkX29NBPVEFXhnuSuEOA9Ww0xnPJ+ILWbGAv8DA==}
     engines: {node: '>=18'}
-
-  nodemailer@9.0.3:
-    resolution: {integrity: sha512-n+YP+NKwR5zRWa60k3GiQ6Q3B4KXCoAw40dAKeCtYn020iNN74aWK2liXIC3ZEATeGql7we3tE3t8QwhY0eskw==}
-    engines: {node: '>=6.0.0'}
 
   normalize-url@4.5.1:
     resolution: {integrity: sha512-9UZCFRHQdNrfTpGg8+1INIg93B6zE0aXMVFkw1WFwvO4SlZywU6aLg5Of0Ap/PgcbSw4LNxvMWXMeugwMCX0AA==}
@@ -4689,10 +4619,6 @@ snapshots:
 
   '@types/node@6.14.13': {}
 
-  '@types/nodemailer@8.0.1':
-    dependencies:
-      '@types/node': 25.9.4
-
   '@types/pg@8.20.0':
     dependencies:
       '@types/node': 25.9.4
@@ -5512,8 +5438,6 @@ snapshots:
       react-dom: 19.1.0(react@19.1.0)
 
   node-releases@2.0.48: {}
-
-  nodemailer@9.0.3: {}
 
   normalize-url@4.5.1: {}
 

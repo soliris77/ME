@@ -1,15 +1,10 @@
-import nodemailer from "nodemailer";
 import { logger } from "./logger";
-import { resolveCred } from "./persistCreds";
 
 /**
- * Client email via Gmail SMTP (nodemailer).
- *
- * Credentials résolus dans cet ordre :
- *   1. DB (app_settings) — persistés au démarrage depuis les secrets Replit
- *   2. Variables d'environnement Replit (fallback)
- *
- * Best-effort : un échec email ne fait jamais échouer l'action critique qu'il documente.
+ * Client email — placeholder.
+ * Le canal email n'est pas configuré pour l'instant ; les notifications
+ * passent par SMS (Twilio). sendEmail() est gardé pour que le reste du
+ * code compile sans modification.
  */
 
 interface SendEmailParams {
@@ -18,33 +13,12 @@ interface SendEmailParams {
   html: string;
 }
 
-export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
-  const [user, pass] = await Promise.all([
-    resolveCred("gmailUser",        "GMAIL_USER"),
-    resolveCred("gmailAppPassword", "GMAIL_APP_PASSWORD"),
-  ]);
-
-  if (!user || !pass) {
-    logger.warn(
-      { to, subject },
-      "Credentials Gmail absents (DB et env var) — envoi email ignoré (alerte enregistrée en DB)",
-    );
-    return false;
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
-
-  try {
-    await transporter.sendMail({ from: user, to, subject, html });
-    logger.info({ to, subject }, "Email envoyé avec succès");
-    return true;
-  } catch (err) {
-    logger.error({ err, to, subject }, "Échec de l'envoi de l'email");
-    return false;
-  }
+export async function sendEmail({ to, subject }: SendEmailParams): Promise<boolean> {
+  logger.warn(
+    { to, subject },
+    "Canal email non configuré — notification ignorée (l'événement est quand même enregistré en DB)",
+  );
+  return false;
 }
 
 export function alertEmailHtml(params: {
@@ -94,9 +68,8 @@ export function patternAlertEmailHtml(params: {
       <p style="font-size: 14px; color: #666;">${description}</p>
       <p style="font-size: 13px; color: #666; font-style: italic; border-left: 3px solid ${signalColor}; padding-left: 10px;">${howToUse}</p>
       <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoyé par Soliris Market. Cette alerte a été désactivée automatiquement —
-        crée-en une nouvelle si tu veux continuer à suivre ce titre.
-        ⚠️ Ce n'est pas un conseil financier — valide toujours par ton propre jugement.
+        Envoyé par Soliris Market. Cette alerte a été désactivée automatiquement.
+        ⚠️ Ce n'est pas un conseil financier.
       </p>
     </div>
   `;
