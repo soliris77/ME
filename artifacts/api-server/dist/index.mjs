@@ -130205,16 +130205,7 @@ function startAlertWorker(intervalMs = DEFAULT_INTERVAL_MS) {
 
 // src/index.ts
 init_drizzle_orm();
-var rawPort = process.env["PORT"];
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided."
-  );
-}
-var port = Number(rawPort);
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+var port = Number(process.env["PORT"] ?? "8080");
 async function autoSetupBrokerIfNeeded() {
   const clientId = process.env.SNAPTRADE_CLIENT_ID;
   const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;

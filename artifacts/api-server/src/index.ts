@@ -6,19 +6,7 @@ import { desc } from "drizzle-orm";
 import { persistConsumerKeyIfNeeded } from "./lib/snaptrade";
 import { persistExternalCredsIfNeeded } from "./lib/persistCreds";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+const port = Number(process.env["PORT"] ?? "8080");
 
 /** Auto-initialise la connexion SnapTrade si les clés sont présentes mais qu'aucune
  *  ligne n'existe encore en base.
