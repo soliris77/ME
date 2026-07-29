@@ -5,7 +5,7 @@ import {
   getGetAlertsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { playSound } from "@/lib/sounds";
 import { formatPrice } from "@/lib/format";
 import { Bell, BellOff, Plus, Trash2, X, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
@@ -24,6 +24,13 @@ function sendNotification(title: string, body: string) {
   }
 }
 
+interface SymbolSuggestion {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
+
 function CreateAlertModal({ onClose }: { onClose: () => void }) {
   const [alertType, setAlertType] = useState<"price" | "pattern" | "signal">("price");
   const [symbol, setSymbol] = useState("");
@@ -34,6 +41,51 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
   // Champs pour une alerte de pattern/signal
   const [patternSignal, setPatternSignal] = useState<"haussier" | "baissier" | "">("");
   const [minStrength, setMinStrength] = useState<"faible" | "moyen" | "fort" | "">("moyen");
+
+  // Autocomplete symbole
+  const [suggestions, setSuggestions] = useState<SymbolSuggestion[]>([]);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const symbolWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (symbol.length < 1) { setSuggestions([]); setSuggestionOpen(false); return; }
+    setSuggestionLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/symbols/search?q=${encodeURIComponent(symbol)}`);
+        const data: SymbolSuggestion[] = await res.json();
+        setSuggestions(data);
+        setSuggestionOpen(data.length > 0);
+      } catch { /* ignore */ } finally {
+        setSuggestionLoading(false);
+      }
+    }, 200);
+    return () => clearTimeout(t);
+  }, [symbol]);
+
+  // Ferme le dropdown si on clique en dehors
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (symbolWrapRef.current && !symbolWrapRef.current.contains(e.target as Node)) {
+        setSuggestionOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const pickSuggestion = (s: SymbolSuggestion) => {
+    setSymbol(s.symbol);
+    if (!name) setName(s.name);
+    setSuggestionOpen(false);
+    setSuggestions([]);
+  };
+
+  const TYPE_LABEL: Record<string, string> = {
+    EQUITY: "Action", ETF: "ETF", CRYPTOCURRENCY: "Crypto",
+    INDEX: "Indice", MUTUALFUND: "Fonds", FUTURE: "Future",
+  };
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -118,15 +170,38 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="space-y-3">
-          <div>
+          <div ref={symbolWrapRef} className="relative">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block">Symbole</label>
-            <input
-              className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono uppercase"
-              placeholder="ex: AAPL, BTC-USD"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono uppercase"
+                placeholder="ex: AAPL, BTC-USD, AMD…"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                onFocus={() => suggestions.length > 0 && setSuggestionOpen(true)}
+                autoFocus
+              />
+              {suggestionLoading && (
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+            {suggestionOpen && suggestions.length > 0 && (
+              <ul className="absolute z-50 mt-1 w-full bg-card border border-card-border rounded-lg shadow-xl overflow-hidden">
+                {suggestions.map((s) => (
+                  <li key={s.symbol}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
+                    >
+                      <span className="font-mono font-bold text-sm text-foreground w-20 shrink-0">{s.symbol}</span>
+                      <span className="text-xs text-muted-foreground truncate flex-1">{s.name}</span>
+                      <span className="text-xs text-muted-foreground/60 shrink-0">{TYPE_LABEL[s.type.toUpperCase()] ?? s.type}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block">Étiquette (optionnel)</label>

@@ -20654,27 +20654,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module2.exports = Router22;
+    module2.exports = Router23;
     module2.exports.Route = Route;
-    function Router22(options3) {
-      if (!(this instanceof Router22)) {
-        return new Router22(options3);
+    function Router23(options3) {
+      if (!(this instanceof Router23)) {
+        return new Router23(options3);
       }
       const opts = options3 || {};
-      function router22(req, res, next) {
-        router22.handle(req, res, next);
+      function router23(req, res, next) {
+        router23.handle(req, res, next);
       }
-      Object.setPrototypeOf(router22, this);
-      router22.caseSensitive = opts.caseSensitive;
-      router22.mergeParams = opts.mergeParams;
-      router22.params = {};
-      router22.strict = opts.strict;
-      router22.stack = [];
-      return router22;
+      Object.setPrototypeOf(router23, this);
+      router23.caseSensitive = opts.caseSensitive;
+      router23.mergeParams = opts.mergeParams;
+      router23.params = {};
+      router23.strict = opts.strict;
+      router23.stack = [];
+      return router23;
     }
-    Router22.prototype = function() {
+    Router23.prototype = function() {
     };
-    Router22.prototype.param = function param2(name2, fn) {
+    Router23.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20694,7 +20694,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router22.prototype.handle = function handle(req, res, callback) {
+    Router23.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20821,7 +20821,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router22.prototype.use = function use(handler) {
+    Router23.prototype.use = function use(handler) {
       let offset = 0;
       let path2 = "/";
       if (typeof handler !== "function") {
@@ -20854,7 +20854,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router22.prototype.route = function route(path2) {
+    Router23.prototype.route = function route(path2) {
       const route2 = new Route(path2);
       const layer = new Layer(path2, {
         sensitive: this.caseSensitive,
@@ -20869,7 +20869,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router22.prototype[method] = function(path2) {
+      Router23.prototype[method] = function(path2) {
         const route = this.route(path2);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21052,13 +21052,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router22 = require_router();
+    var Router23 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module2.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router22 = null;
+      var router23 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21067,13 +21067,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router22 === null) {
-            router22 = new Router22({
+          if (router23 === null) {
+            router23 = new Router23({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router22;
+          return router23;
         }
       });
     };
@@ -21144,15 +21144,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router22 = this.router;
+      var router23 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router22.use(path2, fn2);
+          return router23.use(path2, fn2);
         }
         debug(".use app under %s", path2);
         fn2.mountpath = path2;
         fn2.parent = this;
-        router22.use(path2, function mounted_app(req, res, next) {
+        router23.use(path2, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23725,7 +23725,7 @@ var require_express = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router22 = require_router();
+    var Router23 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module2.exports = createApplication;
@@ -23747,8 +23747,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router22.Route;
-    exports.Router = Router22;
+    exports.Route = Router23.Route;
+    exports.Router = Router23;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -55252,12 +55252,12 @@ var require_ip_address = __commonJS({
 });
 
 // src/app.ts
-var import_express22 = __toESM(require_express2(), 1);
+var import_express23 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express21 = __toESM(require_express2(), 1);
+var import_express22 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -129670,30 +129670,55 @@ router20.delete("/integrations/spotify/disconnect", async (req, res) => {
 });
 var spotify_default = router20;
 
-// src/routes/index.ts
+// src/routes/symbols.ts
+var import_express21 = __toESM(require_express2(), 1);
 var router21 = (0, import_express21.Router)();
-router21.use(health_default);
-router21.use(auth_default);
-router21.use(clientErrors_default);
-router21.use(requireAuth);
-router21.use(quotes_default);
-router21.use(market_default);
-router21.use(news_default);
-router21.use(watchlist_default);
-router21.use(alerts_default);
-router21.use(whop_default);
-router21.use(broker_default);
-router21.use(settings_default);
-router21.use(notificationPreferences_default);
-router21.use(audit_default);
-router21.use(performance_default);
-router21.use(calendar_default);
-router21.use(learn_default);
-router21.use(notes_default);
-router21.use(metatrader_default);
-router21.use(copyTrading_default);
-router21.use(spotify_default);
-var routes_default = router21;
+router21.get("/symbols/search", async (req, res) => {
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  if (!q || q.length < 1) return res.json([]);
+  try {
+    const result = await yahooFinance.search(q, {}, { skipValidation: true });
+    const quotes = result?.quotes ?? [];
+    const ALLOWED_TYPES = /* @__PURE__ */ new Set(["EQUITY", "ETF", "CRYPTOCURRENCY", "INDEX", "MUTUALFUND", "FUTURE"]);
+    const filtered = quotes.filter((q2) => q2?.symbol && ALLOWED_TYPES.has(q2?.quoteType?.toUpperCase?.() ?? "")).slice(0, 8).map((q2) => ({
+      symbol: q2.symbol,
+      name: q2.longname ?? q2.shortname ?? q2.symbol,
+      exchange: q2.exchDisp ?? q2.exchange ?? "",
+      type: q2.quoteType ?? ""
+    }));
+    return res.json(filtered);
+  } catch (err) {
+    req.log.warn({ err, q }, "symbols/search: Yahoo Finance search failed");
+    return res.json([]);
+  }
+});
+var symbols_default = router21;
+
+// src/routes/index.ts
+var router22 = (0, import_express22.Router)();
+router22.use(health_default);
+router22.use(auth_default);
+router22.use(clientErrors_default);
+router22.use(requireAuth);
+router22.use(quotes_default);
+router22.use(market_default);
+router22.use(news_default);
+router22.use(watchlist_default);
+router22.use(alerts_default);
+router22.use(whop_default);
+router22.use(broker_default);
+router22.use(settings_default);
+router22.use(notificationPreferences_default);
+router22.use(audit_default);
+router22.use(performance_default);
+router22.use(calendar_default);
+router22.use(learn_default);
+router22.use(notes_default);
+router22.use(metatrader_default);
+router22.use(copyTrading_default);
+router22.use(spotify_default);
+router22.use(symbols_default);
+var routes_default = router22;
 
 // src/lib/integrations/metatrader/sync.ts
 init_drizzle_orm();
@@ -129827,7 +129852,7 @@ function startCopyTradingSync() {
 }
 
 // src/app.ts
-var app = (0, import_express22.default)();
+var app = (0, import_express23.default)();
 app.set("trust proxy", 1);
 app.use(
   (0, import_pino_http.default)({
@@ -129849,8 +129874,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express22.default.json());
-app.use(import_express22.default.urlencoded({ extended: true }));
+app.use(import_express23.default.json());
+app.use(import_express23.default.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
 app.use("/api", routes_default);
 initTradingMode().catch((err) => logger.warn({ err }, "initTradingMode: \xE9chec"));
