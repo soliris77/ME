@@ -8,6 +8,7 @@ import { detectCandlePatterns, type OHLCPoint, type CandlePattern } from "../lib
 import { logger } from "../lib/logger";
 
 const DEFAULT_INTERVAL_MS = 90_000; // 90s — comfortably under Yahoo's informal rate limits
+const SIGNAL_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h entre deux notifications pour une même alerte signal
 
 function isTriggered(condition: string, target: number, current: number): boolean {
   if (condition === "above") return current >= target;
@@ -135,6 +136,8 @@ export async function checkAlerts(): Promise<void> {
   // --- 2. Alertes de pattern/signal (nouveau — gratuit, même détection que l'analyse technique) ---
   for (const alert of patternAlerts) {
     try {
+      if (alert.triggeredAt && Date.now() - alert.triggeredAt.getTime() < SIGNAL_ALERT_COOLDOWN_MS) continue;
+
       const history = await fetchRecentOHLC(alert.symbol);
       if (history.length < 15) continue; // pas assez de données pour détecter quoi que ce soit de fiable
 
@@ -142,7 +145,7 @@ export async function checkAlerts(): Promise<void> {
       const match = findMatchingRecentPattern(patterns, history.length, alert.patternSignal, alert.minStrength);
       if (!match) continue;
 
-      await db.update(alertsTable).set({ active: false, triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
+      await db.update(alertsTable).set({ triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
 
       const dest = await resolveAlertDestination(alert, "patternAlert");
       if (dest.sendEmail && dest.email) {
