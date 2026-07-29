@@ -88,6 +88,74 @@ export declare const appSettingsTable: import("drizzle-orm/pg-core").PgTableWith
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        snaptradeConsumerKey: import("drizzle-orm/pg-core").PgColumn<{
+            name: "snaptrade_consumer_key";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        twilioAccountSid: import("drizzle-orm/pg-core").PgColumn<{
+            name: "twilio_account_sid";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        twilioAuthToken: import("drizzle-orm/pg-core").PgColumn<{
+            name: "twilio_auth_token";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        twilioFromNumber: import("drizzle-orm/pg-core").PgColumn<{
+            name: "twilio_from_number";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         updatedAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "updated_at";
             tableName: "app_settings";
@@ -249,6 +317,23 @@ export declare const notificationPreferencesTable: import("drizzle-orm/pg-core")
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        signalAlertChannel: import("drizzle-orm/pg-core").PgColumn<{
+            name: "signal_alert_channel";
+            tableName: "notification_preferences";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         updatedAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "updated_at";
             tableName: "notification_preferences";
@@ -277,6 +362,7 @@ export declare const insertNotificationPreferencesSchema: z.ZodObject<{
     thresholdChangeChannel: z.ZodOptional<z.ZodString>;
     priceAlertChannel: z.ZodOptional<z.ZodString>;
     patternAlertChannel: z.ZodOptional<z.ZodString>;
+    signalAlertChannel: z.ZodOptional<z.ZodString>;
 }, {
     out: {};
     in: {};
@@ -284,7 +370,7 @@ export declare const insertNotificationPreferencesSchema: z.ZodObject<{
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type NotificationPreferences = typeof notificationPreferencesTable.$inferSelect;
 export type NotificationChannel = "email" | "sms" | "both" | "none";
-export declare const NOTIFICATION_EVENT_TYPES: readonly ["killSwitch", "largeOrder", "thresholdChange", "priceAlert", "patternAlert"];
+export declare const NOTIFICATION_EVENT_TYPES: readonly ["killSwitch", "largeOrder", "thresholdChange", "priceAlert", "patternAlert", "signalAlert"];
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
 export declare const auditLogTable: import("drizzle-orm/pg-core").PgTableWithColumns<{
     name: "audit_log";
@@ -381,9 +467,9 @@ export declare const auditLogTable: import("drizzle-orm/pg-core").PgTableWithCol
     dialect: "pg";
 }>;
 export declare const insertAuditLogSchema: z.ZodObject<{
-    details: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
     action: z.ZodString;
     summary: z.ZodString;
+    details: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
 }, {
     out: {};
     in: {};

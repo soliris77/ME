@@ -30,6 +30,7 @@ export interface NotificationPrefsOut {
   thresholdChangeChannel: NotificationChannel;
   priceAlertChannel: NotificationChannel;
   patternAlertChannel: NotificationChannel;
+  signalAlertChannel: NotificationChannel;
   updatedAt: string;
 }
 
@@ -44,6 +45,7 @@ function toOut(row: NotificationPreferences): NotificationPrefsOut {
     thresholdChangeChannel: row.thresholdChangeChannel as NotificationChannel,
     priceAlertChannel: row.priceAlertChannel as NotificationChannel,
     patternAlertChannel: row.patternAlertChannel as NotificationChannel,
+    signalAlertChannel: row.signalAlertChannel as NotificationChannel,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -71,6 +73,7 @@ export interface UpdateNotificationPrefsInput {
   thresholdChangeChannel?: NotificationChannel;
   priceAlertChannel?: NotificationChannel;
   patternAlertChannel?: NotificationChannel;
+  signalAlertChannel?: NotificationChannel;
 }
 
 const CHANNEL_FIELDS = [
@@ -79,6 +82,7 @@ const CHANNEL_FIELDS = [
   "thresholdChangeChannel",
   "priceAlertChannel",
   "patternAlertChannel",
+  "signalAlertChannel",
 ] as const;
 
 export async function updateNotificationPreferences(
@@ -116,6 +120,7 @@ export async function updateNotificationPreferences(
     thresholdChangeChannel: next.thresholdChangeChannel ?? current.thresholdChangeChannel,
     priceAlertChannel: next.priceAlertChannel ?? current.priceAlertChannel,
     patternAlertChannel: next.patternAlertChannel ?? current.patternAlertChannel,
+    signalAlertChannel: next.signalAlertChannel ?? current.signalAlertChannel,
   };
 
   const [updated] = row
@@ -140,7 +145,8 @@ export async function resolveDestinations(
     | "largeOrderChannel"
     | "thresholdChangeChannel"
     | "priceAlertChannel"
-    | "patternAlertChannel";
+    | "patternAlertChannel"
+    | "signalAlertChannel";
   const channel = prefs[channelField];
   return {
     email: prefs.email,

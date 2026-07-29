@@ -1,7 +1,8 @@
 import { db, alertsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getQuotes, yahooFinance } from "../lib/yahoo";
-import { sendEmail, alertEmailHtml, patternAlertEmailHtml } from "../lib/emailClient";
+import { sendEmail, alertEmailHtml, patternAlertEmailHtml, signalAlertEmailHtml } from "../lib/emailClient";
+import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
 import { sendSms } from "../lib/smsClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { detectCandlePatterns, type OHLCPoint, type CandlePattern } from "../lib/patternDetect";
@@ -27,7 +28,7 @@ const STRENGTH_RANK: Record<string, number> = { faible: 1, moyen: 2, fort: 3 };
  */
 async function resolveAlertDestination(
   alert: { notifyEmail: string | null; notifyPhone: string | null },
-  eventType: "priceAlert" | "patternAlert",
+  eventType: "priceAlert" | "patternAlert" | "signalAlert",
 ): Promise<{ email: string | null; phone: string | null; sendEmail: boolean; sendSms: boolean }> {
   const globalPrefs = await resolveDestinations(eventType);
   return {
@@ -86,6 +87,7 @@ export async function checkAlerts(): Promise<void> {
 
   const priceAlerts = active.filter((a) => a.alertType !== "pattern");
   const patternAlerts = active.filter((a) => a.alertType === "pattern");
+  const signalAlerts = active.filter((a) => a.alertType === "signal");
 
   // --- 1. Alertes de prix (comportement historique) ---
   if (priceAlerts.length > 0) {
@@ -176,6 +178,55 @@ export async function checkAlerts(): Promise<void> {
       logger.info({ alertId: alert.id, symbol: alert.symbol, pattern: match.name, signal: match.signal }, "Pattern alert triggered");
     } catch (err) {
       logger.error({ err, alertId: alert.id, symbol: alert.symbol }, "Failed to process pattern alert");
+    }
+  }
+
+  // --- 3. Alertes de signal technique composite (RSI+MACD+SMA+Bollinger) ---
+  for (const alert of signalAlerts) {
+    try {
+      const history = await fetchRecentOHLC(alert.symbol);
+      if (history.length < 55) continue; // sma50 a besoin d'assez d'historique
+
+      const data = computeIndicators(history);
+      const currentPrice = history[history.length - 1].close;
+      const analysis = analyzeTradingSignals(data, currentPrice);
+      if (analysis.overall === "NEUTRE") continue;
+
+      const isBuySide = analysis.overall === "ACHAT" || analysis.overall === "FORT ACHAT";
+      const directionMatches = !alert.patternSignal
+        || (alert.patternSignal === "haussier" && isBuySide)
+        || (alert.patternSignal === "baissier" && !isBuySide);
+      const strengthMatches = alert.minStrength === "fort"
+        ? (analysis.overall === "FORT ACHAT" || analysis.overall === "FORTE VENTE")
+        : true; // "moyen" (défaut) : ACHAT/VENTE ou plus fort suffit
+
+      if (!directionMatches || !strengthMatches) continue;
+
+      await db.update(alertsTable).set({ active: false, triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
+
+      const dest = await resolveAlertDestination(alert, "signalAlert");
+      const topSignals = analysis.signals.filter((s) => s.verdict !== "neutral").slice(0, 3).map((s) => `${s.name}: ${s.value}`);
+
+      if (dest.sendEmail && dest.email) {
+        await sendEmail({
+          to: dest.email,
+          subject: `📈 ${alert.symbol} — signal ${analysis.overall}`,
+          html: signalAlertEmailHtml({ symbol: alert.symbol, name: alert.name, overall: analysis.overall, score: analysis.score, topSignals }),
+        });
+      } else if (dest.sendEmail) {
+        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Signal alert triggered but email channel enabled with no destination configured");
+      }
+      if (dest.sendSms && dest.phone) {
+        await sendSms({
+          to: dest.phone,
+          body: `📈 ${alert.name ?? alert.symbol} (${alert.symbol}) — signal ${analysis.overall} (score ${analysis.score}). ${topSignals[0] ?? ""}`,
+        });
+      } else if (dest.sendSms) {
+        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Signal alert triggered but SMS channel enabled with no phone number configured");
+      }
+      logger.info({ alertId: alert.id, symbol: alert.symbol, overall: analysis.overall, score: analysis.score }, "Signal alert triggered");
+    } catch (err) {
+      logger.error({ err, alertId: alert.id, symbol: alert.symbol }, "Failed to process signal alert");
     }
   }
 }

@@ -6,7 +6,11 @@ export const alertsTable = pgTable("alerts", {
   id: serial("id").primaryKey(),
   symbol: text("symbol").notNull(),
   name: text("name"),
-  // "price" (comportement historique) ou "pattern" (nouvelle alerte intelligente).
+  // "price" | "pattern" | "signal". Pour "signal" : on réutilise patternSignal
+  // ("haussier" = notifie seulement sur ACHAT/FORT ACHAT, "baissier" = seulement
+  // VENTE/FORTE VENTE, null = les deux) et minStrength ("moyen" = ACHAT+/VENTE+,
+  // "fort" = seulement FORT ACHAT/FORTE VENTE) — mêmes colonnes que les alertes
+  // de pattern, sémantique adaptée.
   alertType: text("alert_type").default("price").notNull(),
   condition: text("condition"), // "above" | "below" — utilisé seulement pour alertType = "price"
   targetPrice: numeric("target_price", { precision: 18, scale: 6 }), // utilisé seulement pour alertType = "price"

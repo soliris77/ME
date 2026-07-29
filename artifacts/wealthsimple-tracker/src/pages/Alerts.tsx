@@ -25,7 +25,7 @@ function sendNotification(title: string, body: string) {
 }
 
 function CreateAlertModal({ onClose }: { onClose: () => void }) {
-  const [alertType, setAlertType] = useState<"price" | "pattern">("price");
+  const [alertType, setAlertType] = useState<"price" | "pattern" | "signal">("price");
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
   // Champs pour une alerte de prix
@@ -59,6 +59,16 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
       create.mutate({
         data: { symbol, name: name || undefined, alertType: "price", condition, targetPrice: parseFloat(price) },
       });
+    } else if (alertType === "signal") {
+      create.mutate({
+        data: {
+          symbol,
+          name: name || undefined,
+          alertType: "signal",
+          patternSignal: patternSignal || undefined,
+          minStrength: minStrength || undefined,
+        },
+      });
     } else {
       create.mutate({
         data: {
@@ -80,7 +90,7 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="grid grid-cols-3 gap-2 mb-4">
           <button
             onClick={() => setAlertType("price")}
             className={`py-2 text-sm font-medium rounded-md border transition-colors flex items-center justify-center gap-1.5 ${
@@ -95,7 +105,15 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
               alertType === "pattern" ? "bg-primary border-primary text-primary-foreground" : "bg-background border-input hover:bg-muted"
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" /> Pattern/Signal
+            <Sparkles className="w-3.5 h-3.5" /> Pattern
+          </button>
+          <button
+            onClick={() => setAlertType("signal")}
+            className={`py-2 text-sm font-medium rounded-md border transition-colors flex items-center justify-center gap-1.5 ${
+              alertType === "signal" ? "bg-primary border-primary text-primary-foreground" : "bg-background border-input hover:bg-muted"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" /> Signal
           </button>
         </div>
 
@@ -153,6 +171,58 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setPrice(e.target.value)}
                 />
               </div>
+            </>
+          ) : alertType === "signal" ? (
+            <>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block">Direction</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setPatternSignal("")}
+                    className={`py-2 text-xs font-medium rounded-md border transition-colors ${
+                      patternSignal === "" ? "bg-primary border-primary text-primary-foreground" : "bg-background border-input hover:bg-muted"
+                    }`}
+                  >
+                    Les deux
+                  </button>
+                  <button
+                    onClick={() => setPatternSignal("haussier")}
+                    className={`py-2 text-xs font-medium rounded-md border transition-colors flex items-center justify-center gap-1 ${
+                      patternSignal === "haussier" ? "bg-emerald-500 border-emerald-500 text-white" : "bg-background border-input hover:bg-muted"
+                    }`}
+                  >
+                    <TrendingUp className="w-3 h-3" /> Haussier
+                  </button>
+                  <button
+                    onClick={() => setPatternSignal("baissier")}
+                    className={`py-2 text-xs font-medium rounded-md border transition-colors flex items-center justify-center gap-1 ${
+                      patternSignal === "baissier" ? "bg-red-500 border-red-500 text-white" : "bg-background border-input hover:bg-muted"
+                    }`}
+                  >
+                    <TrendingDown className="w-3 h-3" /> Baissier
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block">Force minimale</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["moyen", "fort"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setMinStrength(s)}
+                      className={`py-2 text-xs font-medium rounded-md border capitalize transition-colors ${
+                        minStrength === s ? "bg-primary border-primary text-primary-foreground" : "bg-background border-input hover:bg-muted"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed bg-muted/50 rounded-md p-2">
+                Tu seras notifié quand RSI, MACD, SMA et Bollinger s'alignent en signal composite (ACHAT/VENTE ou plus fort) —
+                même analyse que dans l'onglet technique, vérifiée automatiquement toutes les 90 secondes.
+              </p>
             </>
           ) : (
             <>
@@ -229,12 +299,15 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
 
 function AlertRow({ alert, onDelete, muted = false }: { alert: Alert; onDelete: () => void; muted?: boolean }) {
   const isPattern = alert.alertType === "pattern";
+  const isSignal = alert.alertType === "signal";
   return (
     <div className={`flex items-center gap-4 px-4 py-3 group hover:bg-muted/30 transition-colors ${muted ? "opacity-60" : ""}`}>
       {muted ? (
         <BellOff className="w-4 h-4 shrink-0 text-muted-foreground" />
       ) : isPattern ? (
         <Sparkles className="w-4 h-4 text-primary shrink-0" />
+      ) : isSignal ? (
+        <TrendingUp className="w-4 h-4 text-primary shrink-0" />
       ) : (
         <Bell className="w-4 h-4 text-primary shrink-0" />
       )}
@@ -242,6 +315,7 @@ function AlertRow({ alert, onDelete, muted = false }: { alert: Alert; onDelete: 
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-sm">{alert.symbol}</span>
           {alert.name && <span className="text-xs text-muted-foreground truncate">{alert.name}</span>}
+          {isSignal && !muted && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">📈 signal technique</span>}
           {muted && <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-medium">Déclenchée</span>}
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
@@ -255,6 +329,17 @@ function AlertRow({ alert, onDelete, muted = false }: { alert: Alert; onDelete: 
                 {alert.patternSignal === "haussier" ? "signal haussier" : alert.patternSignal === "baissier" ? "signal baissier" : "haussier ou baissier"}
               </span>{" "}
               · force min. {alert.minStrength ?? "faible"}
+            </>
+          ) : isSignal ? (
+            <>
+              Signal composite RSI+MACD+SMA+Bollinger —{" "}
+              <span className={
+                alert.patternSignal === "haussier" ? "gain font-medium" :
+                alert.patternSignal === "baissier" ? "loss font-medium" : "font-medium"
+              }>
+                {alert.patternSignal === "haussier" ? "haussier seulement" : alert.patternSignal === "baissier" ? "baissier seulement" : "tous signaux"}
+              </span>{" "}
+              · force min. {alert.minStrength ?? "moyen"}
             </>
           ) : (
             <>

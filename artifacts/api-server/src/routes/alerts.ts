@@ -46,7 +46,7 @@ router.post("/alerts", async (req, res) => {
     notifyPhone?: string;
   };
   const { symbol, name, notifyEmail, notifyPhone } = body;
-  const alertType = body.alertType === "pattern" ? "pattern" : "price";
+  const alertType = body.alertType === "pattern" ? "pattern" : body.alertType === "signal" ? "signal" : "price";
 
   if (!symbol) {
     return res.status(400).json({ error: "symbol is required" });
@@ -62,6 +62,13 @@ router.post("/alerts", async (req, res) => {
     }
     if (!["above", "below"].includes(body.condition)) {
       return res.status(400).json({ error: "condition must be above or below" });
+    }
+  } else if (alertType === "signal") {
+    if (body.patternSignal && !["haussier", "baissier"].includes(body.patternSignal)) {
+      return res.status(400).json({ error: "patternSignal must be haussier or baissier" });
+    }
+    if (body.minStrength && !["moyen", "fort"].includes(body.minStrength)) {
+      return res.status(400).json({ error: "minStrength must be moyen or fort for signal alerts" });
     }
   } else {
     if (body.patternSignal && !["haussier", "baissier"].includes(body.patternSignal)) {
@@ -81,8 +88,8 @@ router.post("/alerts", async (req, res) => {
         alertType,
         condition: alertType === "price" ? body.condition! : null,
         targetPrice: alertType === "price" ? String(body.targetPrice) : null,
-        patternSignal: alertType === "pattern" ? body.patternSignal ?? null : null,
-        minStrength: alertType === "pattern" ? body.minStrength ?? null : null,
+        patternSignal: (alertType === "pattern" || alertType === "signal") ? body.patternSignal ?? null : null,
+        minStrength: (alertType === "pattern" || alertType === "signal") ? body.minStrength ?? null : null,
         active: true,
         notifyEmail: notifyEmail ?? null,
         notifyPhone: notifyPhone ?? null,

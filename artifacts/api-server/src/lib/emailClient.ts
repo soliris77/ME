@@ -46,6 +46,35 @@ export function alertEmailHtml(params: {
   `;
 }
 
+export function signalAlertEmailHtml(params: {
+  symbol: string;
+  name: string | null;
+  overall: string;
+  score: number;
+  topSignals: string[];
+}): string {
+  const { symbol, name, overall, score, topSignals } = params;
+  const isBuy = overall === "ACHAT" || overall === "FORT ACHAT";
+  const isSell = overall === "VENTE" || overall === "FORTE VENTE";
+  const tagColor = isBuy ? "#10b981" : isSell ? "#ef4444" : "#6b7280";
+  const signalList = topSignals.map((s) => `<li style="margin: 4px 0;">${s}</li>`).join("");
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">📈 Signal technique composite</h2>
+      <p style="font-size: 16px; color: #333;">
+        <strong>${name ?? symbol} (${symbol})</strong> — signal
+        <strong style="color: ${tagColor}; background: ${tagColor}1a; padding: 2px 8px; border-radius: 4px;">${overall}</strong>
+        (score ${score > 0 ? "+" : ""}${score}).
+      </p>
+      ${signalList ? `<ul style="font-size: 14px; color: #555; padding-left: 20px;">${signalList}</ul>` : ""}
+      <p style="font-size: 12px; color: #999; margin-top: 24px;">
+        Envoyé par Soliris Market. Cette alerte a été désactivée automatiquement.
+        ⚠️ Ce n'est pas un conseil financier.
+      </p>
+    </div>
+  `;
+}
+
 export function patternAlertEmailHtml(params: {
   symbol: string;
   name: string | null;

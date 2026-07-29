@@ -106071,7 +106071,11 @@ var alertsTable = pgTable("alerts", {
   id: serial("id").primaryKey(),
   symbol: text("symbol").notNull(),
   name: text("name"),
-  // "price" (comportement historique) ou "pattern" (nouvelle alerte intelligente).
+  // "price" | "pattern" | "signal". Pour "signal" : on réutilise patternSignal
+  // ("haussier" = notifie seulement sur ACHAT/FORT ACHAT, "baissier" = seulement
+  // VENTE/FORTE VENTE, null = les deux) et minStrength ("moyen" = ACHAT+/VENTE+,
+  // "fort" = seulement FORT ACHAT/FORTE VENTE) — mêmes colonnes que les alertes
+  // de pattern, sémantique adaptée.
   alertType: text("alert_type").default("price").notNull(),
   condition: text("condition"),
   // "above" | "below" — utilisé seulement pour alertType = "price"
@@ -106185,6 +106189,7 @@ var notificationPreferencesTable = pgTable("notification_preferences", {
   thresholdChangeChannel: text("threshold_change_channel").default("email").notNull(),
   priceAlertChannel: text("price_alert_channel").default("email").notNull(),
   patternAlertChannel: text("pattern_alert_channel").default("email").notNull(),
+  signalAlertChannel: text("signal_alert_channel").default("email").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 var insertNotificationPreferencesSchema = createInsertSchema(notificationPreferencesTable).omit({
@@ -106196,7 +106201,8 @@ var NOTIFICATION_EVENT_TYPES = [
   "largeOrder",
   "thresholdChange",
   "priceAlert",
-  "patternAlert"
+  "patternAlert",
+  "signalAlert"
 ];
 var auditLogTable = pgTable("audit_log", {
   id: serial("id").primaryKey(),
@@ -106533,7 +106539,7 @@ router6.get("/alerts", async (req, res) => {
 router6.post("/alerts", async (req, res) => {
   const body = req.body;
   const { symbol: symbol2, name: name2, notifyEmail, notifyPhone } = body;
-  const alertType = body.alertType === "pattern" ? "pattern" : "price";
+  const alertType = body.alertType === "pattern" ? "pattern" : body.alertType === "signal" ? "signal" : "price";
   if (!symbol2) {
     return res.status(400).json({ error: "symbol is required" });
   }
@@ -106546,6 +106552,13 @@ router6.post("/alerts", async (req, res) => {
     }
     if (!["above", "below"].includes(body.condition)) {
       return res.status(400).json({ error: "condition must be above or below" });
+    }
+  } else if (alertType === "signal") {
+    if (body.patternSignal && !["haussier", "baissier"].includes(body.patternSignal)) {
+      return res.status(400).json({ error: "patternSignal must be haussier or baissier" });
+    }
+    if (body.minStrength && !["moyen", "fort"].includes(body.minStrength)) {
+      return res.status(400).json({ error: "minStrength must be moyen or fort for signal alerts" });
     }
   } else {
     if (body.patternSignal && !["haussier", "baissier"].includes(body.patternSignal)) {
@@ -106562,8 +106575,8 @@ router6.post("/alerts", async (req, res) => {
       alertType,
       condition: alertType === "price" ? body.condition : null,
       targetPrice: alertType === "price" ? String(body.targetPrice) : null,
-      patternSignal: alertType === "pattern" ? body.patternSignal ?? null : null,
-      minStrength: alertType === "pattern" ? body.minStrength ?? null : null,
+      patternSignal: alertType === "pattern" || alertType === "signal" ? body.patternSignal ?? null : null,
+      minStrength: alertType === "pattern" || alertType === "signal" ? body.minStrength ?? null : null,
       active: true,
       notifyEmail: notifyEmail ?? null,
       notifyPhone: notifyPhone ?? null
@@ -124799,6 +124812,28 @@ function alertEmailHtml(params) {
     </div>
   `;
 }
+function signalAlertEmailHtml(params) {
+  const { symbol: symbol2, name: name2, overall, score, topSignals } = params;
+  const isBuy = overall === "ACHAT" || overall === "FORT ACHAT";
+  const isSell = overall === "VENTE" || overall === "FORTE VENTE";
+  const tagColor = isBuy ? "#10b981" : isSell ? "#ef4444" : "#6b7280";
+  const signalList = topSignals.map((s) => `<li style="margin: 4px 0;">${s}</li>`).join("");
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">\u{1F4C8} Signal technique composite</h2>
+      <p style="font-size: 16px; color: #333;">
+        <strong>${name2 ?? symbol2} (${symbol2})</strong> \u2014 signal
+        <strong style="color: ${tagColor}; background: ${tagColor}1a; padding: 2px 8px; border-radius: 4px;">${overall}</strong>
+        (score ${score > 0 ? "+" : ""}${score}).
+      </p>
+      ${signalList ? `<ul style="font-size: 14px; color: #555; padding-left: 20px;">${signalList}</ul>` : ""}
+      <p style="font-size: 12px; color: #999; margin-top: 24px;">
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement.
+        \u26A0\uFE0F Ce n'est pas un conseil financier.
+      </p>
+    </div>
+  `;
+}
 function patternAlertEmailHtml(params) {
   const { symbol: symbol2, name: name2, patternName, signal, strength, description, howToUse } = params;
   const signalColor = signal === "haussier" ? "#10b981" : signal === "baissier" ? "#ef4444" : "#6b7280";
@@ -124834,6 +124869,7 @@ function toOut(row) {
     thresholdChangeChannel: row.thresholdChangeChannel,
     priceAlertChannel: row.priceAlertChannel,
     patternAlertChannel: row.patternAlertChannel,
+    signalAlertChannel: row.signalAlertChannel,
     updatedAt: row.updatedAt.toISOString()
   };
 }
@@ -124854,7 +124890,8 @@ var CHANNEL_FIELDS = [
   "largeOrderChannel",
   "thresholdChangeChannel",
   "priceAlertChannel",
-  "patternAlertChannel"
+  "patternAlertChannel",
+  "signalAlertChannel"
 ];
 async function updateNotificationPreferences(patch) {
   const current = await getNotificationPreferences();
@@ -124882,7 +124919,8 @@ async function updateNotificationPreferences(patch) {
     largeOrderChannel: next.largeOrderChannel ?? current.largeOrderChannel,
     thresholdChangeChannel: next.thresholdChangeChannel ?? current.thresholdChangeChannel,
     priceAlertChannel: next.priceAlertChannel ?? current.priceAlertChannel,
-    patternAlertChannel: next.patternAlertChannel ?? current.patternAlertChannel
+    patternAlertChannel: next.patternAlertChannel ?? current.patternAlertChannel,
+    signalAlertChannel: next.signalAlertChannel ?? current.signalAlertChannel
   };
   const [updated] = row ? await db.update(notificationPreferencesTable).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq(notificationPreferencesTable.id, row.id)).returning() : [await ensureRow()];
   cache3 = toOut(updated);
@@ -129822,6 +129860,175 @@ var app_default = app;
 // src/workers/alertWorker.ts
 init_drizzle_orm();
 
+// src/lib/signals.ts
+function sma(data, period, idx) {
+  if (idx < period - 1) return void 0;
+  let sum2 = 0;
+  for (let i = idx - period + 1; i <= idx; i++) sum2 += data[i];
+  return sum2 / period;
+}
+function ema(data, period) {
+  const result = [];
+  const k = 2 / (period + 1);
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) result.push(NaN);
+    else if (i === period - 1) {
+      let s = 0;
+      for (let j = 0; j < period; j++) s += data[j];
+      result.push(s / period);
+    } else result.push(data[i] * k + result[i - 1] * (1 - k));
+  }
+  return result;
+}
+function rsi(closes, period = 14) {
+  const result = new Array(closes.length).fill(void 0);
+  if (closes.length < period + 1) return result;
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) avgGain += diff;
+    else avgLoss -= diff;
+  }
+  avgGain /= period;
+  avgLoss /= period;
+  const rs0 = avgLoss === 0 ? 100 : avgGain / avgLoss;
+  result[period] = 100 - 100 / (1 + rs0);
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    const r = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    result[i] = 100 - 100 / (1 + r);
+  }
+  return result;
+}
+function bollingerBands(closes, period = 20, stdDevMult = 2) {
+  return closes.map((_, idx) => {
+    if (idx < period - 1) return { upper: void 0, middle: void 0, lower: void 0 };
+    const slice = closes.slice(idx - period + 1, idx + 1);
+    const mean = slice.reduce((a, b) => a + b, 0) / period;
+    const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / period;
+    const sd = Math.sqrt(variance);
+    return { upper: mean + stdDevMult * sd, middle: mean, lower: mean - stdDevMult * sd };
+  });
+}
+function computeIndicators(history) {
+  const closes = history.map((p) => p.close);
+  const ema12Arr = ema(closes, 12);
+  const ema26Arr = ema(closes, 26);
+  const macdLineArr = ema12Arr.map((v, i) => isNaN(v) || isNaN(ema26Arr[i]) ? NaN : v - ema26Arr[i]);
+  const validMacd = macdLineArr.filter((v) => !isNaN(v));
+  const signalOffset = macdLineArr.findIndex((v) => !isNaN(v));
+  const macdSignalFull = ema(validMacd, 9);
+  const rsiArr = rsi(closes, 14);
+  const bbArr = bollingerBands(closes, 20, 2);
+  return history.map((p, i) => {
+    const macdHistVal = !isNaN(macdLineArr[i]) && i - signalOffset >= 0 && !isNaN(macdSignalFull[i - signalOffset]) ? macdLineArr[i] - macdSignalFull[i - signalOffset] : void 0;
+    return {
+      date: p.date,
+      close: p.close,
+      open: p.open,
+      high: p.high,
+      low: p.low,
+      volume: p.volume,
+      sma20: sma(closes, 20, i),
+      sma50: sma(closes, 50, i),
+      ema12: !isNaN(ema12Arr[i]) ? ema12Arr[i] : void 0,
+      ema26: !isNaN(ema26Arr[i]) ? ema26Arr[i] : void 0,
+      bbUpper: bbArr[i].upper,
+      bbMiddle: bbArr[i].middle,
+      bbLower: bbArr[i].lower,
+      rsi: rsiArr[i],
+      macdLine: !isNaN(macdLineArr[i]) ? macdLineArr[i] : void 0,
+      macdSignal: i - signalOffset >= 0 && !isNaN(macdSignalFull[i - signalOffset]) ? macdSignalFull[i - signalOffset] : void 0,
+      macdHist: macdHistVal
+    };
+  });
+}
+function analyzeTradingSignals(data, currentPrice) {
+  const signals = [];
+  let score = 0;
+  const last = data[data.length - 1];
+  const prev = data.length > 1 ? data[data.length - 2] : null;
+  if (last.rsi !== void 0) {
+    const r = last.rsi;
+    if (r < 30) {
+      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "buy", description: "RSI en zone de survente", beginnerTip: "" });
+      score += 25;
+    } else if (r > 70) {
+      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "sell", description: "RSI en zone de surachat", beginnerTip: "" });
+      score -= 25;
+    } else if (r >= 45 && r <= 60) {
+      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "buy", description: "Momentum haussier sain", beginnerTip: "" });
+      score += 10;
+    } else {
+      signals.push({ name: "RSI", value: r.toFixed(1), verdict: "neutral", description: "Zone neutre", beginnerTip: "" });
+    }
+  }
+  if (last.macdLine !== void 0 && last.macdSignal !== void 0 && prev?.macdLine !== void 0 && prev?.macdSignal !== void 0) {
+    const crossedUp = prev.macdLine < prev.macdSignal && last.macdLine > last.macdSignal;
+    const crossedDown = prev.macdLine > prev.macdSignal && last.macdLine < last.macdSignal;
+    if (crossedUp) {
+      signals.push({ name: "MACD", value: "Croisement haussier", verdict: "buy", description: "Croisement haussier", beginnerTip: "" });
+      score += 30;
+    } else if (crossedDown) {
+      signals.push({ name: "MACD", value: "Croisement baissier", verdict: "sell", description: "Croisement baissier", beginnerTip: "" });
+      score -= 30;
+    } else if (last.macdLine > last.macdSignal) {
+      signals.push({ name: "MACD", value: "Haussier", verdict: "buy", description: "MACD au-dessus du signal", beginnerTip: "" });
+      score += 15;
+    } else {
+      signals.push({ name: "MACD", value: "Baissier", verdict: "sell", description: "MACD en dessous du signal", beginnerTip: "" });
+      score -= 15;
+    }
+  }
+  if (last.sma20 !== void 0 && last.sma50 !== void 0) {
+    const golden = last.sma20 > last.sma50;
+    signals.push({ name: "SMA 20/50", value: golden ? "Croix dor\xE9e" : "Croix de la mort", verdict: golden ? "buy" : "sell", description: "", beginnerTip: "" });
+    score += golden ? 20 : -20;
+  }
+  if (last.sma20 !== void 0) {
+    const above = currentPrice > last.sma20;
+    signals.push({ name: "Prix vs SMA20", value: above ? "Au-dessus" : "En dessous", verdict: above ? "buy" : "sell", description: "", beginnerTip: "" });
+    score += above ? 10 : -10;
+  }
+  if (last.bbUpper !== void 0 && last.bbLower !== void 0) {
+    if (currentPrice < last.bbLower) {
+      signals.push({ name: "Bollinger", value: "Sous la bande basse", verdict: "buy", description: "", beginnerTip: "" });
+      score += 20;
+    } else if (currentPrice > last.bbUpper) {
+      signals.push({ name: "Bollinger", value: "Au-dessus de la bande haute", verdict: "sell", description: "", beginnerTip: "" });
+      score -= 20;
+    }
+  }
+  const clampedScore = Math.max(-100, Math.min(100, score));
+  let overall, recommendation, beginnerSummary;
+  if (clampedScore >= 60) {
+    overall = "FORT ACHAT";
+    recommendation = "Plusieurs indicateurs s'alignent en faveur des acheteurs.";
+    beginnerSummary = "";
+  } else if (clampedScore >= 20) {
+    overall = "ACHAT";
+    recommendation = "Les indicateurs penchent vers le haussier.";
+    beginnerSummary = "";
+  } else if (clampedScore <= -60) {
+    overall = "FORTE VENTE";
+    recommendation = "Plusieurs indicateurs s'alignent vers le baissier.";
+    beginnerSummary = "";
+  } else if (clampedScore <= -20) {
+    overall = "VENTE";
+    recommendation = "Les indicateurs penchent vers le baissier.";
+    beginnerSummary = "";
+  } else {
+    overall = "NEUTRE";
+    recommendation = "Signaux mixtes.";
+    beginnerSummary = "";
+  }
+  return { overall, score: clampedScore, signals, recommendation, beginnerSummary };
+}
+
 // src/lib/patternDetect.ts
 function detectCandlePatterns(history) {
   const patterns = [];
@@ -130076,6 +130283,7 @@ function detectCandlePatterns(history) {
 
 // src/workers/alertWorker.ts
 var DEFAULT_INTERVAL_MS = 9e4;
+var SIGNAL_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1e3;
 function isTriggered(condition, target, current) {
   if (condition === "above") return current >= target;
   if (condition === "below") return current <= target;
@@ -130113,6 +130321,7 @@ async function checkAlerts() {
   if (active.length === 0) return;
   const priceAlerts = active.filter((a) => a.alertType !== "pattern");
   const patternAlerts = active.filter((a) => a.alertType === "pattern");
+  const signalAlerts = active.filter((a) => a.alertType === "signal");
   if (priceAlerts.length > 0) {
     const symbols = [...new Set(priceAlerts.map((a) => a.symbol))];
     try {
@@ -130155,12 +130364,13 @@ async function checkAlerts() {
   }
   for (const alert of patternAlerts) {
     try {
+      if (alert.triggeredAt && Date.now() - alert.triggeredAt.getTime() < SIGNAL_ALERT_COOLDOWN_MS) continue;
       const history = await fetchRecentOHLC(alert.symbol);
       if (history.length < 15) continue;
       const patterns = detectCandlePatterns(history);
       const match = findMatchingRecentPattern(patterns, history.length, alert.patternSignal, alert.minStrength);
       if (!match) continue;
-      await db.update(alertsTable).set({ active: false, triggeredAt: /* @__PURE__ */ new Date() }).where(eq(alertsTable.id, alert.id));
+      await db.update(alertsTable).set({ triggeredAt: /* @__PURE__ */ new Date() }).where(eq(alertsTable.id, alert.id));
       const dest = await resolveAlertDestination(alert, "patternAlert");
       if (dest.sendEmail && dest.email) {
         await sendEmail({
@@ -130190,6 +130400,43 @@ async function checkAlerts() {
       logger.info({ alertId: alert.id, symbol: alert.symbol, pattern: match.name, signal: match.signal }, "Pattern alert triggered");
     } catch (err) {
       logger.error({ err, alertId: alert.id, symbol: alert.symbol }, "Failed to process pattern alert");
+    }
+  }
+  for (const alert of signalAlerts) {
+    try {
+      const history = await fetchRecentOHLC(alert.symbol);
+      if (history.length < 55) continue;
+      const data = computeIndicators(history);
+      const currentPrice = history[history.length - 1].close;
+      const analysis = analyzeTradingSignals(data, currentPrice);
+      if (analysis.overall === "NEUTRE") continue;
+      const isBuySide = analysis.overall === "ACHAT" || analysis.overall === "FORT ACHAT";
+      const directionMatches = !alert.patternSignal || alert.patternSignal === "haussier" && isBuySide || alert.patternSignal === "baissier" && !isBuySide;
+      const strengthMatches = alert.minStrength === "fort" ? analysis.overall === "FORT ACHAT" || analysis.overall === "FORTE VENTE" : true;
+      if (!directionMatches || !strengthMatches) continue;
+      await db.update(alertsTable).set({ active: false, triggeredAt: /* @__PURE__ */ new Date() }).where(eq(alertsTable.id, alert.id));
+      const dest = await resolveAlertDestination(alert, "signalAlert");
+      const topSignals = analysis.signals.filter((s) => s.verdict !== "neutral").slice(0, 3).map((s) => `${s.name}: ${s.value}`);
+      if (dest.sendEmail && dest.email) {
+        await sendEmail({
+          to: dest.email,
+          subject: `\u{1F4C8} ${alert.symbol} \u2014 signal ${analysis.overall}`,
+          html: signalAlertEmailHtml({ symbol: alert.symbol, name: alert.name, overall: analysis.overall, score: analysis.score, topSignals })
+        });
+      } else if (dest.sendEmail) {
+        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Signal alert triggered but email channel enabled with no destination configured");
+      }
+      if (dest.sendSms && dest.phone) {
+        await sendSms({
+          to: dest.phone,
+          body: `\u{1F4C8} ${alert.name ?? alert.symbol} (${alert.symbol}) \u2014 signal ${analysis.overall} (score ${analysis.score}). ${topSignals[0] ?? ""}`
+        });
+      } else if (dest.sendSms) {
+        logger.warn({ alertId: alert.id, symbol: alert.symbol }, "Signal alert triggered but SMS channel enabled with no phone number configured");
+      }
+      logger.info({ alertId: alert.id, symbol: alert.symbol, overall: analysis.overall, score: analysis.score }, "Signal alert triggered");
+    } catch (err) {
+      logger.error({ err, alertId: alert.id, symbol: alert.symbol }, "Failed to process signal alert");
     }
   }
 }

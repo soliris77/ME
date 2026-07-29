@@ -51,6 +51,7 @@ export const notificationPreferencesTable = pgTable("notification_preferences", 
   thresholdChangeChannel: text("threshold_change_channel").default("email").notNull(),
   priceAlertChannel: text("price_alert_channel").default("email").notNull(),
   patternAlertChannel: text("pattern_alert_channel").default("email").notNull(),
+  signalAlertChannel: text("signal_alert_channel").default("email").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -67,6 +68,7 @@ export const NOTIFICATION_EVENT_TYPES = [
   "thresholdChange",
   "priceAlert",
   "patternAlert",
+  "signalAlert",
 ] as const;
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
 
