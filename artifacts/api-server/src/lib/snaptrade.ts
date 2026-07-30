@@ -119,7 +119,7 @@ export interface SnaptradeUser {
  * and returns a fresh userSecret.
  */
 export async function registerSnaptradeUser(userId: string): Promise<SnaptradeUser> {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   try {
     const res = await client.authentication.registerSnapTradeUser({ userId });
     const data = res.data as { userId: string; userSecret: string };

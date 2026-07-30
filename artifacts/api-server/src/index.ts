@@ -3,63 +3,41 @@ import { logger } from "./lib/logger";
 import { startAlertWorker } from "./workers/alertWorker";
 import { db, brokerConnectionsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
-import { persistConsumerKeyIfNeeded } from "./lib/snaptrade";
+import { persistConsumerKeyIfNeeded, resolveCredentials } from "./lib/snaptrade";
 import { persistExternalCredsIfNeeded } from "./lib/persistCreds";
 
 const port = Number(process.env["PORT"] ?? "8080");
 
-/** Auto-initialise la connexion SnapTrade si les clés sont présentes mais qu'aucune
- *  ligne n'existe encore en base.
- *
- *  Pour les clés personnelles SnapTrade (non-partenaires) :
- *    - SNAPTRADE_CLIENT_ID + SNAPTRADE_CONSUMER_KEY  → authentification API
- *    - SNAPTRADE_USER_ID + SNAPTRADE_USER_SECRET     → credentials utilisateur personnel
- *
- *  L'utilisateur ne reste qu'à ouvrir le portail OAuth pour lier Wealthsimple.
+/**
+ * Vérifie au démarrage si les clés développeur SnapTrade sont présentes (DB ou env).
+ * Ne tente jamais l'auto-setup — l'utilisateur clique "Initialiser" dans l'UI.
+ * Sert uniquement à loguer l'état pour le diagnostic.
  */
-async function autoSetupBrokerIfNeeded() {
-  const clientId = process.env.SNAPTRADE_CLIENT_ID;
-  const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
-  const userId = process.env.SNAPTRADE_USER_ID;
-  const userSecret = process.env.SNAPTRADE_USER_SECRET;
-
-  logger.info(
-    { hasClientId: !!clientId, hasConsumerKey: !!consumerKey, hasUserId: !!userId, hasUserSecret: !!userSecret },
-    "broker: vérification des credentials SnapTrade au démarrage"
-  );
-
-  if (!clientId || !consumerKey) {
-    logger.warn("broker: SNAPTRADE_CLIENT_ID ou SNAPTRADE_CONSUMER_KEY manquant — mode courtier désactivé");
-    return;
-  }
-
-  if (!userId || !userSecret) {
-    logger.warn("broker: SNAPTRADE_USER_ID ou SNAPTRADE_USER_SECRET manquant — auto-setup ignoré (configure-les via /courtier)");
-    return;
-  }
-
+async function checkBrokerCredentialsAtStartup() {
   try {
-    const rows = await db
-      .select()
-      .from(brokerConnectionsTable)
-      .orderBy(desc(brokerConnectionsTable.id))
-      .limit(1);
+    const creds = await resolveCredentials();
+    const hasDevCreds = !!(creds.clientId && creds.consumerKey);
+    logger.info(
+      { hasClientId: !!creds.clientId, hasConsumerKey: !!creds.consumerKey },
+      hasDevCreds
+        ? "broker: clés développeur SnapTrade présentes (DB ou env) — prêt"
+        : "broker: clés développeur SnapTrade absentes — à configurer via /courtier"
+    );
 
-    if (rows.length > 0) {
-      logger.info({ status: rows[0].status }, "broker: connexion existante trouvée — pas besoin d'auto-setup");
-      return;
+    if (hasDevCreds) {
+      const rows = await db
+        .select()
+        .from(brokerConnectionsTable)
+        .orderBy(desc(brokerConnectionsTable.id))
+        .limit(1);
+      if (rows.length > 0) {
+        logger.info({ status: rows[0].status }, "broker: connexion existante trouvée en base");
+      } else {
+        logger.info("broker: aucune connexion courtier — l'utilisateur doit cliquer Initialiser dans /courtier");
+      }
     }
-
-    // Aucune ligne → on insère directement les credentials personnels (pas d'appel registerUser)
-    await db.insert(brokerConnectionsTable).values({
-      snaptradeUserId: userId,
-      snaptradeUserSecret: userSecret,
-      status: "pending",
-    });
-
-    logger.info({ userId }, "broker: auto-setup réussi — statut 'pending'. L'utilisateur doit maintenant lier son compte Wealthsimple via le portail OAuth (/courtier → Étape 2).");
   } catch (err) {
-    logger.error({ err }, "broker: auto-setup échoué — la configuration manuelle via /courtier reste possible");
+    logger.warn({ err }, "broker: erreur lors de la vérification des credentials au démarrage");
   }
 }
 
@@ -74,20 +52,16 @@ app.listen(port, (err) => {
   const alertIntervalMs = Number(process.env.ALERT_CHECK_INTERVAL_MS ?? "90000");
   startAlertWorker(Number.isFinite(alertIntervalMs) && alertIntervalMs > 0 ? alertIntervalMs : undefined);
 
-  // Persiste le consumerKey SnapTrade en base dès que possible (survit aux
-  // suppressions de secrets et aux remixes sans re-saisie).
+  // Persiste les credentials depuis env vars → DB si absents en base (premier démarrage)
   persistConsumerKeyIfNeeded().catch((err) =>
     logger.warn({ err }, "snaptrade: persistConsumerKeyIfNeeded a échoué au démarrage")
   );
 
-  // Persiste les credentials externes (Twilio, Gmail) en base — même pattern
-  // que SnapTrade : lu depuis la DB en priorité, env var en fallback.
   persistExternalCredsIfNeeded().catch((err) =>
     logger.warn({ err }, "persistExternalCredsIfNeeded a échoué au démarrage")
   );
 
-  // Auto-setup asynchrone — ne bloque pas le démarrage du serveur
-  autoSetupBrokerIfNeeded().catch((err) =>
-    logger.error({ err }, "broker: erreur inattendue dans autoSetupBrokerIfNeeded")
+  checkBrokerCredentialsAtStartup().catch((err) =>
+    logger.error({ err }, "broker: erreur dans checkBrokerCredentialsAtStartup")
   );
 });

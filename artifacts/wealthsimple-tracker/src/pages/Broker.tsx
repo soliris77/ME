@@ -144,6 +144,7 @@ export default function BrokerPage() {
     },
   });
 
+  const resetMut    = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/reset`,  { method: "POST" }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["broker-accounts"] }); } });
   const setupMut    = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/setup`,        { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
   const connectMut  = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/connect-url`).then((r) => r.json()), onSuccess: (d) => { if (d.redirectURI) window.open(d.redirectURI, "_blank", "noopener,noreferrer"); qc.invalidateQueries({ queryKey: ["broker-status"] }); } });
   const syncMut     = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/sync`,         { method: "POST" }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["broker-accounts"] }); } });
@@ -431,6 +432,10 @@ export default function BrokerPage() {
                   <Btn variant="muted" onClick={() => connectMut.mutate()} disabled={connectMut.isPending}>
                     {connectMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
                     Reconnecter
+                  </Btn>
+                  <Btn variant="danger" disabled={resetMut.isPending} onClick={() => { if (window.confirm("Réinitialiser la connexion courtier ?\n\nTu devras recliquer Initialiser et relancer le portail OAuth.")) resetMut.mutate(); }}>
+                    {resetMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                    Réinitialiser
                   </Btn>
                 </div>
               )}

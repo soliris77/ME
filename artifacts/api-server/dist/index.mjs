@@ -124724,7 +124724,7 @@ async function getSnaptradeClientAsync() {
   return _client;
 }
 async function registerSnaptradeUser(userId) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   try {
     const res = await client.authentication.registerSnapTradeUser({ userId });
     const data = res.data;
@@ -125605,7 +125605,7 @@ router8.get("/broker/credentials", async (_req, res) => {
 router8.get("/broker/trading-mode", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
   return res.json({ mode, hasCredentials });
 });
 router8.post("/broker/trading-mode", async (req, res) => {
@@ -125684,7 +125684,7 @@ router8.get("/broker/connect-url", async (req, res) => {
 router8.get("/broker/status", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
   const settings = await getRiskSettings();
   const conn = await getConnection();
   if (!conn) {
@@ -125829,6 +125829,21 @@ router8.post("/broker/orders", async (req, res) => {
       return res.status(400).json({ error: String(err) });
     }
     req.log.error({ err }, "broker: order failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+router8.post("/broker/reset", async (req, res) => {
+  try {
+    await db.delete(brokerConnectionsTable);
+    const rows = await db.select().from(appSettingsTable).limit(1);
+    if (rows.length > 0) {
+      await db.update(appSettingsTable).set({ snaptradeUserId: null, snaptradeUserSecret: null }).where(eq(appSettingsTable.id, rows[0].id));
+    }
+    await logAudit("broker.reset", "Connexion courtier r\xE9initialis\xE9e \u2014 pr\xEAt pour un nouveau setup.");
+    logger.info("broker: connexion r\xE9initialis\xE9e");
+    return res.json({ ok: true, message: "Connexion r\xE9initialis\xE9e. Clique Initialiser pour recommencer." });
+  } catch (err) {
+    logger.error({ err }, "broker: reset failed");
     return res.status(500).json({ error: String(err) });
   }
 });
@@ -130556,37 +130571,24 @@ function startAlertWorker(intervalMs = DEFAULT_INTERVAL_MS) {
 // src/index.ts
 init_drizzle_orm();
 var port = Number(process.env["PORT"] ?? "8080");
-async function autoSetupBrokerIfNeeded() {
-  const clientId = process.env.SNAPTRADE_CLIENT_ID;
-  const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
-  const userId = process.env.SNAPTRADE_USER_ID;
-  const userSecret = process.env.SNAPTRADE_USER_SECRET;
-  logger.info(
-    { hasClientId: !!clientId, hasConsumerKey: !!consumerKey, hasUserId: !!userId, hasUserSecret: !!userSecret },
-    "broker: v\xE9rification des credentials SnapTrade au d\xE9marrage"
-  );
-  if (!clientId || !consumerKey) {
-    logger.warn("broker: SNAPTRADE_CLIENT_ID ou SNAPTRADE_CONSUMER_KEY manquant \u2014 mode courtier d\xE9sactiv\xE9");
-    return;
-  }
-  if (!userId || !userSecret) {
-    logger.warn("broker: SNAPTRADE_USER_ID ou SNAPTRADE_USER_SECRET manquant \u2014 auto-setup ignor\xE9 (configure-les via /courtier)");
-    return;
-  }
+async function checkBrokerCredentialsAtStartup() {
   try {
-    const rows = await db.select().from(brokerConnectionsTable).orderBy(desc(brokerConnectionsTable.id)).limit(1);
-    if (rows.length > 0) {
-      logger.info({ status: rows[0].status }, "broker: connexion existante trouv\xE9e \u2014 pas besoin d'auto-setup");
-      return;
+    const creds = await resolveCredentials();
+    const hasDevCreds = !!(creds.clientId && creds.consumerKey);
+    logger.info(
+      { hasClientId: !!creds.clientId, hasConsumerKey: !!creds.consumerKey },
+      hasDevCreds ? "broker: cl\xE9s d\xE9veloppeur SnapTrade pr\xE9sentes (DB ou env) \u2014 pr\xEAt" : "broker: cl\xE9s d\xE9veloppeur SnapTrade absentes \u2014 \xE0 configurer via /courtier"
+    );
+    if (hasDevCreds) {
+      const rows = await db.select().from(brokerConnectionsTable).orderBy(desc(brokerConnectionsTable.id)).limit(1);
+      if (rows.length > 0) {
+        logger.info({ status: rows[0].status }, "broker: connexion existante trouv\xE9e en base");
+      } else {
+        logger.info("broker: aucune connexion courtier \u2014 l'utilisateur doit cliquer Initialiser dans /courtier");
+      }
     }
-    await db.insert(brokerConnectionsTable).values({
-      snaptradeUserId: userId,
-      snaptradeUserSecret: userSecret,
-      status: "pending"
-    });
-    logger.info({ userId }, "broker: auto-setup r\xE9ussi \u2014 statut 'pending'. L'utilisateur doit maintenant lier son compte Wealthsimple via le portail OAuth (/courtier \u2192 \xC9tape 2).");
   } catch (err) {
-    logger.error({ err }, "broker: auto-setup \xE9chou\xE9 \u2014 la configuration manuelle via /courtier reste possible");
+    logger.warn({ err }, "broker: erreur lors de la v\xE9rification des credentials au d\xE9marrage");
   }
 }
 app_default.listen(port, (err) => {
@@ -130603,8 +130605,8 @@ app_default.listen(port, (err) => {
   persistExternalCredsIfNeeded().catch(
     (err2) => logger.warn({ err: err2 }, "persistExternalCredsIfNeeded a \xE9chou\xE9 au d\xE9marrage")
   );
-  autoSetupBrokerIfNeeded().catch(
-    (err2) => logger.error({ err: err2 }, "broker: erreur inattendue dans autoSetupBrokerIfNeeded")
+  checkBrokerCredentialsAtStartup().catch(
+    (err2) => logger.error({ err: err2 }, "broker: erreur dans checkBrokerCredentialsAtStartup")
   );
 });
 /*! Bundled license information:

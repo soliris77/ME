@@ -102,7 +102,8 @@ router.get("/broker/credentials", async (_req, res) => {
 router.get("/broker/trading-mode", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  // Seules les clés développeur (clientId + consumerKey) sont nécessaires
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
   return res.json({ mode, hasCredentials });
 });
 
@@ -210,7 +211,8 @@ router.get("/broker/connect-url", async (req, res) => {
 router.get("/broker/status", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  // Clés développeur suffisantes pour considérer l'API configurée
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
 
   const settings = await getRiskSettings();
 
@@ -407,6 +409,29 @@ router.post("/broker/orders", async (req, res) => {
       return res.status(400).json({ error: String(err) });
     }
     req.log.error({ err }, "broker: order failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── POST /api/broker/reset ───────────────────────────────────────────────────
+// Réinitialise complètement la connexion courtier : supprime la ligne
+// broker_connections pour permettre un nouvel Initialiser propre.
+router.post("/broker/reset", async (req, res) => {
+  try {
+    await db.delete(brokerConnectionsTable);
+    // Efface aussi userId/userSecret de app_settings (seront régénérés au prochain setup)
+    const rows = await db.select().from(appSettingsTable).limit(1);
+    if (rows.length > 0) {
+      await db
+        .update(appSettingsTable)
+        .set({ snaptradeUserId: null, snaptradeUserSecret: null })
+        .where(eq(appSettingsTable.id, rows[0].id));
+    }
+    await logAudit("broker.reset", "Connexion courtier réinitialisée — prêt pour un nouveau setup.");
+    logger.info("broker: connexion réinitialisée");
+    return res.json({ ok: true, message: "Connexion réinitialisée. Clique Initialiser pour recommencer." });
+  } catch (err) {
+    logger.error({ err }, "broker: reset failed");
     return res.status(500).json({ error: String(err) });
   }
 });
