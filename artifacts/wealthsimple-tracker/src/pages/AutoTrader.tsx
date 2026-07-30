@@ -3,7 +3,7 @@
  * Surveille les signaux techniques en continu et exécute des ordres dès
  * que le score atteint le seuil configuré.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bot, Plus, Trash2, Power, PowerOff, ChevronDown, ChevronUp,
@@ -87,6 +87,137 @@ function scoreBar(score: number | null) {
   );
 }
 
+/* ── Symbol Autocomplete ────────────────────────────────── */
+interface SymbolSuggestion {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
+
+function SymbolAutocomplete({
+  value,
+  onChange,
+  inputCls,
+}: {
+  value: string;
+  onChange: (symbol: string) => void;
+  inputCls: string;
+}) {
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const [query, setQuery] = useState(value);
+  const [suggestions, setSuggestions] = useState<SymbolSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  const search = useCallback((q: string) => {
+    if (!q || q.length < 1) { setSuggestions([]); setOpen(false); return; }
+    setLoading(true);
+    fetch(`${BASE}/api/symbols/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then((data: SymbolSuggestion[]) => {
+        setSuggestions(data);
+        setOpen(data.length > 0);
+        setHighlighted(-1);
+      })
+      .catch(() => setSuggestions([]))
+      .finally(() => setLoading(false));
+  }, [BASE]);
+
+  function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value.toUpperCase();
+    setQuery(v);
+    onChange(v);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => search(v), 220);
+  }
+
+  function pick(s: SymbolSuggestion) {
+    setQuery(s.symbol);
+    onChange(s.symbol);
+    setSuggestions([]);
+    setOpen(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!open || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter" && highlighted >= 0) { e.preventDefault(); pick(suggestions[highlighted]); }
+    else if (e.key === "Escape") { setOpen(false); }
+  }
+
+  const TYPE_BADGE: Record<string, string> = {
+    EQUITY: "Action",
+    ETF: "ETF",
+    CRYPTOCURRENCY: "Crypto",
+    INDEX: "Indice",
+    MUTUALFUND: "Fonds",
+    FUTURE: "Futur",
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <input
+          className={inputCls + " pr-7"}
+          value={query}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
+          onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
+          placeholder="AAPL, AMD, BTC-USD…"
+          required
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {loading && (
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+            <RefreshCw className="w-3 h-3 text-muted-foreground animate-spin" />
+          </div>
+        )}
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-[100] top-full left-0 right-0 mt-1 bg-card border border-border/70 rounded-lg shadow-2xl overflow-hidden">
+          {suggestions.map((s, i) => (
+            <button
+              key={s.symbol}
+              type="button"
+              onMouseDown={() => pick(s)}
+              onMouseEnter={() => setHighlighted(i)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                highlighted === i ? "bg-primary/10" : "hover:bg-muted/40"
+              }`}
+            >
+              <span className="font-mono font-bold text-[13px] text-foreground w-[72px] shrink-0">{s.symbol}</span>
+              <span className="text-[11px] text-muted-foreground truncate flex-1">{s.name}</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground shrink-0">
+                {TYPE_BADGE[s.type.toUpperCase()] ?? s.type}
+              </span>
+              {s.exchange && (
+                <span className="text-[9px] text-muted-foreground/60 font-mono shrink-0">{s.exchange}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Rule Form Modal ────────────────────────────────────── */
 interface RuleFormProps {
   rule?: AutoTradeRule | null;
@@ -155,7 +286,7 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Symbole *</label>
-              <input className={inputCls} value={symbol} onChange={e => setSymbol(e.target.value)} placeholder="AAPL" required />
+              <SymbolAutocomplete value={symbol} onChange={setSymbol} inputCls={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Nom (optionnel)</label>
