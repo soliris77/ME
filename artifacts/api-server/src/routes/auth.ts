@@ -100,6 +100,36 @@ router.post("/auth/logout", (req, res) => {
   });
 });
 
+// ─── POST /api/auth/change-password ───────────────────────────────────────
+// Permet à un utilisateur authentifié de changer son mot de passe.
+router.post("/auth/change-password", loginRateLimiter, async (req, res) => {
+  if (!req.session?.authenticated) {
+    return res.status(401).json({ error: "Non authentifié." });
+  }
+
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+
+  if (!currentPassword || typeof currentPassword !== "string") {
+    return res.status(400).json({ error: "Mot de passe actuel requis." });
+  }
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    return res.status(400).json({ error: "Le nouveau mot de passe doit contenir au moins 6 caractères." });
+  }
+
+  try {
+    const ok = await verifyPassword(currentPassword);
+    if (!ok) {
+      return res.status(401).json({ error: "Mot de passe actuel incorrect." });
+    }
+    await setPassword(newPassword);
+    logger.info("auth: password changed");
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "auth: change-password failed");
+    return res.status(500).json({ error: "Erreur lors du changement de mot de passe." });
+  }
+});
+
 // ─── GET /api/auth/me ───────────────────────────────────────────────────────
 // Utilisé par le frontend pour savoir si la session est active.
 router.get("/auth/me", (req, res) => {

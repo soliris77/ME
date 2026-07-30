@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning } from "lucide-react";
+import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning, KeyRound, Eye, EyeOff } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -394,6 +394,148 @@ export default function SettingsPage() {
       </div>
       <div className="mt-4">
         <NotificationsSection />
+      </div>
+
+      <div className="mt-10">
+        <div className="section-rule mb-4"><span>SÉCURITÉ</span></div>
+        <h2 className="text-xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-2.5">
+          <KeyRound className="w-5 h-5 text-primary" />
+          Changer le mot de passe
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground max-w-xl">
+          Mets à jour le mot de passe d'accès à l'application.
+        </p>
+      </div>
+      <div className="mt-4">
+        <ChangePasswordSection />
+      </div>
+    </div>
+  );
+}
+
+function ChangePasswordSection() {
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const changeMut = useMutation({
+    mutationFn: async () => {
+      setError(null);
+      if (newPassword !== confirmPassword) {
+        throw new Error("Les nouveaux mots de passe ne correspondent pas.");
+      }
+      if (newPassword.length < 6) {
+        throw new Error("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+      }
+      const res = await fetch(`${BASE}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? "Erreur inconnue");
+      return payload;
+    },
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({ title: "Mot de passe mis à jour" });
+    },
+    onError: (err) => setError(String(err instanceof Error ? err.message : err)),
+  });
+
+  const dirty = currentPassword.length > 0 || newPassword.length > 0 || confirmPassword.length > 0;
+
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-6 space-y-5">
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Mot de passe actuel
+        </label>
+        <div className="relative">
+          <input
+            type={showCurrent ? "text" : "password"}
+            className="w-full px-3 py-2.5 pr-10 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowCurrent((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Nouveau mot de passe
+        </label>
+        <div className="relative">
+          <input
+            type={showNew ? "text" : "password"}
+            className="w-full px-3 py-2.5 pr-10 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowNew((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Confirmer le nouveau mot de passe
+        </label>
+        <input
+          type="password"
+          className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          autoComplete="new-password"
+        />
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
+          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          onClick={() => changeMut.mutate()}
+          disabled={!dirty || changeMut.isPending}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+        >
+          {changeMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Mettre à jour
+        </button>
+        <button
+          onClick={() => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setError(null); }}
+          disabled={!dirty}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md border border-input disabled:opacity-40"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Effacer
+        </button>
       </div>
     </div>
   );
