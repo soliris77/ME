@@ -8,8 +8,14 @@ import { Link } from "wouter";
 import {
   ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown,
   Globe, Bitcoin, BarChart3, AlertTriangle, Bookmark,
+  Radio, Clock, Infinity,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  getUSMarketStatus,
+  getNextMarketEvent,
+  getSymbolMarketStatus,
+} from "@/lib/marketHours";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import LiveTicker from "@/components/LiveTicker";
@@ -152,6 +158,164 @@ function SectionRule({ title }: { title: string }) {
   return (
     <div className="section-rule mb-3 mt-1">
       <span className="text-primary/60 uppercase">{title}</span>
+    </div>
+  );
+}
+
+// ─── Market status banner ─────────────────────────────────────────────────────
+
+// Refresh status every 60s so the banner updates when markets open/close
+function useMarketStatusNow() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return tick; // just used as a dependency to re-render
+}
+
+// Symbols shown in the dashboard that are 24/7 vs US-equity
+const CONTINUOUS_SYMBOLS = [...CRYPTO, ...COMMODITIES, ...CANADA_NORTH_AM, ...EUROPE_ASIA];
+const US_EQUITY_SYMBOLS   = ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOG", "TSLA"]; // sample display
+const TSX_SYMBOLS         = ["RY.TO", "TD.TO", "SHOP.TO", "ENB.TO", "CNR.TO", "BNS.TO"]; // sample display
+
+function MarketStatusSection() {
+  useMarketStatusNow(); // triggers re-render every minute
+  const usStatus = getUSMarketStatus();
+  const nextEvent = getNextMarketEvent();
+
+  const usOpen    = usStatus === "open";
+  const tsxOpen   = usOpen; // TSX and NYSE/NASDAQ share the same 9:30–16:00 ET window
+
+  return (
+    <div className="mb-7">
+      <SectionRule title="Statut des marchés" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+        {/* ── H24 — Toujours ouverts ─────────────────────────────────── */}
+        <div className="bg-card border border-card-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+              <Infinity className="w-3.5 h-3.5 text-blue-400" />
+            </div>
+            <span className="text-[12px] font-semibold uppercase tracking-wider text-blue-400">
+              Ouvert H24
+            </span>
+          </div>
+          <div className="space-y-1.5 mb-3">
+            {[
+              { label: "Cryptomonnaies", detail: "BTC · ETH · SOL" },
+              { label: "Matières premières", detail: "Or · Pétrole · Argent" },
+              { label: "Indices (lecture seule)", detail: "S&P 500 · DAX · Nikkei…" },
+            ].map(({ label, detail }) => (
+              <div key={label} className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400/60 flex-shrink-0 mt-1.5" />
+                <div>
+                  <div className="text-[12px] text-foreground/80 font-medium">{label}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">{detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-[10px] text-blue-400/60 border-t border-border/40 pt-2">
+            Cotations continues — pas d'horaire de bourse
+          </div>
+        </div>
+
+        {/* ── NYSE / NASDAQ ──────────────────────────────────────────── */}
+        <div className={`bg-card border rounded-xl p-4 ${
+          usOpen ? "border-green-500/30" : "border-red-500/20"
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+              usOpen ? "bg-green-500/15" : "bg-red-500/10"
+            }`}>
+              {usOpen
+                ? <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
+                : <Clock className="w-3.5 h-3.5 text-red-400/70" />
+              }
+            </div>
+            <span className={`text-[12px] font-semibold uppercase tracking-wider ${
+              usOpen ? "text-green-400" : "text-red-400/80"
+            }`}>
+              NYSE / NASDAQ — {usOpen ? "Ouvert" : "Fermé"}
+            </span>
+          </div>
+          <div className="space-y-1.5 mb-3">
+            {US_EQUITY_SYMBOLS.map((sym) => (
+              <div key={sym} className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  usOpen ? "bg-green-400/70" : "bg-red-400/40"
+                }`} />
+                <span className="text-[12px] font-mono text-foreground/70">{sym}</span>
+                <span className={`ml-auto text-[10px] font-medium ${
+                  usOpen ? "text-green-400/80" : "text-muted-foreground"
+                }`}>
+                  {usOpen ? "En séance" : "Fermé"}
+                </span>
+              </div>
+            ))}
+            <div className="text-[10px] text-muted-foreground pt-0.5">
+              + toutes les actions US du tableau de bord
+            </div>
+          </div>
+          <div className={`text-[10px] border-t border-border/40 pt-2 ${
+            usOpen ? "text-green-400/70" : "text-muted-foreground"
+          }`}>
+            <span className="font-medium">9h30 – 16h00 ET, lun–ven</span>
+            <span className="mx-1">·</span>
+            {nextEvent}
+          </div>
+        </div>
+
+        {/* ── TSX (Bourse de Toronto) ───────────────────────────────── */}
+        <div className={`bg-card border rounded-xl p-4 ${
+          tsxOpen ? "border-green-500/30" : "border-red-500/20"
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+              tsxOpen ? "bg-green-500/15" : "bg-red-500/10"
+            }`}>
+              {tsxOpen
+                ? <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
+                : <Clock className="w-3.5 h-3.5 text-red-400/70" />
+              }
+            </div>
+            <span className={`text-[12px] font-semibold uppercase tracking-wider ${
+              tsxOpen ? "text-green-400" : "text-red-400/80"
+            }`}>
+              TSX (Canada) — {tsxOpen ? "Ouvert" : "Fermé"}
+            </span>
+          </div>
+          <div className="space-y-1.5 mb-3">
+            {TSX_SYMBOLS.map((sym) => (
+              <div key={sym} className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  tsxOpen ? "bg-green-400/70" : "bg-red-400/40"
+                }`} />
+                <span className="text-[12px] font-mono text-foreground/70">{sym}</span>
+                <span className={`ml-auto text-[10px] font-medium ${
+                  tsxOpen ? "text-green-400/80" : "text-muted-foreground"
+                }`}>
+                  {tsxOpen ? "En séance" : "Fermé"}
+                </span>
+              </div>
+            ))}
+            <div className="text-[10px] text-muted-foreground pt-0.5">
+              + toutes les actions .TO du tableau de bord
+            </div>
+          </div>
+          <div className={`text-[10px] border-t border-border/40 pt-2 ${
+            tsxOpen ? "text-green-400/70" : "text-muted-foreground"
+          }`}>
+            <span className="font-medium">9h30 – 16h00 ET, lun–ven</span>
+            <span className="mx-1">·</span>
+            {nextEvent}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
@@ -648,6 +812,9 @@ export default function Dashboard() {
             Actualiser
           </button>
         </div>
+
+        {/* Market status */}
+        <MarketStatusSection />
 
         {/* Indices */}
         <div className="space-y-6 mb-7">
