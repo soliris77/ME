@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import {
-  ShieldCheck, Loader2, ExternalLink,
-  RefreshCw, CheckCircle2, XCircle, LinkIcon, Info, ShieldOff, ShieldAlert, AlertTriangle,
-  Radio,
+  ShieldCheck, Loader2, ExternalLink, RefreshCw, CheckCircle2,
+  XCircle, LinkIcon, ShieldOff, ShieldAlert, AlertTriangle,
+  Radio, Building2, KeyRound, Wifi, WifiOff, ArrowRight,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -33,458 +33,427 @@ interface Account {
   meta?: { type?: string; currency?: string; unifiedAccountType?: string; institution_name?: string };
 }
 
-function StatusBadge({ status }: { status: BrokerStatus["status"] }) {
-  if (status === "connected")
+interface BalanceLine {
+  currency?: string;
+  cash?: number;
+  buying_power?: number;
+  market_value?: number;
+  total_value?: number;
+}
+
+/* ── Design tokens (dark) ───────────────────────────────── */
+const ACCENT  = "#D4A72C";
+const SURFACE = "#131722";
+const BASE_BG = "#0B0E14";
+const BORDER  = "#232838";
+const MUTED   = "#8B92A5";
+const MONO: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace", fontVariantNumeric: "tabular-nums" };
+
+/* ── Step pill ──────────────────────────────────────────── */
+function StepNum({ n, done, active }: { n: number; done: boolean; active: boolean }) {
+  if (done)
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-        <CheckCircle2 className="w-3.5 h-3.5" /> Connecté
-      </span>
-    );
-  if (status === "pending")
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-500">
-        <AlertTriangle className="w-3.5 h-3.5" /> En attente de connexion
-      </span>
-    );
-  if (status === "not_setup")
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <XCircle className="w-3.5 h-3.5" /> Non configuré
-      </span>
+      <div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0" style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.4)" }}>
+        <CheckCircle2 className="w-4 h-4" style={{ color: "#16A34A" }} />
+      </div>
     );
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
-      <XCircle className="w-3.5 h-3.5" /> Erreur
-    </span>
+    <div
+      className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 text-sm font-bold"
+      style={{
+        background: active ? "rgba(212,167,44,0.15)" : "rgba(139,146,165,0.08)",
+        border: `1px solid ${active ? "rgba(212,167,44,0.45)" : BORDER}`,
+        color: active ? ACCENT : MUTED,
+      }}
+    >
+      {n}
+    </div>
   );
 }
 
+/* ── Account balance pill ───────────────────────────────── */
+function AccountBalance({ accountId }: { accountId: string }) {
+  const q = useQuery<BalanceLine[]>({
+    queryKey: ["broker-balance", accountId],
+    queryFn: () => fetch(`${BASE}/api/broker/balances/${encodeURIComponent(accountId)}`).then((r) => r.json()),
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  if (q.isLoading) return <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: MUTED }} />;
+  if (!q.data || !Array.isArray(q.data) || q.data.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+      {q.data.map((b, i) => {
+        const cur = b.currency ?? "";
+        const fmt = (v?: number) => v == null ? null : v.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const lines: { label: string; value: string }[] = [];
+        if (fmt(b.cash) != null) lines.push({ label: "Liquidités", value: `${cur} ${fmt(b.cash)}` });
+        if (b.buying_power != null && b.buying_power !== b.cash) lines.push({ label: "Pouvoir d'achat", value: `${cur} ${fmt(b.buying_power)}` });
+        if (fmt(b.market_value) != null) lines.push({ label: "Valeur marché", value: `${cur} ${fmt(b.market_value)}` });
+        if (fmt(b.total_value) != null) lines.push({ label: "Total", value: `${cur} ${fmt(b.total_value)}` });
+        return lines.map((l) => (
+          <span key={`${i}-${l.label}`} className="text-[11px]" style={MONO}>
+            <span style={{ color: MUTED }}>{l.label} : </span>
+            <span style={{ color: "#E8E9ED" }}>{l.value}</span>
+          </span>
+        ));
+      })}
+    </div>
+  );
+}
+
+/* ── Main page ──────────────────────────────────────────── */
 export default function BrokerPage() {
   usePageMeta("Courtier — Soliris Market", "Connexion courtier SnapTrade / Wealthsimple.");
   const qc = useQueryClient();
-  const [connectUrl, setConnectUrl] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const statusQ = useQuery<BrokerStatus>({
     queryKey: ["broker-status"],
     queryFn: () => fetch(`${BASE}/api/broker/status`).then((r) => r.json()),
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
 
   const accountsQ = useQuery<Account[]>({
     queryKey: ["broker-accounts"],
     queryFn: () => fetch(`${BASE}/api/broker/accounts`).then((r) => r.json()),
-    enabled: statusQ.data?.connected ?? false,
+    enabled: (statusQ.data?.status ?? "not_setup") !== "not_setup",
+    staleTime: 60_000,
   });
 
-  const setupMut = useMutation({
-    mutationFn: () =>
-      fetch(`${BASE}/api/broker/setup`, { method: "POST" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }),
-  });
+  const setupMut    = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/setup`,        { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
+  const connectMut  = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/connect-url`).then((r) => r.json()), onSuccess: (d) => { if (d.redirectURI) window.open(d.redirectURI, "_blank", "noopener,noreferrer"); qc.invalidateQueries({ queryKey: ["broker-status"] }); } });
+  const syncMut     = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/sync`,         { method: "POST" }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["broker-accounts"] }); } });
+  const haltMut     = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/halt`,         { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
+  const resumeMut   = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/resume`,       { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
+  const modeMut     = useMutation({ mutationFn: (m: "paper" | "live") => fetch(`${BASE}/api/broker/trading-mode`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["trading-mode"] }); } });
 
-  const connectMut = useMutation({
-    mutationFn: () =>
-      fetch(`${BASE}/api/broker/connect-url`).then((r) => r.json()),
-    onSuccess: (data) => {
-      if (data.redirectURI) {
-        window.open(data.redirectURI, "_blank", "noopener,noreferrer");
-      }
-      setConnectUrl(data.redirectURI);
-    },
-  });
+  const s = statusQ.data;
+  const step = !s ? 0 : s.status === "not_setup" ? 1 : s.status === "pending" ? 2 : 3;
+  const accounts: Account[] = Array.isArray(accountsQ.data) ? accountsQ.data : [];
 
-  const syncMut = useMutation({
-    mutationFn: () =>
-      fetch(`${BASE}/api/broker/sync`, { method: "POST" }).then((r) => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["broker-status"] });
-      qc.invalidateQueries({ queryKey: ["broker-accounts"] });
-    },
-  });
-
-  const haltMut = useMutation({
-    mutationFn: () =>
-      fetch(`${BASE}/api/broker/halt`, { method: "POST" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }),
-  });
-
-  const tradingModeMut = useMutation({
-    mutationFn: (mode: "paper" | "live") =>
-      fetch(`${BASE}/api/broker/trading-mode`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      }).then((r) => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["broker-status"] });
-      qc.invalidateQueries({ queryKey: ["trading-mode"] });
-    },
-  });
-
-  const resumeMut = useMutation({
-    mutationFn: () =>
-      fetch(`${BASE}/api/broker/resume`, { method: "POST" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }),
-  });
-
-  const status = statusQ.data;
-  const isLoading = statusQ.isLoading;
+  /* ── Btn helper ─── */
+  const Btn = ({ onClick, disabled, children, variant = "gold" }: { onClick: () => void; disabled?: boolean; children: React.ReactNode; variant?: "gold" | "muted" | "danger" | "green" }) => {
+    const styles: Record<string, React.CSSProperties> = {
+      gold:   { background: "rgba(212,167,44,0.12)",  border: "1px solid rgba(212,167,44,0.35)",  color: ACCENT },
+      muted:  { background: "rgba(139,146,165,0.08)", border: `1px solid ${BORDER}`,              color: MUTED  },
+      danger: { background: "rgba(220,38,38,0.08)",   border: "1px solid rgba(220,38,38,0.35)",   color: "#DC2626" },
+      green:  { background: "rgba(22,163,74,0.10)",   border: "1px solid rgba(22,163,74,0.35)",   color: "#16A34A" },
+    };
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold tracking-[0.1em] uppercase transition-opacity disabled:opacity-40"
+        style={styles[variant]}
+      >
+        {children}
+      </button>
+    );
+  };
 
   return (
-    <div className="p-6 sm:p-8 max-w-3xl mx-auto animate-fadeUp">
-      <div className="mb-8">
+    <div className="p-6 sm:p-8 max-w-3xl mx-auto animate-fadeUp space-y-8">
+
+      {/* ── En-tête ─────────────────────────────────────────── */}
+      <div>
         <div className="section-rule mb-4"><span>COURTIER</span></div>
-        <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em]">
-          Connexion Wealthsimple
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground max-w-xl">
-          Via SnapTrade, Soliris Market peut se connecter à ton compte Wealthsimple
-          pour lire tes positions et, en mode live, soumettre des ordres automatisés.
+        <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em]">Connexion Wealthsimple</h1>
+        <p className="mt-2 text-sm max-w-xl" style={{ color: MUTED }}>
+          Via SnapTrade, Soliris Market accède à ton compte Wealthsimple pour lire tes positions et, en mode live, soumettre des ordres automatisés.
         </p>
       </div>
 
-      {/* ── Kill-switch ─────────────────────────────────────────────────────── */}
-      {/* Affiché uniquement en mode live — inutile en paper puisqu'aucun ordre
-          réel ne peut être soumis de toute façon.                              */}
-      {status?.mode === "live" && (
-        <div
-          className={`mb-6 rounded-xl border p-5 ${
-            status.halted
-              ? "border-destructive/60 bg-destructive/8"
-              : "border-border bg-card"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              {status.halted ? (
-                <ShieldOff className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
-              ) : (
-                <ShieldAlert className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-              )}
-              <div>
-                <div className={`text-sm font-semibold mb-0.5 ${status.halted ? "text-destructive" : "text-foreground"}`}>
-                  {status.halted ? "Trading suspendu (kill-switch actif)" : "Kill-switch trading"}
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {status.halted
-                    ? `Aucun ordre ne sera soumis à Wealthsimple, quelle que soit la provenance (manuel ou automatisé). Suspendu le ${status.haltedAt ? new Date(status.haltedAt).toLocaleString("fr-CA") : "—"}.`
-                    : "Suspend immédiatement tous les ordres live. Persisté en base — actif même après redémarrage du serveur. Réactivation manuelle requise."}
-                </p>
-              </div>
-            </div>
-            <div className="shrink-0">
-              {status.halted ? (
-                <button
-                  onClick={() => resumeMut.mutate()}
-                  disabled={resumeMut.isPending}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold tracking-[0.1em] uppercase hover:bg-emerald-500/20 transition-all disabled:opacity-50"
-                >
-                  {resumeMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                  Réactiver le trading
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    if (window.confirm("Confirmer la suspension de TOUS les ordres live ? Aucun ordre ne sera soumis à Wealthsimple jusqu'à réactivation manuelle.")) {
-                      haltMut.mutate();
-                    }
-                  }}
-                  disabled={haltMut.isPending}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-destructive/50 bg-destructive/8 text-destructive text-xs font-bold tracking-[0.1em] uppercase hover:bg-destructive/15 transition-all disabled:opacity-50"
-                >
-                  {haltMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
-                  Suspendre le trading
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mode badge + toggle */}
-      {status && (
-        <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-5 py-4">
-          {/* Indicateur mode */}
+      {/* ── Mode paper / live ────────────────────────────────── */}
+      {s && (
+        <div className="flex items-center justify-between gap-4 rounded-xl px-5 py-4" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
           <div className="flex items-center gap-3">
-            {status.mode === "live" ? (
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50" style={{ background: "#c9a040" }} />
-                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#c9a040" }} />
+            {s.mode === "live" ? (
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: ACCENT }} />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: ACCENT }} />
               </span>
             ) : (
-              <span className="inline-flex h-2 w-2 rounded-full shrink-0 bg-muted-foreground/30" />
+              <span className="inline-flex h-2.5 w-2.5 rounded-full shrink-0" style={{ background: BORDER }} />
             )}
             <div>
-              <div className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-0.5">
-                Mode de trading
-              </div>
-              <div className="text-sm font-semibold tracking-wide" style={status.mode === "live" ? { color: "#c9a040" } : {}}>
-                {status.mode === "live" ? "Live — ordres réels" : "Paper — simulation"}
+              <div className="text-[10px] tracking-[0.2em] uppercase mb-0.5" style={{ color: MUTED }}>Mode de trading</div>
+              <div className="text-sm font-semibold tracking-wide" style={s.mode === "live" ? { color: ACCENT } : { color: "#E8E9ED" }}>
+                {s.mode === "live" ? "Live — ordres réels" : "Paper — simulation"}
               </div>
             </div>
           </div>
-
-          {/* Toggle */}
-          <button
-            disabled={tradingModeMut.isPending}
+          <Btn
+            variant={s.mode === "paper" ? "gold" : "muted"}
+            disabled={modeMut.isPending}
             onClick={() => {
-              const next = status.mode === "paper" ? "live" : "paper";
-              if (next === "live") {
-                if (!window.confirm("Passer en mode Live ?\n\nLes ordres seront soumis réellement à Wealthsimple. Tu peux repasser en Paper à tout moment depuis cette page.")) return;
-              }
-              tradingModeMut.mutate(next);
+              const next = s.mode === "paper" ? "live" : "paper";
+              if (next === "live" && !window.confirm("Passer en mode Live ?\n\nLes ordres seront soumis réellement à Wealthsimple. Tu peux repasser en Paper à tout moment.")) return;
+              modeMut.mutate(next);
             }}
-            className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium tracking-[0.12em] uppercase text-muted-foreground hover:text-foreground transition-all disabled:opacity-40"
           >
-            {tradingModeMut.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : status.mode === "paper" ? (
-              <Radio className="w-3.5 h-3.5" />
-            ) : (
-              <ShieldCheck className="w-3.5 h-3.5" />
-            )}
-            {status.mode === "paper" ? "Activer le Live" : "Repasser en Paper"}
-          </button>
+            {modeMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : s.mode === "paper" ? <Radio className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+            {s.mode === "paper" ? "Activer le Live" : "Repasser en Paper"}
+          </Btn>
         </div>
       )}
 
-      {/* Status card */}
-      <div className="market-card rounded-xl border bg-card p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-[11px] tracking-[0.18em] text-muted-foreground">
-            STATUT DE CONNEXION
-          </span>
-          {status && <StatusBadge status={status.status} />}
-        </div>
-
-        {isLoading && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" /> Vérification…
-          </div>
-        )}
-
-        {status && !isLoading && (
-          <div className="space-y-2 text-sm">
-            <div className="flex gap-2">
-              <span className="text-muted-foreground w-36 shrink-0">Clés API SnapTrade</span>
-              {status.hasCredentials ? (
-                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Configurées
-                </span>
-              ) : (
-                <span className="text-amber-500 flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Absentes — voir étapes ci-dessous
-                </span>
-              )}
+      {/* ── Kill-switch (live seulement) ─────────────────────── */}
+      {s?.mode === "live" && (
+        <div className="rounded-xl px-5 py-4 flex items-center justify-between gap-4" style={{ background: s.halted ? "rgba(220,38,38,0.06)" : SURFACE, border: `1px solid ${s.halted ? "rgba(220,38,38,0.35)" : BORDER}` }}>
+          <div className="flex items-start gap-3">
+            {s.halted ? <ShieldOff className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#DC2626" }} /> : <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#F59E0B" }} />}
+            <div>
+              <div className="text-sm font-semibold mb-0.5" style={{ color: s.halted ? "#DC2626" : "#E8E9ED" }}>
+                {s.halted ? "Trading suspendu (kill-switch actif)" : "Kill-switch trading"}
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: MUTED }}>
+                {s.halted
+                  ? `Aucun ordre soumis à Wealthsimple. Suspendu le ${s.haltedAt ? new Date(s.haltedAt).toLocaleString("fr-CA") : "—"}.`
+                  : "Suspend immédiatement tous les ordres live. Persisté en base — actif même après redémarrage."}
+              </p>
             </div>
-            {status.userId && (
-              <div className="flex gap-2">
-                <span className="text-muted-foreground w-36 shrink-0">Utilisateur</span>
-                <span className="font-mono text-xs">{status.userId}</span>
-              </div>
-            )}
-            {status.lastSyncedAt && (
-              <div className="flex gap-2">
-                <span className="text-muted-foreground w-36 shrink-0">Dernière synchro</span>
-                <span>{new Date(status.lastSyncedAt).toLocaleString("fr-CA")}</span>
-              </div>
-            )}
-            {status.apiOk != null && (
-              <div className="flex gap-2">
-                <span className="text-muted-foreground w-36 shrink-0">API SnapTrade</span>
-                {status.apiOk ? (
-                  <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> En ligne
-                  </span>
-                ) : (
-                  <span className="text-destructive flex items-center gap-1">
-                    <XCircle className="w-3.5 h-3.5" /> Hors ligne
+          </div>
+          {s.halted
+            ? <Btn variant="green" disabled={resumeMut.isPending} onClick={() => resumeMut.mutate()}>{resumeMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}Réactiver</Btn>
+            : <Btn variant="danger" disabled={haltMut.isPending} onClick={() => { if (window.confirm("Suspendre TOUS les ordres live ?")) haltMut.mutate(); }}>{haltMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}Suspendre</Btn>
+          }
+        </div>
+      )}
+
+      {/* ── Wizard 3 étapes ──────────────────────────────────── */}
+      <div>
+        <div className="section-rule mb-5"><span>CONFIGURATION DE LA CONNEXION</span></div>
+
+        {/* Étape 1 — Secrets SnapTrade */}
+        <div className="mb-3 rounded-xl p-5" style={{ background: step === 0 || step >= 1 ? (step === 1 && !s?.hasCredentials ? "rgba(212,167,44,0.04)" : SURFACE) : SURFACE, border: `1px solid ${!s?.hasCredentials ? "rgba(212,167,44,0.3)" : BORDER}` }}>
+          <div className="flex items-start gap-4">
+            <StepNum n={1} done={!!s?.hasCredentials} active={!s?.hasCredentials} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: "#E8E9ED" }}>Configurer les clés SnapTrade</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>Nécessite un compte gratuit sur app.snaptrade.com</div>
+                </div>
+                {s?.hasCredentials && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#16A34A" }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Clés présentes
                   </span>
                 )}
               </div>
-            )}
+
+              {!s?.hasCredentials && (
+                <div className="mt-4 rounded-lg p-4 space-y-3" style={{ background: BASE_BG, border: `1px solid ${BORDER}` }}>
+                  <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>
+                    <KeyRound className="w-3.5 h-3.5" /> Instructions
+                  </div>
+                  <ol className="space-y-2.5 text-[12px]" style={{ color: MUTED }}>
+                    <li className="flex gap-2.5">
+                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>1</span>
+                      Crée un compte gratuit sur{" "}
+                      <a href="https://app.snaptrade.com/dashboard" target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: ACCENT }}>
+                        app.snaptrade.com <ExternalLink className="w-3 h-3 inline" />
+                      </a>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>2</span>
+                      Dans <strong>Account Settings</strong>, note tes 4 identifiants : <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>Client ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>Consumer Key</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>User ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>User Secret</code>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>3</span>
+                      Dans Replit → <strong>Secrets</strong>, entre les 4 variables : <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_CLIENT_ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_CONSUMER_KEY</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_USER_ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_USER_SECRET</code>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>4</span>
+                      Redémarre le serveur API — la connexion s'initialisera automatiquement
+                    </li>
+                  </ol>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Connecteur vertical */}
+        <div className="flex justify-start ml-[26px] mb-3">
+          <div className="w-px h-4" style={{ background: `linear-gradient(to bottom, ${BORDER}, transparent)` }} />
+        </div>
+
+        {/* Étape 2 — Initialiser + Lier */}
+        <div className="mb-3 rounded-xl p-5" style={{ background: step === 2 ? "rgba(212,167,44,0.04)" : SURFACE, border: `1px solid ${step === 2 ? "rgba(212,167,44,0.3)" : step > 2 ? "rgba(22,163,74,0.25)" : BORDER}` }}>
+          <div className="flex items-start gap-4">
+            <StepNum n={2} done={step > 2} active={step === 1 || step === 2} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: "#E8E9ED" }}>Lier ton compte Wealthsimple</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>Portail OAuth SnapTrade — s'ouvre dans un nouvel onglet</div>
+                </div>
+                {step > 2 && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#16A34A" }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Compte lié
+                  </span>
+                )}
+              </div>
+
+              {(step === 1 || step === 2) && s?.hasCredentials && (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {step === 1 && (
+                    <Btn onClick={() => setupMut.mutate()} disabled={setupMut.isPending}>
+                      {setupMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LinkIcon className="w-3.5 h-3.5" />}
+                      Initialiser
+                    </Btn>
+                  )}
+                  {step === 2 && (
+                    <>
+                      <Btn onClick={() => connectMut.mutate()} disabled={connectMut.isPending}>
+                        {connectMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                        Ouvrir le portail Wealthsimple
+                      </Btn>
+                      <div className="w-full text-[11px] flex items-center gap-2" style={{ color: MUTED }}>
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" style={{ color: "#F59E0B" }} />
+                        Connecte-toi dans l'onglet qui s'ouvre, puis reviens ici pour l'étape 3.
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {step >= 2 && step < 3 && (
+                <div className="mt-3 flex items-center gap-2 text-[11px]" style={{ color: MUTED }}>
+                  <ArrowRight className="w-3.5 h-3.5" style={{ color: "#F59E0B" }} />
+                  Initialisation effectuée — ouvre le portail pour lier Wealthsimple
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Connecteur vertical */}
+        <div className="flex justify-start ml-[26px] mb-3">
+          <div className="w-px h-4" style={{ background: `linear-gradient(to bottom, ${BORDER}, transparent)` }} />
+        </div>
+
+        {/* Étape 3 — Synchroniser */}
+        <div className="rounded-xl p-5" style={{ background: step === 3 ? "rgba(22,163,74,0.04)" : SURFACE, border: `1px solid ${step === 3 ? "rgba(22,163,74,0.3)" : BORDER}` }}>
+          <div className="flex items-start gap-4">
+            <StepNum n={3} done={false} active={step === 3} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: step === 3 ? "#E8E9ED" : MUTED }}>Synchroniser les comptes</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                    {s?.lastSyncedAt
+                      ? `Dernière synchro : ${new Date(s.lastSyncedAt).toLocaleString("fr-CA")}`
+                      : "Disponible après la connexion Wealthsimple"}
+                  </div>
+                </div>
+                {step === 3 && s?.apiOk != null && (
+                  s.apiOk
+                    ? <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#16A34A" }}><Wifi className="w-3.5 h-3.5" /> API en ligne</span>
+                    : <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#DC2626" }}><WifiOff className="w-3.5 h-3.5" /> API hors ligne</span>
+                )}
+              </div>
+
+              {step === 3 && (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Btn variant="green" onClick={() => syncMut.mutate()} disabled={syncMut.isPending}>
+                    {syncMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    {syncMut.isPending ? "Synchronisation…" : "Synchroniser maintenant"}
+                  </Btn>
+                  <Btn variant="muted" onClick={() => connectMut.mutate()} disabled={connectMut.isPending}>
+                    {connectMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                    Reconnecter
+                  </Btn>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Setup steps */}
-      {!status?.hasCredentials && (
-        <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-4">
-          <div className="flex items-start gap-3">
-            <Info className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-            <div>
-              <p className="text-sm font-medium mb-2">Configuration des secrets SnapTrade (clés personnelles)</p>
-              <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
-                <li>
-                  Connecte-toi sur{" "}
-                  <a
-                    href="https://app.snaptrade.com/dashboard"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary underline-offset-2 hover:underline"
-                  >
-                    app.snaptrade.com
-                  </a>{" "}
-                  → <strong>Account Settings</strong>.
-                </li>
-                <li>
-                  Note tes quatre identifiants :{" "}
-                  <strong>Client ID</strong>, <strong>Consumer Key</strong>,{" "}
-                  <strong>User ID</strong> et <strong>User Secret</strong>.
-                </li>
-                <li>
-                  Dans Replit → Secrets, configure les quatre variables :{" "}
-                  <code className="text-xs bg-muted px-1 rounded">SNAPTRADE_CLIENT_ID</code>,{" "}
-                  <code className="text-xs bg-muted px-1 rounded">SNAPTRADE_CONSUMER_KEY</code>,{" "}
-                  <code className="text-xs bg-muted px-1 rounded">SNAPTRADE_USER_ID</code>{" "}
-                  et{" "}
-                  <code className="text-xs bg-muted px-1 rounded">SNAPTRADE_USER_SECRET</code>.
-                </li>
-                <li>Redémarre le serveur API — la connexion s'initialise automatiquement.</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Wizard de connexion ─────────────────────────────────────────────── */}
-      {status?.hasCredentials && status.status !== "connected" && (
-        <div className="mb-6 space-y-3">
-          <div className="section-rule mb-4"><span>ÉTAPES DE CONNEXION</span></div>
-
-          {/* Étape 1 — Initialiser */}
-          <div className={`rounded-xl border p-4 flex items-center justify-between gap-4 transition-all ${
-            status.status === "not_setup"
-              ? "border-primary/40 bg-primary/5"
-              : "border-border bg-card opacity-60"
-          }`}>
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 ${
-                status.status !== "not_setup"
-                  ? "bg-emerald-500/20 text-emerald-500"
-                  : "bg-primary/20 text-primary"
-              }`}>
-                {status.status !== "not_setup" ? <CheckCircle2 className="w-4 h-4" /> : "1"}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Initialiser la connexion SnapTrade</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Crée un utilisateur SnapTrade lié à ton app</div>
-              </div>
-            </div>
-            {status.status === "not_setup" && (
-              <button
-                onClick={() => setupMut.mutate()}
-                disabled={setupMut.isPending}
-                className="shrink-0 btn-sheen flex items-center gap-2 border border-primary/60 px-4 py-2 text-xs tracking-[0.14em] text-primary uppercase hover:text-primary-foreground hover:bg-primary transition-colors disabled:opacity-50"
-              >
-                {setupMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LinkIcon className="w-3.5 h-3.5" />}
-                Initialiser
-              </button>
-            )}
-          </div>
-
-          {/* Étape 2 — Lier Wealthsimple */}
-          <div className={`rounded-xl border p-4 flex items-center justify-between gap-4 transition-all ${
-            status.status === "pending"
-              ? "border-primary/40 bg-primary/5"
-              : "border-border bg-card opacity-60"
-          }`}>
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 bg-muted text-muted-foreground">
-                2
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Lier ton compte Wealthsimple</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Portail OAuth SnapTrade — s'ouvre dans un nouvel onglet</div>
-              </div>
-            </div>
-            {status.status === "pending" && (
-              <button
-                onClick={() => connectMut.mutate()}
-                disabled={connectMut.isPending}
-                className="shrink-0 btn-sheen flex items-center gap-2 border border-primary/60 px-4 py-2 text-xs tracking-[0.14em] text-primary uppercase hover:text-primary-foreground hover:bg-primary transition-colors disabled:opacity-50"
-              >
-                {connectMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-                Lier Wealthsimple
-              </button>
-            )}
-          </div>
-
-          {/* Étape 3 — Synchroniser */}
-          <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 opacity-40">
-            <div className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 bg-muted text-muted-foreground">3</div>
-            <div>
-              <div className="text-sm font-medium">Synchroniser les comptes</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Disponible après la connexion Wealthsimple</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Boutons post-connexion */}
-      {status?.connected && (
-        <div className="flex flex-wrap gap-3 mb-6">
-          <button
-            onClick={() => syncMut.mutate()}
-            disabled={syncMut.isPending}
-            className="btn-sheen flex items-center gap-2 border border-border px-5 py-2.5 text-xs tracking-[0.18em] text-foreground uppercase hover:bg-muted"
-          >
-            {syncMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Rafraîchir comptes
-          </button>
-          <button
-            onClick={() => connectMut.mutate()}
-            disabled={connectMut.isPending}
-            className="btn-sheen flex items-center gap-2 border border-border px-5 py-2.5 text-xs tracking-[0.18em] text-muted-foreground uppercase hover:bg-muted"
-          >
-            {connectMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-            Reconnecter
-          </button>
-        </div>
-      )}
-
-      {/* Accounts */}
-      {accountsQ.data && accountsQ.data.length > 0 && (
+      {/* ── Comptes liés ─────────────────────────────────────── */}
+      {(accounts.length > 0 || accountsQ.isFetching) && (
         <div>
-          <div className="section-rule mb-4"><span>COMPTES LIÉS</span></div>
+          <div className="section-rule mb-5"><span>COMPTES WEALTHSIMPLE</span></div>
+
+          {accountsQ.isFetching && accounts.length === 0 && (
+            <div className="flex items-center gap-2 text-sm" style={{ color: MUTED }}>
+              <Loader2 className="w-4 h-4 animate-spin" /> Chargement des comptes…
+            </div>
+          )}
+
           <div className="space-y-3">
-            {accountsQ.data.map((acc, i) => (
-              <div key={acc.id ?? i} className="lux-card rounded-xl border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-medium text-sm">{acc.name ?? acc.number ?? "Compte"}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {acc.institution_name ?? acc.brokerage?.name ?? acc.meta?.institution_name}
-                      {(acc.meta?.unifiedAccountType ?? acc.type) && (
-                        <> · {acc.meta?.unifiedAccountType ?? acc.type}</>
-                      )}
+            {accounts.map((acc, i) => {
+              const accId = acc.id ?? String(i);
+              const isExpanded = expandedId === accId;
+              return (
+                <div key={accId} className="rounded-xl p-4 transition-all" style={{ background: SURFACE, border: `1px solid ${isExpanded ? "rgba(212,167,44,0.25)" : BORDER}` }}>
+                  <button
+                    className="w-full flex items-center justify-between gap-3 text-left"
+                    onClick={() => setExpandedId(isExpanded ? null : accId)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Building2 className="w-4 h-4 shrink-0" style={{ color: MUTED }} />
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate" style={{ color: "#E8E9ED" }}>
+                          {acc.name ?? acc.number ?? "Compte"}
+                        </div>
+                        <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                          {acc.institution_name ?? acc.brokerage?.name ?? acc.meta?.institution_name ?? "Wealthsimple"}
+                          {(acc.meta?.unifiedAccountType ?? acc.type) && <> · {acc.meta?.unifiedAccountType ?? acc.type}</>}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  {(() => {
-                    if (acc.balance == null) return null;
-                    if (typeof acc.balance === "number") {
-                      return (
-                        <div className="text-right text-sm font-mono shrink-0">
-                          {acc.currency ?? acc.meta?.currency}{" "}
-                          {acc.balance.toLocaleString("fr-CA", { minimumFractionDigits: 2 })}
-                        </div>
-                      );
-                    }
-                    if (typeof acc.balance === "object" && acc.balance.total != null) {
-                      const { amount, currency } = acc.balance.total;
-                      return (
-                        <div className="text-right text-sm font-mono shrink-0">
-                          {currency}{" "}
-                          {(amount ?? 0).toLocaleString("fr-CA", { minimumFractionDigits: 2 })}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                    <span className="text-[11px] shrink-0 flex items-center gap-1" style={{ color: ACCENT }}>
+                      {isExpanded ? "Masquer" : "Voir le solde"}
+                    </span>
+                  </button>
+
+                  {isExpanded && acc.id && (
+                    <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                      <AccountBalance accountId={acc.id} />
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+        </div>
+      )}
+
+      {/* ── Statut API compact (bas de page) ─────────────────── */}
+      {s && (
+        <div className="rounded-xl px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-4 text-[11px]" style={{ background: BASE_BG, border: `1px solid ${BORDER}` }}>
+          <div>
+            <div className="uppercase tracking-[0.15em] mb-1" style={{ color: MUTED }}>Statut</div>
+            {s.status === "connected" && <span className="flex items-center gap-1" style={{ color: "#16A34A" }}><CheckCircle2 className="w-3.5 h-3.5" />Connecté</span>}
+            {s.status === "pending"   && <span className="flex items-center gap-1" style={{ color: "#F59E0B" }}><AlertTriangle className="w-3.5 h-3.5" />En attente</span>}
+            {s.status === "not_setup" && <span className="flex items-center gap-1" style={{ color: MUTED }}><XCircle className="w-3.5 h-3.5" />Non configuré</span>}
+            {s.status === "error"     && <span className="flex items-center gap-1" style={{ color: "#DC2626" }}><XCircle className="w-3.5 h-3.5" />Erreur</span>}
+          </div>
+          <div>
+            <div className="uppercase tracking-[0.15em] mb-1" style={{ color: MUTED }}>Clés API</div>
+            {s.hasCredentials
+              ? <span className="flex items-center gap-1" style={{ color: "#16A34A" }}><CheckCircle2 className="w-3.5 h-3.5" />Présentes</span>
+              : <span className="flex items-center gap-1" style={{ color: "#F59E0B" }}><AlertTriangle className="w-3.5 h-3.5" />Absentes</span>}
+          </div>
+          {s.apiOk != null && (
+            <div>
+              <div className="uppercase tracking-[0.15em] mb-1" style={{ color: MUTED }}>API SnapTrade</div>
+              {s.apiOk
+                ? <span className="flex items-center gap-1" style={{ color: "#16A34A" }}><Wifi className="w-3.5 h-3.5" />En ligne</span>
+                : <span className="flex items-center gap-1" style={{ color: "#DC2626" }}><WifiOff className="w-3.5 h-3.5" />Hors ligne</span>}
+            </div>
+          )}
+          {s.lastSyncedAt && (
+            <div>
+              <div className="uppercase tracking-[0.15em] mb-1" style={{ color: MUTED }}>Dernière synchro</div>
+              <span style={{ color: "#E8E9ED" }}>{new Date(s.lastSyncedAt).toLocaleString("fr-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
