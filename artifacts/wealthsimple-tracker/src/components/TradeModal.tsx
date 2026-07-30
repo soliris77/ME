@@ -141,7 +141,10 @@ export default function TradeModal({
     },
   });
 
-  const accountsQ = useAccounts(open && isConnected);
+  // On charge les comptes dès que le modal s'ouvre et qu'une connexion courtier
+  // existe (peu importe le statut — "pending" inclus). Le sélecteur s'affiche
+  // si des comptes sont disponibles, même hors statut "connected".
+  const accountsQ = useAccounts(open && brokerStatus !== "not_setup");
   const accounts: Account[] = Array.isArray(accountsQ.data) ? accountsQ.data : [];
 
   const [qty,       setQty]       = useState<string>("1");
@@ -324,7 +327,7 @@ export default function TradeModal({
           </div>
 
           {/* Compte courtier */}
-          {isConnected && accounts.length > 0 && (
+          {accounts.length > 0 && (
             <div>
               <label
                 htmlFor={`${uid}-account`}

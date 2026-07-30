@@ -5,7 +5,7 @@ localPort = 3001
 externalPort = 3001
 
 [[ports]]
-localPort = 23051
+localPort = 5000
 externalPort = 80
 
 [[ports]]
@@ -17,7 +17,7 @@ localPort = 8081
 externalPort = 8081
 
 [[ports]]
-localPort = 5000
+localPort = 23051
 externalPort = 3000
 
 [agent]
