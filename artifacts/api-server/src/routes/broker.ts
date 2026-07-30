@@ -21,6 +21,7 @@ import {
   listAccounts,
   listPositions,
   listBalances,
+  refreshConnection,
   getSnaptradeClientAsync,
   resolveCredentials,
   invalidateSnaptradeClient,
@@ -318,6 +319,24 @@ router.get("/broker/balances/:accountId", async (req, res) => {
     return res.json(balances);
   } catch (err) {
     req.log.error({ err }, "broker: balances failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── POST /api/broker/refresh ────────────────────────────────────────────────
+// Demande à SnapTrade de re-synchroniser depuis le courtier.
+// ⚠️  SnapTrade peut facturer cet appel — bouton manuel uniquement, pas auto.
+router.post("/broker/refresh", async (req, res) => {
+  try {
+    const conn = await getConnection();
+    if (!conn) return res.status(400).json({ error: "Not set up" });
+
+    await refreshConnection(conn.snaptradeUserId, conn.snaptradeUserSecret);
+    await logAudit("broker.refresh", "Rafraîchissement manuel des soldes SnapTrade demandé.");
+    logger.info("broker: refresh connexion demandé");
+    return res.json({ ok: true, message: "Rafraîchissement demandé — les soldes seront mis à jour dans quelques secondes." });
+  } catch (err) {
+    req.log.error({ err }, "broker: refresh failed");
     return res.status(500).json({ error: String(err) });
   }
 });

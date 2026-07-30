@@ -81,7 +81,12 @@ function AccountBalance({ accountId }: { accountId: string }) {
   });
 
   if (q.isLoading) return <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: MUTED }} />;
-  if (!q.data || !Array.isArray(q.data) || q.data.length === 0) return null;
+  if (!q.data || !Array.isArray(q.data) || q.data.length === 0)
+    return (
+      <p className="text-[11px] mt-2" style={{ color: MUTED }}>
+        Solde pas encore synchronisé — clique sur « Rafraîchir les soldes » puis réessaie.
+      </p>
+    );
 
   return (
     <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
@@ -149,6 +154,14 @@ export default function BrokerPage() {
   const connectMut  = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/connect-url`).then((r) => r.json()), onSuccess: (d) => { if (d.redirectURI) window.open(d.redirectURI, "_blank", "noopener,noreferrer"); qc.invalidateQueries({ queryKey: ["broker-status"] }); } });
   const syncMut     = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/sync`,         { method: "POST" }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["broker-accounts"] }); } });
   const haltMut     = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/halt`,         { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
+  const refreshMut  = useMutation({
+    mutationFn: () => fetch(`${BASE}/api/broker/refresh`, { method: "POST" }).then((r) => r.json()),
+    onSuccess: () => {
+      // Invalide les soldes de tous les comptes après le refresh
+      qc.invalidateQueries({ queryKey: ["broker-balance"] });
+      qc.invalidateQueries({ queryKey: ["broker-accounts"] });
+    },
+  });
   const resumeMut   = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/resume`,       { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
   const modeMut     = useMutation({ mutationFn: (m: "paper" | "live") => fetch(`${BASE}/api/broker/trading-mode`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["trading-mode"] }); } });
 
@@ -451,7 +464,26 @@ export default function BrokerPage() {
       {/* ── Comptes liés ─────────────────────────────────────── */}
       {(accounts.length > 0 || accountsQ.isFetching) && (
         <div>
-          <div className="section-rule mb-5"><span>COMPTES WEALTHSIMPLE</span></div>
+          <div className="section-rule mb-5 flex items-center justify-between gap-4">
+            <span>COMPTES WEALTHSIMPLE</span>
+            <button
+              onClick={() => refreshMut.mutate()}
+              disabled={refreshMut.isPending}
+              className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg transition-opacity"
+              style={{
+                background: "rgba(212,167,44,0.10)",
+                border: "1px solid rgba(212,167,44,0.30)",
+                color: refreshMut.isPending ? MUTED : ACCENT,
+                cursor: refreshMut.isPending ? "not-allowed" : "pointer",
+              }}
+              title="Demande à SnapTrade de re-synchroniser les données depuis Wealthsimple (manuel — peut être facturé selon ton plan)"
+            >
+              {refreshMut.isPending
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <RefreshCw className="w-3 h-3" />}
+              {refreshMut.isPending ? "Rafraîchissement…" : "Rafraîchir les soldes"}
+            </button>
+          </div>
 
           {accountsQ.isFetching && accounts.length === 0 && (
             <div className="flex items-center gap-2 text-sm" style={{ color: MUTED }}>

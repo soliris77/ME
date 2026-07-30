@@ -1,0 +1,20 @@
+Bon, j'ai regardé le code — et en fait c'est déjà censé être là. Broker.tsx a bien un composant qui va chercher /api/broker/balances/:accountId pour afficher "Liquidités" sous chaque compte, pareil dans TradeModal.tsx. Le vrai problème, c'est plus subtil que du code manquant :
+
+Ce qui se passe probablement : ce composant (AccountBalance dans Broker.tsx, ligne 84) retourne carrément null — rien, silencieusement — si SnapTrade renvoie un tableau de soldes vide. Et ton compte a de bonnes chances de renvoyer vide en ce moment, pour une raison qui n'a rien à voir avec ton code : SnapTrade a synchronisé ton compte Wealthsimple une première fois au moment de ta reconnexion "trade" (via reconnect-wealthsimple-trade.js) — probablement avant que tu fasses ton dépôt de 50 $. Après cette synchro initiale, SnapTrade ne re-vérifie pas forcément en continu ; ça dépend du plan : en temps réel, chaque appel va rechercher chez le courtier ; en mode "Daily" (par défaut sur beaucoup de plans SnapTrade), ça ne se resynchronise qu'une fois par jour, sauf si on demande explicitivement un refresh.
+
+Et là, en cherchant dans snaptrade.ts — il n'y a littéralement aucune fonction de refresh nulle part dans le code. L'app appelle juste getUserAccountBalance et affiche ce que SnapTrade a en cache, sans jamais lui redemander d'aller revérifier chez Wealthsimple.
+
+Deux choses à faire, une pour vérifier, une pour corriger :
+
+1. Vérification rapide, sans toucher au code : va sur dashboard.snaptrade.com, section connexions, et regarde le sync_status / last_successful_sync de ta connexion Wealthsimple. Ça va te confirmer noir sur blanc si c'est juste une question de synchro pas encore faite.
+
+2. Le vrai fix à donner à Replit AI — ajouter un mécanisme de refresh manuel, exactement ce que SnapTrade recommande eux-mêmes dans leur doc (« best practice: donner un bouton refresh à l'utilisateur ») :
+
+Dans snaptrade.ts : nouvelle fonction refreshConnection() qui appelle client.connections.refreshBrokerageAuthorization({ authorizationId }) — attention, ça prend l'ID de la connexion (celui que listBrokerageAuthorizations renvoie, pas l'accountId).
+Dans routes/broker.ts : nouvelle route POST /api/broker/refresh.
+Dans Broker.tsx : un bouton "Rafraîchir les soldes" à côté de la liste des comptes, qui appelle cette route puis invalide les queries broker-accounts et broker-balance.
+Pendant que Replit AI est là-dedans : corriger aussi AccountBalance pour qu'un tableau vide affiche un vrai message ("Solde pas encore synchronisé — réessaie") au lieu de disparaître silencieusement — sinon ce bug va revenir te confondre plus tard sans que tu saches si c'est cassé ou juste pas encore chargé.
+
+Un avertissement important à transmettre à Replit AI aussi : SnapTrade facture parfois des frais supplémentaires par appel de refresh manuel selon ton plan — donc ça doit rester un bouton que tu cliques, pas un refresh automatique à chaque chargement de page.
+
+En passant, pendant que j'étais dans le code : j'ai vu que Replit AI a déjà implémenté le stop-loss/take-profit réel et le bilan quotidien depuis notre doc — mais tout ça tourne encore par SMS, pas email (emailClient.ts est toujours un stub). Si tu veux toujours basculer sur l'email comme discuté, ce bout-là (C1/C2) reste à faire.

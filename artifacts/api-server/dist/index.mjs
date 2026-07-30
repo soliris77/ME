@@ -125462,6 +125462,17 @@ async function listBalances(userId, userSecret, accountId) {
   });
   return res.data ?? [];
 }
+async function refreshConnection(userId, userSecret) {
+  const client = await getSnaptradeClientAsync();
+  const authRes = await client.connections.listBrokerageAuthorizations({ userId, userSecret });
+  const auths = authRes.data ?? [];
+  if (!auths.length || !auths[0].id) {
+    throw new Error("Aucune autorisation courtier trouv\xE9e pour cet utilisateur SnapTrade.");
+  }
+  const authorizationId = auths[0].id;
+  await client.connections.refreshBrokerageAuthorization({ authorizationId, userId, userSecret });
+  logger.info({ authorizationId }, "snaptrade: refresh d'autorisation demand\xE9");
+}
 async function placeOrder(params) {
   if (!isLiveMode()) {
     throw new Error(
@@ -125876,6 +125887,19 @@ router8.get("/broker/balances/:accountId", async (req, res) => {
     return res.json(balances);
   } catch (err) {
     req.log.error({ err }, "broker: balances failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+router8.post("/broker/refresh", async (req, res) => {
+  try {
+    const conn = await getConnection();
+    if (!conn) return res.status(400).json({ error: "Not set up" });
+    await refreshConnection(conn.snaptradeUserId, conn.snaptradeUserSecret);
+    await logAudit("broker.refresh", "Rafra\xEEchissement manuel des soldes SnapTrade demand\xE9.");
+    logger.info("broker: refresh connexion demand\xE9");
+    return res.json({ ok: true, message: "Rafra\xEEchissement demand\xE9 \u2014 les soldes seront mis \xE0 jour dans quelques secondes." });
+  } catch (err) {
+    req.log.error({ err }, "broker: refresh failed");
     return res.status(500).json({ error: String(err) });
   }
 });

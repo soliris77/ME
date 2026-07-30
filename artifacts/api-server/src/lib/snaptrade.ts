@@ -189,6 +189,31 @@ export async function listBalances(userId: string, userSecret: string, accountId
   return res.data ?? [];
 }
 
+// ─── Connection refresh ───────────────────────────────────────────────────────
+
+/**
+ * Demande à SnapTrade de re-synchroniser les données depuis le courtier.
+ * Utilise l'ID de la première autorisation de courtage (brokerage authorization)
+ * rattachée à l'utilisateur.
+ *
+ * ⚠️  SnapTrade peut facturer ce type d'appel selon ton plan — à déclencher
+ *     manuellement (bouton utilisateur), jamais automatiquement à chaque chargement.
+ */
+export async function refreshConnection(userId: string, userSecret: string): Promise<void> {
+  const client = await getSnaptradeClientAsync();
+
+  // Récupère la liste des autorisations pour obtenir l'authorizationId
+  const authRes = await client.connections.listBrokerageAuthorizations({ userId, userSecret });
+  const auths = (authRes.data ?? []) as { id?: string }[];
+  if (!auths.length || !auths[0].id) {
+    throw new Error("Aucune autorisation courtier trouvée pour cet utilisateur SnapTrade.");
+  }
+  const authorizationId = auths[0].id;
+
+  await client.connections.refreshBrokerageAuthorization({ authorizationId, userId, userSecret });
+  logger.info({ authorizationId }, "snaptrade: refresh d'autorisation demandé");
+}
+
 // ─── Order placement ──────────────────────────────────────────────────────────
 
 export interface PlaceOrderParams {
