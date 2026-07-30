@@ -15,6 +15,25 @@ import {
   TrendingUp, TrendingDown, Building2, ChevronDown, ShieldAlert, LinkIcon, ExternalLink,
 } from "lucide-react";
 
+/* ── CAD conversion hook ───────────────────────────────── */
+function useCadRate(currency: string) {
+  const isAlreadyCad = currency.toUpperCase() === "CAD";
+  const fxSymbol = isAlreadyCad ? null : `${currency.toUpperCase()}CAD=X`;
+  return useQuery<number | null>({
+    queryKey: ["fx-cad", fxSymbol],
+    queryFn: async () => {
+      if (!fxSymbol) return 1;
+      const r = await fetch(`${BASE}/api/quotes?symbols=${encodeURIComponent(fxSymbol)}`);
+      const data = await r.json();
+      const quote = Array.isArray(data) ? data[0] : null;
+      return typeof quote?.price === "number" ? quote.price : null;
+    },
+    enabled: !isAlreadyCad,
+    staleTime: 60_000,
+    placeholderData: null,
+  });
+}
+
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -231,6 +250,9 @@ export default function TradeModal({
     },
   });
 
+  const cadRateQ    = useCadRate(currency);
+  const cadRate     = cadRateQ.data ?? null;
+
   const qtyNum      = parseFloat(qty) || 0;
   const totalValue  = qtyNum * currentPrice;
   const maxOrderValue = status?.maxOrderValue;
@@ -318,6 +340,29 @@ export default function TradeModal({
             <div className="mt-2" style={{ ...MONO, fontSize: 13, color: MUTED }}>
               {qtyNum > 0 ? qtyNum : "—"} action{qtyNum !== 1 ? "s" : ""} × {fmtUnit} $
             </div>
+            {/* CAD equivalent — shown when stock is not priced in CAD */}
+            {currency.toUpperCase() !== "CAD" && (
+              <div
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1"
+                style={{ background: "rgba(212,167,44,0.08)", border: "1px solid rgba(212,167,44,0.18)" }}
+              >
+                {cadRateQ.isLoading ? (
+                  <span style={{ ...MONO, fontSize: 11, color: MUTED }}>
+                    <Loader2 className="w-2.5 h-2.5 animate-spin inline mr-1" />
+                    Conversion CAD…
+                  </span>
+                ) : cadRate != null ? (
+                  <span style={{ ...MONO, fontSize: 12, color: ACCENT }}>
+                    ≈ {(totalValue * cadRate).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD
+                    <span style={{ fontSize: 10, color: MUTED, marginLeft: 6 }}>
+                      (1 {currency.toUpperCase()} = {cadRate.toLocaleString("fr-CA", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} CAD)
+                    </span>
+                  </span>
+                ) : (
+                  <span style={{ ...MONO, fontSize: 11, color: MUTED }}>Taux CAD indisponible</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Quantité */}
