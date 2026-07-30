@@ -1,5 +1,6 @@
 import { useGetQuotes } from "@workspace/api-client-react";
 import { useRef, useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { formatPrice, formatPercent, isUp } from "@/lib/format";
 
 const TICKER_SYMBOLS = [

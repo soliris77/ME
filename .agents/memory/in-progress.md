@@ -10,7 +10,7 @@ description: TÂCHE EN COURS — reprendre immédiatement avant tout autre trava
 > Une tâche a été interrompue (limite d'utilisation atteinte) et doit être reprise.
 > Appelle `GET /api/agent-tasks` pour récupérer les détails complets depuis la base de données.
 
-## ▶️ EN COURS — Test de vérification du système (ID: 1)
+## ⏸️ EN PAUSE — Test de vérification du système (ID: 1)
 
 **Instructions d'origine :**
 Tâche de démonstration : valide que la table agent_tasks existe et que les données persistent.
@@ -29,6 +29,6 @@ Tâche de démonstration : valide que la table agent_tasks existe et que les don
 Table créée via psql direct (migration drizzle-kit ne fonctionne pas sans TTY).
 ```
 
-*Mis en pause le : 2026-07-30T04:08:10.230Z*
+*Mis en pause le : 2026-07-30T04:54:17.294Z*
 
 ---
