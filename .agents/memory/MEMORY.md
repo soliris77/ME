@@ -1,7 +1,11 @@
+<!-- AGENT_TASK_ALERT_START -->
+## ⚠️ TÂCHE EN COURS — LIRE EN PREMIER
+- [in-progress.md](in-progress.md) — **TÂCHE INTERROMPUE À REPRENDRE** : "Test de vérification du système" · Statut: paused · 2 prochaines étapes documentées
+<!-- AGENT_TASK_ALERT_END -->
 - [API server build-on-restart](api-server-build.md) — API server must rebuild on every restart; stale dist/index.mjs causes silent data failures.
 - [Yahoo Finance batch queries](yahoo-finance-batch.md) — use array form of yahooFinance.quote() with skipValidation:true; 50 symbols/batch, 4 batches parallel gives ~1s vs 15s individually.
 - [isUp null semantics](isup-null-semantics.md) — isUp() returns boolean|null; null means no data — suppress arrows/colors, don't default to "up".
 - [Auth password persistence](auth-password-persistence.md) — password hash stored in app_settings.password_hash; DB beats env var; /setup route for first launch.
 - [Session continuity](session-continuity.md) — write .agents/memory/in-progress.md for multi-step tasks; read it when user says "continue".
 - [Workflow secret injection](workflow-secret-injection.md) — after adding or confirming Secrets, restart the API workflow and verify presence from startup logs before testing integrations.
-- [Agent Task Continuity System](agent-task-continuity.md) — DB table agent_tasks + API /api/agent-tasks + page /agent-tasks for cross-remix task resumption.
+- [Agent Task Continuity System](agent-task-continuity.md) — DB table agent_tasks + API /api/agent-tasks + page /agent-tasks; auto-writes in-progress.md on every save/pause.
