@@ -111,7 +111,7 @@ export default function BrokerPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // ── Formulaire credentials ──
-  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "" });
+  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
   const [showSecrets, setShowSecrets] = useState(false);
   const [credsSaved, setCredsSaved] = useState(false);
 
@@ -133,12 +133,12 @@ export default function BrokerPage() {
       fetch(`${BASE}/api/broker/credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey }),
+        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey, userId: data.userId, userSecret: data.userSecret }),
       }).then((r) => r.json()),
     onSuccess: (d) => {
       if (d.ok) {
         setCredsSaved(true);
-        setCredsForm({ clientId: "", consumerKey: "" });
+        setCredsForm({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
         qc.invalidateQueries({ queryKey: ["broker-status"] });
       }
     },
@@ -300,20 +300,34 @@ export default function BrokerPage() {
                   </div>
                 )}
 
-                {(["clientId", "consumerKey"] as const).map((field) => {
+                {/* Lien vers le dashboard */}
+                <p className="text-[11px]" style={{ color: MUTED }}>
+                  Tous les 4 sont visibles dans{" "}
+                  <a href="https://app.snaptrade.com/dashboard" target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: ACCENT }}>
+                    app.snaptrade.com <ExternalLink className="w-3 h-3 inline" />
+                  </a>
+                  {" "}→ <strong style={{ color: "#E8E9ED" }}>Account Settings</strong>.
+                  <br />Le User ID et User Secret sont déjà créés automatiquement à ton inscription — tu n'as qu'à les copier.
+                </p>
+
+                {(["clientId", "consumerKey", "userId", "userSecret"] as const).map((field) => {
                   const labels: Record<string, string> = {
                     clientId:    "Client ID",
                     consumerKey: "Consumer Key",
+                    userId:      "User ID",
+                    userSecret:  "User Secret",
                   };
                   const hints: Record<string, string> = {
                     clientId:    "Ex. : PERS-XXXXXXXXXXXXXXXX",
-                    consumerKey: "Clé secrète — visible dans Account Settings",
+                    consumerKey: "Clé secrète de l'application",
+                    userId:      "Ton identifiant utilisateur SnapTrade",
+                    userSecret:  "Ton secret utilisateur SnapTrade",
                   };
                   return (
                     <div key={field}>
                       <label className="block text-[11px] mb-1 uppercase tracking-[0.12em]" style={{ color: MUTED }}>{labels[field]}</label>
                       <input
-                        type={showSecrets || field === "clientId" ? "text" : "password"}
+                        type={showSecrets || field === "clientId" || field === "userId" ? "text" : "password"}
                         autoComplete="off"
                         value={credsForm[field]}
                         onChange={(e) => { setCredsForm((f) => ({ ...f, [field]: e.target.value })); setCredsSaved(false); }}
@@ -332,7 +346,7 @@ export default function BrokerPage() {
 
                 <Btn
                   onClick={() => credsMut.mutate(credsForm)}
-                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey}
+                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey || !credsForm.userId || !credsForm.userSecret}
                 >
                   {credsMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Sauvegarder les clés
@@ -363,6 +377,13 @@ export default function BrokerPage() {
                   </span>
                 )}
               </div>
+
+              {/* Erreur setup visible */}
+              {setupMut.data?.error && (
+                <div className="mt-3 rounded-lg px-3 py-2 text-[12px]" style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", color: "#DC2626" }}>
+                  {setupMut.data.error}
+                </div>
+              )}
 
               {(step === 1 || step === 2) && s?.hasCredentials && (
                 <div className="mt-4 flex flex-wrap gap-3">

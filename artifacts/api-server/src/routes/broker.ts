@@ -44,17 +44,19 @@ async function getConnection() {
 }
 
 // ─── POST /api/broker/credentials ────────────────────────────────────────────
-// Sauvegarde les 2 clés développeur SnapTrade (Client ID + Consumer Key) en base.
-// Le User ID / User Secret sont générés automatiquement par l'API lors du setup.
+// Sauvegarde les 4 clés SnapTrade personnelles directement en base.
+// Toutes les 4 se trouvent dans ton tableau de bord app.snaptrade.com → Account Settings.
 router.post("/broker/credentials", async (req, res) => {
   try {
-    const { clientId, consumerKey } = req.body as {
+    const { clientId, consumerKey, userId, userSecret } = req.body as {
       clientId?: string;
       consumerKey?: string;
+      userId?: string;
+      userSecret?: string;
     };
 
-    if (!clientId || !consumerKey) {
-      return res.status(400).json({ error: "Les 2 champs sont requis : clientId et consumerKey." });
+    if (!clientId || !consumerKey || !userId || !userSecret) {
+      return res.status(400).json({ error: "Les 4 champs sont requis : Client ID, Consumer Key, User ID et User Secret." });
     }
 
     const rows = await db.select().from(appSettingsTable).limit(1);
@@ -64,14 +66,13 @@ router.post("/broker/credentials", async (req, res) => {
     const row = rows[0];
     await db
       .update(appSettingsTable)
-      .set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey })
+      .set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey, snaptradeUserId: userId, snaptradeUserSecret: userSecret })
       .where(eq(appSettingsTable.id, row.id));
 
-    // Invalide le client caché pour forcer la réinitialisation avec les nouvelles clés
     invalidateSnaptradeClient();
 
-    await logAudit("broker.credentials", "Clés développeur SnapTrade mises à jour via l'interface (stockées en base).");
-    logger.info("broker: clés développeur SnapTrade mises à jour en base");
+    await logAudit("broker.credentials", "Clés SnapTrade mises à jour via l'interface (stockées en base).");
+    logger.info("broker: 4 clés SnapTrade mises à jour en base");
     return res.json({ ok: true, message: "Clés sauvegardées. Elles survivront aux remixes." });
   } catch (err) {
     logger.error({ err }, "broker: save credentials failed");
@@ -102,8 +103,7 @@ router.get("/broker/credentials", async (_req, res) => {
 router.get("/broker/trading-mode", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  // Seules les clés développeur (clientId + consumerKey) sont nécessaires
-  const hasCredentials = !!(creds.clientId && creds.consumerKey);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
   return res.json({ mode, hasCredentials });
 });
 
@@ -130,8 +130,9 @@ router.post("/broker/trading-mode", async (req, res) => {
 });
 
 // ─── POST /api/broker/setup ───────────────────────────────────────────────────
-// Enregistre un utilisateur SnapTrade. Le userId est généré automatiquement
-// par l'API SnapTrade — l'utilisateur n'a pas à le fournir.
+// Crée la ligne broker_connections avec les credentials sauvegardés en base.
+// Pour les clés personnelles SnapTrade, userId et userSecret sont fournis
+// directement par l'utilisateur (visibles dans app.snaptrade.com → Account Settings).
 // Idempotent — retourne la connexion existante si déjà configurée.
 router.post("/broker/setup", async (req, res) => {
   try {
@@ -144,36 +145,26 @@ router.post("/broker/setup", async (req, res) => {
       });
     }
 
-    // Vérifier que les clés développeur sont présentes (client ID + consumer key)
+    // Lire les 4 clés depuis la base
     const creds = await resolveCredentials();
-    if (!creds.consumerKey) {
+    if (!creds.clientId || !creds.consumerKey) {
       return res.status(400).json({
-        error: "Les clés SnapTrade (Client ID et Consumer Key) doivent être configurées via l'interface avant l'initialisation.",
+        error: "Client ID et Consumer Key manquants. Sauvegarde d'abord tes 4 clés SnapTrade via le formulaire ci-dessus.",
       });
     }
-
-    // Générer un userId unique pour cette instance de l'application
-    const generatedUserId = `soliris-${Date.now()}`;
-
-    // Enregistrer l'utilisateur via l'API SnapTrade → retourne userId + userSecret
-    const { userId, userSecret } = await registerSnaptradeUser(generatedUserId);
-
-    // Persister le userSecret en base (app_settings) pour qu'il survive aux remixes
-    const rows = await db.select().from(appSettingsTable).limit(1);
-    if (rows.length > 0) {
-      await db
-        .update(appSettingsTable)
-        .set({ snaptradeUserId: userId, snaptradeUserSecret: userSecret })
-        .where(eq(appSettingsTable.id, rows[0].id));
+    if (!creds.userId || !creds.userSecret) {
+      return res.status(400).json({
+        error: "User ID et User Secret manquants. Tu les trouves dans ton tableau de bord app.snaptrade.com → Account Settings. Sauvegarde d'abord tes 4 clés via le formulaire.",
+      });
     }
 
     const [row] = await db
       .insert(brokerConnectionsTable)
-      .values({ snaptradeUserId: userId, snaptradeUserSecret: userSecret, status: "pending" })
+      .values({ snaptradeUserId: creds.userId, snaptradeUserSecret: creds.userSecret, status: "pending" })
       .returning();
 
-    logger.info({ userId }, "broker: setup complete — user registered via API");
-    await logAudit("broker.setup", "Compte courtier SnapTrade enregistré — user généré automatiquement via API.", { userId });
+    logger.info({ userId: creds.userId }, "broker: setup complete — credentials personnels enregistrés");
+    await logAudit("broker.setup", "Compte courtier SnapTrade initialisé avec clés personnelles.", { userId: creds.userId });
     return res.status(201).json({
       message: "Compte initialisé. Ouvre le portail pour lier Wealthsimple.",
       userId: row.snaptradeUserId,
@@ -211,8 +202,8 @@ router.get("/broker/connect-url", async (req, res) => {
 router.get("/broker/status", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  // Clés développeur suffisantes pour considérer l'API configurée
-  const hasCredentials = !!(creds.clientId && creds.consumerKey);
+  // Toutes les 4 clés nécessaires
+  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
 
   const settings = await getRiskSettings();
 
@@ -229,9 +220,9 @@ router.get("/broker/status", async (_req, res) => {
     });
   }
 
-  // If credentials are available, verify API status quickly
+  // Vérifie l'état de l'API SnapTrade (clientId + consumerKey suffisent pour ce ping)
   let apiOk = false;
-  if (hasCredentials) {
+  if (creds.clientId && creds.consumerKey) {
     try {
       const client = await getSnaptradeClientAsync();
       await client.apiStatus.check();
