@@ -98,6 +98,25 @@ function useAccounts(enabled: boolean) {
   });
 }
 
+interface BalanceLine {
+  currency?: string;
+  cash?: number;
+  buying_power?: number;
+  market_value?: number;
+  total_value?: number;
+}
+
+function useAccountBalance(accountId: string, enabled: boolean) {
+  return useQuery<BalanceLine[]>({
+    queryKey: ["broker-balance", accountId],
+    queryFn: () =>
+      fetch(`${BASE}/api/broker/balances/${encodeURIComponent(accountId)}`)
+        .then((r) => r.json()),
+    enabled: enabled && !!accountId,
+    staleTime: 30_000,
+  });
+}
+
 
 /* ── Design tokens (inline — garantit l'indépendance du dark/light) ─── */
 const GAIN   = "#16A34A";
@@ -147,8 +166,11 @@ export default function TradeModal({
   const accountsQ = useAccounts(open && brokerStatus !== "not_setup");
   const accounts: Account[] = Array.isArray(accountsQ.data) ? accountsQ.data : [];
 
-  const [qty,       setQty]       = useState<string>("1");
   const [accountId, setAccountId] = useState<string>("");
+
+  const balanceQ = useAccountBalance(accountId, open && brokerStatus !== "not_setup");
+
+  const [qty,       setQty]       = useState<string>("1");
   const [result,    setResult]    = useState<TradeResult | null>(null);
   const [rejection, setRejection] = useState<{ message: string; reason: string } | null>(null);
   const [signalId]  = useState(() => crypto.randomUUID());
@@ -363,6 +385,57 @@ export default function TradeModal({
                   style={{ color: MUTED }}
                 />
               </div>
+
+              {/* Solde du compte sélectionné */}
+              {balanceQ.isLoading && (
+                <div className="mt-2 flex items-center gap-2 text-[11px]" style={{ color: MUTED }}>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Chargement du solde…
+                </div>
+              )}
+              {!balanceQ.isLoading && Array.isArray(balanceQ.data) && balanceQ.data.length > 0 && (
+                <div
+                  className="mt-2 rounded-lg px-3 py-2.5 grid gap-y-1"
+                  style={{ background: "rgba(212,167,44,0.06)", border: "1px solid rgba(212,167,44,0.15)" }}
+                >
+                  {balanceQ.data.map((b, i) => {
+                    const cur = b.currency ?? "";
+                    const fmt = (v?: number) =>
+                      v == null ? null : v.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const cash        = fmt(b.cash);
+                    const buyingPower = fmt(b.buying_power);
+                    const marketValue = fmt(b.market_value);
+                    const total       = fmt(b.total_value);
+                    return (
+                      <div key={i} className="flex flex-wrap gap-x-4 gap-y-0.5">
+                        {cur && (
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>{cur}</span>
+                        )}
+                        {cash != null && (
+                          <span className="text-[11px]" style={{ ...MONO, color: "#E8E9ED" }}>
+                            <span style={{ color: MUTED }}>Liquidités : </span>{cur} {cash}
+                          </span>
+                        )}
+                        {buyingPower != null && buyingPower !== cash && (
+                          <span className="text-[11px]" style={{ ...MONO, color: "#E8E9ED" }}>
+                            <span style={{ color: MUTED }}>Pouvoir d'achat : </span>{cur} {buyingPower}
+                          </span>
+                        )}
+                        {marketValue != null && (
+                          <span className="text-[11px]" style={{ ...MONO, color: "#E8E9ED" }}>
+                            <span style={{ color: MUTED }}>Valeur marché : </span>{cur} {marketValue}
+                          </span>
+                        )}
+                        {total != null && (
+                          <span className="text-[11px]" style={{ ...MONO, color: "#E8E9ED" }}>
+                            <span style={{ color: MUTED }}>Total : </span>{cur} {total}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
