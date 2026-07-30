@@ -11,7 +11,7 @@
  *   GET  /api/broker/balances/:accountId   → balances for one account
  */
 import { Router } from "express";
-import { db, brokerConnectionsTable, ordersTable } from "@workspace/db";
+import { db, brokerConnectionsTable, ordersTable, appSettingsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 // Note: `and` / `gte` / `ordersTable` no longer needed here — idempotence
 // and all order logic now live entirely in orderEngine.submitOrder().
@@ -22,6 +22,8 @@ import {
   listPositions,
   listBalances,
   getSnaptradeClientAsync,
+  resolveCredentials,
+  invalidateSnaptradeClient,
 } from "../lib/snaptrade";
 import { getTradingMode, setTradingMode } from "../lib/tradingMode";
 import { submitOrder, OrderValidationError } from "../lib/orderEngine";
@@ -41,14 +43,70 @@ async function getConnection() {
   return rows[0] ?? null;
 }
 
+// ─── POST /api/broker/credentials ────────────────────────────────────────────
+// Sauvegarde les 4 clés SnapTrade directement en base.
+// DB-first : après cette opération les credentials survivent aux remixes.
+router.post("/broker/credentials", async (req, res) => {
+  try {
+    const { clientId, consumerKey, userId, userSecret } = req.body as {
+      clientId?: string;
+      consumerKey?: string;
+      userId?: string;
+      userSecret?: string;
+    };
+
+    if (!clientId || !consumerKey || !userId || !userSecret) {
+      return res.status(400).json({ error: "Les 4 champs sont requis : clientId, consumerKey, userId, userSecret." });
+    }
+
+    // Met à jour ou crée la ligne app_settings
+    const rows = await db.select().from(appSettingsTable).limit(1);
+    if (rows.length === 0) {
+      // Ligne pas encore créée — ne devrait pas arriver (ensureRow au démarrage), mais on gère
+      return res.status(503).json({ error: "Serveur pas encore initialisé. Réessaie dans quelques secondes." });
+    }
+    const row = rows[0];
+    await db
+      .update(appSettingsTable)
+      .set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey, snaptradeUserId: userId, snaptradeUserSecret: userSecret })
+      .where(eq(appSettingsTable.id, row.id));
+
+    // Invalide le client caché pour forcer la réinitialisation avec les nouvelles clés
+    invalidateSnaptradeClient();
+
+    await logAudit("broker.credentials", "Credentials SnapTrade mis à jour via l'interface (stockés en base).", { userId });
+    logger.info({ userId }, "broker: credentials SnapTrade mis à jour en base");
+    return res.json({ ok: true, message: "Credentials sauvegardés. Ils survivront aux remixes." });
+  } catch (err) {
+    logger.error({ err }, "broker: save credentials failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── GET /api/broker/credentials ─────────────────────────────────────────────
+// Retourne les credentials masqués (pour pré-remplir le formulaire côté UI).
+router.get("/broker/credentials", async (_req, res) => {
+  try {
+    const creds = await resolveCredentials();
+    // On masque les valeurs sensibles mais indique leur présence
+    const mask = (v: string | null) => v ? v.substring(0, 4) + "•••••••••••••" : null;
+    return res.json({
+      clientId:    creds.clientId    ? mask(creds.clientId)    : null,
+      consumerKey: creds.consumerKey ? mask(creds.consumerKey) : null,
+      userId:      creds.userId      ? mask(creds.userId)      : null,
+      userSecret:  creds.userSecret  ? mask(creds.userSecret)  : null,
+      hasAll: !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
 // ─── GET /api/broker/trading-mode ─────────────────────────────────────────────
-router.get("/broker/trading-mode", (_req, res) => {
+router.get("/broker/trading-mode", async (_req, res) => {
   const mode = getTradingMode();
-  const hasCredentials =
-    !!process.env.SNAPTRADE_CLIENT_ID &&
-    !!process.env.SNAPTRADE_CONSUMER_KEY &&
-    !!process.env.SNAPTRADE_USER_ID &&
-    !!process.env.SNAPTRADE_USER_SECRET;
+  const creds = await resolveCredentials();
+  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
   return res.json({ mode, hasCredentials });
 });
 
@@ -149,11 +207,8 @@ router.get("/broker/connect-url", async (req, res) => {
 // ─── GET /api/broker/status ───────────────────────────────────────────────────
 router.get("/broker/status", async (_req, res) => {
   const mode = getTradingMode();
-  const hasCredentials =
-    !!process.env.SNAPTRADE_CLIENT_ID &&
-    !!process.env.SNAPTRADE_CONSUMER_KEY &&
-    !!process.env.SNAPTRADE_USER_ID &&
-    !!process.env.SNAPTRADE_USER_SECRET;
+  const creds = await resolveCredentials();
+  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
 
   const settings = await getRiskSettings();
 

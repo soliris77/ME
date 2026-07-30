@@ -4,7 +4,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import {
   ShieldCheck, Loader2, ExternalLink, RefreshCw, CheckCircle2,
   XCircle, LinkIcon, ShieldOff, ShieldAlert, AlertTriangle,
-  Radio, Building2, KeyRound, Wifi, WifiOff, ArrowRight,
+  Radio, Building2, KeyRound, Wifi, WifiOff, ArrowRight, Save, Eye, EyeOff,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -110,6 +110,11 @@ export default function BrokerPage() {
   const qc = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // ── Formulaire credentials ──
+  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
+  const [showSecrets, setShowSecrets] = useState(false);
+  const [credsSaved, setCredsSaved] = useState(false);
+
   const statusQ = useQuery<BrokerStatus>({
     queryKey: ["broker-status"],
     queryFn: () => fetch(`${BASE}/api/broker/status`).then((r) => r.json()),
@@ -121,6 +126,22 @@ export default function BrokerPage() {
     queryFn: () => fetch(`${BASE}/api/broker/accounts`).then((r) => r.json()),
     enabled: (statusQ.data?.status ?? "not_setup") !== "not_setup",
     staleTime: 60_000,
+  });
+
+  const credsMut = useMutation({
+    mutationFn: (data: typeof credsForm) =>
+      fetch(`${BASE}/api/broker/credentials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey, userId: data.userId, userSecret: data.userSecret }),
+      }).then((r) => r.json()),
+    onSuccess: (d) => {
+      if (d.ok) {
+        setCredsSaved(true);
+        setCredsForm({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
+        qc.invalidateQueries({ queryKey: ["broker-status"] });
+      }
+    },
   });
 
   const setupMut    = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/setup`,        { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
@@ -227,15 +248,20 @@ export default function BrokerPage() {
       <div>
         <div className="section-rule mb-5"><span>CONFIGURATION DE LA CONNEXION</span></div>
 
-        {/* Étape 1 — Secrets SnapTrade */}
-        <div className="mb-3 rounded-xl p-5" style={{ background: step === 0 || step >= 1 ? (step === 1 && !s?.hasCredentials ? "rgba(212,167,44,0.04)" : SURFACE) : SURFACE, border: `1px solid ${!s?.hasCredentials ? "rgba(212,167,44,0.3)" : BORDER}` }}>
+        {/* Étape 1 — Saisie directe des clés SnapTrade */}
+        <div className="mb-3 rounded-xl p-5" style={{ background: !s?.hasCredentials ? "rgba(212,167,44,0.04)" : SURFACE, border: `1px solid ${!s?.hasCredentials ? "rgba(212,167,44,0.3)" : BORDER}` }}>
           <div className="flex items-start gap-4">
             <StepNum n={1} done={!!s?.hasCredentials} active={!s?.hasCredentials} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: "#E8E9ED" }}>Configurer les clés SnapTrade</div>
-                  <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>Nécessite un compte gratuit sur app.snaptrade.com</div>
+                  <div className="text-sm font-semibold" style={{ color: "#E8E9ED" }}>Clés SnapTrade</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                    Stockées en base — survivent aux remixes.{" "}
+                    <a href="https://app.snaptrade.com/dashboard" target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: ACCENT }}>
+                      app.snaptrade.com <ExternalLink className="w-3 h-3 inline" />
+                    </a>
+                  </div>
                 </div>
                 {s?.hasCredentials && (
                   <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#16A34A" }}>
@@ -244,34 +270,71 @@ export default function BrokerPage() {
                 )}
               </div>
 
-              {!s?.hasCredentials && (
-                <div className="mt-4 rounded-lg p-4 space-y-3" style={{ background: BASE_BG, border: `1px solid ${BORDER}` }}>
+              {/* Formulaire toujours visible pour permettre la mise à jour */}
+              <div className="mt-4 rounded-lg p-4 space-y-3" style={{ background: BASE_BG, border: `1px solid ${BORDER}` }}>
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>
-                    <KeyRound className="w-3.5 h-3.5" /> Instructions
+                    <KeyRound className="w-3.5 h-3.5" /> {s?.hasCredentials ? "Mettre à jour les clés" : "Entrer les clés"}
                   </div>
-                  <ol className="space-y-2.5 text-[12px]" style={{ color: MUTED }}>
-                    <li className="flex gap-2.5">
-                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>1</span>
-                      Crée un compte gratuit sur{" "}
-                      <a href="https://app.snaptrade.com/dashboard" target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: ACCENT }}>
-                        app.snaptrade.com <ExternalLink className="w-3 h-3 inline" />
-                      </a>
-                    </li>
-                    <li className="flex gap-2.5">
-                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>2</span>
-                      Dans <strong>Account Settings</strong>, note tes 4 identifiants : <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>Client ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>Consumer Key</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>User ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>User Secret</code>
-                    </li>
-                    <li className="flex gap-2.5">
-                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>3</span>
-                      Dans Replit → <strong>Secrets</strong>, entre les 4 variables : <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_CLIENT_ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_CONSUMER_KEY</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_USER_ID</code>, <code className="text-[11px] px-1 rounded" style={{ background: BORDER, color: "#E8E9ED" }}>SNAPTRADE_USER_SECRET</code>
-                    </li>
-                    <li className="flex gap-2.5">
-                      <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold" style={{ background: "rgba(212,167,44,0.15)", color: ACCENT }}>4</span>
-                      Redémarre le serveur API — la connexion s'initialisera automatiquement
-                    </li>
-                  </ol>
+                  <button
+                    onClick={() => setShowSecrets(!showSecrets)}
+                    className="flex items-center gap-1 text-[11px] transition-opacity hover:opacity-80"
+                    style={{ color: MUTED }}
+                  >
+                    {showSecrets ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showSecrets ? "Masquer" : "Afficher"}
+                  </button>
                 </div>
-              )}
+
+                {credsSaved && (
+                  <div className="flex items-center gap-2 text-[12px] rounded-lg px-3 py-2" style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.25)", color: "#16A34A" }}>
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    Clés sauvegardées en base — elles ne seront plus effacées lors des remixes.
+                  </div>
+                )}
+
+                {credsMut.data?.error && (
+                  <div className="text-[12px] rounded-lg px-3 py-2" style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", color: "#DC2626" }}>
+                    {credsMut.data.error}
+                  </div>
+                )}
+
+                {(["clientId", "consumerKey", "userId", "userSecret"] as const).map((field) => {
+                  const labels: Record<string, string> = {
+                    clientId:    "Client ID",
+                    consumerKey: "Consumer Key",
+                    userId:      "User ID",
+                    userSecret:  "User Secret",
+                  };
+                  return (
+                    <div key={field}>
+                      <label className="block text-[11px] mb-1 uppercase tracking-[0.12em]" style={{ color: MUTED }}>{labels[field]}</label>
+                      <input
+                        type={showSecrets || field === "clientId" ? "text" : "password"}
+                        autoComplete="off"
+                        value={credsForm[field]}
+                        onChange={(e) => { setCredsForm((f) => ({ ...f, [field]: e.target.value })); setCredsSaved(false); }}
+                        placeholder={`Ton ${labels[field]} SnapTrade`}
+                        className="w-full rounded-lg px-3 py-2 text-[12px] outline-none focus:ring-1"
+                        style={{
+                          background: SURFACE,
+                          border: `1px solid ${BORDER}`,
+                          color: "#E8E9ED",
+                          fontFamily: "'IBM Plex Mono', monospace",
+                        } as React.CSSProperties}
+                      />
+                    </div>
+                  );
+                })}
+
+                <Btn
+                  onClick={() => credsMut.mutate(credsForm)}
+                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey || !credsForm.userId || !credsForm.userSecret}
+                >
+                  {credsMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Sauvegarder les clés
+                </Btn>
+              </div>
             </div>
           </div>
         </div>

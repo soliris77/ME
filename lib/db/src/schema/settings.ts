@@ -20,10 +20,13 @@ export const appSettingsTable = pgTable("app_settings", {
   // aux remixes / transferts de projet sans avoir à re-saisir le secret.
   // Si null → pas encore configuré (premier lancement) ou géré par AUTH_PASSWORD.
   passwordHash: text("password_hash"),
-  // Consumer key SnapTrade — persisté en base au premier démarrage avec le secret
-  // Replit, puis lu depuis la DB en priorité. Survit aux suppressions de secrets
-  // et aux remixes sans nécessiter de re-saisie.
+  // Credentials SnapTrade — saisie directe via l'UI /courtier.
+  // Stockés en base pour survivre aux remixes et suppressions de secrets Replit.
+  // La DB prime toujours sur les env vars (fallback uniquement).
+  snaptradeClientId:    text("snaptrade_client_id"),
   snaptradeConsumerKey: text("snaptrade_consumer_key"),
+  snaptradeUserId:      text("snaptrade_user_id"),
+  snaptradeUserSecret:  text("snaptrade_user_secret"),
   // Credentials externes — persistés depuis les secrets Replit au premier
   // démarrage puis lus depuis la DB en priorité. Survivent aux remixes et
   // suppressions de secrets sans re-saisie.

@@ -15,73 +15,92 @@ import { db, appSettingsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { getTradingMode, isLiveMode } from "./tradingMode";
 
-// Identifiant public SnapTrade — hardcodé pour survivre aux remixes.
-export const SNAPTRADE_CLIENT_ID = "PERS-XKI3EVCCAD5854MC2YDH";
+// Identifiant public de fallback — remplacé par la valeur en base si présente.
+export const SNAPTRADE_CLIENT_ID_DEFAULT = "PERS-XKI3EVCCAD5854MC2YDH";
 
 let _client: Snaptrade | null = null;
 
-/** Résout le consumerKey : DB en priorité, env var en fallback. */
-export async function resolveConsumerKey(): Promise<string | null> {
-  try {
-    const [row] = await db.select().from(appSettingsTable).limit(1);
-    if (row?.snaptradeConsumerKey) return row.snaptradeConsumerKey;
-  } catch {
-    // DB inaccessible — on tombe sur l'env var
-  }
-  return process.env.SNAPTRADE_CONSUMER_KEY ?? null;
+/** Invalide le client caché (appeler après mise à jour des credentials). */
+export function invalidateSnaptradeClient(): void {
+  _client = null;
 }
 
-/** Persiste le consumerKey depuis l'env vers la DB si absent. */
+/**
+ * Résout tous les credentials SnapTrade.
+ * Ordre de priorité : DB → env var → valeur hardcodée (clientId seulement).
+ */
+export async function resolveCredentials(): Promise<{
+  clientId: string | null;
+  consumerKey: string | null;
+  userId: string | null;
+  userSecret: string | null;
+}> {
+  try {
+    const [row] = await db.select().from(appSettingsTable).limit(1);
+    return {
+      clientId:    row?.snaptradeClientId    ?? process.env.SNAPTRADE_CLIENT_ID    ?? SNAPTRADE_CLIENT_ID_DEFAULT,
+      consumerKey: row?.snaptradeConsumerKey ?? process.env.SNAPTRADE_CONSUMER_KEY ?? null,
+      userId:      row?.snaptradeUserId      ?? process.env.SNAPTRADE_USER_ID      ?? null,
+      userSecret:  row?.snaptradeUserSecret  ?? process.env.SNAPTRADE_USER_SECRET  ?? null,
+    };
+  } catch {
+    return {
+      clientId:    process.env.SNAPTRADE_CLIENT_ID    ?? SNAPTRADE_CLIENT_ID_DEFAULT,
+      consumerKey: process.env.SNAPTRADE_CONSUMER_KEY ?? null,
+      userId:      process.env.SNAPTRADE_USER_ID      ?? null,
+      userSecret:  process.env.SNAPTRADE_USER_SECRET  ?? null,
+    };
+  }
+}
+
+/** Résout le consumerKey seul (rétrocompatibilité). */
+export async function resolveConsumerKey(): Promise<string | null> {
+  const creds = await resolveCredentials();
+  return creds.consumerKey;
+}
+
+/** Persiste les credentials depuis env vars vers la DB si absents (démarrage). */
 export async function persistConsumerKeyIfNeeded(): Promise<void> {
   const envKey = process.env.SNAPTRADE_CONSUMER_KEY;
   if (!envKey) return;
 
   try {
     const [row] = await db.select().from(appSettingsTable).limit(1);
-    if (!row) return; // la ligne n'existe pas encore — ensureRow() la créera plus tard
-    if (row.snaptradeConsumerKey) return; // déjà persisté
+    if (!row) return;
+    if (row.snaptradeConsumerKey) return;
 
     const { eq } = await import("drizzle-orm");
-    await db
-      .update(appSettingsTable)
-      .set({ snaptradeConsumerKey: envKey })
-      .where(eq(appSettingsTable.id, row.id));
+    const updates: Record<string, string> = { snaptradeConsumerKey: envKey };
+    if (!row.snaptradeClientId   && process.env.SNAPTRADE_CLIENT_ID)    updates.snaptradeClientId   = process.env.SNAPTRADE_CLIENT_ID;
+    if (!row.snaptradeUserId     && process.env.SNAPTRADE_USER_ID)      updates.snaptradeUserId     = process.env.SNAPTRADE_USER_ID;
+    if (!row.snaptradeUserSecret && process.env.SNAPTRADE_USER_SECRET)  updates.snaptradeUserSecret = process.env.SNAPTRADE_USER_SECRET;
 
-    logger.info("snaptrade: consumerKey persisté en base — survivra aux suppressions de secrets");
+    await db.update(appSettingsTable).set(updates).where(eq(appSettingsTable.id, row.id));
+    logger.info("snaptrade: credentials persistés en base — survivront aux remixes");
   } catch (err) {
-    logger.warn({ err }, "snaptrade: impossible de persister le consumerKey en base");
+    logger.warn({ err }, "snaptrade: impossible de persister les credentials en base");
   }
 }
 
 export function getSnaptradeClient(): Snaptrade {
   if (_client) return _client;
-
   const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
-
+  const clientId    = process.env.SNAPTRADE_CLIENT_ID ?? SNAPTRADE_CLIENT_ID_DEFAULT;
   if (!consumerKey) {
-    throw new Error(
-      "SNAPTRADE_CONSUMER_KEY must be set. " +
-        "Ajoute-le comme Secret Replit ou via le portail /courtier."
-    );
+    throw new Error("SNAPTRADE_CONSUMER_KEY introuvable. Configure-le via le portail /courtier.");
   }
-
-  _client = new Snaptrade({ clientId: SNAPTRADE_CLIENT_ID, consumerKey });
+  _client = new Snaptrade({ clientId, consumerKey });
   return _client;
 }
 
-/** Version async — lit le consumerKey depuis la DB si l'env var est absent. */
+/** Version async — lit tous les credentials depuis la DB. */
 export async function getSnaptradeClientAsync(): Promise<Snaptrade> {
   if (_client) return _client;
-
-  const consumerKey = await resolveConsumerKey();
-  if (!consumerKey) {
-    throw new Error(
-      "SNAPTRADE_CONSUMER_KEY introuvable (ni en base ni dans les Secrets). " +
-        "Configure-le via le portail /courtier."
-    );
+  const creds = await resolveCredentials();
+  if (!creds.consumerKey) {
+    throw new Error("SNAPTRADE_CONSUMER_KEY introuvable (ni en base ni dans les Secrets). Configure-le via le portail /courtier.");
   }
-
-  _client = new Snaptrade({ clientId: SNAPTRADE_CLIENT_ID, consumerKey });
+  _client = new Snaptrade({ clientId: creds.clientId ?? SNAPTRADE_CLIENT_ID_DEFAULT, consumerKey: creds.consumerKey });
   return _client;
 }
 
