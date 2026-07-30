@@ -12,6 +12,7 @@
  * Session : cookie signé, httpOnly, secure (en production), stocké côté
  * serveur dans Postgres via connect-pg-simple.
  */
+import { randomBytes } from "crypto";
 import type { RequestHandler } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -97,6 +98,31 @@ export async function setPassword(plain: string): Promise<void> {
 // ─── Session middleware ────────────────────────────────────────────────────
 const isProduction = process.env.NODE_ENV === "production";
 
+/**
+ * Résolution du SESSION_SECRET.
+ * En production : obligatoire (throw si absent).
+ * En développement : génère un secret éphémère aléatoire si absent, avec
+ * un avertissement clair. Cela permet à l'application de démarrer normalement
+ * après un remix/fork sans secrets configurés. Les sessions ne survivront
+ * pas aux redémarrages du serveur dans ce mode.
+ */
+function resolveSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (secret) return secret;
+  if (isProduction) {
+    throw new Error("SESSION_SECRET doit être défini en production.");
+  }
+  // Développement : fallback éphémère — l'app démarre mais les sessions
+  // sont perdues à chaque redémarrage. Configurer SESSION_SECRET pour
+  // des sessions persistantes.
+  const fallback = randomBytes(32).toString("hex");
+  logger.warn(
+    "SESSION_SECRET non défini — utilisation d'un secret éphémère. " +
+    "Configurer la variable d'environnement SESSION_SECRET pour des sessions persistantes."
+  );
+  return fallback;
+}
+
 export const sessionMiddleware: RequestHandler = session({
   store: new PgSession({
     pool,
@@ -104,9 +130,7 @@ export const sessionMiddleware: RequestHandler = session({
     createTableIfMissing: true,
   }),
   name: "soliris.sid",
-  secret: process.env.SESSION_SECRET ?? (() => {
-    throw new Error("SESSION_SECRET doit être défini.");
-  })(),
+  secret: resolveSessionSecret(),
   resave: false,
   saveUninitialized: false,
   rolling: true,

@@ -32629,7 +32629,7 @@ var require_utils6 = __commonJS({
     var nodeCrypto2 = __require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
-      randomBytes: randomBytes2,
+      randomBytes: randomBytes3,
       deriveKey,
       sha256,
       hashByName,
@@ -32639,7 +32639,7 @@ var require_utils6 = __commonJS({
     var webCrypto = nodeCrypto2.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder2 = new TextEncoder();
-    function randomBytes2(length) {
+    function randomBytes3(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string6) {
@@ -52550,9 +52550,9 @@ var require_random_bytes = __commonJS({
     "use strict";
     var crypto5 = __require("crypto");
     var generateAttempts = crypto5.randomBytes === crypto5.pseudoRandomBytes ? 1 : 3;
-    module2.exports = randomBytes2;
+    module2.exports = randomBytes3;
     module2.exports.sync = randomBytesSync;
-    function randomBytes2(size, callback) {
+    function randomBytes3(size, callback) {
       if (callback !== void 0 && typeof callback !== "function") {
         throw new TypeError("argument callback must be a function");
       }
@@ -52594,7 +52594,7 @@ var require_random_bytes = __commonJS({
 var require_uid_safe = __commonJS({
   "../../node_modules/.pnpm/uid-safe@2.1.5/node_modules/uid-safe/index.js"(exports, module2) {
     "use strict";
-    var randomBytes2 = require_random_bytes();
+    var randomBytes3 = require_random_bytes();
     var EQUAL_END_REGEXP = /=+$/;
     var PLUS_GLOBAL_REGEXP = /\+/g;
     var SLASH_GLOBAL_REGEXP = /\//g;
@@ -52618,10 +52618,10 @@ var require_uid_safe = __commonJS({
       });
     }
     function uidSync(length) {
-      return toString3(randomBytes2.sync(length));
+      return toString3(randomBytes3.sync(length));
     }
     function generateUid(length, callback) {
-      randomBytes2(length, function(err, buf) {
+      randomBytes3(length, function(err, buf) {
         if (err) return callback(err);
         callback(null, toString3(buf));
       });
@@ -125972,6 +125972,7 @@ var import_express9 = __toESM(require_express2(), 1);
 
 // src/lib/auth.ts
 var import_express_session = __toESM(require_express_session(), 1);
+import { randomBytes as randomBytes2 } from "crypto";
 import connectPgSimple from "connect-pg-simple";
 
 // ../../node_modules/.pnpm/express-rate-limit@8.5.2_express@5.2.1/node_modules/express-rate-limit/dist/index.mjs
@@ -128700,6 +128701,18 @@ async function setPassword(plain) {
   invalidatePasswordCache();
 }
 var isProduction2 = process.env.NODE_ENV === "production";
+function resolveSessionSecret() {
+  const secret = process.env.SESSION_SECRET;
+  if (secret) return secret;
+  if (isProduction2) {
+    throw new Error("SESSION_SECRET doit \xEAtre d\xE9fini en production.");
+  }
+  const fallback = randomBytes2(32).toString("hex");
+  logger.warn(
+    "SESSION_SECRET non d\xE9fini \u2014 utilisation d'un secret \xE9ph\xE9m\xE8re. Configurer la variable d'environnement SESSION_SECRET pour des sessions persistantes."
+  );
+  return fallback;
+}
 var sessionMiddleware = (0, import_express_session.default)({
   store: new PgSession2({
     pool,
@@ -128707,9 +128720,7 @@ var sessionMiddleware = (0, import_express_session.default)({
     createTableIfMissing: true
   }),
   name: "soliris.sid",
-  secret: process.env.SESSION_SECRET ?? (() => {
-    throw new Error("SESSION_SECRET doit \xEAtre d\xE9fini.");
-  })(),
+  secret: resolveSessionSecret(),
   resave: false,
   saveUninitialized: false,
   rolling: true,
