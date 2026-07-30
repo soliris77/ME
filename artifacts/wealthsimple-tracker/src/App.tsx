@@ -29,6 +29,7 @@ import CopyTradingPage from "@/pages/CopyTrading";
 import CopyTradingDiscoverPage from "@/pages/CopyTradingDiscover";
 import CopyTradingSettingsPage from "@/pages/CopyTradingSettings";
 import AgentTasksPage from "@/pages/AgentTasks";
+import AutoTraderPage from "@/pages/AutoTrader";
 import ApiStatusModal from "@/components/ApiStatusModal";
 import { SpotifyWidget } from "@/components/SpotifyWidget";
 import GoldParticles from "@/components/GoldParticles";
@@ -37,7 +38,7 @@ import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot } from "lucide-react";
+import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot, Cpu } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 
@@ -87,6 +88,7 @@ function Nav() {
     { href: "/ordres", label: "Journal des ordres", icon: Receipt },
     { href: "/reconciliation", label: "Réconciliation", icon: Scale },
     { href: "/audit", label: "Journal d'audit", icon: ScrollText },
+    { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
     { href: "/agent-tasks", label: "Tâches d'agent", icon: Bot },
     { href: "/parametres", label: "Paramètres", icon: Settings },
   ];
@@ -280,6 +282,7 @@ function App() {
               <Route path="/reconciliation" component={wrap("Réconciliation", ReconciliationPage)} />
               <Route path="/audit" component={wrap("Journal d'audit", AuditLogPage)} />
               <Route path="/agent-tasks" component={wrap("Tâches d'agent", AgentTasksPage)} />
+              <Route path="/auto-trader" component={wrap("Auto-Trader", AutoTraderPage)} />
               <Route path="/parametres" component={wrap("Paramètres", SettingsPage)} />
               <Route path="/copy-trading/decouvrir" component={wrap("Découvrir des traders", CopyTradingDiscoverPage)} />
               <Route path="/copy-trading/parametres/:id" component={wrap("Paramètres trader", CopyTradingSettingsPage)} />

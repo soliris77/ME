@@ -21,21 +21,17 @@ import copyTradingRouter from "./copyTrading";
 import spotifyRouter from "./spotify";
 import symbolsRouter from "./symbols";
 import agentTasksRouter from "./agentTasks";
+import autoTraderRouter from "./autoTrader";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
 
 // ─── Routes publiques — pas de session requise ─────────────────────────────
-// clientErrorsRouter est public exprès : un crash peut survenir sur l'écran
-// de login (avant authentification) et doit quand même être journalisé.
 router.use(healthRouter);
 router.use(authRouter);
 router.use(clientErrorsRouter);
 
 // ─── Routes protégées — 401 immédiat sans session authentifiée ────────────
-// Couvre tout ce qui touche aux données de marché, à la watchlist, aux
-// alertes et surtout au courtier (/api/broker/*) — un visiteur non connecté
-// ne doit jamais pouvoir lire les positions ni soumettre un ordre.
 router.use(requireAuth);
 router.use(quotesRouter);
 router.use(marketRouter);
@@ -56,5 +52,6 @@ router.use(copyTradingRouter);
 router.use(spotifyRouter);
 router.use(symbolsRouter);
 router.use(agentTasksRouter);
+router.use(autoTraderRouter);
 
 export default router;

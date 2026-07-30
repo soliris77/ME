@@ -7,3 +7,4 @@ export * from "./notes";
 export * from "./copyTrading";
 export * from "./spotify";
 export * from "./agentTasks";
+export * from "./autoTrader";

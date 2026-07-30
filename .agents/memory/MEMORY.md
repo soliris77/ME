@@ -11,3 +11,4 @@
 - [Session continuity](session-continuity.md) — write .agents/memory/in-progress.md for multi-step tasks; read it when user says "continue".
 - [Workflow secret injection](workflow-secret-injection.md) — after adding or confirming Secrets, restart the API workflow and verify presence from startup logs before testing integrations.
 - [Agent Task Continuity System](agent-task-continuity.md) — DB table agent_tasks + API /api/agent-tasks + page /agent-tasks; auto-writes in-progress.md on every save/pause.
+- [Auto-Trader System](auto-trader-system.md) — tables auto_trade_rules + auto_trade_logs; worker 60s; routes /api/auto-trader/*; page /auto-trader; SMS Twilio sur signal.

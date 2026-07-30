@@ -28,11 +28,11 @@ var __export = (target, all3) => {
   for (var name2 in all3)
     __defProp(target, name2, { get: all3[name2], enumerable: true });
 };
-var __copyProps = (to, from, except2, desc2) => {
+var __copyProps = (to, from, except2, desc3) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except2)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc3 = __getOwnPropDesc(from, key)) || desc3.enumerable });
   }
   return to;
 };
@@ -1354,10 +1354,10 @@ var require_http_errors = __commonJS({
       return ServerError;
     }
     function nameFunc(func, name2) {
-      var desc2 = Object.getOwnPropertyDescriptor(func, "name");
-      if (desc2 && desc2.configurable) {
-        desc2.value = name2;
-        Object.defineProperty(func, "name", desc2);
+      var desc3 = Object.getOwnPropertyDescriptor(func, "name");
+      if (desc3 && desc3.configurable) {
+        desc3.value = name2;
+        Object.defineProperty(func, "name", desc3);
       }
     }
     function populateConstructorExports(exports2, codes, HttpError) {
@@ -16843,14 +16843,14 @@ var require_get = __commonJS({
         throw e;
       }
     }
-    var desc2 = !!hasProtoAccessor && gOPD && gOPD(
+    var desc3 = !!hasProtoAccessor && gOPD && gOPD(
       Object.prototype,
       /** @type {keyof typeof Object.prototype} */
       "__proto__"
     );
     var $Object = Object;
     var $getPrototypeOf = $Object.getPrototypeOf;
-    module2.exports = desc2 && typeof desc2.get === "function" ? callBind([desc2.get]) : typeof $getPrototypeOf === "function" ? (
+    module2.exports = desc3 && typeof desc3.get === "function" ? callBind([desc3.get]) : typeof $getPrototypeOf === "function" ? (
       /** @type {import('./get')} */
       function getDunder(value) {
         return $getPrototypeOf(value == null ? value : $Object(value));
@@ -17200,10 +17200,10 @@ var require_get_intrinsic = __commonJS({
             return void undefined2;
           }
           if ($gOPD && i + 1 >= parts.length) {
-            var desc2 = $gOPD(value, part);
-            isOwn = !!desc2;
-            if (isOwn && "get" in desc2 && !("originalValue" in desc2.get)) {
-              value = desc2.get;
+            var desc3 = $gOPD(value, part);
+            isOwn = !!desc3;
+            if (isOwn && "get" in desc3 && !("originalValue" in desc3.get)) {
+              value = desc3.get;
             } else {
               value = value[part];
             }
@@ -20654,27 +20654,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module2.exports = Router24;
+    module2.exports = Router25;
     module2.exports.Route = Route;
-    function Router24(options3) {
-      if (!(this instanceof Router24)) {
-        return new Router24(options3);
+    function Router25(options3) {
+      if (!(this instanceof Router25)) {
+        return new Router25(options3);
       }
       const opts = options3 || {};
-      function router24(req, res, next) {
-        router24.handle(req, res, next);
+      function router25(req, res, next) {
+        router25.handle(req, res, next);
       }
-      Object.setPrototypeOf(router24, this);
-      router24.caseSensitive = opts.caseSensitive;
-      router24.mergeParams = opts.mergeParams;
-      router24.params = {};
-      router24.strict = opts.strict;
-      router24.stack = [];
-      return router24;
+      Object.setPrototypeOf(router25, this);
+      router25.caseSensitive = opts.caseSensitive;
+      router25.mergeParams = opts.mergeParams;
+      router25.params = {};
+      router25.strict = opts.strict;
+      router25.stack = [];
+      return router25;
     }
-    Router24.prototype = function() {
+    Router25.prototype = function() {
     };
-    Router24.prototype.param = function param2(name2, fn) {
+    Router25.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20694,7 +20694,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router24.prototype.handle = function handle(req, res, callback) {
+    Router25.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20821,7 +20821,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router24.prototype.use = function use(handler) {
+    Router25.prototype.use = function use(handler) {
       let offset = 0;
       let path2 = "/";
       if (typeof handler !== "function") {
@@ -20854,7 +20854,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router24.prototype.route = function route(path2) {
+    Router25.prototype.route = function route(path2) {
       const route2 = new Route(path2);
       const layer = new Layer(path2, {
         sensitive: this.caseSensitive,
@@ -20869,7 +20869,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router24.prototype[method] = function(path2) {
+      Router25.prototype[method] = function(path2) {
         const route = this.route(path2);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21052,13 +21052,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve2 = __require("node:path").resolve;
     var once = require_once();
-    var Router24 = require_router();
+    var Router25 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module2.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router24 = null;
+      var router25 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21067,13 +21067,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router24 === null) {
-            router24 = new Router24({
+          if (router25 === null) {
+            router25 = new Router25({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router24;
+          return router25;
         }
       });
     };
@@ -21144,15 +21144,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router24 = this.router;
+      var router25 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router24.use(path2, fn2);
+          return router25.use(path2, fn2);
         }
         debug(".use app under %s", path2);
         fn2.mountpath = path2;
         fn2.parent = this;
-        router24.use(path2, function mounted_app(req, res, next) {
+        router25.use(path2, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23725,7 +23725,7 @@ var require_express = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router24 = require_router();
+    var Router25 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module2.exports = createApplication;
@@ -23747,8 +23747,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router24.Route;
-    exports.Router = Router24;
+    exports.Route = Router25.Route;
+    exports.Router = Router25;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -29760,13 +29760,13 @@ var require_cookie2 = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc2 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
-        desc2 = { enumerable: true, get: function() {
+      var desc3 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
+        desc3 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc2);
+      Object.defineProperty(o, k2, desc3);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -30535,13 +30535,13 @@ var require_cookieJar = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc2 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
-        desc2 = { enumerable: true, get: function() {
+      var desc3 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
+        desc3 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc2);
+      Object.defineProperty(o, k2, desc3);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -33422,12 +33422,12 @@ var require_result = __commonJS({
         }
         const row = /* @__PURE__ */ Object.create(null);
         for (let i = 0; i < fieldDescriptions.length; i++) {
-          const desc2 = fieldDescriptions[i];
-          row[desc2.name] = null;
+          const desc3 = fieldDescriptions[i];
+          row[desc3.name] = null;
           if (this._types) {
-            this._parsers[i] = this._types.getTypeParser(desc2.dataTypeID, desc2.format || "text");
+            this._parsers[i] = this._types.getTypeParser(desc3.dataTypeID, desc3.format || "text");
           } else {
-            this._parsers[i] = types3.getTypeParser(desc2.dataTypeID, desc2.format || "text");
+            this._parsers[i] = types3.getTypeParser(desc3.dataTypeID, desc3.format || "text");
           }
         }
         this._prebuiltEmptyResultObject = { ...row };
@@ -53432,13 +53432,13 @@ var require_ipv4 = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc2 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
-        desc2 = { enumerable: true, get: function() {
+      var desc3 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
+        desc3 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc2);
+      Object.defineProperty(o, k2, desc3);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -53998,13 +53998,13 @@ var require_regular_expressions = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc2 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
-        desc2 = { enumerable: true, get: function() {
+      var desc3 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
+        desc3 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc2);
+      Object.defineProperty(o, k2, desc3);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -54090,13 +54090,13 @@ var require_ipv6 = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc2 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
-        desc2 = { enumerable: true, get: function() {
+      var desc3 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
+        desc3 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc2);
+      Object.defineProperty(o, k2, desc3);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -55207,13 +55207,13 @@ var require_ip_address = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc2 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
-        desc2 = { enumerable: true, get: function() {
+      var desc3 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
+        desc3 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc2);
+      Object.defineProperty(o, k2, desc3);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -55252,12 +55252,12 @@ var require_ip_address = __commonJS({
 });
 
 // src/app.ts
-var import_express24 = __toESM(require_express2(), 1);
+var import_express25 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express23 = __toESM(require_express2(), 1);
+var import_express24 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -93746,6 +93746,8 @@ __export(schema_exports, {
   alertsTable: () => alertsTable,
   appSettingsTable: () => appSettingsTable,
   auditLogTable: () => auditLogTable,
+  autoTradeLogsTable: () => autoTradeLogsTable,
+  autoTradeRulesTable: () => autoTradeRulesTable,
   brokerConnectionsTable: () => brokerConnectionsTable,
   chartNotesTable: () => chartNotesTable,
   copiedTradesTable: () => copiedTradesTable,
@@ -93753,6 +93755,7 @@ __export(schema_exports, {
   insertAgentTaskSchema: () => insertAgentTaskSchema,
   insertAlertSchema: () => insertAlertSchema,
   insertAuditLogSchema: () => insertAuditLogSchema,
+  insertAutoTradeRuleSchema: () => insertAutoTradeRuleSchema,
   insertBrokerConnectionSchema: () => insertBrokerConnectionSchema,
   insertChartNoteSchema: () => insertChartNoteSchema,
   insertCopiedTradeSchema: () => insertCopiedTradeSchema,
@@ -105452,6 +105455,69 @@ var insertAgentTaskSchema = createInsertSchema(agentTasksTable).omit({
   id: true,
   startedAt: true,
   updatedAt: true
+});
+
+// ../../lib/db/src/schema/autoTrader.ts
+var autoTradeRulesTable = pgTable("auto_trade_rules", {
+  id: serial("id").primaryKey(),
+  symbol: text("symbol").notNull(),
+  name: text("name"),
+  // libellé libre ex: "Apple — achat fort"
+  enabled: boolean3("enabled").default(true).notNull(),
+  // Direction : "buy" | "sell" | "both"
+  sideMode: text("side_mode").default("both").notNull(),
+  // Score minimum pour déclencher (0-100). 60 = FORT ACHAT / FORTE VENTE
+  minScore: integer("min_score").default(60).notNull(),
+  // Quantité fixe par ordre (en actions)
+  quantity: numeric("quantity", { precision: 18, scale: 8 }).default("1").notNull(),
+  // Compte courtier à utiliser (null = compte par défaut)
+  accountId: text("account_id"),
+  // Stop-loss en % sous le prix d'entrée (null = désactivé)
+  stopLossPct: numeric("stop_loss_pct", { precision: 6, scale: 2 }),
+  // Take-profit en % au-dessus du prix d'entrée (null = désactivé)
+  takeProfitPct: numeric("take_profit_pct", { precision: 6, scale: 2 }),
+  // Nombre max d'ordres automatiques par jour (reinitialisé à minuit UTC)
+  maxTradesPerDay: integer("max_trades_per_day").default(3).notNull(),
+  // Notifier même sans passer d'ordre (signal fort sans auto-trade)
+  notifyOnSignal: boolean3("notify_on_signal").default(true).notNull(),
+  // Cooldown minimum entre deux ordres auto (en minutes)
+  cooldownMinutes: integer("cooldown_minutes").default(240).notNull(),
+  // Statistiques courantes
+  tradesToday: integer("trades_today").default(0).notNull(),
+  tradesTodayResetAt: timestamp("trades_today_reset_at"),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  lastSignalScore: integer("last_signal_score"),
+  lastSignalVerdict: text("last_signal_verdict"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+var autoTradeLogsTable = pgTable("auto_trade_logs", {
+  id: serial("id").primaryKey(),
+  ruleId: integer("rule_id").notNull(),
+  symbol: text("symbol").notNull(),
+  side: text("side").notNull(),
+  // "BUY" | "SELL"
+  triggerType: text("trigger_type").notNull(),
+  // "order" | "notification_only" | "stop_loss" | "take_profit"
+  signalScore: integer("signal_score"),
+  signalVerdict: text("signal_verdict"),
+  price: numeric("price", { precision: 18, scale: 6 }),
+  quantity: numeric("quantity", { precision: 18, scale: 8 }),
+  orderId: integer("order_id"),
+  // référence à orders.id si un ordre a été passé
+  notificationSent: boolean3("notification_sent").default(false).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var insertAutoTradeRuleSchema = createInsertSchema(autoTradeRulesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tradesToday: true,
+  tradesTodayResetAt: true,
+  lastTriggeredAt: true,
+  lastSignalScore: true,
+  lastSignalVerdict: true
 });
 
 // ../../lib/db/src/index.ts
@@ -118583,8 +118649,8 @@ var validators = {};
 });
 var deprecatedWarnings = {};
 validators.transitional = function transitional(validator, version3, message2) {
-  function formatMessage(opt, desc2) {
-    return "[Axios v" + VERSION2 + "] Transitional option '" + opt + "'" + desc2 + (message2 ? ". " + message2 : "");
+  function formatMessage(opt, desc3) {
+    return "[Axios v" + VERSION2 + "] Transitional option '" + opt + "'" + desc3 + (message2 ? ". " + message2 : "");
   }
   return (value, opt, opts) => {
     if (validator === false) {
@@ -130080,196 +130146,11 @@ router22.delete("/agent-tasks/:id", async (req, res) => {
 });
 var agentTasks_default = router22;
 
-// src/routes/index.ts
-var router23 = (0, import_express23.Router)();
-router23.use(health_default);
-router23.use(auth_default);
-router23.use(clientErrors_default);
-router23.use(requireAuth);
-router23.use(quotes_default);
-router23.use(market_default);
-router23.use(news_default);
-router23.use(watchlist_default);
-router23.use(alerts_default);
-router23.use(whop_default);
-router23.use(broker_default);
-router23.use(settings_default);
-router23.use(notificationPreferences_default);
-router23.use(audit_default);
-router23.use(performance_default);
-router23.use(calendar_default);
-router23.use(learn_default);
-router23.use(notes_default);
-router23.use(metatrader_default);
-router23.use(copyTrading_default);
-router23.use(spotify_default);
-router23.use(symbols_default);
-router23.use(agentTasks_default);
-var routes_default = router23;
-
-// src/lib/integrations/metatrader/sync.ts
+// src/routes/autoTrader.ts
+var import_express23 = __toESM(require_express2(), 1);
 init_drizzle_orm();
-var SYNC_INTERVAL_MS = Number(process.env.COPY_TRADING_SYNC_INTERVAL_MS ?? 5 * 60 * 1e3);
-async function syncFollowedTrader(followedTrader, mtConnection) {
-  const { metaApiAccountId } = mtConnection;
-  if (!metaApiAccountId) {
-    logger.warn({ followedTraderId: followedTrader.id }, "copytrading: no metaApiAccountId \u2014 skip sync");
-    return;
-  }
-  let positions;
-  try {
-    positions = await getOpenPositions(metaApiAccountId);
-  } catch (err) {
-    logger.warn({ err, followedTraderId: followedTrader.id }, "copytrading: failed to fetch positions \u2014 skipping");
-    return;
-  }
-  for (const position of positions) {
-    const existing = await db.select({ id: copiedTradesTable.id }).from(copiedTradesTable).where(
-      and(
-        eq(copiedTradesTable.followedTraderId, followedTrader.id),
-        eq(copiedTradesTable.externalTradeId, position.id)
-      )
-    ).limit(1);
-    if (existing.length > 0) continue;
-    const direction = position.type === "POSITION_TYPE_BUY" ? "buy" : "sell";
-    let copiedAmount = null;
-    if (followedTrader.maxAmountPerTrade) {
-      copiedAmount = followedTrader.maxAmountPerTrade;
-    }
-    await db.insert(copiedTradesTable).values({
-      followedTraderId: followedTrader.id,
-      externalTradeId: position.id,
-      symbol: position.symbol,
-      direction,
-      originalAmount: String(position.volume),
-      copiedAmount,
-      status: followedTrader.autoExecute ? "executed" : "notified",
-      openedAt: new Date(position.openTime)
-    });
-    logger.info(
-      {
-        followedTraderId: followedTrader.id,
-        symbol: position.symbol,
-        direction,
-        autoExecute: followedTrader.autoExecute
-      },
-      "copytrading: new trade detected"
-    );
-    if (!followedTrader.autoExecute) {
-      const trader = followedTrader.traderDisplayName ?? `Strat\xE9gie ${followedTrader.externalStrategyId}`;
-      const notifyEmail = process.env.ALERT_NOTIFY_EMAIL;
-      if (notifyEmail) {
-        await sendEmail({
-          to: notifyEmail,
-          subject: `\u{1F4C8} Nouveau trade copi\xE9 \u2014 ${trader} (${position.symbol})`,
-          html: copyTradeEmailHtml({ trader, position: { symbol: position.symbol, direction, volume: position.volume, openPrice: position.openPrice } })
-        }).catch((err) => logger.warn({ err }, "copytrading: failed to send notification email"));
-      }
-    }
-  }
-}
-function copyTradeEmailHtml(params) {
-  const { trader, position } = params;
-  const dirText = position.direction === "buy" ? "ACHAT" : "VENTE";
-  const dirColor = position.direction === "buy" ? "#10b981" : "#ef4444";
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">\u{1F4C8} Nouveau trade copi\xE9 \u2014 ${trader}</h2>
-      <p style="font-size: 16px; color: #333;">
-        Le trader <strong>${trader}</strong> vient d'ouvrir un trade que tu suis :
-      </p>
-      <table style="border-collapse: collapse; width: 100%; margin-top: 12px;">
-        <tr>
-          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Instrument</td>
-          <td style="padding: 6px 12px;">${position.symbol}</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Direction</td>
-          <td style="padding: 6px 12px; color: ${dirColor}; font-weight: bold;">${dirText}</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Volume</td>
-          <td style="padding: 6px 12px;">${position.volume} lots</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Prix d'ouverture</td>
-          <td style="padding: 6px 12px;">${position.openPrice}</td>
-        </tr>
-      </table>
-      <p style="font-size: 13px; color: #666; margin-top: 20px;">
-        Connecte-toi \xE0 <strong>Soliris Market</strong> pour voir tous les d\xE9tails et g\xE9rer tes traders suivis.
-      </p>
-      <p style="font-size: 11px; color: #999; margin-top: 16px;">
-        \u26A0\uFE0F Ce n'est pas un conseil financier. Le trading comporte un risque de perte en capital.
-        Soliris Market ne garantit pas les performances pass\xE9es ou futures des traders suivis.
-      </p>
-    </div>
-  `;
-}
-async function runSync() {
-  if (!process.env.METAAPI_TOKEN) {
-    logger.debug("copytrading: METAAPI_TOKEN absent \u2014 sync skipped");
-    return;
-  }
-  try {
-    const connections = await db.select().from(mtConnectionsTable).where(eq(mtConnectionsTable.isActive, true));
-    if (connections.length === 0) return;
-    const connection = connections[0];
-    const traders = await db.select().from(followedTradersTable).where(eq(followedTradersTable.mtConnectionId, connection.id));
-    for (const trader of traders) {
-      await syncFollowedTrader(trader, connection).catch(
-        (err) => logger.warn({ err, followedTraderId: trader.id }, "copytrading: sync error for trader")
-      );
-    }
-    await db.update(mtConnectionsTable).set({ lastSyncAt: /* @__PURE__ */ new Date() }).where(eq(mtConnectionsTable.id, connection.id));
-  } catch (err) {
-    logger.error({ err }, "copytrading: sync job failed");
-  }
-}
-function startCopyTradingSync() {
-  if (!process.env.METAAPI_TOKEN) {
-    logger.warn("copytrading: METAAPI_TOKEN non configur\xE9 \u2014 job de synchronisation d\xE9sactiv\xE9.");
-    return;
-  }
-  logger.info({ intervalMs: SYNC_INTERVAL_MS }, "copytrading: sync job started");
-  runSync().catch((err) => logger.error({ err }, "copytrading: initial sync failed"));
-  setInterval(() => {
-    runSync().catch((err) => logger.error({ err }, "copytrading: periodic sync failed"));
-  }, SYNC_INTERVAL_MS);
-}
 
-// src/app.ts
-var app = (0, import_express24.default)();
-app.set("trust proxy", 1);
-app.use(
-  (0, import_pino_http.default)({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0]
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode
-        };
-      }
-    }
-  })
-);
-app.use((0, import_cors.default)());
-app.use(import_express24.default.json());
-app.use(import_express24.default.urlencoded({ extended: true }));
-app.use(sessionMiddleware);
-app.use("/api", routes_default);
-initTradingMode().catch((err) => logger.warn({ err }, "initTradingMode: \xE9chec"));
-startCopyTradingSync();
-var app_default = app;
-
-// src/workers/alertWorker.ts
+// src/workers/autoTradeWorker.ts
 init_drizzle_orm();
 
 // src/lib/signals.ts
@@ -130440,6 +130321,510 @@ function analyzeTradingSignals(data, currentPrice) {
   }
   return { overall, score: clampedScore, signals, recommendation, beginnerSummary };
 }
+
+// src/workers/autoTradeWorker.ts
+var WORKER_INTERVAL_MS = 6e4;
+var OHLC_DAYS = 90;
+async function fetchOHLC(symbol2) {
+  const period1 = new Date(Date.now() - OHLC_DAYS * 24 * 60 * 60 * 1e3);
+  const result = await yahooFinance.chart(symbol2, { period1, interval: "1d" });
+  return (result.quotes ?? []).map((p) => ({
+    date: new Date(p.date).toISOString(),
+    open: p.open ?? null,
+    high: p.high ?? null,
+    low: p.low ?? null,
+    close: p.close ?? 0,
+    volume: p.volume ?? null
+  }));
+}
+function isTodayReset(resetAt) {
+  if (!resetAt) return false;
+  const now = /* @__PURE__ */ new Date();
+  return resetAt.getUTCFullYear() === now.getUTCFullYear() && resetAt.getUTCMonth() === now.getUTCMonth() && resetAt.getUTCDate() === now.getUTCDate();
+}
+async function resolveConnection() {
+  const [conn] = await db.select().from(brokerConnectionsTable).limit(1);
+  return conn ?? null;
+}
+async function sendAutoTradeNotification(params) {
+  const { symbol: symbol2, side, verdict, score, price, quantity, triggerType, orderMode } = params;
+  const sideEmoji = side === "BUY" ? "\u{1F7E2}" : "\u{1F534}";
+  const action = side === "BUY" ? "ACHAT" : "VENTE";
+  const typeLabel = triggerType === "stop_loss" ? "\u26D4 Stop-Loss d\xE9clench\xE9" : triggerType === "take_profit" ? "\u2705 Take-Profit d\xE9clench\xE9" : triggerType === "order" ? `${sideEmoji} Ordre automatique ${orderMode === "live" ? "(LIVE)" : "(paper)"}` : `${sideEmoji} Signal fort d\xE9tect\xE9 (notification)`;
+  const smsBody = [
+    `${typeLabel} \u2014 ${symbol2}`,
+    `Signal : ${verdict} (score ${score > 0 ? "+" : ""}${score})`,
+    `${action} ${quantity} action${Number(quantity) > 1 ? "s" : ""} @ ${price.toFixed(2)} $`,
+    `\u26A0\uFE0F Pas un conseil financier.`
+  ].join("\n");
+  try {
+    const prefs = await resolveDestinations("signalAlert");
+    if (prefs.sendSms && prefs.phone) {
+      await sendSms({ to: prefs.phone, body: smsBody });
+    }
+  } catch (err) {
+    logger.error({ err, symbol: symbol2 }, "autoTradeWorker: SMS notification failed");
+  }
+}
+async function processRule(rule, conn) {
+  const now = /* @__PURE__ */ new Date();
+  if (rule.lastTriggeredAt) {
+    const elapsed = now.getTime() - rule.lastTriggeredAt.getTime();
+    const cooldownMs = rule.cooldownMinutes * 60 * 1e3;
+    if (elapsed < cooldownMs) return;
+  }
+  const todayReset = isTodayReset(rule.tradesTodayResetAt);
+  const tradesToday = todayReset ? rule.tradesToday : 0;
+  if (tradesToday >= rule.maxTradesPerDay) {
+    logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: quota journalier atteint, skip");
+    return;
+  }
+  let history;
+  try {
+    history = await fetchOHLC(rule.symbol);
+  } catch (err) {
+    logger.warn({ err, symbol: rule.symbol }, "autoTradeWorker: OHLC fetch failed");
+    return;
+  }
+  if (history.length < 55) return;
+  const data = computeIndicators(history);
+  const currentPrice = history[history.length - 1].close;
+  const analysis = analyzeTradingSignals(data, currentPrice);
+  await db.update(autoTradeRulesTable).set({ lastSignalScore: analysis.score, lastSignalVerdict: analysis.overall, updatedAt: now }).where(eq(autoTradeRulesTable.id, rule.id));
+  const absScore = Math.abs(analysis.score);
+  if (absScore < rule.minScore) return;
+  const isBuySignal = analysis.score > 0;
+  const isSellSignal = analysis.score < 0;
+  const modeAllowsBuy = rule.sideMode === "buy" || rule.sideMode === "both";
+  const modeAllowsSell = rule.sideMode === "sell" || rule.sideMode === "both";
+  const shouldBuy = isBuySignal && modeAllowsBuy;
+  const shouldSell = isSellSignal && modeAllowsSell;
+  if (!shouldBuy && !shouldSell) return;
+  const side = shouldBuy ? "BUY" : "SELL";
+  const quantity = parseFloat(rule.quantity) || 1;
+  const signalId = `auto-${rule.id}-${Date.now()}`;
+  let orderId;
+  let notificationSent = false;
+  let triggerType = "notification_only";
+  let orderMode = "paper";
+  const killSwitchActive = conn?.tradingHalted ?? false;
+  if (!killSwitchActive) {
+    try {
+      const brokerConnection = conn?.status === "connected" ? { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret } : null;
+      const result = await submitOrder({
+        signalId,
+        symbol: rule.symbol,
+        side,
+        quantity,
+        accountId: rule.accountId ?? void 0,
+        expectedPrice: currentPrice,
+        source: "auto-signal",
+        brokerConnection
+      });
+      if (result.status === "accepted") {
+        orderId = result.order.id;
+        triggerType = "order";
+        orderMode = result.order.mode === "live" ? "live" : "paper";
+        logger.info({ ruleId: rule.id, symbol: rule.symbol, side, quantity, orderId }, "autoTradeWorker: ordre auto ex\xE9cut\xE9");
+      } else if (result.status === "duplicate") {
+        logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: ordre dupliqu\xE9, skip");
+        return;
+      } else {
+        logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: result.reason }, "autoTradeWorker: ordre rejet\xE9 par garde-fous");
+      }
+    } catch (err) {
+      logger.error({ err, ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: erreur lors de la soumission de l'ordre");
+    }
+  }
+  if (rule.notifyOnSignal) {
+    await sendAutoTradeNotification({
+      symbol: rule.symbol,
+      side,
+      verdict: analysis.overall,
+      score: analysis.score,
+      price: currentPrice,
+      quantity,
+      triggerType,
+      orderMode
+    });
+    notificationSent = true;
+  }
+  await db.insert(autoTradeLogsTable).values({
+    ruleId: rule.id,
+    symbol: rule.symbol,
+    side,
+    triggerType,
+    signalScore: analysis.score,
+    signalVerdict: analysis.overall,
+    price: String(currentPrice),
+    quantity: String(quantity),
+    orderId: orderId ?? null,
+    notificationSent,
+    notes: analysis.signals.filter((s) => s.verdict !== "neutral").slice(0, 3).map((s) => `${s.name}: ${s.value}`).join(", ")
+  });
+  const newTradesToday = triggerType === "order" ? tradesToday + 1 : tradesToday;
+  await db.update(autoTradeRulesTable).set({
+    lastTriggeredAt: now,
+    tradesToday: newTradesToday,
+    tradesTodayResetAt: todayReset ? rule.tradesTodayResetAt : now,
+    updatedAt: now
+  }).where(eq(autoTradeRulesTable.id, rule.id));
+}
+async function runAutoTradeCheck() {
+  const [rules, conn] = await Promise.all([
+    db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true)),
+    resolveConnection()
+  ]);
+  if (rules.length === 0) return;
+  logger.info({ count: rules.length }, "autoTradeWorker: cycle d\xE9marr\xE9");
+  for (const rule of rules) {
+    try {
+      await processRule(rule, conn);
+    } catch (err) {
+      logger.error({ err, ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: erreur inattendue sur la r\xE8gle");
+    }
+    await new Promise((r) => setTimeout(r, 800));
+  }
+}
+var intervalHandle = null;
+function startAutoTradeWorker(intervalMs = WORKER_INTERVAL_MS) {
+  if (intervalHandle) return;
+  logger.info({ intervalMs }, "autoTradeWorker: d\xE9marr\xE9");
+  setTimeout(() => {
+    void runAutoTradeCheck().catch((err) => logger.error({ err }, "autoTradeWorker: cycle initial \xE9chou\xE9"));
+  }, 3e4);
+  intervalHandle = setInterval(() => {
+    void runAutoTradeCheck().catch((err) => logger.error({ err }, "autoTradeWorker: cycle \xE9chou\xE9"));
+  }, intervalMs);
+}
+
+// src/routes/autoTrader.ts
+var router23 = (0, import_express23.Router)();
+router23.get("/auto-trader/rules", async (_req, res) => {
+  try {
+    const rules = await db.select().from(autoTradeRulesTable).orderBy(desc(autoTradeRulesTable.createdAt));
+    res.json(rules);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: GET rules error");
+    res.status(500).json({ error: "Erreur lors du chargement des r\xE8gles" });
+  }
+});
+router23.post("/auto-trader/rules", async (req, res) => {
+  try {
+    const {
+      symbol: symbol2,
+      name: name2,
+      sideMode,
+      minScore,
+      quantity,
+      accountId,
+      stopLossPct,
+      takeProfitPct,
+      maxTradesPerDay,
+      notifyOnSignal,
+      cooldownMinutes
+    } = req.body;
+    if (!symbol2 || typeof symbol2 !== "string") {
+      return res.status(400).json({ error: "symbol requis" });
+    }
+    const [rule] = await db.insert(autoTradeRulesTable).values({
+      symbol: symbol2.toUpperCase(),
+      name: typeof name2 === "string" ? name2 : null,
+      enabled: true,
+      sideMode: typeof sideMode === "string" ? sideMode : "both",
+      minScore: typeof minScore === "number" ? minScore : 60,
+      quantity: typeof quantity === "number" ? String(quantity) : "1",
+      accountId: typeof accountId === "string" ? accountId : null,
+      stopLossPct: typeof stopLossPct === "number" ? String(stopLossPct) : null,
+      takeProfitPct: typeof takeProfitPct === "number" ? String(takeProfitPct) : null,
+      maxTradesPerDay: typeof maxTradesPerDay === "number" ? maxTradesPerDay : 3,
+      notifyOnSignal: typeof notifyOnSignal === "boolean" ? notifyOnSignal : true,
+      cooldownMinutes: typeof cooldownMinutes === "number" ? cooldownMinutes : 240
+    }).returning();
+    logger.info({ ruleId: rule.id, symbol: rule.symbol }, "auto-trader: r\xE8gle cr\xE9\xE9e");
+    return res.status(201).json(rule);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: POST rules error");
+    return res.status(500).json({ error: "Erreur lors de la cr\xE9ation de la r\xE8gle" });
+  }
+});
+router23.put("/auto-trader/rules/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "id invalide" });
+    const {
+      symbol: symbol2,
+      name: name2,
+      sideMode,
+      minScore,
+      quantity,
+      accountId,
+      stopLossPct,
+      takeProfitPct,
+      maxTradesPerDay,
+      notifyOnSignal,
+      cooldownMinutes,
+      enabled
+    } = req.body;
+    const [updated] = await db.update(autoTradeRulesTable).set({
+      ...symbol2 && { symbol: symbol2.toUpperCase() },
+      ...name2 !== void 0 && { name: typeof name2 === "string" ? name2 : null },
+      ...sideMode && { sideMode },
+      ...typeof minScore === "number" && { minScore },
+      ...typeof quantity === "number" && { quantity: String(quantity) },
+      ...accountId !== void 0 && { accountId: typeof accountId === "string" ? accountId : null },
+      ...stopLossPct !== void 0 && { stopLossPct: typeof stopLossPct === "number" ? String(stopLossPct) : null },
+      ...takeProfitPct !== void 0 && { takeProfitPct: typeof takeProfitPct === "number" ? String(takeProfitPct) : null },
+      ...typeof maxTradesPerDay === "number" && { maxTradesPerDay },
+      ...typeof notifyOnSignal === "boolean" && { notifyOnSignal },
+      ...typeof cooldownMinutes === "number" && { cooldownMinutes },
+      ...typeof enabled === "boolean" && { enabled },
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq(autoTradeRulesTable.id, id)).returning();
+    if (!updated) return res.status(404).json({ error: "R\xE8gle introuvable" });
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: PUT rules error");
+    return res.status(500).json({ error: "Erreur lors de la mise \xE0 jour" });
+  }
+});
+router23.patch("/auto-trader/rules/:id/toggle", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "id invalide" });
+    const [existing] = await db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "R\xE8gle introuvable" });
+    const [updated] = await db.update(autoTradeRulesTable).set({ enabled: !existing.enabled, updatedAt: /* @__PURE__ */ new Date() }).where(eq(autoTradeRulesTable.id, id)).returning();
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: PATCH toggle error");
+    return res.status(500).json({ error: "Erreur lors du toggle" });
+  }
+});
+router23.delete("/auto-trader/rules/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "id invalide" });
+    await db.delete(autoTradeRulesTable).where(eq(autoTradeRulesTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "auto-trader: DELETE rules error");
+    return res.status(500).json({ error: "Erreur lors de la suppression" });
+  }
+});
+router23.get("/auto-trader/logs", async (req, res) => {
+  try {
+    const limit2 = Math.min(parseInt(String(req.query.limit ?? "50"), 10) || 50, 200);
+    const logs = await db.select().from(autoTradeLogsTable).orderBy(desc(autoTradeLogsTable.createdAt)).limit(limit2);
+    res.json(logs);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: GET logs error");
+    res.status(500).json({ error: "Erreur lors du chargement des logs" });
+  }
+});
+router23.post("/auto-trader/run", async (_req, res) => {
+  try {
+    void runAutoTradeCheck().catch((err) => logger.error({ err }, "auto-trader: forced run failed"));
+    res.json({ ok: true, message: "Cycle d\xE9marr\xE9 en arri\xE8re-plan" });
+  } catch (err) {
+    logger.error({ err }, "auto-trader: POST run error");
+    res.status(500).json({ error: "Erreur lors du d\xE9marrage du cycle" });
+  }
+});
+var autoTrader_default = router23;
+
+// src/routes/index.ts
+var router24 = (0, import_express24.Router)();
+router24.use(health_default);
+router24.use(auth_default);
+router24.use(clientErrors_default);
+router24.use(requireAuth);
+router24.use(quotes_default);
+router24.use(market_default);
+router24.use(news_default);
+router24.use(watchlist_default);
+router24.use(alerts_default);
+router24.use(whop_default);
+router24.use(broker_default);
+router24.use(settings_default);
+router24.use(notificationPreferences_default);
+router24.use(audit_default);
+router24.use(performance_default);
+router24.use(calendar_default);
+router24.use(learn_default);
+router24.use(notes_default);
+router24.use(metatrader_default);
+router24.use(copyTrading_default);
+router24.use(spotify_default);
+router24.use(symbols_default);
+router24.use(agentTasks_default);
+router24.use(autoTrader_default);
+var routes_default = router24;
+
+// src/lib/integrations/metatrader/sync.ts
+init_drizzle_orm();
+var SYNC_INTERVAL_MS = Number(process.env.COPY_TRADING_SYNC_INTERVAL_MS ?? 5 * 60 * 1e3);
+async function syncFollowedTrader(followedTrader, mtConnection) {
+  const { metaApiAccountId } = mtConnection;
+  if (!metaApiAccountId) {
+    logger.warn({ followedTraderId: followedTrader.id }, "copytrading: no metaApiAccountId \u2014 skip sync");
+    return;
+  }
+  let positions;
+  try {
+    positions = await getOpenPositions(metaApiAccountId);
+  } catch (err) {
+    logger.warn({ err, followedTraderId: followedTrader.id }, "copytrading: failed to fetch positions \u2014 skipping");
+    return;
+  }
+  for (const position of positions) {
+    const existing = await db.select({ id: copiedTradesTable.id }).from(copiedTradesTable).where(
+      and(
+        eq(copiedTradesTable.followedTraderId, followedTrader.id),
+        eq(copiedTradesTable.externalTradeId, position.id)
+      )
+    ).limit(1);
+    if (existing.length > 0) continue;
+    const direction = position.type === "POSITION_TYPE_BUY" ? "buy" : "sell";
+    let copiedAmount = null;
+    if (followedTrader.maxAmountPerTrade) {
+      copiedAmount = followedTrader.maxAmountPerTrade;
+    }
+    await db.insert(copiedTradesTable).values({
+      followedTraderId: followedTrader.id,
+      externalTradeId: position.id,
+      symbol: position.symbol,
+      direction,
+      originalAmount: String(position.volume),
+      copiedAmount,
+      status: followedTrader.autoExecute ? "executed" : "notified",
+      openedAt: new Date(position.openTime)
+    });
+    logger.info(
+      {
+        followedTraderId: followedTrader.id,
+        symbol: position.symbol,
+        direction,
+        autoExecute: followedTrader.autoExecute
+      },
+      "copytrading: new trade detected"
+    );
+    if (!followedTrader.autoExecute) {
+      const trader = followedTrader.traderDisplayName ?? `Strat\xE9gie ${followedTrader.externalStrategyId}`;
+      const notifyEmail = process.env.ALERT_NOTIFY_EMAIL;
+      if (notifyEmail) {
+        await sendEmail({
+          to: notifyEmail,
+          subject: `\u{1F4C8} Nouveau trade copi\xE9 \u2014 ${trader} (${position.symbol})`,
+          html: copyTradeEmailHtml({ trader, position: { symbol: position.symbol, direction, volume: position.volume, openPrice: position.openPrice } })
+        }).catch((err) => logger.warn({ err }, "copytrading: failed to send notification email"));
+      }
+    }
+  }
+}
+function copyTradeEmailHtml(params) {
+  const { trader, position } = params;
+  const dirText = position.direction === "buy" ? "ACHAT" : "VENTE";
+  const dirColor = position.direction === "buy" ? "#10b981" : "#ef4444";
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">\u{1F4C8} Nouveau trade copi\xE9 \u2014 ${trader}</h2>
+      <p style="font-size: 16px; color: #333;">
+        Le trader <strong>${trader}</strong> vient d'ouvrir un trade que tu suis :
+      </p>
+      <table style="border-collapse: collapse; width: 100%; margin-top: 12px;">
+        <tr>
+          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Instrument</td>
+          <td style="padding: 6px 12px;">${position.symbol}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Direction</td>
+          <td style="padding: 6px 12px; color: ${dirColor}; font-weight: bold;">${dirText}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Volume</td>
+          <td style="padding: 6px 12px;">${position.volume} lots</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px; font-weight: bold; background: #f5f5f5;">Prix d'ouverture</td>
+          <td style="padding: 6px 12px;">${position.openPrice}</td>
+        </tr>
+      </table>
+      <p style="font-size: 13px; color: #666; margin-top: 20px;">
+        Connecte-toi \xE0 <strong>Soliris Market</strong> pour voir tous les d\xE9tails et g\xE9rer tes traders suivis.
+      </p>
+      <p style="font-size: 11px; color: #999; margin-top: 16px;">
+        \u26A0\uFE0F Ce n'est pas un conseil financier. Le trading comporte un risque de perte en capital.
+        Soliris Market ne garantit pas les performances pass\xE9es ou futures des traders suivis.
+      </p>
+    </div>
+  `;
+}
+async function runSync() {
+  if (!process.env.METAAPI_TOKEN) {
+    logger.debug("copytrading: METAAPI_TOKEN absent \u2014 sync skipped");
+    return;
+  }
+  try {
+    const connections = await db.select().from(mtConnectionsTable).where(eq(mtConnectionsTable.isActive, true));
+    if (connections.length === 0) return;
+    const connection = connections[0];
+    const traders = await db.select().from(followedTradersTable).where(eq(followedTradersTable.mtConnectionId, connection.id));
+    for (const trader of traders) {
+      await syncFollowedTrader(trader, connection).catch(
+        (err) => logger.warn({ err, followedTraderId: trader.id }, "copytrading: sync error for trader")
+      );
+    }
+    await db.update(mtConnectionsTable).set({ lastSyncAt: /* @__PURE__ */ new Date() }).where(eq(mtConnectionsTable.id, connection.id));
+  } catch (err) {
+    logger.error({ err }, "copytrading: sync job failed");
+  }
+}
+function startCopyTradingSync() {
+  if (!process.env.METAAPI_TOKEN) {
+    logger.warn("copytrading: METAAPI_TOKEN non configur\xE9 \u2014 job de synchronisation d\xE9sactiv\xE9.");
+    return;
+  }
+  logger.info({ intervalMs: SYNC_INTERVAL_MS }, "copytrading: sync job started");
+  runSync().catch((err) => logger.error({ err }, "copytrading: initial sync failed"));
+  setInterval(() => {
+    runSync().catch((err) => logger.error({ err }, "copytrading: periodic sync failed"));
+  }, SYNC_INTERVAL_MS);
+}
+
+// src/app.ts
+var app = (0, import_express25.default)();
+app.set("trust proxy", 1);
+app.use(
+  (0, import_pino_http.default)({
+    logger,
+    serializers: {
+      req(req) {
+        return {
+          id: req.id,
+          method: req.method,
+          url: req.url?.split("?")[0]
+        };
+      },
+      res(res) {
+        return {
+          statusCode: res.statusCode
+        };
+      }
+    }
+  })
+);
+app.use((0, import_cors.default)());
+app.use(import_express25.default.json());
+app.use(import_express25.default.urlencoded({ extended: true }));
+app.use(sessionMiddleware);
+app.use("/api", routes_default);
+initTradingMode().catch((err) => logger.warn({ err }, "initTradingMode: \xE9chec"));
+startCopyTradingSync();
+var app_default = app;
+
+// src/workers/alertWorker.ts
+init_drizzle_orm();
 
 // src/lib/patternDetect.ts
 function detectCandlePatterns(history) {
@@ -130852,12 +131237,12 @@ async function checkAlerts() {
     }
   }
 }
-var intervalHandle = null;
+var intervalHandle2 = null;
 function startAlertWorker(intervalMs = DEFAULT_INTERVAL_MS) {
-  if (intervalHandle) return;
+  if (intervalHandle2) return;
   logger.info({ intervalMs }, "Starting alert worker");
   void checkAlerts().catch((err) => logger.error({ err }, "alertWorker: initial run failed"));
-  intervalHandle = setInterval(() => {
+  intervalHandle2 = setInterval(() => {
     void checkAlerts().catch((err) => logger.error({ err }, "alertWorker: cycle failed"));
   }, intervalMs);
 }
@@ -130893,6 +131278,7 @@ app_default.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   const alertIntervalMs = Number(process.env.ALERT_CHECK_INTERVAL_MS ?? "90000");
   startAlertWorker(Number.isFinite(alertIntervalMs) && alertIntervalMs > 0 ? alertIntervalMs : void 0);
+  startAutoTradeWorker();
   persistConsumerKeyIfNeeded().catch(
     (err2) => logger.warn({ err: err2 }, "snaptrade: persistConsumerKeyIfNeeded a \xE9chou\xE9 au d\xE9marrage")
   );
