@@ -2,6 +2,12 @@
 ## ⚠️ TÂCHE EN COURS — LIRE EN PREMIER
 - [in-progress.md](in-progress.md) — **TÂCHE INTERROMPUE À REPRENDRE** : "Test de vérification du système" · Statut: paused · 2 prochaines étapes documentées
 <!-- AGENT_TASK_ALERT_END -->
+
+## 🔴 PROTOCOLE OBLIGATOIRE — À LIRE AVANT TOUT TRAVAIL
+- [current-task.md](current-task.md) — **LIRE EN PREMIER** : état exact de la tâche en cours (étapes ✅ FAIT / → EN COURS / ☐ À FAIRE)
+- [checkpoint-protocol.md](checkpoint-protocol.md) — protocole pas-à-pas obligatoire : écrire chaque étape AVANT de l'exécuter, cocher après — garantit la reprise après coupure
+
+## Connaissances techniques du projet
 - [API server build-on-restart](api-server-build.md) — API server must rebuild on every restart; stale dist/index.mjs causes silent data failures.
 - [Yahoo Finance batch queries](yahoo-finance-batch.md) — use array form of yahooFinance.quote() with skipValidation:true; 50 symbols/batch, 4 batches parallel gives ~1s vs 15s individually.
 - [isUp null semantics](isup-null-semantics.md) — isUp() returns boolean|null; null means no data — suppress arrows/colors, don't default to "up".
