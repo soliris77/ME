@@ -145,7 +145,7 @@ export async function getConnectionPortalUrl(
   userSecret: string,
   reconnect?: string
 ): Promise<string> {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
 
   const res = await client.authentication.loginSnapTradeUser({
     userId,
@@ -164,13 +164,13 @@ export async function getConnectionPortalUrl(
 // ─── Account data ─────────────────────────────────────────────────────────────
 
 export async function listAccounts(userId: string, userSecret: string) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.accountInformation.listUserAccounts({ userId, userSecret });
   return res.data ?? [];
 }
 
 export async function listPositions(userId: string, userSecret: string, accountId: string) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.accountInformation.getUserAccountPositions({
     userId,
     userSecret,
@@ -180,7 +180,7 @@ export async function listPositions(userId: string, userSecret: string, accountI
 }
 
 export async function listBalances(userId: string, userSecret: string, accountId: string) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.accountInformation.getUserAccountBalance({
     userId,
     userSecret,
@@ -219,7 +219,7 @@ export async function placeOrder(params: PlaceOrderParams) {
     );
   }
 
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
 
   const res = await client.trading.placeForceOrder({
     userId: params.userId,

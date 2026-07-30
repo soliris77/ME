@@ -124704,16 +124704,6 @@ async function persistConsumerKeyIfNeeded() {
     logger.warn({ err }, "snaptrade: impossible de persister les credentials en base");
   }
 }
-function getSnaptradeClient() {
-  if (_client) return _client;
-  const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
-  const clientId = process.env.SNAPTRADE_CLIENT_ID ?? SNAPTRADE_CLIENT_ID_DEFAULT;
-  if (!consumerKey) {
-    throw new Error("SNAPTRADE_CONSUMER_KEY introuvable. Configure-le via le portail /courtier.");
-  }
-  _client = new Snaptrade({ clientId, consumerKey });
-  return _client;
-}
 async function getSnaptradeClientAsync() {
   if (_client) return _client;
   const creds = await resolveCredentials();
@@ -124724,7 +124714,7 @@ async function getSnaptradeClientAsync() {
   return _client;
 }
 async function getConnectionPortalUrl(userId, userSecret, reconnect) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.authentication.loginSnapTradeUser({
     userId,
     userSecret,
@@ -124736,12 +124726,12 @@ async function getConnectionPortalUrl(userId, userSecret, reconnect) {
   return data?.redirectURI ?? data?.loginLink ?? "";
 }
 async function listAccounts(userId, userSecret) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.accountInformation.listUserAccounts({ userId, userSecret });
   return res.data ?? [];
 }
 async function listPositions(userId, userSecret, accountId) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.accountInformation.getUserAccountPositions({
     userId,
     userSecret,
@@ -124750,7 +124740,7 @@ async function listPositions(userId, userSecret, accountId) {
   return res.data ?? [];
 }
 async function listBalances(userId, userSecret, accountId) {
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.accountInformation.getUserAccountBalance({
     userId,
     userSecret,
@@ -124764,7 +124754,7 @@ async function placeOrder(params) {
       `placeOrder() appel\xE9 alors que TRADING_MODE="${getTradingMode()}" \u2014 un ordre r\xE9el ne peut \xEAtre soumis qu'en mode live.`
     );
   }
-  const client = getSnaptradeClient();
+  const client = await getSnaptradeClientAsync();
   const res = await client.trading.placeForceOrder({
     userId: params.userId,
     userSecret: params.userSecret,
@@ -125550,19 +125540,18 @@ async function getConnection() {
 }
 router8.post("/broker/credentials", async (req, res) => {
   try {
-    const { clientId, consumerKey, userId, userSecret } = req.body;
-    if (!clientId || !consumerKey || !userId || !userSecret) {
-      return res.status(400).json({ error: "Les 4 champs sont requis : Client ID, Consumer Key, User ID et User Secret." });
+    const { clientId, consumerKey } = req.body;
+    if (!clientId || !consumerKey) {
+      return res.status(400).json({ error: "Client ID et Consumer Key sont requis." });
     }
     const rows = await db.select().from(appSettingsTable).limit(1);
     if (rows.length === 0) {
       return res.status(503).json({ error: "Serveur pas encore initialis\xE9. R\xE9essaie dans quelques secondes." });
     }
-    const row = rows[0];
-    await db.update(appSettingsTable).set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey, snaptradeUserId: userId, snaptradeUserSecret: userSecret }).where(eq(appSettingsTable.id, row.id));
+    await db.update(appSettingsTable).set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey }).where(eq(appSettingsTable.id, rows[0].id));
     invalidateSnaptradeClient();
     await logAudit("broker.credentials", "Cl\xE9s SnapTrade mises \xE0 jour via l'interface (stock\xE9es en base).");
-    logger.info("broker: 4 cl\xE9s SnapTrade mises \xE0 jour en base");
+    logger.info("broker: cl\xE9s SnapTrade mises \xE0 jour en base");
     return res.json({ ok: true, message: "Cl\xE9s sauvegard\xE9es. Elles survivront aux remixes." });
   } catch (err) {
     logger.error({ err }, "broker: save credentials failed");
@@ -125587,7 +125576,7 @@ router8.get("/broker/credentials", async (_req, res) => {
 router8.get("/broker/trading-mode", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
   return res.json({ mode, hasCredentials });
 });
 router8.post("/broker/trading-mode", async (req, res) => {
@@ -125622,15 +125611,10 @@ router8.post("/broker/setup", async (req, res) => {
     const creds = await resolveCredentials();
     if (!creds.clientId || !creds.consumerKey) {
       return res.status(400).json({
-        error: "Client ID et Consumer Key manquants. Sauvegarde d'abord tes 4 cl\xE9s SnapTrade via le formulaire ci-dessus."
+        error: "Client ID et Consumer Key manquants. Sauvegarde d'abord tes cl\xE9s via le formulaire ci-dessus."
       });
     }
-    if (!creds.userId || !creds.userSecret) {
-      return res.status(400).json({
-        error: "User ID et User Secret manquants. Tu les trouves dans ton tableau de bord app.snaptrade.com \u2192 Account Settings. Sauvegarde d'abord tes 4 cl\xE9s via le formulaire."
-      });
-    }
-    const [row] = await db.insert(brokerConnectionsTable).values({ snaptradeUserId: creds.userId, snaptradeUserSecret: creds.userSecret, status: "pending" }).returning();
+    const [row] = await db.insert(brokerConnectionsTable).values({ snaptradeUserId: creds.clientId, snaptradeUserSecret: creds.consumerKey, status: "pending" }).returning();
     logger.info({ userId: creds.userId }, "broker: setup complete \u2014 credentials personnels enregistr\xE9s");
     await logAudit("broker.setup", "Compte courtier SnapTrade initialis\xE9 avec cl\xE9s personnelles.", { userId: creds.userId });
     return res.status(201).json({
@@ -125665,7 +125649,7 @@ router8.get("/broker/connect-url", async (req, res) => {
 router8.get("/broker/status", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
   const settings = await getRiskSettings();
   const conn = await getConnection();
   if (!conn) {

@@ -111,7 +111,7 @@ export default function BrokerPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // ── Formulaire credentials ──
-  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
+  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "" });
   const [showSecrets, setShowSecrets] = useState(false);
   const [credsSaved, setCredsSaved] = useState(false);
 
@@ -133,12 +133,12 @@ export default function BrokerPage() {
       fetch(`${BASE}/api/broker/credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey, userId: data.userId, userSecret: data.userSecret }),
+        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey }),
       }).then((r) => r.json()),
     onSuccess: (d) => {
       if (d.ok) {
         setCredsSaved(true);
-        setCredsForm({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
+        setCredsForm({ clientId: "", consumerKey: "" });
         qc.invalidateQueries({ queryKey: ["broker-status"] });
       }
     },
@@ -300,45 +300,28 @@ export default function BrokerPage() {
                   </div>
                 )}
 
-                {/* Lien vers le dashboard */}
                 <p className="text-[11px]" style={{ color: MUTED }}>
-                  Tous les 4 sont visibles dans{" "}
+                  Visibles dans{" "}
                   <a href="https://app.snaptrade.com/dashboard" target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: ACCENT }}>
                     app.snaptrade.com <ExternalLink className="w-3 h-3 inline" />
                   </a>
                   {" "}→ <strong style={{ color: "#E8E9ED" }}>Account Settings</strong>.
-                  <br />Le User ID et User Secret sont déjà créés automatiquement à ton inscription — tu n'as qu'à les copier.
                 </p>
 
-                {(["clientId", "consumerKey", "userId", "userSecret"] as const).map((field) => {
-                  const labels: Record<string, string> = {
-                    clientId:    "Client ID",
-                    consumerKey: "Consumer Key",
-                    userId:      "User ID",
-                    userSecret:  "User Secret",
-                  };
-                  const hints: Record<string, string> = {
-                    clientId:    "Ex. : PERS-XXXXXXXXXXXXXXXX",
-                    consumerKey: "Clé secrète de l'application",
-                    userId:      "Ton identifiant utilisateur SnapTrade",
-                    userSecret:  "Ton secret utilisateur SnapTrade",
-                  };
+                {(["clientId", "consumerKey"] as const).map((field) => {
+                  const labels: Record<string, string> = { clientId: "Client ID", consumerKey: "Consumer Key" };
+                  const hints: Record<string, string> = { clientId: "Ex. : PERS-XXXXXXXXXXXXXXXX", consumerKey: "Consumer Key SnapTrade" };
                   return (
                     <div key={field}>
                       <label className="block text-[11px] mb-1 uppercase tracking-[0.12em]" style={{ color: MUTED }}>{labels[field]}</label>
                       <input
-                        type={showSecrets || field === "clientId" || field === "userId" ? "text" : "password"}
+                        type={showSecrets || field === "clientId" ? "text" : "password"}
                         autoComplete="off"
                         value={credsForm[field]}
                         onChange={(e) => { setCredsForm((f) => ({ ...f, [field]: e.target.value })); setCredsSaved(false); }}
                         placeholder={hints[field]}
                         className="w-full rounded-lg px-3 py-2 text-[12px] outline-none focus:ring-1"
-                        style={{
-                          background: SURFACE,
-                          border: `1px solid ${BORDER}`,
-                          color: "#E8E9ED",
-                          fontFamily: "'IBM Plex Mono', monospace",
-                        } as React.CSSProperties}
+                        style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: "#E8E9ED", fontFamily: "'IBM Plex Mono', monospace" } as React.CSSProperties}
                       />
                     </div>
                   );
@@ -346,7 +329,7 @@ export default function BrokerPage() {
 
                 <Btn
                   onClick={() => credsMut.mutate(credsForm)}
-                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey || !credsForm.userId || !credsForm.userSecret}
+                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey}
                 >
                   {credsMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Sauvegarder les clés

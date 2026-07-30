@@ -44,35 +44,29 @@ async function getConnection() {
 }
 
 // ─── POST /api/broker/credentials ────────────────────────────────────────────
-// Sauvegarde les 4 clés SnapTrade personnelles directement en base.
-// Toutes les 4 se trouvent dans ton tableau de bord app.snaptrade.com → Account Settings.
+// Sauvegarde Client ID + Consumer Key en base.
+// Pour les comptes personnels SnapTrade, clientId = userId et consumerKey = userSecret.
 router.post("/broker/credentials", async (req, res) => {
   try {
-    const { clientId, consumerKey, userId, userSecret } = req.body as {
-      clientId?: string;
-      consumerKey?: string;
-      userId?: string;
-      userSecret?: string;
-    };
+    const { clientId, consumerKey } = req.body as { clientId?: string; consumerKey?: string };
 
-    if (!clientId || !consumerKey || !userId || !userSecret) {
-      return res.status(400).json({ error: "Les 4 champs sont requis : Client ID, Consumer Key, User ID et User Secret." });
+    if (!clientId || !consumerKey) {
+      return res.status(400).json({ error: "Client ID et Consumer Key sont requis." });
     }
 
     const rows = await db.select().from(appSettingsTable).limit(1);
     if (rows.length === 0) {
       return res.status(503).json({ error: "Serveur pas encore initialisé. Réessaie dans quelques secondes." });
     }
-    const row = rows[0];
     await db
       .update(appSettingsTable)
-      .set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey, snaptradeUserId: userId, snaptradeUserSecret: userSecret })
-      .where(eq(appSettingsTable.id, row.id));
+      .set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey })
+      .where(eq(appSettingsTable.id, rows[0].id));
 
     invalidateSnaptradeClient();
 
     await logAudit("broker.credentials", "Clés SnapTrade mises à jour via l'interface (stockées en base).");
-    logger.info("broker: 4 clés SnapTrade mises à jour en base");
+    logger.info("broker: clés SnapTrade mises à jour en base");
     return res.json({ ok: true, message: "Clés sauvegardées. Elles survivront aux remixes." });
   } catch (err) {
     logger.error({ err }, "broker: save credentials failed");
@@ -103,7 +97,7 @@ router.get("/broker/credentials", async (_req, res) => {
 router.get("/broker/trading-mode", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
   return res.json({ mode, hasCredentials });
 });
 
@@ -149,18 +143,14 @@ router.post("/broker/setup", async (req, res) => {
     const creds = await resolveCredentials();
     if (!creds.clientId || !creds.consumerKey) {
       return res.status(400).json({
-        error: "Client ID et Consumer Key manquants. Sauvegarde d'abord tes 4 clés SnapTrade via le formulaire ci-dessus.",
-      });
-    }
-    if (!creds.userId || !creds.userSecret) {
-      return res.status(400).json({
-        error: "User ID et User Secret manquants. Tu les trouves dans ton tableau de bord app.snaptrade.com → Account Settings. Sauvegarde d'abord tes 4 clés via le formulaire.",
+        error: "Client ID et Consumer Key manquants. Sauvegarde d'abord tes clés via le formulaire ci-dessus.",
       });
     }
 
+    // Pour les comptes personnels SnapTrade : clientId = userId, consumerKey = userSecret
     const [row] = await db
       .insert(brokerConnectionsTable)
-      .values({ snaptradeUserId: creds.userId, snaptradeUserSecret: creds.userSecret, status: "pending" })
+      .values({ snaptradeUserId: creds.clientId, snaptradeUserSecret: creds.consumerKey, status: "pending" })
       .returning();
 
     logger.info({ userId: creds.userId }, "broker: setup complete — credentials personnels enregistrés");
@@ -202,8 +192,7 @@ router.get("/broker/connect-url", async (req, res) => {
 router.get("/broker/status", async (_req, res) => {
   const mode = getTradingMode();
   const creds = await resolveCredentials();
-  // Toutes les 4 clés nécessaires
-  const hasCredentials = !!(creds.clientId && creds.consumerKey && creds.userId && creds.userSecret);
+  const hasCredentials = !!(creds.clientId && creds.consumerKey);
 
   const settings = await getRiskSettings();
 
