@@ -15,8 +15,9 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, ArrowUpRight, ArrowDownRight, Bookmark,
   TrendingUp, TrendingDown, BarChart2, Gauge, StickyNote, Newspaper, ExternalLink,
-  Clock,
+  Clock, CheckCircle2, XCircle,
 } from "lucide-react";
+import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 import TradeModal from "@/components/TradeModal";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -506,6 +507,30 @@ export default function QuoteDetail() {
                   style={{ background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.25)" }}>
               {TYPE_LABEL[quote.type] ?? quote.type}
             </span>
+            {/* Badge disponibilité Wealthsimple */}
+            {(() => {
+              const tradeable = isTradeableSymbol(quote.symbol);
+              const reason    = tradeable ? null : nonTradeableReason(quote.symbol);
+              return tradeable ? (
+                <span
+                  title="Disponible sur Wealthsimple via SnapTrade"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(22,163,74,0.12)", color: "#16A34A", border: "1px solid rgba(22,163,74,0.28)" }}
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  Wealthsimple
+                </span>
+              ) : (
+                <span
+                  title={reason ?? "Non disponible sur Wealthsimple"}
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-help"
+                  style={{ background: "rgba(139,146,165,0.10)", color: "hsl(var(--muted-foreground))", border: "1px solid rgba(139,146,165,0.25)" }}
+                >
+                  <XCircle className="w-3 h-3" />
+                  Non dispo WS
+                </span>
+              );
+            })()}
             {quote.exchange && (
               <span className="text-[11px] text-muted-foreground/50 tracking-wider uppercase">{quote.exchange}</span>
             )}

@@ -14,6 +14,7 @@
 import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 import { sendSms } from "../lib/smsClient";
+import { sendEmail } from "../lib/emailClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { getQuotes } from "../lib/yahoo";
 import { logger } from "../lib/logger";
@@ -55,8 +56,10 @@ async function markSentToday(): Promise<void> {
 
 export async function sendDailySummary(): Promise<void> {
   const prefs = await resolveDestinations("signalAlert");
-  if (!prefs.sendSms || !prefs.phone) {
-    logger.info("dailySummaryWorker: canal SMS non configuré — bilan ignoré");
+  const canSms   = prefs.sendSms   && !!prefs.phone;
+  const canEmail = prefs.sendEmail && !!prefs.email;
+  if (!canSms && !canEmail) {
+    logger.info("dailySummaryWorker: aucun canal configuré (SMS ni email) — bilan ignoré");
     return;
   }
 
@@ -164,13 +167,47 @@ export async function sendDailySummary(): Promise<void> {
 
   const body = lines.join("\n");
 
-  const sent = await sendSms({ to: prefs.phone, body });
-  if (sent) {
-    await markSentToday();
-    logger.info("dailySummaryWorker: bilan SMS envoyé");
-  } else {
-    logger.warn("dailySummaryWorker: échec de l'envoi du bilan SMS");
+  let sent = false;
+
+  if (canSms) {
+    const smsSent = await sendSms({ to: prefs.phone!, body });
+    if (smsSent) {
+      sent = true;
+      logger.info("dailySummaryWorker: bilan envoyé par SMS");
+    } else {
+      logger.warn("dailySummaryWorker: échec de l'envoi du bilan SMS");
+    }
   }
+
+  if (canEmail) {
+    const dateStr2 = new Date().toLocaleDateString("fr-CA", {
+      timeZone: "America/Toronto", weekday: "short", month: "short", day: "numeric",
+    });
+    const htmlBody = `
+      <div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;">
+        <h2 style="color:#111;">📊 Soliris — Bilan ${dateStr2}</h2>
+        <p style="font-size:14px;color:${killSwitchActive ? "#dc2626" : "#16a34a"};">
+          ${killSwitchActive ? "🔴 Kill-switch : <strong>ACTIF</strong>" : "🟢 Kill-switch : inactif"}
+        </p>
+        <pre style="font-size:13px;color:#333;white-space:pre-wrap;background:#f9f9f9;padding:12px;border-radius:6px;">${body}</pre>
+        <p style="font-size:11px;color:#999;margin-top:16px;">
+          Envoyé par Soliris Market. ⚠️ Pas un conseil financier.
+        </p>
+      </div>`;
+    const emailSent = await sendEmail({
+      to: prefs.email!,
+      subject: `📊 Soliris — Bilan ${dateStr2}`,
+      html: htmlBody,
+    });
+    if (emailSent) {
+      sent = true;
+      logger.info("dailySummaryWorker: bilan envoyé par email");
+    } else {
+      logger.warn("dailySummaryWorker: échec de l'envoi du bilan email");
+    }
+  }
+
+  if (sent) await markSentToday();
 }
 
 // ── Worker loop ───────────────────────────────────────────────────────────────

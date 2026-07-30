@@ -13,6 +13,7 @@ import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
 import type { OHLCPoint } from "../lib/patternDetect";
 import { submitOrder } from "../lib/orderEngine";
 import { sendSms } from "../lib/smsClient";
+import { sendEmail } from "../lib/emailClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { logger } from "../lib/logger";
 import { notifyKillSwitchActivated } from "../lib/notifications";
@@ -77,11 +78,43 @@ async function sendAutoTradeNotification(params: {
 
   try {
     const prefs = await resolveDestinations("signalAlert");
+
     if (prefs.sendSms && prefs.phone) {
       await sendSms({ to: prefs.phone, body: smsBody });
     }
+
+    if (prefs.sendEmail && prefs.email) {
+      const sideEmoji = side === "BUY" ? "🟢" : "🔴";
+      const tagColor  = side === "BUY" ? "#10b981" : "#ef4444";
+      const typeLabel =
+        triggerType === "stop_loss"   ? "⛔ Stop-Loss déclenché" :
+        triggerType === "take_profit" ? "✅ Take-Profit déclenché" :
+        triggerType === "order"       ? `${sideEmoji} Ordre automatique${orderMode === "live" ? " (LIVE)" : " (paper)"}` :
+        `${sideEmoji} Signal fort détecté`;
+      const htmlBody = `
+        <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;">
+          <h2 style="color:#111;">${typeLabel} — ${symbol}</h2>
+          <p style="font-size:16px;color:#333;">
+            Signal : <strong style="color:${tagColor};">${verdict}</strong>
+            (score ${score > 0 ? "+" : ""}${score})
+          </p>
+          <p style="font-size:15px;color:#333;">
+            ${side === "BUY" ? "Achat" : "Vente"} de
+            <strong>${quantity} action${Number(quantity) > 1 ? "s" : ""}</strong>
+            à <strong>${price.toFixed(2)} $</strong>
+          </p>
+          <p style="font-size:12px;color:#999;margin-top:20px;">
+            Envoyé par Soliris Market. ⚠️ Pas un conseil financier.
+          </p>
+        </div>`;
+      await sendEmail({
+        to: prefs.email,
+        subject: `${typeLabel} — ${symbol}`,
+        html: htmlBody,
+      });
+    }
   } catch (err) {
-    logger.error({ err, symbol }, "autoTradeWorker: SMS notification failed");
+    logger.error({ err, symbol }, "autoTradeWorker: notification failed");
   }
 }
 

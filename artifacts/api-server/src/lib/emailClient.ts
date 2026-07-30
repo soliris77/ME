@@ -1,10 +1,19 @@
+import { Resend } from "resend";
 import { logger } from "./logger";
 
 /**
- * Client email — placeholder.
- * Le canal email n'est pas configuré pour l'instant ; les notifications
- * passent par SMS (Twilio). sendEmail() est gardé pour que le reste du
- * code compile sans modification.
+ * Client email via Resend (resend.com).
+ *
+ * Variables d'environnement :
+ *   RESEND_API_KEY      — clé API Resend (obligatoire pour l'envoi réel)
+ *   RESEND_FROM_EMAIL   — adresse expéditeur (doit appartenir à un domaine
+ *                         vérifié dans Resend ; ex. notifications@tondomaine.com)
+ *   RESEND_TO_EMAIL     — adresse destinataire par défaut (fallback si le
+ *                         paramètre `to` n'est pas fourni)
+ *
+ * ⚠️  Resend exige un domaine vérifié pour l'adresse d'expédition.
+ *     Pour les tests sans domaine propre, utilise "onboarding@resend.dev"
+ *     comme FROM — cela fonctionne sans vérification sur le plan gratuit.
  */
 
 interface SendEmailParams {
@@ -13,13 +22,43 @@ interface SendEmailParams {
   html: string;
 }
 
-export async function sendEmail({ to, subject }: SendEmailParams): Promise<boolean> {
-  logger.warn(
-    { to, subject },
-    "Canal email non configuré — notification ignorée (l'événement est quand même enregistré en DB)",
-  );
-  return false;
+let _resend: Resend | null = null;
+
+function getClient(): Resend {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY non configuré — email impossible.");
+  _resend = new Resend(key);
+  return _resend;
 }
+
+export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    logger.warn({ to, subject }, "emailClient: RESEND_API_KEY absent — email ignoré");
+    return false;
+  }
+
+  const from =
+    process.env.RESEND_FROM_EMAIL ??
+    "Soliris Market <onboarding@resend.dev>";
+
+  try {
+    const client = getClient();
+    const { error } = await client.emails.send({ from, to, subject, html });
+    if (error) {
+      logger.error({ to, subject, error }, "emailClient: Resend a refusé l'envoi");
+      return false;
+    }
+    logger.info({ to, subject }, "emailClient: email envoyé via Resend");
+    return true;
+  } catch (err) {
+    logger.error({ err, to, subject }, "emailClient: exception lors de l'envoi Resend");
+    return false;
+  }
+}
+
+// ─── Templates HTML ──────────────────────────────────────────────────────────
 
 export function alertEmailHtml(params: {
   symbol: string;
