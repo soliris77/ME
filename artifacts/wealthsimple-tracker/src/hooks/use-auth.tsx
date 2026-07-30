@@ -23,15 +23,32 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+/**
+ * Fetch avec timeout — évite un écran de chargement infini si l'API est lente
+ * à démarrer (typiquement après un remix : build + schema push prennent
+ * quelques secondes). Après le délai, la promesse est rejetée proprement et
+ * React Query sort de l'état "loading".
+ */
+function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 6000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function fetchMe(): Promise<{ authenticated: boolean }> {
-  const res = await fetch(`${BASE}/api/auth/me`, { credentials: "same-origin" });
-  if (!res.ok) return { authenticated: false };
-  return res.json();
+  try {
+    const res = await fetchWithTimeout(`${BASE}/api/auth/me`, { credentials: "same-origin" });
+    if (!res.ok) return { authenticated: false };
+    return res.json();
+  } catch {
+    // API indisponible (timeout, réseau, etc.) → non authentifié
+    return { authenticated: false };
+  }
 }
 
 async function fetchNeedsSetup(): Promise<{ needsSetup: boolean }> {
   try {
-    const res = await fetch(`${BASE}/api/auth/needs-setup`, { credentials: "same-origin" });
+    const res = await fetchWithTimeout(`${BASE}/api/auth/needs-setup`, { credentials: "same-origin" });
     if (!res.ok) return { needsSetup: false };
     return res.json();
   } catch {
