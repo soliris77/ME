@@ -33,6 +33,11 @@ export const appSettingsTable = pgTable("app_settings", {
   twilioAccountSid:   text("twilio_account_sid"),
   twilioAuthToken:    text("twilio_auth_token"),
   twilioFromNumber:   text("twilio_from_number"),
+  // Bilan SMS quotidien — date du dernier envoi au format "YYYY-MM-DD" (heure de l'Est).
+  lastDailySummaryDate: text("last_daily_summary_date"),
+  // Coupe-circuit de perte journalière agrégée — null = désactivé.
+  // Si la perte réalisée du jour dépasse ce montant, le kill-switch s'active automatiquement.
+  maxDailyLossAmount: text("max_daily_loss_amount"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

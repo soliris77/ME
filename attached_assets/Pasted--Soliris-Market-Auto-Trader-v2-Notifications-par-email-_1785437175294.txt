@@ -1,0 +1,175 @@
+# Soliris Market — Auto-Trader v2 & Notifications par email
+
+**Objectif de ce document :** je viens de lire le code réel de `Wealth-Market-Monitor-broski` (pas juste les memory files — les fichiers sources : `autoTradeWorker.ts`, `orderEngine.ts`, `risk.ts`, `notificationPrefs.ts`, `emailClient.ts`, `smsClient.ts`, `persistCreds.ts`, le schéma DB, les routes). Ce qui suit est un diagnostic précis de ce qui existe déjà, plus ma perspective sur ce qu'il faut construire pour que le système d'auto-trading soit réellement solide — pas juste fonctionnel en surface. C'est écrit pour être collé dans Replit AI : chaque point donne le fichier exact à toucher et le comportement attendu, mais je laisse volontairement l'implémentation ligne par ligne à Replit AI, qui a le repo complet sous les yeux et peut rester cohérent avec tes conventions existantes.
+
+Je structure ça en paliers **CRITIQUE → IMPORTANT → AGRÉABLE À AVOIR**, comme tu le fais déjà dans `replit.md`. Fais-le valider un palier à la fois par Replit AI plutôt que de tout envoyer d'un coup — c'est ton propre workflow et il est bon, je ne vois aucune raison d'en dévier ici.
+
+---
+
+## 1. Ce que j'ai trouvé en lisant le code
+
+D'abord, le constat honnête, parce que tu mérites de savoir exactement où ça en est avant qu'on ajoute quoi que ce soit par-dessus.
+
+### Ce qui est déjà solide — ne pas y toucher
+
+Le moteur d'ordres (`orderEngine.ts`) et les garde-fous de risque (`risk.ts`) sont sérieux. Kill-switch vérifié en premier avant toute autre logique, idempotence via contrainte unique DB (`orders_signal_id_idx`) utilisée comme verrou distribué pour les races, calendrier de jours fériés calculé (TSX + NASDAQ/NYSE, Pâques inclus), prix toujours revérifié en direct côté serveur (jamais celui envoyé par le client), limite de valeur par ordre, limite d'exposition portefeuille calculée soit sur les positions réelles du courtier (mode live) soit sur l'historique `orders` (mode paper). C'est un pipeline de validation propre et je n'ai rien à y ajouter. Tout ordre — manuel ou automatisé — passe par `submitOrder()`, donc tout ce qu'on va ajouter en profite automatiquement.
+
+Le système de préférences de notification (`notificationPrefs.ts`, table `notification_preferences`) est lui aussi bien pensé : six types d'événements (`killSwitch`, `largeOrder`, `thresholdChange`, `priceAlert`, `patternAlert`, `signalAlert`), chacun avec son propre canal (`email` / `sms` / `both` / `none`) plutôt qu'un interrupteur global. Le commentaire dans `settings.ts` explique même pourquoi : le SMS coûte par message (Twilio), l'email non — donc chaque type d'événement a son canal indépendant. Et le défaut de **toutes** les colonnes `*Channel` est déjà `"email"`. Autrement dit : l'intention "email par défaut" est déjà câblée dans le schéma DB depuis le début. Le problème n'est pas la conception, c'est l'exécution — voir plus bas.
+
+### Les trois trous concrets
+
+**Trou n°1 — `emailClient.ts` est un stub complet.** `sendEmail()` ne fait rien d'autre que logger un avertissement et retourner `false`. Aucun fournisseur n'est branché. Ça touche absolument tout ce qui passe par ce fichier : `notifications.ts` (kill-switch, gros ordre, changement de seuil), et `alertWorker.ts` (alertes prix/pattern/signal créées depuis la page Alertes). Toutes ces routes de code font déjà correctement le travail — elles appellent `sendEmail` au bon moment avec le bon contenu — mais rien ne part jamais parce que la fonction elle-même est vide.
+
+Fait intéressant : j'ai trouvé dans `replit/alert-worker-update/` une version antérieure, fonctionnelle, de ce même fichier — implémentation Resend via un simple `fetch()` POST vers `https://api.resend.com/emails`, sans dépendance SDK, avec `RESEND_API_KEY` et `RESEND_FROM`. La signature de fonction est identique à celle du stub actuel (`sendEmail({to, subject, html})` → `Promise<boolean>`). Ce n'est visiblement pas resté dans la version courante — probablement remplacé quand le système de préférences multi-canal a été construit, sans jamais être rebranché ensuite.
+
+**Trou n°2 — `autoTradeWorker.ts` ignore le canal email, même si l'envoi marchait.** Dans `sendAutoTradeNotification()`, le code appelle bien `resolveDestinations("signalAlert")` (donc il lit la bonne préférence), mais ensuite il ne regarde que `prefs.sendSms` — `prefs.sendEmail` n'est jamais consulté, `sendEmail()`/`signalAlertEmailHtml()` ne sont jamais importés dans ce fichier. Résultat : même le jour où le Trou n°1 sera réglé, les notifications d'auto-trading resteront SMS uniquement tant que ce bug précis n'est pas corrigé séparément. C'est un bug local à `autoTradeWorker.ts` — les alertes "signal" créées depuis la page Alertes (via `alertWorker.ts`) font ça correctement, elles.
+
+**Trou n°3 — Stop-loss et take-profit sont une façade.** Le formulaire dans `AutoTrader.tsx` a des champs Stop-Loss (%) et Take-Profit (%), la table `auto_trade_rules` a les colonnes `stop_loss_pct` et `take_profit_pct`, `auto_trade_logs.trigger_type` accepte même les valeurs `"stop_loss"` et `"take_profit"` — et `sendAutoTradeNotification()` a déjà le texte `⛔ Stop-Loss déclenché` / `✅ Take-Profit déclenché` tout prêt dans son switch de libellés. Mais rien, nulle part dans `processRule()`, ne surveille une position ouverte pour comparer son prix actuel à ces seuils. Ces deux valeurs de `triggerType` sont du code mort aujourd'hui. Si tu as configuré un stop-loss sur une règle en pensant que ta position était protégée, elle ne l'est pas.
+
+Je mentionne ce dernier point en premier dans mes priorités plus bas parce que c'est, à mon avis, le trou le plus important à combler avant de faire confiance au système en mode live avec de l'argent réel.
+
+---
+
+## 2. Ma perspective — ce qui compte pour que ce soit solide, pas juste fonctionnel
+
+Tu m'as demandé ce que moi je trouve important, donc je le dis directement, avant la liste de tâches.
+
+Un système d'auto-trading n'est "bon" que si trois choses sont vraies en même temois : (1) il fait ce que ses règles disent qu'il fait — pas ce qu'on croit qu'il fait ; (2) quand il agit, tu le sais, de manière fiable, sans avoir à ouvrir l'app pour vérifier ; (3) il a une manière de s'arrêter tout seul quand les choses tournent mal, sans attendre que tu sois devant ton écran au bon moment. Le Trou n°3 casse la promesse n°1 — un stop-loss affiché mais non exécuté est pire qu'aucun stop-loss, parce qu'il donne un faux sentiment de sécurité. Les Trous n°1 et n°2 cassent la promesse n°2. Et il manque encore un morceau pour la promesse n°3 : tous les garde-fous actuels sont **par règle** (cooldown, quota journalier par règle, valeur max par ordre) — il n'existe rien qui regarde la perte **globale** de la journée, toutes règles confondues, et qui coupe tout automatiquement si ça dérape. J'ajoute ça en priorité IMPORTANT plus bas, ce n'est pas ce que tu as demandé explicitement mais c'est le genre de chose qu'on regrette de ne pas avoir le jour où on en a besoin.
+
+Le bilan de fin de journée que tu demandes n'est pas juste un "nice to have" cosmétique dans cette logique — c'est littéralement ce qui transforme le système de "je lance ça et j'espère" à "je supervise ça sérieusement". Un système automatisé qu'on ne regarde jamais n'est pas vraiment automatisé, il est juste invisible. Je l'ai donc conçu pour être un vrai résumé de supervision, pas une notification de plus.
+
+---
+
+## 3. Plan détaillé, par palier de priorité
+
+### 🔴 CRITIQUE
+
+#### C1 — Rebrancher un vrai envoi d'email
+
+**Fichier :** `artifacts/api-server/src/lib/emailClient.ts`
+
+Remplacer le corps de `sendEmail()` par un vrai appel HTTP, en gardant exactement la même signature (`{to, subject, html} → Promise<boolean>`) pour que rien d'autre dans le code n'ait besoin de changer.
+
+Point important sur **où stocker les credentials** : ne pas copier tel quel l'ancienne implémentation Resend trouvée dans `replit/alert-worker-update/` (qui lit `process.env.RESEND_API_KEY` directement). Depuis, tu as construit `persistCreds.ts`, qui résout les credentials Twilio en DB d'abord (`app_settings.twilio_account_sid` etc.), variable d'environnement en repli — exactement pour survivre aux remixes et aux suppressions de secrets Replit (le fichier `workflow-secret-injection.md` dans tes memory files documente d'ailleurs que c'est déjà arrivé). Le docblock de `persistCreds.ts` mentionne même "Gmail" comme prévu à l'origine, en plus de Twilio. Le nouvel `emailClient.ts` doit suivre exactement ce même pattern : ajouter `resendApiKey` / `resendFrom` (ou `gmailUser` / `gmailAppPassword`, voir juste en dessous) aux colonnes de `app_settings`, à la fonction `persistExternalCredsIfNeeded()`, et résoudre via `resolveCred()` — le même chemin que Twilio, pas un chemin séparé qui recasse au prochain remix.
+
+**Une zone grise que je ne peux pas trancher à ta place :** je n'ai pas pu comprendre avec certitude, dans ton message vocal, quel service tu as reconnecté de ton côté. Deux pistes concrètes existent dans ton propre repo :
+
+- **Resend** — c'est celui qui a déjà un exemple fonctionnel complet dans `replit/alert-worker-update/`. Intégration la plus simple : un seul `fetch()` POST, pas de SDK, gratuit jusqu'à 3000 emails/mois, il suffit de vérifier un domaine (ou d'utiliser leur domaine de test le temps de tester).
+- **Gmail (SMTP avec mot de passe d'application)** — anticipé dans le docblock de `persistCreds.ts` mais jamais implémenté. Demande `nodemailer` (ou un client SMTP léger) plutôt qu'un simple `fetch()`, et un mot de passe d'application Google à générer sur le compte.
+
+Si c'est Resend : donne à Replit AI la clé API et l'adresse d'envoi vérifiée, et demande-lui de reprendre l'implémentation de `replit/alert-worker-update/artifacts/api-server/src/lib/emailClient.ts` en l'adaptant au pattern `resolveCred`. Si c'est Gmail : dis-le explicitement à Replit AI, c'est un chemin d'implémentation différent (SMTP, pas HTTP). Dans le doute, Resend reste mon conseil par défaut — c'est celui qui a déjà fait ses preuves dans ce projet précis.
+
+**Pourquoi ça règle plus que juste l'auto-trader :** une fois `sendEmail()` réellement fonctionnel, les notifications de kill-switch, de gros ordre, de changement de paramètres de risque, et les alertes prix/pattern/signal créées depuis la page Alertes se mettent **toutes** à fonctionner d'un coup, sans y toucher individuellement — elles appellent déjà `sendEmail` correctement, elles attendaient juste qu'il fasse quelque chose.
+
+#### C2 — Corriger `autoTradeWorker.ts` pour respecter réellement le canal choisi
+
+**Fichier :** `artifacts/api-server/src/workers/autoTradeWorker.ts`, fonction `sendAutoTradeNotification()`
+
+Aujourd'hui elle appelle `resolveDestinations("signalAlert")` puis ne regarde que `prefs.sendSms`. Il faut qu'elle regarde aussi `prefs.sendEmail`, et si c'est actif, qu'elle appelle `sendEmail()` avec `signalAlertEmailHtml()` — qui existe déjà dans `emailClient.ts` et n'est aujourd'hui appelée nulle part dans ce fichier. Le sujet de l'email peut reprendre le même texte que `typeLabel` (ordre auto, stop-loss déclenché, take-profit déclenché, signal fort). Comme `notifications.ts`, l'envoi email et l'envoi SMS doivent être indépendants l'un de l'autre (si `sendEmail` échoue, ça ne doit pas bloquer le SMS et vice-versa) et aucun des deux ne doit jamais faire échouer le reste du cycle du worker — c'est déjà la philosophie du reste du fichier, juste à répliquer ici.
+
+Une fois C1 et C2 faits ensemble, tu peux tester tout de suite avec `POST /api/auto-trader/run` (la route existe déjà, elle force un cycle immédiat) et regarder les logs serveur pour confirmer que l'email part.
+
+#### C3 — Rendre le stop-loss et le take-profit réellement actifs
+
+C'est le morceau le plus substantiel, donc je le détaille bien.
+
+**Migration DB — `lib/db/src/schema/autoTrader.ts`, table `auto_trade_rules` :**
+Ajouter trois colonnes nullables : `openEntryPrice` (numeric, prix moyen d'entrée de la position actuellement ouverte sous cette règle), `openQuantity` (numeric, quantité actuellement détenue sous cette règle), `openSince` (timestamp, utile pour l'affichage et pour le bilan de fin de journée). `null`/`0` = règle actuellement à plat, aucune position à surveiller.
+
+**Mise à jour de la position à chaque exécution d'ordre réussi dans `processRule()` :**
+- Quand un ordre **BUY** est accepté (`triggerType === "order"`, `side === "BUY"`) : si `openQuantity` était vide, initialiser `openEntryPrice` au prix de remplissage et `openQuantity` à la quantité achetée. Si une position était déjà ouverte (la règle a acheté plusieurs fois avant qu'un stop ou un take-profit ne la referme), calculer un prix moyen pondéré : `(openQuantity_actuel × openEntryPrice_actuel + quantité_achetée × prix_remplissage) / (openQuantity_actuel + quantité_achetée)`, puis additionner les quantités.
+- Quand un ordre **SELL** est accepté — que ce soit un signal normal de la règle (`sideMode` "sell" ou "both") ou une sortie protectrice stop-loss/take-profit — décrémenter `openQuantity` de la quantité vendue, et remettre `openEntryPrice`/`openQuantity`/`openSince` à `null` si `openQuantity` tombe à zéro (ou en dessous, par sécurité).
+
+Petite nuance à faire trancher par Replit AI en te consultant si besoin : si `sideMode = "both"` et qu'une règle accumule plusieurs achats avant qu'un signal SELL du même montant fixe (`quantity` de la règle) ne se déclenche, ce SELL "normal" ne clôturera qu'une partie de la position. C'est cohérent avec le comportement actuel (chaque ordre utilise la `quantity` fixe de la règle), je ne change rien à cette logique existante — je fais juste en sorte que le tracking de position s'ajuste correctement dans les deux sens.
+
+**Nouvelle fonction de surveillance — à ajouter dans `autoTradeWorker.ts`, appelée à chaque cycle de 60s pour toutes les règles actives ayant `openQuantity > 0` :**
+
+Pour chaque règle concernée, récupérer uniquement le prix courant (réutiliser `getQuotes()` — pas besoin de refaire tout le calcul d'indicateurs sur 90 jours d'historique juste pour connaître le prix, ce serait un appel Yahoo Finance inutilement lourd répété à chaque cycle).
+
+- Si `stopLossPct` est défini et `prix_courant ≤ openEntryPrice × (1 − stopLossPct / 100)` → déclenche une vente protectrice de la **totalité** de `openQuantity` (pas la `quantity` fixe de la règle — l'objectif est de sortir complètement de la position menacée).
+- Sinon, si `takeProfitPct` est défini et `prix_courant ≥ openEntryPrice × (1 + takeProfitPct / 100)` → même chose, vente protectrice de la totalité de `openQuantity`.
+- Cette vente passe par `submitOrder()` comme n'importe quel autre ordre — donc kill-switch, heures de marché, et tous les garde-fous de `risk.ts` s'appliquent automatiquement, gratuitement. `triggerType` prend la valeur `"stop_loss"` ou `"take_profit"` (déjà supportées par le schéma et déjà gérées par `sendAutoTradeNotification()` — le texte d'alerte existe déjà, littéralement rien à écrire de ce côté).
+
+**Décision à confirmer, je ne tranche pas à ta place :** est-ce que ces sorties protectrices doivent compter dans `maxTradesPerDay` et respecter le `cooldownMinutes` de la règle ? Mon avis : non — un stop-loss est une sortie de protection, pas une nouvelle prise de position spéculative, et le bloquer parce que le quota journalier est atteint irait à l'encontre de sa raison d'être. Mais on pourrait aussi argumenter l'inverse (éviter qu'une journée très volatile ne déclenche un aller-retour d'achats/ventes répétés). Mon défaut recommandé : les sorties stop-loss/take-profit **ignorent** `maxTradesPerDay` et `cooldownMinutes`, mais restent bien sûr bloquées si le kill-switch est actif (ça, ce n'est pas négociable, `submitOrder()` s'en charge déjà).
+
+**Limite connue à assumer, pas à résoudre :** si le marché est fermé au moment où un stop-loss devrait se déclencher (nuit, week-end, jour férié), `submitOrder()` va le refuser comme n'importe quel autre ordre hors session — c'est la même contrainte que Wealthsimple/SnapTrade imposent déjà à tous les ordres du système, rien de nouveau à gérer, juste à savoir que ça existe : une position ne peut pas être protégée en dehors des heures de marché.
+
+---
+
+### 🟡 IMPORTANT
+
+#### I1 — Bilan de fin de journée par email
+
+Nouveau worker, par exemple `artifacts/api-server/src/workers/dailySummaryWorker.ts`, sur le même modèle que `autoTradeWorker.ts` (un `setInterval`, ici avec un intervalle court comme 5 minutes suffit puisqu'on ne fait que comparer l'heure courante à une heure cible).
+
+**Déclenchement :** heure de l'Est (America/Toronto — logique vu que TSX et NASDAQ/NYSE sont tous les deux sur ce fuseau), autour de 16h35 (soit 5 minutes après la clôture, pour laisser les derniers prix se stabiliser). Envoyer une seule fois par jour — réutiliser le même principe que `isTodayReset()` déjà écrit dans `autoTradeWorker.ts` pour éviter les doublons (garder une date de dernier envoi, par exemple une nouvelle colonne `lastDailySummaryDate` sur `app_settings`, cohérent avec le pattern "une seule ligne de config" déjà utilisé partout ailleurs dans ce projet). Ne pas envoyer les jours où ni TSX ni NASDAQ/NYSE n'étaient ouverts — `isMarketOpen()`/le calendrier de jours fériés dans `risk.ts` existe déjà, pas besoin de réinventer une logique de calendrier boursier.
+
+**Contenu à assembler pour l'email (une fonction séparée, par exemple `buildDailySummaryHtml()` dans `emailClient.ts` à côté des autres templates) :**
+
+1. **En-tête** : la date, et surtout le statut du kill-switch bien visible en premier — c'est le fait le plus critique de tous, il doit sauter aux yeux avant tout le reste.
+2. **Ordres du jour** : nombre total, répartition achat/vente, répartition manuel vs automatique (`source` dans `orders`), mode paper vs live, valeur totale échangée par devise.
+3. **Détail des déclenchements auto-trader** (`auto_trade_logs` du jour) : par règle — symbole, type de déclenchement (ordre / notification seule / stop-loss / take-profit), score et verdict du signal au moment du déclenchement.
+4. **Signaux rejetés par les garde-fous** (`rejected_signals` du jour) : utile pour comprendre pourquoi quelque chose ne s'est *pas* passé — par exemple un ordre bloqué parce que l'exposition max était atteinte. C'est de la transparence, pas juste une liste d'échecs.
+5. **Positions actuellement sous surveillance** (grâce aux nouvelles colonnes de C3) : pour chaque règle avec une position ouverte, symbole, prix d'entrée, prix courant, et distance restante avant déclenchement du stop-loss ou du take-profit (ex. "AAPL — entrée 220,00 $, stop à 209,00 $, marge actuelle -3,2 %"). C'est probablement la section la plus utile du bilan au quotidien — un coup d'œil suffit pour savoir ce qui est à risque.
+6. **Exposition totale du portefeuille par devise** (réutiliser `getCurrentExposureByCurrency()`, déjà écrite dans `risk.ts`).
+7. **Repli "journée calme"** : si rien ne s'est passé (aucun ordre, aucun signal, marché fermé), envoyer quand même un email court le disant explicitement. Un système silencieux qui n'envoie rien un jour tranquille est indiscernable d'un système en panne — c'est délibéré, pas un oubli.
+
+**Route de test**, sur le modèle exact de `POST /api/auto-trader/run` déjà existant : `POST /api/daily-summary/run`, pour forcer un envoi immédiat pendant que tu testes, sans attendre 16h35.
+
+#### I2 — Coupe-circuit de perte journalière agrégée
+
+Ce n'est pas une demande explicite de ta part, mais ça découle directement du diagnostic : tous les garde-fous actuels (`maxTradesPerDay`, `cooldownMinutes`, `stopLossPct`) sont **par règle**. Rien ne regarde la perte globale de la journée, toutes règles et tous ordres confondus.
+
+Idée concrète, qui réutilise presque entièrement de l'infrastructure déjà en place : ajouter un paramètre configurable (par exemple `maxDailyLossAmount` sur `app_settings`, même convention texte que `maxOrderValue`/`maxPortfolioExposure`). À chaque cycle du worker (ou dans un check dédié), calculer la perte réalisée + non réalisée de la journée à partir de `orders` et des positions courantes. Si la perte dépasse le seuil configuré, activer automatiquement `tradingHalted` sur `broker_connections` — c'est littéralement le champ que le kill-switch manuel utilise déjà — et déclencher `notifyKillSwitchActivated()`, qui est déjà correctement câblée sur le système de préférences email/SMS. Concrètement : ~90 % de la tuyauterie nécessaire existe déjà, il ne manque que le calcul de perte agrégée et le déclenchement automatique.
+
+#### I3 — Filtrage par force du signal pour l'auto-trader
+
+Ton propre memory file (`auto-trader-system.md`) note déjà ça comme point d'extension restant. Et tu as déjà résolu exactement ce problème ailleurs dans le même projet : les alertes de type `"signal"` créées depuis la page Alertes ont un champ `minStrength` (`"moyen"` = ACHAT/VENTE ou plus fort suffit, `"fort"` = seulement FORT ACHAT/FORTE VENTE). Reprendre exactement ce même champ sur `auto_trade_rules` (colonne `minStrength`, défaut `"moyen"`), et dans `processRule()`, ajouter cette condition en plus du seuil `minScore` déjà existant — les deux se complètent, l'un filtre sur le score brut, l'autre sur le verdict qualitatif. Cohérence avec un pattern déjà validé ailleurs dans le code, donc risque d'implémentation minimal.
+
+---
+
+### 🟢 AGRÉABLE À AVOIR
+
+**N1 — Regroupement des notifications rapprochées.** Si plusieurs règles se déclenchent à quelques minutes d'intervalle, ça fait plusieurs emails/SMS séparés. Un mode "digest" (regrouper sur une fenêtre de 2-3 minutes en un seul envoi) éviterait le flood si un mouvement de marché déclenche plusieurs symboles en même temps.
+
+**N2 — Heures de silence configurables.** Empêcher les SMS (surtout) de sonner en pleine nuit — les emails du bilan de fin de journée n'ont pas ce problème puisqu'ils arrivent à heure fixe en journée, mais les alertes signal en temps réel, elles, peuvent tomber à n'importe quelle heure si un marché asiatique ou une donnée after-hours bouge (rare vu que le système ne trade que TSX/NASDAQ/NYSE, mais les alertes de prix simples pourraient concerner d'autres marchés).
+
+**N3 — Résumé hebdomadaire**, en plus du quotidien — vue d'ensemble sur 5 jours, tendance de performance, règles les plus/moins actives.
+
+**N4 — Réconciliation `openEntryPrice` avec les positions réelles du courtier.** Le tracking de position proposé en C3 est calculé côté application (à partir des ordres passés par le système). Si jamais tu achètes ou vends manuellement dans l'app Wealthsimple elle-même, en dehors de Soliris Market, ce tracking dérive de la réalité. `risk.ts` a déjà ce problème et le contourne en mode live en utilisant les positions réelles du courtier comme source de vérité pour l'exposition — la même logique pourrait, plus tard, recaler `openEntryPrice` sur le coût moyen réel renvoyé par SnapTrade (`listPositions()`) si ce champ existe dans la réponse. Pas urgent, mais bon à savoir que la dérive est possible.
+
+---
+
+## 4. Notes de discipline — ma perspective au-delà du technique
+
+Tu as demandé ma perspective, donc voici la partie qui n'est pas juste "quel fichier toucher".
+
+**Teste en paper pendant un moment avant de faire confiance au stop-loss/take-profit en live.** Le code de C3 sera correct dès qu'il sera écrit et qu'il compile, mais "correct" et "testé sous des conditions de marché réelles" sont deux choses différentes. `POST /api/auto-trader/run` te permet de forcer des cycles pour observer le comportement sans attendre 60 secondes à chaque fois — utilise-le pour vérifier que le tracking de position se comporte comme prévu sur plusieurs achats/ventes avant de laisser une règle tourner en mode live sans supervision.
+
+**Les seuils actuels (`minScore` à 60 par défaut, etc.) n'ont pas été validés sur données historiques** — ils sont raisonnables intuitivement mais pas garantis optimaux. Ce n'est pas un problème à régler maintenant, juste quelque chose à garder en tête avant d'augmenter la taille des positions ou le nombre de règles actives simultanément.
+
+**Le kill-switch ne vaut que si tu ne le désactives pas sous le coup de l'émotion après une perte.** C'est un piège classique de l'auto-trading, pas spécifique à ton système — je le note parce que le bilan de fin de journée (I1) est justement l'outil qui devrait t'aider à prendre cette décision à tête reposée le lendemain plutôt qu'en réaction à chaud.
+
+Et pour être direct sur un point : ce que j'écris ici, c'est une perspective d'ingénierie sur la robustesse du système, pas un conseil financier — je ne suis pas conseiller financier et rien dans ce document ne doit être lu comme une recommandation sur quoi acheter ou vendre. Le trading automatisé avec de l'argent réel comporte un risque réel de perte, indépendamment de la qualité du code.
+
+---
+
+## 5. Ce qu'il reste à confirmer avant de tout envoyer à Replit AI
+
+Trois zones grises, à trancher par toi (ou à laisser trancher par Replit AI en te posant la question directement) avant l'exécution :
+
+1. **Resend ou Gmail SMTP** pour C1 — je n'ai pas pu déterminer lequel avec certitude à partir du message vocal. Resend est mon défaut recommandé (implémentation déjà éprouvée dans ce repo).
+2. **Les sorties stop-loss/take-profit doivent-elles ignorer `maxTradesPerDay`/`cooldownMinutes`** (C3) — mon défaut recommandé est oui, mais c'est un choix de conception légitime dans les deux sens.
+3. **Heure exacte du bilan quotidien** (I1) — 16h35 heure de l'Est est mon défaut suggéré (5 minutes après clôture), ajustable facilement.
+
+---
+
+## 6. Ordre d'exécution recommandé
+
+En respectant ton propre workflow — un palier à la fois, code montré et confirmé avant de passer au suivant :
+
+1. **C1 + C2 ensemble** — ce sont les deux moitiés du même problème (email cassé + worker qui ignore le canal email). Les traiter séparément laisserait l'un des deux bugs actif. Teste avec `POST /api/auto-trader/run` derrière une vraie règle active pour confirmer qu'un email arrive.
+2. **C3** — le morceau le plus gros, à isoler dans son propre cycle de revue vu la complexité du tracking de position. Teste en paper avant tout.
+3. **I1** — une fois C3 en place, le bilan de fin de journée peut inclure la section "positions sous surveillance", donc ça a du sens de le faire après.
+4. **I2 et I3** — indépendants l'un de l'autre, peuvent être faits dans n'importe quel ordre une fois le palier CRITIQUE stable.
+5. **Le palier AGRÉABLE À AVOIR** — seulement une fois que tu as observé le système tourner de façon fiable pendant quelques jours avec tout ce qui précède.

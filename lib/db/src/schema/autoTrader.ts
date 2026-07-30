@@ -46,6 +46,12 @@ export const autoTradeRulesTable = pgTable("auto_trade_rules", {
   lastSignalScore: integer("last_signal_score"),
   lastSignalVerdict: text("last_signal_verdict"),
 
+  // Tracking de position ouverte (pour stop-loss / take-profit)
+  // null = aucune position ouverte sous cette règle
+  openEntryPrice: numeric("open_entry_price", { precision: 18, scale: 6 }),
+  openQuantity:   numeric("open_quantity",    { precision: 18, scale: 8 }),
+  openSince:      timestamp("open_since"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

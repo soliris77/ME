@@ -22,6 +22,7 @@ import spotifyRouter from "./spotify";
 import symbolsRouter from "./symbols";
 import agentTasksRouter from "./agentTasks";
 import autoTraderRouter from "./autoTrader";
+import dailySummaryRouter from "./dailySummary";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -53,5 +54,6 @@ router.use(spotifyRouter);
 router.use(symbolsRouter);
 router.use(agentTasksRouter);
 router.use(autoTraderRouter);
+router.use(dailySummaryRouter);
 
 export default router;

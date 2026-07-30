@@ -28,11 +28,11 @@ var __export = (target, all3) => {
   for (var name2 in all3)
     __defProp(target, name2, { get: all3[name2], enumerable: true });
 };
-var __copyProps = (to, from, except2, desc3) => {
+var __copyProps = (to, from, except2, desc2) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except2)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc3 = __getOwnPropDesc(from, key)) || desc3.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
   }
   return to;
 };
@@ -1354,10 +1354,10 @@ var require_http_errors = __commonJS({
       return ServerError;
     }
     function nameFunc(func, name2) {
-      var desc3 = Object.getOwnPropertyDescriptor(func, "name");
-      if (desc3 && desc3.configurable) {
-        desc3.value = name2;
-        Object.defineProperty(func, "name", desc3);
+      var desc2 = Object.getOwnPropertyDescriptor(func, "name");
+      if (desc2 && desc2.configurable) {
+        desc2.value = name2;
+        Object.defineProperty(func, "name", desc2);
       }
     }
     function populateConstructorExports(exports2, codes, HttpError) {
@@ -16843,14 +16843,14 @@ var require_get = __commonJS({
         throw e;
       }
     }
-    var desc3 = !!hasProtoAccessor && gOPD && gOPD(
+    var desc2 = !!hasProtoAccessor && gOPD && gOPD(
       Object.prototype,
       /** @type {keyof typeof Object.prototype} */
       "__proto__"
     );
     var $Object = Object;
     var $getPrototypeOf = $Object.getPrototypeOf;
-    module2.exports = desc3 && typeof desc3.get === "function" ? callBind([desc3.get]) : typeof $getPrototypeOf === "function" ? (
+    module2.exports = desc2 && typeof desc2.get === "function" ? callBind([desc2.get]) : typeof $getPrototypeOf === "function" ? (
       /** @type {import('./get')} */
       function getDunder(value) {
         return $getPrototypeOf(value == null ? value : $Object(value));
@@ -17200,10 +17200,10 @@ var require_get_intrinsic = __commonJS({
             return void undefined2;
           }
           if ($gOPD && i + 1 >= parts.length) {
-            var desc3 = $gOPD(value, part);
-            isOwn = !!desc3;
-            if (isOwn && "get" in desc3 && !("originalValue" in desc3.get)) {
-              value = desc3.get;
+            var desc2 = $gOPD(value, part);
+            isOwn = !!desc2;
+            if (isOwn && "get" in desc2 && !("originalValue" in desc2.get)) {
+              value = desc2.get;
             } else {
               value = value[part];
             }
@@ -20654,27 +20654,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module2.exports = Router25;
+    module2.exports = Router26;
     module2.exports.Route = Route;
-    function Router25(options3) {
-      if (!(this instanceof Router25)) {
-        return new Router25(options3);
+    function Router26(options3) {
+      if (!(this instanceof Router26)) {
+        return new Router26(options3);
       }
       const opts = options3 || {};
-      function router25(req, res, next) {
-        router25.handle(req, res, next);
+      function router26(req, res, next) {
+        router26.handle(req, res, next);
       }
-      Object.setPrototypeOf(router25, this);
-      router25.caseSensitive = opts.caseSensitive;
-      router25.mergeParams = opts.mergeParams;
-      router25.params = {};
-      router25.strict = opts.strict;
-      router25.stack = [];
-      return router25;
+      Object.setPrototypeOf(router26, this);
+      router26.caseSensitive = opts.caseSensitive;
+      router26.mergeParams = opts.mergeParams;
+      router26.params = {};
+      router26.strict = opts.strict;
+      router26.stack = [];
+      return router26;
     }
-    Router25.prototype = function() {
+    Router26.prototype = function() {
     };
-    Router25.prototype.param = function param2(name2, fn) {
+    Router26.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20694,7 +20694,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router25.prototype.handle = function handle(req, res, callback) {
+    Router26.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20821,7 +20821,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router25.prototype.use = function use(handler) {
+    Router26.prototype.use = function use(handler) {
       let offset = 0;
       let path2 = "/";
       if (typeof handler !== "function") {
@@ -20854,7 +20854,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router25.prototype.route = function route(path2) {
+    Router26.prototype.route = function route(path2) {
       const route2 = new Route(path2);
       const layer = new Layer(path2, {
         sensitive: this.caseSensitive,
@@ -20869,7 +20869,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router25.prototype[method] = function(path2) {
+      Router26.prototype[method] = function(path2) {
         const route = this.route(path2);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21052,13 +21052,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve2 = __require("node:path").resolve;
     var once = require_once();
-    var Router25 = require_router();
+    var Router26 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module2.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router25 = null;
+      var router26 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21067,13 +21067,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router25 === null) {
-            router25 = new Router25({
+          if (router26 === null) {
+            router26 = new Router26({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router25;
+          return router26;
         }
       });
     };
@@ -21144,15 +21144,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router25 = this.router;
+      var router26 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router25.use(path2, fn2);
+          return router26.use(path2, fn2);
         }
         debug(".use app under %s", path2);
         fn2.mountpath = path2;
         fn2.parent = this;
-        router25.use(path2, function mounted_app(req, res, next) {
+        router26.use(path2, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23725,7 +23725,7 @@ var require_express = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router25 = require_router();
+    var Router26 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module2.exports = createApplication;
@@ -23747,8 +23747,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router25.Route;
-    exports.Router = Router25;
+    exports.Route = Router26.Route;
+    exports.Router = Router26;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -29760,13 +29760,13 @@ var require_cookie2 = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -30535,13 +30535,13 @@ var require_cookieJar = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -33422,12 +33422,12 @@ var require_result = __commonJS({
         }
         const row = /* @__PURE__ */ Object.create(null);
         for (let i = 0; i < fieldDescriptions.length; i++) {
-          const desc3 = fieldDescriptions[i];
-          row[desc3.name] = null;
+          const desc2 = fieldDescriptions[i];
+          row[desc2.name] = null;
           if (this._types) {
-            this._parsers[i] = this._types.getTypeParser(desc3.dataTypeID, desc3.format || "text");
+            this._parsers[i] = this._types.getTypeParser(desc2.dataTypeID, desc2.format || "text");
           } else {
-            this._parsers[i] = types3.getTypeParser(desc3.dataTypeID, desc3.format || "text");
+            this._parsers[i] = types3.getTypeParser(desc2.dataTypeID, desc2.format || "text");
           }
         }
         this._prebuiltEmptyResultObject = { ...row };
@@ -37375,10 +37375,10 @@ var init_subquery = __esm({
     init_entity();
     Subquery = class {
       static [entityKind] = "Subquery";
-      constructor(sql2, fields, alias, isWith = false, usedTables = []) {
+      constructor(sql3, fields, alias, isWith = false, usedTables = []) {
         this._ = {
           brand: "Subquery",
-          sql: sql2,
+          sql: sql3,
           selectedFields: fields,
           alias,
           isWith,
@@ -37845,19 +37845,19 @@ var init_sql = __esm({
         return new SQL([this]);
       }
     };
-    ((sql2) => {
+    ((sql22) => {
       function empty() {
         return new SQL([]);
       }
-      sql2.empty = empty;
+      sql22.empty = empty;
       function fromList(list) {
         return new SQL(list);
       }
-      sql2.fromList = fromList;
+      sql22.fromList = fromList;
       function raw(str) {
         return new SQL([new StringChunk(str)]);
       }
-      sql2.raw = raw;
+      sql22.raw = raw;
       function join(chunks, separator) {
         const result = [];
         for (const [i, chunk] of chunks.entries()) {
@@ -37868,24 +37868,24 @@ var init_sql = __esm({
         }
         return new SQL(result);
       }
-      sql2.join = join;
+      sql22.join = join;
       function identifier(value) {
         return new Name(value);
       }
-      sql2.identifier = identifier;
+      sql22.identifier = identifier;
       function placeholder2(name2) {
         return new Placeholder(name2);
       }
-      sql2.placeholder = placeholder2;
+      sql22.placeholder = placeholder2;
       function param2(value, encoder2) {
         return new Param(value, encoder2);
       }
-      sql2.param = param2;
+      sql22.param = param2;
     })(sql || (sql = {}));
     ((SQL2) => {
       class Aliased {
-        constructor(sql2, fieldAlias) {
-          this.sql = sql2;
+        constructor(sql22, fieldAlias) {
+          this.sql = sql22;
           this.fieldAlias = fieldAlias;
         }
         static [entityKind] = "SQL.Aliased";
@@ -53432,13 +53432,13 @@ var require_ipv4 = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -53998,13 +53998,13 @@ var require_regular_expressions = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -54090,13 +54090,13 @@ var require_ipv6 = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -55207,13 +55207,13 @@ var require_ip_address = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -55252,12 +55252,12 @@ var require_ip_address = __commonJS({
 });
 
 // src/app.ts
-var import_express25 = __toESM(require_express2(), 1);
+var import_express26 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express24 = __toESM(require_express2(), 1);
+var import_express25 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -90537,8 +90537,8 @@ var PgDialect = class {
       return "none";
     }
   }
-  sqlToQuery(sql2, invokeSource) {
-    return sql2.toQuery({
+  sqlToQuery(sql22, invokeSource) {
+    return sql22.toQuery({
       casing: this.casing,
       escapeName: this.escapeName,
       escapeParam: this.escapeParam,
@@ -92941,10 +92941,10 @@ var PgRelationalQuery = class extends QueryPromise {
 init_entity();
 init_query_promise();
 var PgRaw = class extends QueryPromise {
-  constructor(execute, sql2, query, mapBatchResult) {
+  constructor(execute, sql3, query, mapBatchResult) {
     super();
     this.execute = execute;
-    this.sql = sql2;
+    this.sql = sql3;
     this.query = query;
     this.mapBatchResult = mapBatchResult;
   }
@@ -93269,8 +93269,8 @@ var NoopCache = class extends Cache {
   async onMutate(_params) {
   }
 };
-async function hashQuery(sql2, params) {
-  const dataToHash = `${sql2}-${JSON.stringify(params)}`;
+async function hashQuery(sql3, params) {
+  const dataToHash = `${sql3}-${JSON.stringify(params)}`;
   const encoder2 = new TextEncoder();
   const data = encoder2.encode(dataToHash);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -93411,8 +93411,8 @@ var PgSession = class {
     ).all();
   }
   /** @internal */
-  async count(sql2, token) {
-    const res = await this.execute(sql2, token);
+  async count(sql22, token) {
+    const res = await this.execute(sql22, token);
     return Number(
       res[0]["count"]
     );
@@ -93637,8 +93637,8 @@ var NodePgSession = class _NodePgSession extends PgSession {
       if (isPool) session2.client.release();
     }
   }
-  async count(sql2) {
-    const res = await this.execute(sql2);
+  async count(sql22) {
+    const res = await this.execute(sql22);
     return Number(
       res["rows"][0]["count"]
     );
@@ -105290,6 +105290,11 @@ var appSettingsTable = pgTable("app_settings", {
   twilioAccountSid: text("twilio_account_sid"),
   twilioAuthToken: text("twilio_auth_token"),
   twilioFromNumber: text("twilio_from_number"),
+  // Bilan SMS quotidien — date du dernier envoi au format "YYYY-MM-DD" (heure de l'Est).
+  lastDailySummaryDate: text("last_daily_summary_date"),
+  // Coupe-circuit de perte journalière agrégée — null = désactivé.
+  // Si la perte réalisée du jour dépasse ce montant, le kill-switch s'active automatiquement.
+  maxDailyLossAmount: text("max_daily_loss_amount"),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 var notificationPreferencesTable = pgTable("notification_preferences", {
@@ -105488,6 +105493,11 @@ var autoTradeRulesTable = pgTable("auto_trade_rules", {
   lastTriggeredAt: timestamp("last_triggered_at"),
   lastSignalScore: integer("last_signal_score"),
   lastSignalVerdict: text("last_signal_verdict"),
+  // Tracking de position ouverte (pour stop-loss / take-profit)
+  // null = aucune position ouverte sous cette règle
+  openEntryPrice: numeric("open_entry_price", { precision: 18, scale: 6 }),
+  openQuantity: numeric("open_quantity", { precision: 18, scale: 8 }),
+  openSince: timestamp("open_since"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -118649,8 +118659,8 @@ var validators = {};
 });
 var deprecatedWarnings = {};
 validators.transitional = function transitional(validator, version3, message2) {
-  function formatMessage(opt, desc3) {
-    return "[Axios v" + VERSION2 + "] Transitional option '" + opt + "'" + desc3 + (message2 ? ". " + message2 : "");
+  function formatMessage(opt, desc2) {
+    return "[Axios v" + VERSION2 + "] Transitional option '" + opt + "'" + desc2 + (message2 ? ". " + message2 : "");
   }
   return (value, opt, opts) => {
     if (validator === false) {
@@ -130390,6 +130400,137 @@ async function sendAutoTradeNotification(params) {
     logger.error({ err, symbol: symbol2 }, "autoTradeWorker: SMS notification failed");
   }
 }
+async function checkProtectiveExits(conn) {
+  const allRules = await db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true));
+  const rulesWithPositions = allRules.filter(
+    (r) => r.openQuantity && parseFloat(r.openQuantity) > 0 && r.openEntryPrice && (r.stopLossPct || r.takeProfitPct)
+  );
+  if (rulesWithPositions.length === 0) return;
+  const symbols = [...new Set(rulesWithPositions.map((r) => r.symbol))];
+  let quotesMap = {};
+  try {
+    const raw = await getQuotes(symbols);
+    if (Array.isArray(raw)) {
+      for (const q of raw) {
+        if (q.symbol && q.regularMarketPrice) quotesMap[q.symbol] = { price: q.regularMarketPrice };
+      }
+    } else {
+      quotesMap = raw;
+    }
+  } catch (err) {
+    logger.warn({ err }, "autoTradeWorker: getQuotes failed in checkProtectiveExits");
+    return;
+  }
+  for (const rule of rulesWithPositions) {
+    const quote2 = quotesMap[rule.symbol];
+    if (!quote2?.price) continue;
+    const currentPrice = quote2.price;
+    const entryPrice = parseFloat(rule.openEntryPrice);
+    const openQty = parseFloat(rule.openQuantity);
+    let triggerType = null;
+    if (rule.stopLossPct) {
+      const stopPrice = entryPrice * (1 - parseFloat(rule.stopLossPct) / 100);
+      if (currentPrice <= stopPrice) triggerType = "stop_loss";
+    }
+    if (!triggerType && rule.takeProfitPct) {
+      const targetPrice = entryPrice * (1 + parseFloat(rule.takeProfitPct) / 100);
+      if (currentPrice >= targetPrice) triggerType = "take_profit";
+    }
+    if (!triggerType) continue;
+    logger.info(
+      { ruleId: rule.id, symbol: rule.symbol, triggerType, currentPrice, entryPrice },
+      "autoTradeWorker: sortie protectrice d\xE9clench\xE9e"
+    );
+    const signalId = `auto-${rule.id}-${triggerType}-${Date.now()}`;
+    const brokerConnection = conn?.status === "connected" ? { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret } : null;
+    let orderId;
+    let orderMode = "paper";
+    try {
+      const result = await submitOrder({
+        signalId,
+        symbol: rule.symbol,
+        side: "SELL",
+        quantity: openQty,
+        // sortir la TOTALITÉ de la position
+        accountId: rule.accountId ?? void 0,
+        expectedPrice: currentPrice,
+        source: "auto-signal",
+        brokerConnection
+      });
+      if (result.status === "accepted") {
+        orderId = result.order.id;
+        orderMode = result.order.mode === "live" ? "live" : "paper";
+      }
+    } catch (err) {
+      logger.error({ err, ruleId: rule.id }, "autoTradeWorker: submitOrder sortie protectrice \xE9chou\xE9");
+    }
+    const slNote = rule.stopLossPct ? `Stop : ${(entryPrice * (1 - parseFloat(rule.stopLossPct) / 100)).toFixed(2)} $` : "";
+    const tpNote = rule.takeProfitPct ? `Target : ${(entryPrice * (1 + parseFloat(rule.takeProfitPct) / 100)).toFixed(2)} $` : "";
+    await db.insert(autoTradeLogsTable).values({
+      ruleId: rule.id,
+      symbol: rule.symbol,
+      side: "SELL",
+      triggerType,
+      signalScore: null,
+      signalVerdict: triggerType === "stop_loss" ? "FORTE VENTE" : "PRISE DE PROFIT",
+      price: String(currentPrice),
+      quantity: String(openQty),
+      orderId: orderId ?? null,
+      notificationSent: false,
+      notes: [
+        `Entr\xE9e : ${entryPrice.toFixed(2)} $`,
+        triggerType === "stop_loss" ? slNote : tpNote
+      ].filter(Boolean).join(" | ")
+    });
+    await db.update(autoTradeRulesTable).set({ openEntryPrice: null, openQuantity: null, openSince: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(autoTradeRulesTable.id, rule.id));
+    if (rule.notifyOnSignal) {
+      await sendAutoTradeNotification({
+        symbol: rule.symbol,
+        side: "SELL",
+        verdict: triggerType === "stop_loss" ? "FORTE VENTE" : "PRISE DE PROFIT",
+        score: 0,
+        price: currentPrice,
+        quantity: openQty,
+        triggerType,
+        orderMode
+      }).catch((e) => logger.error({ e }, "autoTradeWorker: notification sortie protectrice \xE9chou\xE9e"));
+    }
+  }
+}
+async function checkDailyLossCircuitBreaker(conn) {
+  if (!conn || conn.tradingHalted) return;
+  const [settings] = await db.select().from(appSettingsTable).limit(1);
+  if (!settings?.maxDailyLossAmount) return;
+  const maxLoss = parseFloat(settings.maxDailyLossAmount);
+  if (!isFinite(maxLoss) || maxLoss <= 0) return;
+  const todayStart = /* @__PURE__ */ new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  try {
+    const todayOrders = await db.select().from(ordersTable).where(and(
+      gte(ordersTable.createdAt, todayStart),
+      eq(ordersTable.status, "filled")
+    ));
+    let realizedPnL = 0;
+    for (const o of todayOrders) {
+      const price = parseFloat(o.price ?? "0");
+      const qty = parseFloat(o.quantity ?? "0");
+      const value = price * qty;
+      realizedPnL += o.side === "SELL" ? value : -value;
+    }
+    if (realizedPnL < -maxLoss) {
+      logger.warn(
+        { realizedPnL, maxLoss },
+        "autoTradeWorker: perte journali\xE8re max atteinte \u2014 kill-switch automatique"
+      );
+      await db.update(brokerConnectionsTable).set({ tradingHalted: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(brokerConnectionsTable.id, conn.id));
+      notifyKillSwitchActivated(
+        `Coupe-circuit automatique : perte journali\xE8re de ${Math.abs(realizedPnL).toFixed(2)} $ d\xE9passe le seuil de ${maxLoss.toFixed(2)} $.`
+      ).catch((e) => logger.error({ e }, "autoTradeWorker: notification kill-switch circuit breaker \xE9chou\xE9e"));
+    }
+  } catch (err) {
+    logger.warn({ err }, "autoTradeWorker: checkDailyLossCircuitBreaker failed");
+  }
+}
 async function processRule(rule, conn) {
   const now = /* @__PURE__ */ new Date();
   if (rule.lastTriggeredAt) {
@@ -130450,6 +130591,29 @@ async function processRule(rule, conn) {
         triggerType = "order";
         orderMode = result.order.mode === "live" ? "live" : "paper";
         logger.info({ ruleId: rule.id, symbol: rule.symbol, side, quantity, orderId }, "autoTradeWorker: ordre auto ex\xE9cut\xE9");
+        if (side === "BUY") {
+          const prevQty = rule.openQuantity ? parseFloat(rule.openQuantity) : 0;
+          const prevEntry = rule.openEntryPrice ? parseFloat(rule.openEntryPrice) : 0;
+          const newQty = prevQty + quantity;
+          const newEntry = prevQty === 0 ? currentPrice : (prevQty * prevEntry + quantity * currentPrice) / newQty;
+          await db.update(autoTradeRulesTable).set({
+            openEntryPrice: String(newEntry),
+            openQuantity: String(newQty),
+            openSince: rule.openSince ?? now,
+            updatedAt: now
+          }).where(eq(autoTradeRulesTable.id, rule.id));
+          rule.openQuantity = String(newQty);
+          rule.openEntryPrice = String(newEntry);
+        } else if (side === "SELL") {
+          const prevQty = rule.openQuantity ? parseFloat(rule.openQuantity) : 0;
+          const newQty = Math.max(0, prevQty - quantity);
+          await db.update(autoTradeRulesTable).set({
+            openQuantity: newQty > 0 ? String(newQty) : null,
+            openEntryPrice: newQty > 0 ? rule.openEntryPrice : null,
+            openSince: newQty > 0 ? rule.openSince : null,
+            updatedAt: now
+          }).where(eq(autoTradeRulesTable.id, rule.id));
+        }
       } else if (result.status === "duplicate") {
         logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: ordre dupliqu\xE9, skip");
         return;
@@ -130461,16 +130625,7 @@ async function processRule(rule, conn) {
     }
   }
   if (rule.notifyOnSignal) {
-    await sendAutoTradeNotification({
-      symbol: rule.symbol,
-      side,
-      verdict: analysis.overall,
-      score: analysis.score,
-      price: currentPrice,
-      quantity,
-      triggerType,
-      orderMode
-    });
+    await sendAutoTradeNotification({ symbol: rule.symbol, side, verdict: analysis.overall, score: analysis.score, price: currentPrice, quantity, triggerType, orderMode });
     notificationSent = true;
   }
   await db.insert(autoTradeLogsTable).values({
@@ -130501,6 +130656,12 @@ async function runAutoTradeCheck() {
   ]);
   if (rules.length === 0) return;
   logger.info({ count: rules.length }, "autoTradeWorker: cycle d\xE9marr\xE9");
+  await checkProtectiveExits(conn).catch(
+    (err) => logger.error({ err }, "autoTradeWorker: checkProtectiveExits \xE9chou\xE9")
+  );
+  await checkDailyLossCircuitBreaker(conn).catch(
+    (err) => logger.error({ err }, "autoTradeWorker: checkDailyLossCircuitBreaker \xE9chou\xE9")
+  );
   for (const rule of rules) {
     try {
       await processRule(rule, conn);
@@ -130657,33 +130818,190 @@ router23.post("/auto-trader/run", async (_req, res) => {
 });
 var autoTrader_default = router23;
 
-// src/routes/index.ts
+// src/routes/dailySummary.ts
+var import_express24 = __toESM(require_express2(), 1);
+
+// src/workers/dailySummaryWorker.ts
+init_drizzle_orm();
+var SUMMARY_HOUR_ET = 16;
+var SUMMARY_MINUTE_ET = 35;
+var CHECK_INTERVAL_MS = 5 * 60 * 1e3;
+function todayInET() {
+  return (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+}
+function isInSummaryWindow() {
+  const now = /* @__PURE__ */ new Date();
+  const etStr = now.toLocaleString("en-US", {
+    timeZone: "America/Toronto",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  const [hh, mm] = etStr.split(":").map(Number);
+  return hh === SUMMARY_HOUR_ET && mm >= SUMMARY_MINUTE_ET && mm < SUMMARY_MINUTE_ET + 10;
+}
+async function alreadySentToday() {
+  const [settings] = await db.select({ lastDailySummaryDate: appSettingsTable.lastDailySummaryDate }).from(appSettingsTable).limit(1);
+  return settings?.lastDailySummaryDate === todayInET();
+}
+async function markSentToday() {
+  const [settings] = await db.select().from(appSettingsTable).limit(1);
+  if (!settings) return;
+  await db.update(appSettingsTable).set({ lastDailySummaryDate: todayInET(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(appSettingsTable.id, settings.id));
+}
+async function sendDailySummary() {
+  const prefs = await resolveDestinations("signalAlert");
+  if (!prefs.sendSms || !prefs.phone) {
+    logger.info("dailySummaryWorker: canal SMS non configur\xE9 \u2014 bilan ignor\xE9");
+    return;
+  }
+  const todayStart = /* @__PURE__ */ new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const [conn, todayOrders, todayLogs, openRules] = await Promise.all([
+    db.select().from(brokerConnectionsTable).limit(1).then((r) => r[0] ?? null),
+    db.select().from(ordersTable).where(gte(ordersTable.createdAt, todayStart)),
+    db.select().from(autoTradeLogsTable).where(gte(autoTradeLogsTable.createdAt, todayStart)),
+    db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true))
+  ]);
+  const killSwitchActive = conn?.tradingHalted ?? false;
+  const totalOrders = todayOrders.length;
+  const autoOrders = todayOrders.filter((o) => o.source === "auto-signal").length;
+  const manualOrders = totalOrders - autoOrders;
+  const liveOrders = todayOrders.filter((o) => o.mode === "live").length;
+  const totalTriggers = todayLogs.length;
+  const slTriggers = todayLogs.filter((l) => l.triggerType === "stop_loss").length;
+  const tpTriggers = todayLogs.filter((l) => l.triggerType === "take_profit").length;
+  const orderTriggers = todayLogs.filter((l) => l.triggerType === "order").length;
+  const notifTriggers = todayLogs.filter((l) => l.triggerType === "notification_only").length;
+  const rulesWithPositions = openRules.filter(
+    (r) => r.openQuantity && parseFloat(r.openQuantity) > 0 && r.openEntryPrice
+  );
+  let positionLines = [];
+  if (rulesWithPositions.length > 0) {
+    const symbols = [...new Set(rulesWithPositions.map((r) => r.symbol))];
+    let quotesMap = {};
+    try {
+      const raw = await getQuotes(symbols);
+      if (Array.isArray(raw)) {
+        for (const q of raw) {
+          if (q.symbol && q.regularMarketPrice) quotesMap[q.symbol] = q.regularMarketPrice;
+        }
+      } else {
+        for (const [sym, v] of Object.entries(raw)) {
+          if (v?.price) quotesMap[sym] = v.price;
+        }
+      }
+    } catch (_) {
+    }
+    for (const r of rulesWithPositions) {
+      const entry = parseFloat(r.openEntryPrice);
+      const current = quotesMap[r.symbol];
+      const pctChange = current ? ((current - entry) / entry * 100).toFixed(1) : "?";
+      const sign = current && current >= entry ? "+" : "";
+      const slInfo = r.stopLossPct ? ` | SL -${r.stopLossPct}%` : "";
+      const tpInfo = r.takeProfitPct ? ` | TP +${r.takeProfitPct}%` : "";
+      const name2 = r.name ? ` (${r.name})` : "";
+      positionLines.push(
+        `\u2022 ${r.symbol}${name2}: entr\xE9e ${entry.toFixed(2)}$, now ${current ? current.toFixed(2) + "$" : "?"} (${sign}${pctChange}%)${slInfo}${tpInfo}`
+      );
+    }
+  }
+  const dateStr = (/* @__PURE__ */ new Date()).toLocaleDateString("fr-CA", {
+    timeZone: "America/Toronto",
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  });
+  const lines = [
+    `\u{1F4CA} Soliris \u2014 Bilan ${dateStr}`,
+    killSwitchActive ? "\u{1F534} Kill-switch : ACTIF" : "\u{1F7E2} Kill-switch : inactif",
+    "",
+    `Ordres : ${totalOrders} (${autoOrders} auto, ${manualOrders} manuel${manualOrders > 1 ? "s" : ""}${liveOrders > 0 ? `, ${liveOrders} live` : ""})`
+  ];
+  if (totalTriggers > 0) {
+    const parts = [`${orderTriggers} ordre${orderTriggers > 1 ? "s" : ""}`];
+    if (notifTriggers > 0) parts.push(`${notifTriggers} notif`);
+    if (slTriggers > 0) parts.push(`\u26D4 ${slTriggers} SL`);
+    if (tpTriggers > 0) parts.push(`\u2705 ${tpTriggers} TP`);
+    lines.push(`Auto-trader : ${totalTriggers} d\xE9clenchement${totalTriggers > 1 ? "s" : ""} (${parts.join(", ")})`);
+  } else {
+    lines.push("Auto-trader : aucun d\xE9clenchement");
+  }
+  if (positionLines.length > 0) {
+    lines.push("", `Positions ouvertes (${positionLines.length}) :`);
+    lines.push(...positionLines);
+  } else {
+    lines.push("Positions ouvertes : aucune");
+  }
+  if (totalOrders === 0 && totalTriggers === 0 && !positionLines.length) {
+    lines.push("", "Journ\xE9e calme \u2014 aucune activit\xE9.");
+  }
+  lines.push("", "\u26A0\uFE0F Pas un conseil financier.");
+  const body = lines.join("\n");
+  const sent = await sendSms({ to: prefs.phone, body });
+  if (sent) {
+    await markSentToday();
+    logger.info("dailySummaryWorker: bilan SMS envoy\xE9");
+  } else {
+    logger.warn("dailySummaryWorker: \xE9chec de l'envoi du bilan SMS");
+  }
+}
+var intervalHandle2 = null;
+function startDailySummaryWorker() {
+  if (intervalHandle2) return;
+  logger.info("dailySummaryWorker: d\xE9marr\xE9 (v\xE9rification toutes les 5 min)");
+  intervalHandle2 = setInterval(async () => {
+    try {
+      if (!isInSummaryWindow()) return;
+      if (await alreadySentToday()) return;
+      await sendDailySummary();
+    } catch (err) {
+      logger.error({ err }, "dailySummaryWorker: erreur inattendue");
+    }
+  }, CHECK_INTERVAL_MS);
+}
+
+// src/routes/dailySummary.ts
 var router24 = (0, import_express24.Router)();
-router24.use(health_default);
-router24.use(auth_default);
-router24.use(clientErrors_default);
-router24.use(requireAuth);
-router24.use(quotes_default);
-router24.use(market_default);
-router24.use(news_default);
-router24.use(watchlist_default);
-router24.use(alerts_default);
-router24.use(whop_default);
-router24.use(broker_default);
-router24.use(settings_default);
-router24.use(notificationPreferences_default);
-router24.use(audit_default);
-router24.use(performance_default);
-router24.use(calendar_default);
-router24.use(learn_default);
-router24.use(notes_default);
-router24.use(metatrader_default);
-router24.use(copyTrading_default);
-router24.use(spotify_default);
-router24.use(symbols_default);
-router24.use(agentTasks_default);
-router24.use(autoTrader_default);
-var routes_default = router24;
+router24.post("/daily-summary/run", async (_req, res) => {
+  try {
+    void sendDailySummary().catch((err) => logger.error({ err }, "daily-summary: forced run failed"));
+    res.json({ ok: true, message: "Bilan SMS lanc\xE9 en arri\xE8re-plan" });
+  } catch (err) {
+    logger.error({ err }, "daily-summary: POST run error");
+    res.status(500).json({ error: "Erreur lors du lancement du bilan" });
+  }
+});
+var dailySummary_default = router24;
+
+// src/routes/index.ts
+var router25 = (0, import_express25.Router)();
+router25.use(health_default);
+router25.use(auth_default);
+router25.use(clientErrors_default);
+router25.use(requireAuth);
+router25.use(quotes_default);
+router25.use(market_default);
+router25.use(news_default);
+router25.use(watchlist_default);
+router25.use(alerts_default);
+router25.use(whop_default);
+router25.use(broker_default);
+router25.use(settings_default);
+router25.use(notificationPreferences_default);
+router25.use(audit_default);
+router25.use(performance_default);
+router25.use(calendar_default);
+router25.use(learn_default);
+router25.use(notes_default);
+router25.use(metatrader_default);
+router25.use(copyTrading_default);
+router25.use(spotify_default);
+router25.use(symbols_default);
+router25.use(agentTasks_default);
+router25.use(autoTrader_default);
+router25.use(dailySummary_default);
+var routes_default = router25;
 
 // src/lib/integrations/metatrader/sync.ts
 init_drizzle_orm();
@@ -130817,7 +131135,7 @@ function startCopyTradingSync() {
 }
 
 // src/app.ts
-var app = (0, import_express25.default)();
+var app = (0, import_express26.default)();
 app.set("trust proxy", 1);
 app.use(
   (0, import_pino_http.default)({
@@ -130839,8 +131157,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express25.default.json());
-app.use(import_express25.default.urlencoded({ extended: true }));
+app.use(import_express26.default.json());
+app.use(import_express26.default.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
 app.use("/api", routes_default);
 initTradingMode().catch((err) => logger.warn({ err }, "initTradingMode: \xE9chec"));
@@ -131261,12 +131579,12 @@ async function checkAlerts() {
     }
   }
 }
-var intervalHandle2 = null;
+var intervalHandle3 = null;
 function startAlertWorker(intervalMs = DEFAULT_INTERVAL_MS) {
-  if (intervalHandle2) return;
+  if (intervalHandle3) return;
   logger.info({ intervalMs }, "Starting alert worker");
   void checkAlerts().catch((err) => logger.error({ err }, "alertWorker: initial run failed"));
-  intervalHandle2 = setInterval(() => {
+  intervalHandle3 = setInterval(() => {
     void checkAlerts().catch((err) => logger.error({ err }, "alertWorker: cycle failed"));
   }, intervalMs);
 }
@@ -131303,6 +131621,7 @@ app_default.listen(port, (err) => {
   const alertIntervalMs = Number(process.env.ALERT_CHECK_INTERVAL_MS ?? "90000");
   startAlertWorker(Number.isFinite(alertIntervalMs) && alertIntervalMs > 0 ? alertIntervalMs : void 0);
   startAutoTradeWorker();
+  startDailySummaryWorker();
   persistConsumerKeyIfNeeded().catch(
     (err2) => logger.warn({ err: err2 }, "snaptrade: persistConsumerKeyIfNeeded a \xE9chou\xE9 au d\xE9marrage")
   );
