@@ -11,10 +11,11 @@ import {
   formatMarketCap, changeClass, isUp,
 } from "@/lib/format";
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, ArrowUpRight, ArrowDownRight, Bookmark,
   TrendingUp, TrendingDown, BarChart2, Gauge, StickyNote, Newspaper, ExternalLink,
+  Clock,
 } from "lucide-react";
 import TradeModal from "@/components/TradeModal";
 import { useToast } from "@/hooks/use-toast";
@@ -310,6 +311,16 @@ export default function QuoteDetail() {
   const queryClient                             = useQueryClient();
 
   // ── Data hooks (all unconditional) ────────────────────────────────────────
+  const BASE_API = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data: marketHours } = useQuery({
+    queryKey: ["market-hours", decodedSymbol],
+    queryFn: () =>
+      fetch(`${BASE_API}/api/market/hours/${encodeURIComponent(decodedSymbol)}`).then((r) => r.json()),
+    enabled: !!decodedSymbol,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
   const { data: quote, isLoading } = useGetQuote(decodedSymbol, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: !!decodedSymbol, refetchInterval: 5_000 } as any,
@@ -539,6 +550,53 @@ export default function QuoteDetail() {
           <span className="opacity-70">({formatPercent(quote.changePercent ?? null)})</span>
           <span className="text-muted-foreground/50 font-normal text-[13px] ml-1">aujourd'hui</span>
         </div>
+
+        {/* Horaires de marché */}
+        {marketHours && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-medium"
+               style={{
+                 background: marketHours.continuous
+                   ? "rgba(139,146,165,0.08)"
+                   : marketHours.open
+                     ? "rgba(22,163,74,0.10)"
+                     : "rgba(220,38,38,0.08)",
+                 border: `1px solid ${marketHours.continuous
+                   ? "rgba(139,146,165,0.25)"
+                   : marketHours.open
+                     ? "rgba(22,163,74,0.30)"
+                     : "rgba(220,38,38,0.25)"}`,
+               }}>
+            <span className="relative flex h-2 w-2 shrink-0">
+              {marketHours.open && !marketHours.continuous && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50"
+                      style={{ background: "hsl(142 68% 48%)" }} />
+              )}
+              <span className="relative inline-flex rounded-full h-2 w-2"
+                    style={{ background: marketHours.continuous
+                      ? "hsl(var(--muted-foreground))"
+                      : marketHours.open
+                        ? "hsl(142 68% 48%)"
+                        : "hsl(0 72% 55%)" }} />
+            </span>
+            <Clock className="w-3 h-3 opacity-60" />
+            <span style={{ color: marketHours.continuous
+              ? "hsl(var(--muted-foreground))"
+              : marketHours.open
+                ? "hsl(142 68% 48%)"
+                : "hsl(0 72% 55%)" }}>
+              {marketHours.continuous
+                ? "Continu 24/7"
+                : marketHours.open
+                  ? `Ouvert · ${marketHours.exchangeLabel}`
+                  : `Fermé · ${marketHours.exchangeLabel}`}
+            </span>
+            {!marketHours.continuous && (
+              <span className="text-muted-foreground/60 font-mono text-[11px]">
+                {marketHours.openTime}–{marketHours.closeTime} ET
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

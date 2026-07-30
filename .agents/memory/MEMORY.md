@@ -4,3 +4,4 @@
 - [Auth password persistence](auth-password-persistence.md) — password hash stored in app_settings.password_hash; DB beats env var; /setup route for first launch.
 - [Session continuity](session-continuity.md) — write .agents/memory/in-progress.md for multi-step tasks; read it when user says "continue".
 - [Workflow secret injection](workflow-secret-injection.md) — after adding or confirming Secrets, restart the API workflow and verify presence from startup logs before testing integrations.
+- [Agent Task Continuity System](agent-task-continuity.md) — DB table agent_tasks + API /api/agent-tasks + page /agent-tasks for cross-remix task resumption.

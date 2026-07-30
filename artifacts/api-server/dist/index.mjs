@@ -20654,27 +20654,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module2.exports = Router23;
+    module2.exports = Router24;
     module2.exports.Route = Route;
-    function Router23(options3) {
-      if (!(this instanceof Router23)) {
-        return new Router23(options3);
+    function Router24(options3) {
+      if (!(this instanceof Router24)) {
+        return new Router24(options3);
       }
       const opts = options3 || {};
-      function router23(req, res, next) {
-        router23.handle(req, res, next);
+      function router24(req, res, next) {
+        router24.handle(req, res, next);
       }
-      Object.setPrototypeOf(router23, this);
-      router23.caseSensitive = opts.caseSensitive;
-      router23.mergeParams = opts.mergeParams;
-      router23.params = {};
-      router23.strict = opts.strict;
-      router23.stack = [];
-      return router23;
+      Object.setPrototypeOf(router24, this);
+      router24.caseSensitive = opts.caseSensitive;
+      router24.mergeParams = opts.mergeParams;
+      router24.params = {};
+      router24.strict = opts.strict;
+      router24.stack = [];
+      return router24;
     }
-    Router23.prototype = function() {
+    Router24.prototype = function() {
     };
-    Router23.prototype.param = function param2(name2, fn) {
+    Router24.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20694,7 +20694,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router23.prototype.handle = function handle(req, res, callback) {
+    Router24.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20821,7 +20821,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router23.prototype.use = function use(handler) {
+    Router24.prototype.use = function use(handler) {
       let offset = 0;
       let path2 = "/";
       if (typeof handler !== "function") {
@@ -20854,7 +20854,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router23.prototype.route = function route(path2) {
+    Router24.prototype.route = function route(path2) {
       const route2 = new Route(path2);
       const layer = new Layer(path2, {
         sensitive: this.caseSensitive,
@@ -20869,7 +20869,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router23.prototype[method] = function(path2) {
+      Router24.prototype[method] = function(path2) {
         const route = this.route(path2);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21052,13 +21052,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router23 = require_router();
+    var Router24 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module2.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router23 = null;
+      var router24 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21067,13 +21067,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router23 === null) {
-            router23 = new Router23({
+          if (router24 === null) {
+            router24 = new Router24({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router23;
+          return router24;
         }
       });
     };
@@ -21144,15 +21144,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router23 = this.router;
+      var router24 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router23.use(path2, fn2);
+          return router24.use(path2, fn2);
         }
         debug(".use app under %s", path2);
         fn2.mountpath = path2;
         fn2.parent = this;
-        router23.use(path2, function mounted_app(req, res, next) {
+        router24.use(path2, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23725,7 +23725,7 @@ var require_express = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router23 = require_router();
+    var Router24 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module2.exports = createApplication;
@@ -23747,8 +23747,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router23.Route;
-    exports.Router = Router23;
+    exports.Route = Router24.Route;
+    exports.Router = Router24;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -55252,12 +55252,12 @@ var require_ip_address = __commonJS({
 });
 
 // src/app.ts
-var import_express23 = __toESM(require_express2(), 1);
+var import_express24 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express22 = __toESM(require_express2(), 1);
+var import_express23 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -89685,9 +89685,9 @@ function formatQuote(q) {
     low: q.regularMarketDayLow ?? null,
     volume: q.regularMarketVolume ?? null,
     marketCap: q.marketCap ?? null,
-    currency: q.currency ?? "USD",
+    currency: typeof q.currency === "string" ? q.currency : q.currency?.code ?? "USD",
     type: mapQuoteType(q.quoteType),
-    exchange: q.fullExchangeName ?? q.exchange ?? null,
+    exchange: (typeof q.fullExchangeName === "string" ? q.fullExchangeName : null) ?? (typeof q.exchange === "string" ? q.exchange : null) ?? null,
     lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
@@ -89841,901 +89841,6 @@ var quotes_default = router2;
 
 // src/routes/market.ts
 var import_express3 = __toESM(require_express2(), 1);
-var router3 = (0, import_express3.Router)();
-var INDICES = [
-  // Amérique du Nord
-  "^GSPC",
-  "^IXIC",
-  "^DJI",
-  "^RUT",
-  "^VIX",
-  "^NYA",
-  "^XAX",
-  // Europe
-  "^FTSE",
-  "^GDAXI",
-  "^FCHI",
-  "^STOXX50E",
-  "^IBEX",
-  "^FTMIB",
-  "^AEX",
-  "^SSMI",
-  "^OMXS30",
-  "^OSEAX",
-  "^ATX",
-  "^BFX",
-  "^PSI20",
-  // Asie-Pacifique
-  "^N225",
-  "^HSI",
-  "^BSESN",
-  "^NSEI",
-  "^KS11",
-  "^AXJO",
-  "^STI",
-  "^TWII",
-  "^JKSE",
-  "^KLSE",
-  "^NZ50",
-  "000001.SS",
-  "399001.SZ",
-  // Amérique latine
-  "^BVSP",
-  "^MXX",
-  "^MERV",
-  "^IPSA",
-  // Moyen-Orient / Afrique
-  "^TA125.TA",
-  "^CASE30",
-  "^J203.JO",
-  // Cryptos
-  "BTC-USD",
-  "ETH-USD",
-  "SOL-USD",
-  "XRP-USD",
-  "ADA-USD",
-  "DOGE-USD",
-  "BNB-USD",
-  "AVAX-USD",
-  "LINK-USD",
-  "MATIC-USD",
-  "DOT-USD",
-  "LTC-USD",
-  "SHIB-USD",
-  "TRX-USD",
-  "ATOM-USD",
-  "UNI-USD",
-  "XLM-USD",
-  "NEAR-USD",
-  "APT-USD",
-  "ARB-USD",
-  // Matières premières
-  "GC=F",
-  "CL=F",
-  "SI=F",
-  "NG=F",
-  "HG=F",
-  "ZC=F",
-  "ZW=F",
-  "ZS=F",
-  "KC=F",
-  "SB=F",
-  "CT=F",
-  "PL=F",
-  "PA=F",
-  "BZ=F",
-  "RB=F",
-  // Devises
-  "EURUSD=X",
-  "USDCAD=X",
-  "GBPUSD=X",
-  "JPY=X",
-  "USDCHF=X",
-  "AUDUSD=X",
-  "NZDUSD=X",
-  "USDCNY=X",
-  "USDMXN=X",
-  "USDINR=X",
-  "USDBRL=X",
-  "EURGBP=X",
-  "EURJPY=X",
-  "EURCAD=X"
-];
-var POPULAR_TECH_US = [
-  "AAPL",
-  "MSFT",
-  "NVDA",
-  "AMD",
-  "META",
-  "GOOG",
-  "AMZN",
-  "TSLA",
-  "INTC",
-  "NFLX",
-  "ORCL",
-  "CRM",
-  "ADBE",
-  "PYPL",
-  "UBER",
-  "PLTR",
-  "SNOW",
-  "SQ",
-  "COIN",
-  "SHOP",
-  "IBM",
-  "QCOM",
-  "TXN",
-  "AVGO",
-  "CSCO",
-  "NOW",
-  "SPOT",
-  "ABNB",
-  "DASH",
-  "RBLX",
-  "MU",
-  "ARM",
-  "SMCI",
-  "DELL",
-  "HPQ",
-  "PANW",
-  "CRWD",
-  "ZS",
-  "NET",
-  "DDOG",
-  "MDB",
-  "TEAM",
-  "WDAY",
-  "INTU",
-  "ADSK",
-  "ANET",
-  "MRVL",
-  "ASML",
-  "SAP",
-  "APP",
-  "TTD",
-  "ROKU",
-  "PINS",
-  "SNAP",
-  "LYFT",
-  "ZM",
-  "DOCU"
-];
-var POPULAR_FINANCE_US = [
-  "JPM",
-  "BAC",
-  "GS",
-  "MS",
-  "V",
-  "MA",
-  "BRK-B",
-  "WFC",
-  "BLK",
-  "C",
-  "AXP",
-  "SCHW",
-  "USB",
-  "PNC",
-  "TFC",
-  "COF",
-  "AIG",
-  "MET",
-  "PRU",
-  "TRV",
-  "ALL",
-  "CB",
-  "ICE",
-  "CME",
-  "SPGI",
-  "MCO",
-  "PGR",
-  "AON",
-  "MMC",
-  "FIS",
-  "FI",
-  "PYPL"
-];
-var POPULAR_CONSUMER_US = [
-  "WMT",
-  "COST",
-  "MCD",
-  "NKE",
-  "DIS",
-  "SBUX",
-  "TGT",
-  "PG",
-  "KO",
-  "PEP",
-  "HD",
-  "LOW",
-  "CMG",
-  "YUM",
-  "EL",
-  "CL",
-  "MDLZ",
-  "MO",
-  "PM",
-  "KHC",
-  "GIS",
-  "HSY",
-  "STZ",
-  "TJX",
-  "ROST",
-  "DG",
-  "DLTR",
-  "BBY",
-  "ULTA",
-  "LULU",
-  "DECK",
-  "CROX",
-  "YUMC",
-  "DPZ"
-];
-var POPULAR_HEALTHCARE_US = [
-  "LLY",
-  "UNH",
-  "JNJ",
-  "PFE",
-  "MRK",
-  "ABBV",
-  "TMO",
-  "ABT",
-  "DHR",
-  "BMY",
-  "AMGN",
-  "GILD",
-  "CVS",
-  "CI",
-  "ELV",
-  "HUM",
-  "ISRG",
-  "VRTX",
-  "REGN",
-  "MRNA",
-  "ZTS",
-  "BSX",
-  "MDT",
-  "SYK",
-  "BDX",
-  "IDXX"
-];
-var POPULAR_ENERGY_INDUSTRIALS_US = [
-  "XOM",
-  "CVX",
-  "COP",
-  "SLB",
-  "BA",
-  "CAT",
-  "GE",
-  "HON",
-  "LMT",
-  "UPS",
-  "RTX",
-  "DE",
-  "OXY",
-  "PSX",
-  "VLO",
-  "MPC",
-  "EOG",
-  "WMB",
-  "KMI",
-  "HAL",
-  "BKR",
-  "MMM",
-  "EMR",
-  "ETN",
-  "ITW",
-  "PH",
-  "GD",
-  "NOC",
-  "TDG",
-  "FDX",
-  "CSX",
-  "NSC",
-  "UNP"
-];
-var POPULAR_UTILITIES_MATERIALS_US = [
-  "NEE",
-  "DUK",
-  "SO",
-  "D",
-  "AEP",
-  "EXC",
-  "SRE",
-  "XEL",
-  "PEG",
-  "ED",
-  "LIN",
-  "APD",
-  "SHW",
-  "ECL",
-  "FCX",
-  "NEM",
-  "NUE",
-  "DOW",
-  "DD",
-  "PPG"
-];
-var POPULAR_REITS_US = [
-  "AMT",
-  "PLD",
-  "CCI",
-  "EQIX",
-  "PSA",
-  "O",
-  "SPG",
-  "WELL",
-  "DLR",
-  "AVB"
-];
-var POPULAR_CANADA = [
-  "XEQT.TO",
-  "VEQT.TO",
-  "ZSP.TO",
-  "VFV.TO",
-  "XIU.TO",
-  "SHOP.TO",
-  "RY.TO",
-  "TD.TO",
-  "BNS.TO",
-  "ENB.TO",
-  "CNR.TO",
-  "CP.TO",
-  "SU.TO",
-  "BCE.TO",
-  "MFC.TO",
-  "BAM.TO",
-  "BMO.TO",
-  "CM.TO",
-  "TRP.TO",
-  "CNQ.TO",
-  "ATD.TO",
-  "WCN.TO",
-  "GIB-A.TO",
-  "L.TO",
-  "T.TO",
-  "MG.TO",
-  "QSR.TO",
-  "WSP.TO",
-  "FTS.TO",
-  "SLF.TO",
-  "POW.TO",
-  "IMO.TO",
-  "NTR.TO",
-  "K.TO",
-  "AEM.TO",
-  "ABX.TO",
-  "GIL.TO",
-  "DOL.TO",
-  "CSU.TO",
-  "OTEX.TO",
-  "TIH.TO",
-  "RCI-B.TO",
-  "H.TO",
-  "EMA.TO",
-  "AQN.TO"
-];
-var POPULAR_EUROPE = [
-  // Actions européennes majeures (cotées sur bourses locales — libellés Yahoo)
-  "SAP.DE",
-  "SIE.DE",
-  "ALV.DE",
-  "MBG.DE",
-  "VOW3.DE",
-  "BMW.DE",
-  "BAS.DE",
-  "DTE.DE",
-  "IFX.DE",
-  "ADS.DE",
-  "MC.PA",
-  "OR.PA",
-  "TTE.PA",
-  "AIR.PA",
-  "SAN.PA",
-  "BNP.PA",
-  "SU.PA",
-  "DG.PA",
-  "CS.PA",
-  "RMS.PA",
-  "AZN.L",
-  "HSBA.L",
-  "SHEL.L",
-  "ULVR.L",
-  "BP.L",
-  "GSK.L",
-  "DGE.L",
-  "RIO.L",
-  "BATS.L",
-  "VOD.L",
-  "NESN.SW",
-  "NOVN.SW",
-  "ROG.SW",
-  "UBSG.SW",
-  "ZURN.SW",
-  "ASML.AS",
-  "PHIA.AS",
-  "INGA.AS",
-  "ADYEN.AS",
-  "ENI.MI",
-  "ISP.MI",
-  "UCG.MI",
-  "ENEL.MI",
-  "IBE.MC",
-  "ITX.MC",
-  "BBVA.MC"
-];
-var POPULAR_ASIA = [
-  "7203.T",
-  "6758.T",
-  "9984.T",
-  "6098.T",
-  "8306.T",
-  "9432.T",
-  "6501.T",
-  "005930.KS",
-  "000660.KS",
-  "035420.KS",
-  "TSM",
-  "BABA",
-  "JD",
-  "PDD",
-  "BIDU",
-  "NIO",
-  "LI",
-  "XPEV",
-  "NTES",
-  "0700.HK",
-  "9988.HK",
-  "0941.HK",
-  "1299.HK",
-  "0388.HK",
-  "3690.HK",
-  "RELIANCE.NS",
-  "TCS.NS",
-  "INFY.NS",
-  "HDFCBANK.NS"
-];
-var POPULAR_LATAM_AFRICA = [
-  "VALE",
-  "PBR",
-  "ITUB",
-  "BBD",
-  "ABEV",
-  "MELI",
-  "GFI",
-  "AU",
-  "NPN.JO",
-  "SBK.JO",
-  "AMX",
-  "FMX",
-  "CX",
-  "GRUPOSAB.MX"
-];
-var WEALTHSIMPLE_POPULAR = [
-  ...POPULAR_TECH_US,
-  ...POPULAR_FINANCE_US,
-  ...POPULAR_CONSUMER_US,
-  ...POPULAR_HEALTHCARE_US,
-  ...POPULAR_ENERGY_INDUSTRIALS_US,
-  ...POPULAR_UTILITIES_MATERIALS_US,
-  ...POPULAR_REITS_US,
-  ...POPULAR_CANADA,
-  ...POPULAR_EUROPE,
-  ...POPULAR_ASIA,
-  ...POPULAR_LATAM_AFRICA
-];
-var TYPE_MAP2 = {
-  EQUITY: "stock",
-  ETF: "etf",
-  CRYPTOCURRENCY: "crypto",
-  INDEX: "index",
-  MUTUALFUND: "stock",
-  FUTURE: "stock"
-};
-router3.get("/market/overview", async (req, res) => {
-  try {
-    const allSymbols = [...INDICES, ...WEALTHSIMPLE_POPULAR];
-    const allQuotes = await getQuotes(allSymbols);
-    const indices = allQuotes.filter((q) => INDICES.includes(q.symbol));
-    const popular = allQuotes.filter((q) => WEALTHSIMPLE_POPULAR.includes(q.symbol));
-    const sortedByChange = [...popular].sort((a, b) => b.changePercent - a.changePercent);
-    const topGainers = sortedByChange.filter((q) => q.changePercent > 0).slice(0, 5);
-    const topLosers = [...sortedByChange].reverse().filter((q) => q.changePercent < 0).slice(0, 5);
-    return res.json({
-      indices,
-      topGainers,
-      topLosers,
-      wealthsimplePopular: popular
-    });
-  } catch (err) {
-    req.log.error({ err }, "Failed to fetch market overview");
-    return res.status(500).json({ error: "Failed to fetch market overview" });
-  }
-});
-var CURATED_NAMES = {
-  "^GSPC": "S&P 500",
-  "^IXIC": "Nasdaq Composite",
-  "^DJI": "Dow Jones Industrial Average",
-  "^GSPTSX": "TSX Composite Toronto",
-  "^RUT": "Russell 2000",
-  "^VIX": "VIX indice de volatilit\xE9",
-  "^FTSE": "FTSE 100 Londres",
-  "^GDAXI": "DAX Allemagne Francfort",
-  "^FCHI": "CAC 40 France Paris",
-  "^STOXX50E": "Euro Stoxx 50",
-  "^IBEX": "IBEX 35 Espagne Madrid",
-  "^FTMIB": "FTSE MIB Italie Milan",
-  "^AEX": "AEX Pays-Bas Amsterdam",
-  "^SSMI": "SMI Suisse Zurich",
-  "^N225": "Nikkei 225 Japon Tokyo",
-  "^HSI": "Hang Seng Hong Kong",
-  "^BSESN": "Sensex Inde Bombay",
-  "^KS11": "KOSPI Cor\xE9e du Sud S\xE9oul",
-  "^AXJO": "ASX 200 Australie",
-  "^STI": "Straits Times Singapour",
-  "^TWII": "Taiwan Weighted Ta\xEFwan",
-  "^BVSP": "Bovespa Br\xE9sil",
-  "^MXX": "IPC Mexique",
-  "BTC-USD": "Bitcoin BTC crypto cryptomonnaie",
-  "ETH-USD": "Ethereum ETH crypto cryptomonnaie",
-  "SOL-USD": "Solana SOL crypto cryptomonnaie",
-  "XRP-USD": "XRP Ripple crypto cryptomonnaie",
-  "ADA-USD": "Cardano ADA crypto cryptomonnaie",
-  "DOGE-USD": "Dogecoin DOGE crypto cryptomonnaie",
-  "BNB-USD": "BNB Binance Coin crypto cryptomonnaie",
-  "AVAX-USD": "Avalanche AVAX crypto cryptomonnaie",
-  "LINK-USD": "Chainlink LINK crypto cryptomonnaie",
-  "MATIC-USD": "Polygon MATIC crypto cryptomonnaie",
-  "GC=F": "Or Gold mati\xE8re premi\xE8re",
-  "CL=F": "P\xE9trole brut Crude Oil WTI mati\xE8re premi\xE8re",
-  "SI=F": "Argent Silver mati\xE8re premi\xE8re",
-  "NG=F": "Gaz naturel Natural Gas mati\xE8re premi\xE8re",
-  "HG=F": "Cuivre Copper mati\xE8re premi\xE8re",
-  "ZC=F": "Ma\xEFs Corn mati\xE8re premi\xE8re agricole",
-  "ZW=F": "Bl\xE9 Wheat mati\xE8re premi\xE8re agricole",
-  "EURUSD=X": "Euro Dollar am\xE9ricain EUR/USD devise",
-  "USDCAD=X": "Dollar am\xE9ricain Dollar canadien USD/CAD devise",
-  "GBPUSD=X": "Livre sterling Dollar am\xE9ricain GBP/USD devise",
-  "JPY=X": "Dollar am\xE9ricain Yen japonais USD/JPY devise",
-  // Nouveaux indices
-  "^NYA": "NYSE Composite New York",
-  "^XAX": "NYSE American Composite",
-  "^OMXS30": "OMX Stockholm 30 Su\xE8de",
-  "^OSEAX": "Oslo Bors Norv\xE8ge",
-  "^ATX": "ATX Autriche Vienne",
-  "^BFX": "BEL 20 Belgique Bruxelles",
-  "^PSI20": "PSI 20 Portugal Lisbonne",
-  "^NSEI": "Nifty 50 Inde",
-  "^JKSE": "Jakarta Composite Indon\xE9sie",
-  "^KLSE": "FTSE Bursa Malaisie",
-  "^NZ50": "NZX 50 Nouvelle-Z\xE9lande",
-  "000001.SS": "SSE Composite Shanghai Chine",
-  "399001.SZ": "SZSE Composite Shenzhen Chine",
-  "^MERV": "Merval Argentine Buenos Aires",
-  "^IPSA": "IPSA Chili Santiago",
-  "^TA125.TA": "TA-125 Isra\xEBl Tel Aviv",
-  "^CASE30": "EGX 30 \xC9gypte Le Caire",
-  "^J203.JO": "JSE Top 40 Afrique du Sud",
-  // Nouvelles cryptos
-  "DOT-USD": "Polkadot DOT crypto cryptomonnaie",
-  "LTC-USD": "Litecoin LTC crypto cryptomonnaie",
-  "SHIB-USD": "Shiba Inu SHIB crypto cryptomonnaie",
-  "TRX-USD": "Tron TRX crypto cryptomonnaie",
-  "ATOM-USD": "Cosmos ATOM crypto cryptomonnaie",
-  "UNI-USD": "Uniswap UNI crypto cryptomonnaie",
-  "XLM-USD": "Stellar XLM crypto cryptomonnaie",
-  "NEAR-USD": "Near Protocol NEAR crypto cryptomonnaie",
-  "APT-USD": "Aptos APT crypto cryptomonnaie",
-  "ARB-USD": "Arbitrum ARB crypto cryptomonnaie",
-  // Nouvelles matières premières
-  "ZS=F": "Soya Soybeans mati\xE8re premi\xE8re agricole",
-  "KC=F": "Caf\xE9 Coffee mati\xE8re premi\xE8re agricole",
-  "SB=F": "Sucre Sugar mati\xE8re premi\xE8re agricole",
-  "CT=F": "Coton Cotton mati\xE8re premi\xE8re agricole",
-  "PL=F": "Platine Platinum mati\xE8re premi\xE8re",
-  "PA=F": "Palladium mati\xE8re premi\xE8re",
-  "BZ=F": "P\xE9trole Brent Brent Crude mati\xE8re premi\xE8re",
-  "RB=F": "Essence RBOB Gasoline mati\xE8re premi\xE8re",
-  // Nouvelles devises
-  "USDCHF=X": "Dollar am\xE9ricain Franc suisse USD/CHF devise",
-  "AUDUSD=X": "Dollar australien Dollar am\xE9ricain AUD/USD devise",
-  "NZDUSD=X": "Dollar n\xE9o-z\xE9landais Dollar am\xE9ricain NZD/USD devise",
-  "USDCNY=X": "Dollar am\xE9ricain Yuan chinois USD/CNY devise",
-  "USDMXN=X": "Dollar am\xE9ricain Peso mexicain USD/MXN devise",
-  "USDINR=X": "Dollar am\xE9ricain Roupie indienne USD/INR devise",
-  "USDBRL=X": "Dollar am\xE9ricain Real br\xE9silien USD/BRL devise",
-  "EURGBP=X": "Euro Livre sterling EUR/GBP devise",
-  "EURJPY=X": "Euro Yen japonais EUR/JPY devise",
-  "EURCAD=X": "Euro Dollar canadien EUR/CAD devise"
-};
-function searchCurated(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const allSymbols = [...INDICES, ...WEALTHSIMPLE_POPULAR];
-  return allSymbols.filter((sym) => {
-    const label = CURATED_NAMES[sym] ?? sym;
-    return sym.toLowerCase().includes(q) || label.toLowerCase().includes(q);
-  }).map((sym) => ({
-    symbol: sym,
-    name: CURATED_NAMES[sym] ?? sym,
-    type: sym.startsWith("^") ? "index" : sym.endsWith("-USD") ? "crypto" : sym.endsWith("=F") ? "commodity" : sym.endsWith("=X") ? "currency" : "stock",
-    exchange: ""
-  }));
-}
-router3.get("/market/search", async (req, res) => {
-  const { q } = req.query;
-  if (!q) return res.status(400).json({ error: "q query param required" });
-  try {
-    const seen = /* @__PURE__ */ new Set();
-    const combined = [];
-    for (const item of searchCurated(q)) {
-      if (!seen.has(item.symbol)) {
-        seen.add(item.symbol);
-        combined.push(item);
-      }
-    }
-    try {
-      const results = await yahooFinance.search(q, { newsCount: 0 });
-      for (const item of results.quotes ?? []) {
-        const symbol2 = item.symbol ?? "";
-        if (!symbol2 || seen.has(symbol2)) continue;
-        seen.add(symbol2);
-        combined.push({
-          symbol: symbol2,
-          name: "longname" in item && item.longname ? item.longname : "shortname" in item && item.shortname ? item.shortname : symbol2,
-          type: "quoteType" in item && item.quoteType ? TYPE_MAP2[item.quoteType.toUpperCase()] ?? "stock" : "stock",
-          exchange: "exchange" in item && item.exchange ? item.exchange : ""
-        });
-      }
-    } catch (err) {
-      req.log.warn({ err }, "Yahoo fuzzy search failed, falling back to curated + direct lookup only");
-    }
-    if (combined.length === 0) {
-      const candidate = q.trim().toUpperCase();
-      try {
-        const quote2 = await yahooFinance.quote(candidate);
-        if (quote2?.symbol) {
-          combined.push({
-            symbol: quote2.symbol,
-            name: quote2.longName ?? quote2.shortName ?? quote2.symbol,
-            type: quote2.quoteType ? TYPE_MAP2[String(quote2.quoteType).toUpperCase()] ?? "stock" : "stock",
-            exchange: quote2.fullExchangeName ?? quote2.exchange ?? ""
-          });
-        }
-      } catch {
-      }
-    }
-    return res.json(combined.slice(0, 15));
-  } catch (err) {
-    req.log.error({ err }, "Search failed");
-    return res.status(500).json({ error: "Search failed" });
-  }
-});
-var market_default = router3;
-
-// src/routes/news.ts
-var import_express4 = __toESM(require_express2(), 1);
-
-// src/lib/logger.ts
-var import_pino = __toESM(require_pino(), 1);
-var isProduction = process.env.NODE_ENV === "production";
-var logger = (0, import_pino.default)({
-  level: process.env.LOG_LEVEL ?? "info",
-  redact: [
-    "req.headers.authorization",
-    "req.headers.cookie",
-    "res.headers['set-cookie']"
-  ],
-  ...isProduction ? {} : {
-    transport: {
-      target: "pino-pretty",
-      options: { colorize: true }
-    }
-  }
-});
-
-// src/lib/freeNews.ts
-var CACHE_TTL_MS = 10 * 60 * 1e3;
-var cache = /* @__PURE__ */ new Map();
-var BULLISH_WORDS = [
-  "hausse",
-  "bondit",
-  "grimpe",
-  "record",
-  "optimis",
-  "rebond",
-  "croissance",
-  "profit",
-  "surperforme",
-  "rallye",
-  "soars",
-  "surge",
-  "rally",
-  "jumps",
-  "gains",
-  "beats",
-  "outperform"
-];
-var BEARISH_WORDS = [
-  "chute",
-  "recul",
-  "baisse",
-  "plonge",
-  "effondr",
-  "perte",
-  "d\xE9ficit",
-  "crainte",
-  "r\xE9cession",
-  "misses",
-  "plunge",
-  "slump",
-  "selloff",
-  "tumbles",
-  "falls",
-  "drops",
-  "losses",
-  "fear",
-  "warns"
-];
-function estimateSentiment(text2) {
-  const t = text2.toLowerCase();
-  let score = 0;
-  for (const w of BULLISH_WORDS) if (t.includes(w)) score += 1;
-  for (const w of BEARISH_WORDS) if (t.includes(w)) score -= 1;
-  const label = score > 0 ? "haussier" : score < 0 ? "baissier" : "neutre";
-  return { label, score: Math.max(-1, Math.min(1, score / 3)) };
-}
-function decodeEntities(s) {
-  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").trim();
-}
-function extractTag(block, tag2) {
-  const m = block.match(new RegExp(`<${tag2}[^>]*>([\\s\\S]*?)</${tag2}>`));
-  return m ? decodeEntities(m[1]) : "";
-}
-function parseRssItems(xml) {
-  const items = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let m;
-  while (m = itemRegex.exec(xml)) {
-    const block = m[1];
-    const rawTitle = extractTag(block, "title");
-    const link = extractTag(block, "link");
-    const pubDate = extractTag(block, "pubDate");
-    const sourceMatch = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
-    const dashIdx = rawTitle.lastIndexOf(" - ");
-    const source = sourceMatch ? decodeEntities(sourceMatch[1]) : dashIdx > -1 ? rawTitle.slice(dashIdx + 3) : "Google News";
-    const title = dashIdx > -1 && !sourceMatch ? rawTitle.slice(0, dashIdx) : rawTitle;
-    if (title && link) items.push({ title, link, pubDate, source });
-  }
-  return items;
-}
-async function fetchGoogleNewsRss(query, limit2) {
-  const url3 = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=fr-CA&gl=CA&ceid=CA:fr`;
-  try {
-    const res = await fetch(url3, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Accept: "application/rss+xml, application/xml, text/xml, */*"
-      }
-    });
-    if (!res.ok) throw new Error(`Google News HTTP ${res.status}`);
-    const xml = await res.text();
-    const items = parseRssItems(xml).slice(0, limit2);
-    if (items.length === 0) {
-      logger.warn({ query, status: res.status, xmlLength: xml.length }, "Flux Google News vide ou non pars\xE9");
-    }
-    return items;
-  } catch (err) {
-    logger.error({ err, query }, "\xC9chec de r\xE9cup\xE9ration du flux Google News");
-    return [];
-  }
-}
-function rssItemToNews(item, theme) {
-  const { label, score } = estimateSentiment(item.title);
-  return {
-    id: item.link,
-    title: item.title,
-    summary: "",
-    source: item.source,
-    url: item.link,
-    publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
-    theme,
-    overallSentimentScore: score,
-    overallSentimentLabel: label,
-    tickers: []
-  };
-}
-var THEME_FEEDS = [
-  { theme: "March\xE9s financiers", query: "march\xE9s boursiers Wall Street TSX" },
-  { theme: "Politique mon\xE9taire", query: "taux d'int\xE9r\xEAt banque centrale Fed" },
-  { theme: "R\xE9sultats d'entreprises", query: "r\xE9sultats trimestriels bourse" },
-  { theme: "Technologie", query: "actions technologiques bourse" },
-  { theme: "Cryptomonnaies", query: "cryptomonnaie bitcoin march\xE9" },
-  { theme: "\xC9conomie", query: "inflation \xE9conomie march\xE9" }
-];
-async function fetchThemeNews(limitPerTheme) {
-  const cacheKey = `themes:${limitPerTheme}`;
-  const cached2 = cache.get(cacheKey);
-  if (cached2 && cached2.expiresAt > Date.now()) return cached2.data;
-  const results = await Promise.all(
-    THEME_FEEDS.map(async (f) => {
-      const items = await fetchGoogleNewsRss(f.query, limitPerTheme);
-      return { theme: f.theme, count: items.length, items: items.map((it) => rssItemToNews(it, f.theme)) };
-    })
-  );
-  logger.info(
-    { counts: Object.fromEntries(results.map((r) => [r.theme, r.count])) },
-    "R\xE9sum\xE9 des flux Google News par th\xE8me"
-  );
-  const flat = results.flatMap((r) => r.items);
-  cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, data: flat });
-  return flat;
-}
-async function fetchTickerNews(tickers, limitPerTicker) {
-  const cacheKey = `tickers:${tickers.join(",")}:${limitPerTicker}`;
-  const cached2 = cache.get(cacheKey);
-  if (cached2 && cached2.expiresAt > Date.now()) return cached2.data;
-  const results = await Promise.all(
-    tickers.map(async (ticker) => {
-      try {
-        const result = await yahooFinance.search(ticker, { newsCount: limitPerTicker, quotesCount: 0 });
-        const news = result?.news ?? [];
-        return news.map((n) => {
-          const { label, score } = estimateSentiment(n.title ?? "");
-          return {
-            id: n.uuid ?? n.link,
-            title: n.title ?? "",
-            summary: "",
-            source: n.publisher ?? "Yahoo Finance",
-            url: n.link,
-            publishedAt: n.providerPublishTime ? new Date(n.providerPublishTime * 1e3).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
-            theme: "Actualit\xE9 du titre",
-            overallSentimentScore: score,
-            overallSentimentLabel: label,
-            tickers: [{ ticker, relevanceScore: 1, sentimentScore: score, sentimentLabel: label }]
-          };
-        });
-      } catch (err) {
-        logger.error({ err, ticker }, "\xC9chec de r\xE9cup\xE9ration des news Yahoo Finance pour ce titre");
-        return [];
-      }
-    })
-  );
-  const flat = results.flat();
-  cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, data: flat });
-  return flat;
-}
-async function fetchMarketNews(opts = {}) {
-  const limit2 = opts.limit ?? 40;
-  const tickers = opts.tickers ? opts.tickers.split(",").map((t) => t.trim()).filter(Boolean) : [];
-  const [themeNews, tickerNews] = await Promise.all([
-    fetchThemeNews(6),
-    tickers.length > 0 ? fetchTickerNews(tickers, 6) : Promise.resolve([])
-  ]);
-  const combined = [...tickerNews, ...themeNews].sort(
-    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
-  return combined.slice(0, limit2);
-}
-
-// src/routes/news.ts
-var router4 = (0, import_express4.Router)();
-router4.get("/market/news", async (req, res) => {
-  const { tickers, limit: limit2 } = req.query;
-  try {
-    const news = await fetchMarketNews({
-      tickers,
-      limit: limit2 ? Number(limit2) : void 0
-    });
-    return res.json(news);
-  } catch (err) {
-    req.log.error({ err }, "Failed to fetch market news");
-    return res.status(500).json({ error: "Failed to fetch market news" });
-  }
-});
-var news_default = router4;
-
-// src/routes/watchlist.ts
-var import_express5 = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
@@ -94637,6 +93742,7 @@ function drizzle(...params) {
 var schema_exports = {};
 __export(schema_exports, {
   NOTIFICATION_EVENT_TYPES: () => NOTIFICATION_EVENT_TYPES,
+  agentTasksTable: () => agentTasksTable,
   alertsTable: () => alertsTable,
   appSettingsTable: () => appSettingsTable,
   auditLogTable: () => auditLogTable,
@@ -94644,6 +93750,7 @@ __export(schema_exports, {
   chartNotesTable: () => chartNotesTable,
   copiedTradesTable: () => copiedTradesTable,
   followedTradersTable: () => followedTradersTable,
+  insertAgentTaskSchema: () => insertAgentTaskSchema,
   insertAlertSchema: () => insertAlertSchema,
   insertAuditLogSchema: () => insertAuditLogSchema,
   insertBrokerConnectionSchema: () => insertBrokerConnectionSchema,
@@ -106327,6 +105434,26 @@ var spotifyConnectionsTable = pgTable("spotify_connections", {
   connectedAt: timestamp("connected_at").defaultNow().notNull()
 });
 
+// ../../lib/db/src/schema/agentTasks.ts
+var agentTasksTable = pgTable("agent_tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: text("status").notNull().default("in_progress"),
+  stepsCompleted: text("steps_completed").notNull().default("[]"),
+  nextSteps: text("next_steps").notNull().default("[]"),
+  checkpointNotes: text("checkpoint_notes").notNull().default(""),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  pausedAt: timestamp("paused_at"),
+  completedAt: timestamp("completed_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+var insertAgentTaskSchema = createInsertSchema(agentTasksTable).omit({
+  id: true,
+  startedAt: true,
+  updatedAt: true
+});
+
 // ../../lib/db/src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
@@ -106337,86 +105464,111 @@ if (!process.env.DATABASE_URL) {
 var pool = new Pool3({ connectionString: process.env.DATABASE_URL });
 var db = drizzle(pool, { schema: schema_exports });
 
-// src/routes/watchlist.ts
+// src/lib/risk.ts
 init_drizzle_orm();
-var router5 = (0, import_express5.Router)();
-router5.get("/watchlist", async (req, res) => {
-  try {
-    const items = await db.select().from(watchlistTable).orderBy(watchlistTable.addedAt);
-    return res.json(
-      items.map((i) => ({
-        id: i.id,
-        symbol: i.symbol,
-        name: i.name,
-        note: i.note ?? null,
-        listName: i.listName,
-        addedAt: i.addedAt.toISOString()
-      }))
-    );
-  } catch (err) {
-    req.log.error({ err }, "Failed to get watchlist");
-    return res.status(500).json({ error: "Failed to get watchlist" });
-  }
-});
-router5.post("/watchlist", async (req, res) => {
-  const { symbol: symbol2, name: name2, note, listName } = req.body;
-  if (!symbol2 || !name2) {
-    return res.status(400).json({ error: "symbol and name are required" });
-  }
-  try {
-    const [item] = await db.insert(watchlistTable).values({ symbol: symbol2.toUpperCase(), name: name2, note: note ?? null, listName: listName?.trim() || "G\xE9n\xE9ral" }).returning();
-    return res.status(201).json({
-      id: item.id,
-      symbol: item.symbol,
-      name: item.name,
-      note: item.note ?? null,
-      listName: item.listName,
-      addedAt: item.addedAt.toISOString()
-    });
-  } catch (err) {
-    req.log.error({ err }, "Failed to add to watchlist");
-    return res.status(500).json({ error: "Failed to add to watchlist" });
-  }
-});
-router5.patch("/watchlist/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-  const { listName } = req.body;
-  if (!listName || !listName.trim()) {
-    return res.status(400).json({ error: "listName is required" });
-  }
-  try {
-    const [item] = await db.update(watchlistTable).set({ listName: listName.trim() }).where(eq(watchlistTable.id, id)).returning();
-    if (!item) return res.status(404).json({ error: "Not found" });
-    return res.json({
-      id: item.id,
-      symbol: item.symbol,
-      name: item.name,
-      note: item.note ?? null,
-      listName: item.listName,
-      addedAt: item.addedAt.toISOString()
-    });
-  } catch (err) {
-    req.log.error({ err }, "Failed to update watchlist item");
-    return res.status(500).json({ error: "Failed to update watchlist item" });
-  }
-});
-router5.delete("/watchlist/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-  try {
-    await db.delete(watchlistTable).where(eq(watchlistTable.id, id));
-    return res.status(204).send();
-  } catch (err) {
-    req.log.error({ err }, "Failed to remove from watchlist");
-    return res.status(500).json({ error: "Failed to remove from watchlist" });
-  }
-});
-var watchlist_default = router5;
 
-// src/routes/alerts.ts
-var import_express6 = __toESM(require_express2(), 1);
+// src/lib/logger.ts
+var import_pino = __toESM(require_pino(), 1);
+var isProduction = process.env.NODE_ENV === "production";
+var logger = (0, import_pino.default)({
+  level: process.env.LOG_LEVEL ?? "info",
+  redact: [
+    "req.headers.authorization",
+    "req.headers.cookie",
+    "res.headers['set-cookie']"
+  ],
+  ...isProduction ? {} : {
+    transport: {
+      target: "pino-pretty",
+      options: { colorize: true }
+    }
+  }
+});
+
+// src/lib/settings.ts
 init_drizzle_orm();
+
+// src/lib/audit.ts
+init_drizzle_orm();
+async function logAudit(action, summary, details) {
+  try {
+    await db.insert(auditLogTable).values({ action, summary, details: details ?? null });
+  } catch (err) {
+    logger.error({ err, action }, "audit: failed to write log entry");
+  }
+}
+async function listAuditLog(limit2 = 100) {
+  return db.select().from(auditLogTable).orderBy(desc(auditLogTable.createdAt)).limit(limit2);
+}
+
+// src/lib/emailClient.ts
+async function sendEmail({ to, subject }) {
+  logger.warn(
+    { to, subject },
+    "Canal email non configur\xE9 \u2014 notification ignor\xE9e (l'\xE9v\xE9nement est quand m\xEAme enregistr\xE9 en DB)"
+  );
+  return false;
+}
+function alertEmailHtml(params) {
+  const { symbol: symbol2, name: name2, condition, targetPrice, currentPrice } = params;
+  const conditionText = condition === "above" ? "est mont\xE9 au-dessus de" : "est descendu en dessous de";
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">\u{1F514} Alerte de prix d\xE9clench\xE9e</h2>
+      <p style="font-size: 16px; color: #333;">
+        <strong>${name2 ?? symbol2} (${symbol2})</strong> ${conditionText}
+        <strong>${targetPrice.toFixed(2)} $</strong>.
+      </p>
+      <p style="font-size: 14px; color: #666;">Prix actuel : ${currentPrice.toFixed(2)} $</p>
+      <p style="font-size: 12px; color: #999; margin-top: 24px;">
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
+        cr\xE9e-en une nouvelle si tu veux continuer \xE0 suivre ce titre.
+      </p>
+    </div>
+  `;
+}
+function signalAlertEmailHtml(params) {
+  const { symbol: symbol2, name: name2, overall, score, topSignals } = params;
+  const isBuy = overall === "ACHAT" || overall === "FORT ACHAT";
+  const isSell = overall === "VENTE" || overall === "FORTE VENTE";
+  const tagColor = isBuy ? "#10b981" : isSell ? "#ef4444" : "#6b7280";
+  const signalList = topSignals.map((s) => `<li style="margin: 4px 0;">${s}</li>`).join("");
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">\u{1F4C8} Signal technique composite</h2>
+      <p style="font-size: 16px; color: #333;">
+        <strong>${name2 ?? symbol2} (${symbol2})</strong> \u2014 signal
+        <strong style="color: ${tagColor}; background: ${tagColor}1a; padding: 2px 8px; border-radius: 4px;">${overall}</strong>
+        (score ${score > 0 ? "+" : ""}${score}).
+      </p>
+      ${signalList ? `<ul style="font-size: 14px; color: #555; padding-left: 20px;">${signalList}</ul>` : ""}
+      <p style="font-size: 12px; color: #999; margin-top: 24px;">
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement.
+        \u26A0\uFE0F Ce n'est pas un conseil financier.
+      </p>
+    </div>
+  `;
+}
+function patternAlertEmailHtml(params) {
+  const { symbol: symbol2, name: name2, patternName, signal, strength, description, howToUse } = params;
+  const signalColor = signal === "haussier" ? "#10b981" : signal === "baissier" ? "#ef4444" : "#6b7280";
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">\u{1F4CA} Alerte intelligente d\xE9clench\xE9e</h2>
+      <p style="font-size: 16px; color: #333;">
+        <strong>${name2 ?? symbol2} (${symbol2})</strong> vient de former un pattern
+        <strong style="color: ${signalColor};">${patternName}</strong>
+        (signal <strong style="color: ${signalColor};">${signal}</strong>, force ${strength}).
+      </p>
+      <p style="font-size: 14px; color: #666;">${description}</p>
+      <p style="font-size: 13px; color: #666; font-style: italic; border-left: 3px solid ${signalColor}; padding-left: 10px;">${howToUse}</p>
+      <p style="font-size: 12px; color: #999; margin-top: 24px;">
+        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement.
+        \u26A0\uFE0F Ce n'est pas un conseil financier.
+      </p>
+    </div>
+  `;
+}
 
 // src/lib/persistCreds.ts
 init_drizzle_orm();
@@ -106511,7 +105663,1493 @@ async function sendSms({ to, body }) {
   }
 }
 
+// src/lib/notificationPrefs.ts
+init_drizzle_orm();
+var CHANNELS = ["email", "sms", "both", "none"];
+var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var cache = null;
+function toOut(row) {
+  return {
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    killSwitchChannel: row.killSwitchChannel,
+    largeOrderChannel: row.largeOrderChannel,
+    thresholdChangeChannel: row.thresholdChangeChannel,
+    priceAlertChannel: row.priceAlertChannel,
+    patternAlertChannel: row.patternAlertChannel,
+    signalAlertChannel: row.signalAlertChannel,
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+async function ensureRow() {
+  const [existing] = await db.select().from(notificationPreferencesTable).limit(1);
+  if (existing) return existing;
+  const [created] = await db.insert(notificationPreferencesTable).values({}).returning();
+  return created;
+}
+async function getNotificationPreferences() {
+  if (cache) return cache;
+  const row = await ensureRow();
+  cache = toOut(row);
+  return cache;
+}
+var CHANNEL_FIELDS = [
+  "killSwitchChannel",
+  "largeOrderChannel",
+  "thresholdChangeChannel",
+  "priceAlertChannel",
+  "patternAlertChannel",
+  "signalAlertChannel"
+];
+async function updateNotificationPreferences(patch) {
+  const current = await getNotificationPreferences();
+  const next = { ...current, ...patch };
+  if (next.email !== null && next.email !== void 0 && next.email !== "" && !EMAIL_RE.test(next.email)) {
+    throw new Error("L'adresse email n'est pas valide.");
+  }
+  if (next.phone !== null && next.phone !== void 0 && next.phone !== "" && !isValidE164(next.phone)) {
+    throw new Error("Le num\xE9ro de t\xE9l\xE9phone doit \xEAtre au format E.164 (ex. +15145551234).");
+  }
+  for (const field of CHANNEL_FIELDS) {
+    const value = next[field];
+    if (value !== void 0 && !CHANNELS.includes(value)) {
+      throw new Error(`Canal invalide pour ${field} \u2014 attendu : email, sms, both ou none.`);
+    }
+    if ((value === "sms" || value === "both") && !next.phone) {
+      throw new Error("Configure d'abord un num\xE9ro de t\xE9l\xE9phone avant d'activer le SMS pour un \xE9v\xE9nement.");
+    }
+  }
+  const [row] = await db.select().from(notificationPreferencesTable).limit(1);
+  const values = {
+    email: next.email === "" ? null : next.email ?? current.email,
+    phone: next.phone === "" ? null : next.phone ?? current.phone,
+    killSwitchChannel: next.killSwitchChannel ?? current.killSwitchChannel,
+    largeOrderChannel: next.largeOrderChannel ?? current.largeOrderChannel,
+    thresholdChangeChannel: next.thresholdChangeChannel ?? current.thresholdChangeChannel,
+    priceAlertChannel: next.priceAlertChannel ?? current.priceAlertChannel,
+    patternAlertChannel: next.patternAlertChannel ?? current.patternAlertChannel,
+    signalAlertChannel: next.signalAlertChannel ?? current.signalAlertChannel
+  };
+  const [updated] = row ? await db.update(notificationPreferencesTable).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq(notificationPreferencesTable.id, row.id)).returning() : [await ensureRow()];
+  cache = toOut(updated);
+  return cache;
+}
+async function resolveDestinations(eventType) {
+  const prefs = await getNotificationPreferences();
+  const channelField = `${eventType}Channel`;
+  const channel = prefs[channelField];
+  return {
+    email: prefs.email,
+    phone: prefs.phone,
+    sendEmail: channel === "email" || channel === "both",
+    sendSms: channel === "sms" || channel === "both"
+  };
+}
+
+// src/lib/notifications.ts
+function wrapEmail(title, bodyHtml) {
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="color: #111;">${title}</h2>
+      ${bodyHtml}
+      <p style="font-size: 12px; color: #999; margin-top: 24px;">
+        Envoy\xE9 par Soliris Market \u2014 notification critique.
+      </p>
+    </div>
+  `;
+}
+async function notify(eventType, subject, html, smsText) {
+  const { email: email3, phone, sendEmail: shouldEmail, sendSms: shouldSms } = await resolveDestinations(eventType);
+  if (!shouldEmail && !shouldSms) return;
+  if (shouldEmail) {
+    if (email3) {
+      try {
+        await sendEmail({ to: email3, subject, html });
+      } catch (err) {
+        logger.error({ err, eventType, subject }, "notifications: \xE9chec de l'envoi de l'email critique");
+      }
+    } else {
+      logger.warn({ eventType, subject }, "notifications: canal email configur\xE9 mais aucune adresse enregistr\xE9e \u2014 envoi ignor\xE9");
+    }
+  }
+  if (shouldSms) {
+    if (phone) {
+      try {
+        await sendSms({ to: phone, body: smsText });
+      } catch (err) {
+        logger.error({ err, eventType, subject }, "notifications: \xE9chec de l'envoi du SMS critique");
+      }
+    } else {
+      logger.warn({ eventType, subject }, "notifications: canal SMS configur\xE9 mais aucun num\xE9ro enregistr\xE9 \u2014 envoi ignor\xE9");
+    }
+  }
+}
+async function notifyKillSwitchActivated(reason) {
+  await notify(
+    "killSwitch",
+    "\u{1F6D1} Kill-switch activ\xE9 sur Soliris Market",
+    wrapEmail(
+      "\u{1F6D1} Trading suspendu",
+      `<p style="font-size:15px;color:#333;">Le kill-switch a \xE9t\xE9 activ\xE9 \u2014 plus aucun ordre live ne sera envoy\xE9 au courtier jusqu'\xE0 r\xE9activation manuelle.</p>${reason ? `<p style="font-size:13px;color:#666;">${reason}</p>` : ""}`
+    ),
+    `\u{1F6D1} Soliris Market : kill-switch activ\xE9 \u2014 trading suspendu.${reason ? ` ${reason}` : ""}`
+  );
+}
+async function notifyLargeOrderExecuted(params) {
+  const { symbol: symbol2, side, quantity, orderValue, currency, mode } = params;
+  const sideText = side === "BUY" ? "Achat" : "Vente";
+  await notify(
+    "largeOrder",
+    `\u{1F4B0} Ordre important ex\xE9cut\xE9 \u2014 ${symbol2}`,
+    wrapEmail(
+      "\u{1F4B0} Ordre important ex\xE9cut\xE9",
+      `<p style="font-size:15px;color:#333;">
+        ${sideText} de <strong>${quantity} ${symbol2}</strong>
+        pour <strong>${currency}${orderValue.toFixed(2)}</strong> (mode ${mode}).
+      </p>`
+    ),
+    `\u{1F4B0} Soliris Market : ${sideText.toLowerCase()} de ${quantity} ${symbol2} pour ${currency}${orderValue.toFixed(2)} (mode ${mode}).`
+  );
+}
+async function notifySettingsChanged(changes) {
+  const entries = Object.entries(changes);
+  const rows = entries.map(([key, { from, to }]) => `<li>${key} : ${from} \u2192 ${to}</li>`).join("");
+  const smsLines = entries.map(([key, { from, to }]) => `${key} : ${from} \u2192 ${to}`).join(", ");
+  await notify(
+    "thresholdChange",
+    "\u2699\uFE0F Param\xE8tres de risque modifi\xE9s",
+    wrapEmail("\u2699\uFE0F Param\xE8tres de risque modifi\xE9s", `<ul style="font-size:14px;color:#333;">${rows}</ul>`),
+    `\u2699\uFE0F Soliris Market : param\xE8tres de risque modifi\xE9s \u2014 ${smsLines}`
+  );
+}
+
+// src/lib/settings.ts
+var DEFAULT_MAX_ORDER_VALUE = Number(process.env.MAX_ORDER_VALUE ?? 5e3);
+var DEFAULT_MAX_PORTFOLIO_EXPOSURE = Number(process.env.MAX_PORTFOLIO_EXPOSURE ?? 25e3);
+var DEFAULT_FRICTION_PCT = 0.5;
+var cache2 = null;
+function toRiskSettings(row) {
+  return {
+    maxOrderValue: Number(row.maxOrderValue),
+    maxPortfolioExposure: Number(row.maxPortfolioExposure),
+    largeOrderFrictionPct: Number(row.largeOrderFrictionPct),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+async function ensureRow2() {
+  const [existing] = await db.select().from(appSettingsTable).limit(1);
+  if (existing) return existing;
+  const [created] = await db.insert(appSettingsTable).values({
+    maxOrderValue: String(DEFAULT_MAX_ORDER_VALUE),
+    maxPortfolioExposure: String(DEFAULT_MAX_PORTFOLIO_EXPOSURE),
+    largeOrderFrictionPct: String(DEFAULT_FRICTION_PCT)
+  }).returning();
+  return created;
+}
+async function getRiskSettings() {
+  if (cache2) return cache2;
+  const row = await ensureRow2();
+  cache2 = toRiskSettings(row);
+  return cache2;
+}
+async function updateRiskSettings(patch) {
+  const current = await getRiskSettings();
+  const next = {
+    maxOrderValue: patch.maxOrderValue ?? current.maxOrderValue,
+    maxPortfolioExposure: patch.maxPortfolioExposure ?? current.maxPortfolioExposure,
+    largeOrderFrictionPct: patch.largeOrderFrictionPct ?? current.largeOrderFrictionPct
+  };
+  if (!Number.isFinite(next.maxOrderValue) || next.maxOrderValue <= 0) {
+    throw new Error("La valeur maximale par ordre doit \xEAtre un nombre positif.");
+  }
+  if (!Number.isFinite(next.maxPortfolioExposure) || next.maxPortfolioExposure <= 0) {
+    throw new Error("L'exposition maximale du portefeuille doit \xEAtre un nombre positif.");
+  }
+  if (next.maxOrderValue > next.maxPortfolioExposure) {
+    throw new Error("La valeur maximale par ordre ne peut pas d\xE9passer l'exposition maximale du portefeuille.");
+  }
+  if (!Number.isFinite(next.largeOrderFrictionPct) || next.largeOrderFrictionPct <= 0 || next.largeOrderFrictionPct > 1) {
+    throw new Error("Le seuil de confirmation renforc\xE9e doit \xEAtre compris entre 0 et 100 %.");
+  }
+  const [row] = await db.select().from(appSettingsTable).limit(1);
+  const [updated] = row ? await db.update(appSettingsTable).set({
+    maxOrderValue: String(next.maxOrderValue),
+    maxPortfolioExposure: String(next.maxPortfolioExposure),
+    largeOrderFrictionPct: String(next.largeOrderFrictionPct),
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(appSettingsTable.id, row.id)).returning() : [await ensureRow2()];
+  cache2 = toRiskSettings(updated);
+  const changes = {};
+  if (patch.maxOrderValue !== void 0 && patch.maxOrderValue !== current.maxOrderValue) {
+    changes.maxOrderValue = { from: current.maxOrderValue, to: next.maxOrderValue };
+  }
+  if (patch.maxPortfolioExposure !== void 0 && patch.maxPortfolioExposure !== current.maxPortfolioExposure) {
+    changes.maxPortfolioExposure = { from: current.maxPortfolioExposure, to: next.maxPortfolioExposure };
+  }
+  if (patch.largeOrderFrictionPct !== void 0 && patch.largeOrderFrictionPct !== current.largeOrderFrictionPct) {
+    changes.largeOrderFrictionPct = { from: current.largeOrderFrictionPct, to: next.largeOrderFrictionPct };
+  }
+  if (Object.keys(changes).length > 0) {
+    await logAudit(
+      "settings.update",
+      "Param\xE8tres de risque modifi\xE9s",
+      changes
+    );
+    await notifySettingsChanged(changes);
+  }
+  return cache2;
+}
+
+// src/lib/risk.ts
+async function getMaxOrderValue() {
+  return (await getRiskSettings()).maxOrderValue;
+}
+async function getMaxPortfolioExposure() {
+  return (await getRiskSettings()).maxPortfolioExposure;
+}
+function getExchangeForSymbol(symbol2) {
+  const upper = symbol2.toUpperCase();
+  if (upper.startsWith("^")) return "UNSUPPORTED";
+  if (upper.endsWith("=F") || upper.endsWith("=X")) return "UNSUPPORTED";
+  if (/-USD$|-CAD$|-EUR$|-GBP$/.test(upper)) return "UNSUPPORTED";
+  if (/\.(TO|V|NE|CN)$/.test(upper)) return "TSX";
+  if (/\.(DE|PA|L|SW|AS|MI|MC|BR|LS|ST|CO|OL|HE|VI|PR|WA|AT|IR|VX|AMS)$/.test(upper)) {
+    return "UNSUPPORTED";
+  }
+  if (/\.(T|KS|KQ|HK|NS|BO|SS|SZ|AX|SI|KL|BK|TW|JK|NZ)$/.test(upper)) {
+    return "UNSUPPORTED";
+  }
+  if (/\.(JO|TA)$/.test(upper)) return "UNSUPPORTED";
+  if (/\.MX$/.test(upper)) return "UNSUPPORTED";
+  return "NASDAQ_NYSE";
+}
+function toKey(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+function observed(d) {
+  const dow = d.getDay();
+  if (dow === 0) return addDays(d, 1);
+  if (dow === 6) return addDays(d, -1);
+  return d;
+}
+function nthWeekday(year2, month, weekday, n) {
+  const first = new Date(year2, month - 1, 1).getDay();
+  const day2 = (weekday - first + 7) % 7 + 1 + (n - 1) * 7;
+  return new Date(year2, month - 1, day2);
+}
+function lastWeekday(year2, month, weekday) {
+  const lastDay = new Date(year2, month, 0);
+  const day2 = lastDay.getDate() - (lastDay.getDay() - weekday + 7) % 7;
+  return new Date(year2, month - 1, day2);
+}
+function easterSunday(year2) {
+  const a = year2 % 19;
+  const b = Math.floor(year2 / 100);
+  const c = year2 % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day2 = (h + l - 7 * m + 114) % 31 + 1;
+  return new Date(year2, month - 1, day2);
+}
+function victoriaDay(year2) {
+  const may24 = new Date(year2, 4, 24);
+  const dow = may24.getDay();
+  const daysBack = dow === 1 ? 0 : dow === 0 ? 6 : dow - 1;
+  return new Date(year2, 4, 24 - daysBack);
+}
+function getMarketHolidays(year2, exchange) {
+  const holidays = /* @__PURE__ */ new Set();
+  const add = (d) => holidays.add(toKey(d));
+  add(observed(new Date(year2, 0, 1)));
+  add(addDays(easterSunday(year2), -2));
+  if (exchange === "NASDAQ_NYSE") {
+    add(nthWeekday(year2, 1, 1, 3));
+    add(nthWeekday(year2, 2, 1, 3));
+    add(lastWeekday(year2, 5, 1));
+    if (year2 >= 2021) add(observed(new Date(year2, 5, 19)));
+    add(observed(new Date(year2, 6, 4)));
+    add(nthWeekday(year2, 9, 1, 1));
+    add(nthWeekday(year2, 11, 4, 4));
+    add(observed(new Date(year2, 11, 25)));
+  }
+  if (exchange === "TSX") {
+    add(nthWeekday(year2, 2, 1, 3));
+    add(victoriaDay(year2));
+    add(observed(new Date(year2, 6, 1)));
+    add(nthWeekday(year2, 8, 1, 1));
+    add(nthWeekday(year2, 9, 1, 1));
+    add(nthWeekday(year2, 10, 1, 2));
+    const christmas = new Date(year2, 11, 25);
+    add(observed(christmas));
+    const christmasDow = christmas.getDay();
+    let boxingDay;
+    if (christmasDow === 5) {
+      boxingDay = new Date(year2, 11, 28);
+    } else if (christmasDow === 6) {
+      boxingDay = new Date(year2, 11, 28);
+    } else if (christmasDow === 0) {
+      boxingDay = new Date(year2, 11, 27);
+    } else {
+      boxingDay = observed(new Date(year2, 11, 26));
+    }
+    add(boxingDay);
+  }
+  return holidays;
+}
+function isMarketOpen(symbol2, now = /* @__PURE__ */ new Date()) {
+  const exchange = getExchangeForSymbol(symbol2);
+  if (exchange === "UNSUPPORTED") {
+    return {
+      open: false,
+      exchange,
+      exchangeLabel: "Bourse non support\xE9e",
+      message: `Le symbole ${symbol2} est cot\xE9 sur une bourse non support\xE9e par Wealthsimple via SnapTrade.`
+    };
+  }
+  const exchangeLabel = exchange === "TSX" ? "TSX (Toronto)" : "NASDAQ/NYSE";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "numeric",
+    weekday: "short",
+    hour12: false
+  }).formatToParts(now);
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  const weekday = get("weekday");
+  const year2 = Number(get("year"));
+  const month = get("month");
+  const day2 = get("day");
+  const hour2 = Number(get("hour"));
+  const minute2 = Number(get("minute"));
+  const isWeekday = !["Sat", "Sun"].includes(weekday);
+  const dateKey = `${year2}-${month}-${day2}`;
+  const holidays = getMarketHolidays(year2, exchange);
+  const isHoliday = holidays.has(dateKey);
+  const minutesSinceMidnight = hour2 * 60 + minute2;
+  const openAt = 9 * 60 + 30;
+  const closeAt = 16 * 60;
+  const withinHours = minutesSinceMidnight >= openAt && minutesSinceMidnight < closeAt;
+  const open = isWeekday && !isHoliday && withinHours;
+  let message2;
+  if (!isWeekday) {
+    message2 = `${exchangeLabel} est ferm\xE9 le week-end. R\xE9essayez du lundi au vendredi pendant les heures d'ouverture (9h30\u201316h00, heure de l'Est).`;
+  } else if (isHoliday) {
+    message2 = `${exchangeLabel} est ferm\xE9 aujourd'hui (jour f\xE9ri\xE9 boursier). R\xE9essayez le prochain jour ouvrable.`;
+  } else if (!withinHours) {
+    message2 = `${exchangeLabel} est ferm\xE9 en ce moment. Heures d'ouverture : 9h30\u201316h00, heure de l'Est, du lundi au vendredi.`;
+  } else {
+    message2 = `${exchangeLabel} est ouvert.`;
+  }
+  return { open, exchange, exchangeLabel, message: message2 };
+}
+async function getCurrentExposureByCurrency(mode, brokerPositions) {
+  if (mode === "live" && brokerPositions && brokerPositions.length > 0) {
+    const exposureByCurrency2 = {};
+    for (const pos of brokerPositions) {
+      if (pos.units <= 0 || pos.price <= 0) continue;
+      const currency = (pos.currency ?? "USD").toUpperCase();
+      exposureByCurrency2[currency] = (exposureByCurrency2[currency] ?? 0) + pos.units * pos.price;
+    }
+    return exposureByCurrency2;
+  }
+  const orders = await db.select().from(ordersTable).where(eq(ordersTable.mode, mode));
+  const relevant = orders.filter(
+    (o) => ["simulated", "submitted", "filled", "partially_filled"].includes(o.status)
+  );
+  if (relevant.length === 0) return {};
+  const netUnitsBySymbol = /* @__PURE__ */ new Map();
+  for (const o of relevant) {
+    const qty = Number(o.filledQuantity ?? o.quantity ?? 0);
+    const signed = o.side.toUpperCase() === "BUY" ? qty : -qty;
+    netUnitsBySymbol.set(o.symbol, (netUnitsBySymbol.get(o.symbol) ?? 0) + signed);
+  }
+  const symbols = [...netUnitsBySymbol.keys()].filter((s) => (netUnitsBySymbol.get(s) ?? 0) !== 0);
+  if (symbols.length === 0) return {};
+  let quotes = [];
+  try {
+    quotes = await getQuotes(symbols);
+  } catch (err) {
+    logger.error({ err }, "risk: failed to fetch quotes for exposure calculation");
+    throw new Error(
+      "Impossible de calculer l'exposition du portefeuille (prix indisponibles). Ordre refus\xE9 par prudence."
+    );
+  }
+  const priceBySymbol = new Map(quotes.map((q) => [q.symbol.toUpperCase(), q]));
+  const exposureByCurrency = {};
+  for (const symbol2 of symbols) {
+    const units = netUnitsBySymbol.get(symbol2) ?? 0;
+    const quote2 = priceBySymbol.get(symbol2.toUpperCase());
+    if (!quote2) continue;
+    const value = Math.abs(units) * quote2.price;
+    exposureByCurrency[quote2.currency] = (exposureByCurrency[quote2.currency] ?? 0) + value;
+  }
+  return exposureByCurrency;
+}
+async function checkOrderRisk(input) {
+  const { symbol: symbol2, side, quantity, mode, brokerPositions } = input;
+  const exchange = getExchangeForSymbol(symbol2);
+  if (exchange === "UNSUPPORTED") {
+    return {
+      ok: false,
+      reason: "exchange_not_supported",
+      message: `Le symbole ${symbol2} est cot\xE9 sur une bourse non support\xE9e par Wealthsimple (indices, futures, forex, cryptos hors SnapTrade, bourses europ\xE9ennes/asiatiques). Seuls les titres cot\xE9s sur TSX, NASDAQ et NYSE sont ex\xE9cutables.`,
+      details: { symbol: symbol2 }
+    };
+  }
+  const hours = isMarketOpen(symbol2);
+  if (!hours.open) {
+    return {
+      ok: false,
+      reason: "market_closed",
+      message: hours.message,
+      details: { exchange: hours.exchange }
+    };
+  }
+  const quotes = await getQuotes([symbol2]);
+  const quote2 = quotes.find((q) => q.symbol.toUpperCase() === symbol2.toUpperCase());
+  if (!quote2) {
+    return {
+      ok: false,
+      reason: "price_unavailable",
+      message: `Prix courant introuvable pour ${symbol2}. Ordre refus\xE9 par prudence.`,
+      details: {}
+    };
+  }
+  const orderValue = quantity * quote2.price;
+  const maxOrderValue = await getMaxOrderValue();
+  if (orderValue > maxOrderValue) {
+    return {
+      ok: false,
+      reason: "order_value_exceeded",
+      message: `Ordre refus\xE9 : la valeur (${quote2.currency}${orderValue.toFixed(2)}) d\xE9passe la limite autoris\xE9e de ${quote2.currency}${maxOrderValue.toFixed(2)} par ordre. V\xE9rifiez la quantit\xE9 saisie.`,
+      details: { orderValue, maxOrderValue, currency: quote2.currency, quantity, price: quote2.price }
+    };
+  }
+  if (side === "BUY") {
+    const exposureByCurrency = await getCurrentExposureByCurrency(mode, brokerPositions);
+    const currentExposure = exposureByCurrency[quote2.currency] ?? 0;
+    const projectedExposure = currentExposure + orderValue;
+    const maxExposure = await getMaxPortfolioExposure();
+    if (projectedExposure > maxExposure) {
+      return {
+        ok: false,
+        reason: "portfolio_exposure_exceeded",
+        message: `Ordre refus\xE9 : l'exposition totale du portefeuille en ${quote2.currency} passerait de ${quote2.currency}${currentExposure.toFixed(2)} \xE0 ${quote2.currency}${projectedExposure.toFixed(2)}, au-del\xE0 de la limite de ${quote2.currency}${maxExposure.toFixed(2)}.`,
+        details: { currentExposure, projectedExposure, maxExposure, currency: quote2.currency }
+      };
+    }
+  }
+  return { ok: true, livePrice: quote2.price, currency: quote2.currency, orderValue };
+}
+
+// src/routes/market.ts
+var router3 = (0, import_express3.Router)();
+var INDICES = [
+  // Amérique du Nord
+  "^GSPC",
+  "^IXIC",
+  "^DJI",
+  "^RUT",
+  "^VIX",
+  "^NYA",
+  "^XAX",
+  // Europe
+  "^FTSE",
+  "^GDAXI",
+  "^FCHI",
+  "^STOXX50E",
+  "^IBEX",
+  "^FTMIB",
+  "^AEX",
+  "^SSMI",
+  "^OMXS30",
+  "^OSEAX",
+  "^ATX",
+  "^BFX",
+  "^PSI20",
+  // Asie-Pacifique
+  "^N225",
+  "^HSI",
+  "^BSESN",
+  "^NSEI",
+  "^KS11",
+  "^AXJO",
+  "^STI",
+  "^TWII",
+  "^JKSE",
+  "^KLSE",
+  "^NZ50",
+  "000001.SS",
+  "399001.SZ",
+  // Amérique latine
+  "^BVSP",
+  "^MXX",
+  "^MERV",
+  "^IPSA",
+  // Moyen-Orient / Afrique
+  "^TA125.TA",
+  "^CASE30",
+  "^J203.JO",
+  // Cryptos
+  "BTC-USD",
+  "ETH-USD",
+  "SOL-USD",
+  "XRP-USD",
+  "ADA-USD",
+  "DOGE-USD",
+  "BNB-USD",
+  "AVAX-USD",
+  "LINK-USD",
+  "MATIC-USD",
+  "DOT-USD",
+  "LTC-USD",
+  "SHIB-USD",
+  "TRX-USD",
+  "ATOM-USD",
+  "UNI-USD",
+  "XLM-USD",
+  "NEAR-USD",
+  "APT-USD",
+  "ARB-USD",
+  // Matières premières
+  "GC=F",
+  "CL=F",
+  "SI=F",
+  "NG=F",
+  "HG=F",
+  "ZC=F",
+  "ZW=F",
+  "ZS=F",
+  "KC=F",
+  "SB=F",
+  "CT=F",
+  "PL=F",
+  "PA=F",
+  "BZ=F",
+  "RB=F",
+  // Devises
+  "EURUSD=X",
+  "USDCAD=X",
+  "GBPUSD=X",
+  "JPY=X",
+  "USDCHF=X",
+  "AUDUSD=X",
+  "NZDUSD=X",
+  "USDCNY=X",
+  "USDMXN=X",
+  "USDINR=X",
+  "USDBRL=X",
+  "EURGBP=X",
+  "EURJPY=X",
+  "EURCAD=X"
+];
+var POPULAR_TECH_US = [
+  "AAPL",
+  "MSFT",
+  "NVDA",
+  "AMD",
+  "META",
+  "GOOG",
+  "AMZN",
+  "TSLA",
+  "INTC",
+  "NFLX",
+  "ORCL",
+  "CRM",
+  "ADBE",
+  "PYPL",
+  "UBER",
+  "PLTR",
+  "SNOW",
+  "SQ",
+  "COIN",
+  "SHOP",
+  "IBM",
+  "QCOM",
+  "TXN",
+  "AVGO",
+  "CSCO",
+  "NOW",
+  "SPOT",
+  "ABNB",
+  "DASH",
+  "RBLX",
+  "MU",
+  "ARM",
+  "SMCI",
+  "DELL",
+  "HPQ",
+  "PANW",
+  "CRWD",
+  "ZS",
+  "NET",
+  "DDOG",
+  "MDB",
+  "TEAM",
+  "WDAY",
+  "INTU",
+  "ADSK",
+  "ANET",
+  "MRVL",
+  "ASML",
+  "SAP",
+  "APP",
+  "TTD",
+  "ROKU",
+  "PINS",
+  "SNAP",
+  "LYFT",
+  "ZM",
+  "DOCU"
+];
+var POPULAR_FINANCE_US = [
+  "JPM",
+  "BAC",
+  "GS",
+  "MS",
+  "V",
+  "MA",
+  "BRK-B",
+  "WFC",
+  "BLK",
+  "C",
+  "AXP",
+  "SCHW",
+  "USB",
+  "PNC",
+  "TFC",
+  "COF",
+  "AIG",
+  "MET",
+  "PRU",
+  "TRV",
+  "ALL",
+  "CB",
+  "ICE",
+  "CME",
+  "SPGI",
+  "MCO",
+  "PGR",
+  "AON",
+  "MMC",
+  "FIS",
+  "FI",
+  "PYPL"
+];
+var POPULAR_CONSUMER_US = [
+  "WMT",
+  "COST",
+  "MCD",
+  "NKE",
+  "DIS",
+  "SBUX",
+  "TGT",
+  "PG",
+  "KO",
+  "PEP",
+  "HD",
+  "LOW",
+  "CMG",
+  "YUM",
+  "EL",
+  "CL",
+  "MDLZ",
+  "MO",
+  "PM",
+  "KHC",
+  "GIS",
+  "HSY",
+  "STZ",
+  "TJX",
+  "ROST",
+  "DG",
+  "DLTR",
+  "BBY",
+  "ULTA",
+  "LULU",
+  "DECK",
+  "CROX",
+  "YUMC",
+  "DPZ"
+];
+var POPULAR_HEALTHCARE_US = [
+  "LLY",
+  "UNH",
+  "JNJ",
+  "PFE",
+  "MRK",
+  "ABBV",
+  "TMO",
+  "ABT",
+  "DHR",
+  "BMY",
+  "AMGN",
+  "GILD",
+  "CVS",
+  "CI",
+  "ELV",
+  "HUM",
+  "ISRG",
+  "VRTX",
+  "REGN",
+  "MRNA",
+  "ZTS",
+  "BSX",
+  "MDT",
+  "SYK",
+  "BDX",
+  "IDXX"
+];
+var POPULAR_ENERGY_INDUSTRIALS_US = [
+  "XOM",
+  "CVX",
+  "COP",
+  "SLB",
+  "BA",
+  "CAT",
+  "GE",
+  "HON",
+  "LMT",
+  "UPS",
+  "RTX",
+  "DE",
+  "OXY",
+  "PSX",
+  "VLO",
+  "MPC",
+  "EOG",
+  "WMB",
+  "KMI",
+  "HAL",
+  "BKR",
+  "MMM",
+  "EMR",
+  "ETN",
+  "ITW",
+  "PH",
+  "GD",
+  "NOC",
+  "TDG",
+  "FDX",
+  "CSX",
+  "NSC",
+  "UNP"
+];
+var POPULAR_UTILITIES_MATERIALS_US = [
+  "NEE",
+  "DUK",
+  "SO",
+  "D",
+  "AEP",
+  "EXC",
+  "SRE",
+  "XEL",
+  "PEG",
+  "ED",
+  "LIN",
+  "APD",
+  "SHW",
+  "ECL",
+  "FCX",
+  "NEM",
+  "NUE",
+  "DOW",
+  "DD",
+  "PPG"
+];
+var POPULAR_REITS_US = [
+  "AMT",
+  "PLD",
+  "CCI",
+  "EQIX",
+  "PSA",
+  "O",
+  "SPG",
+  "WELL",
+  "DLR",
+  "AVB"
+];
+var POPULAR_CANADA = [
+  "XEQT.TO",
+  "VEQT.TO",
+  "ZSP.TO",
+  "VFV.TO",
+  "XIU.TO",
+  "SHOP.TO",
+  "RY.TO",
+  "TD.TO",
+  "BNS.TO",
+  "ENB.TO",
+  "CNR.TO",
+  "CP.TO",
+  "SU.TO",
+  "BCE.TO",
+  "MFC.TO",
+  "BAM.TO",
+  "BMO.TO",
+  "CM.TO",
+  "TRP.TO",
+  "CNQ.TO",
+  "ATD.TO",
+  "WCN.TO",
+  "GIB-A.TO",
+  "L.TO",
+  "T.TO",
+  "MG.TO",
+  "QSR.TO",
+  "WSP.TO",
+  "FTS.TO",
+  "SLF.TO",
+  "POW.TO",
+  "IMO.TO",
+  "NTR.TO",
+  "K.TO",
+  "AEM.TO",
+  "ABX.TO",
+  "GIL.TO",
+  "DOL.TO",
+  "CSU.TO",
+  "OTEX.TO",
+  "TIH.TO",
+  "RCI-B.TO",
+  "H.TO",
+  "EMA.TO",
+  "AQN.TO"
+];
+var POPULAR_EUROPE = [
+  // Actions européennes majeures (cotées sur bourses locales — libellés Yahoo)
+  "SAP.DE",
+  "SIE.DE",
+  "ALV.DE",
+  "MBG.DE",
+  "VOW3.DE",
+  "BMW.DE",
+  "BAS.DE",
+  "DTE.DE",
+  "IFX.DE",
+  "ADS.DE",
+  "MC.PA",
+  "OR.PA",
+  "TTE.PA",
+  "AIR.PA",
+  "SAN.PA",
+  "BNP.PA",
+  "SU.PA",
+  "DG.PA",
+  "CS.PA",
+  "RMS.PA",
+  "AZN.L",
+  "HSBA.L",
+  "SHEL.L",
+  "ULVR.L",
+  "BP.L",
+  "GSK.L",
+  "DGE.L",
+  "RIO.L",
+  "BATS.L",
+  "VOD.L",
+  "NESN.SW",
+  "NOVN.SW",
+  "ROG.SW",
+  "UBSG.SW",
+  "ZURN.SW",
+  "ASML.AS",
+  "PHIA.AS",
+  "INGA.AS",
+  "ADYEN.AS",
+  "ENI.MI",
+  "ISP.MI",
+  "UCG.MI",
+  "ENEL.MI",
+  "IBE.MC",
+  "ITX.MC",
+  "BBVA.MC"
+];
+var POPULAR_ASIA = [
+  "7203.T",
+  "6758.T",
+  "9984.T",
+  "6098.T",
+  "8306.T",
+  "9432.T",
+  "6501.T",
+  "005930.KS",
+  "000660.KS",
+  "035420.KS",
+  "TSM",
+  "BABA",
+  "JD",
+  "PDD",
+  "BIDU",
+  "NIO",
+  "LI",
+  "XPEV",
+  "NTES",
+  "0700.HK",
+  "9988.HK",
+  "0941.HK",
+  "1299.HK",
+  "0388.HK",
+  "3690.HK",
+  "RELIANCE.NS",
+  "TCS.NS",
+  "INFY.NS",
+  "HDFCBANK.NS"
+];
+var POPULAR_LATAM_AFRICA = [
+  "VALE",
+  "PBR",
+  "ITUB",
+  "BBD",
+  "ABEV",
+  "MELI",
+  "GFI",
+  "AU",
+  "NPN.JO",
+  "SBK.JO",
+  "AMX",
+  "FMX",
+  "CX",
+  "GRUPOSAB.MX"
+];
+var WEALTHSIMPLE_POPULAR = [
+  ...POPULAR_TECH_US,
+  ...POPULAR_FINANCE_US,
+  ...POPULAR_CONSUMER_US,
+  ...POPULAR_HEALTHCARE_US,
+  ...POPULAR_ENERGY_INDUSTRIALS_US,
+  ...POPULAR_UTILITIES_MATERIALS_US,
+  ...POPULAR_REITS_US,
+  ...POPULAR_CANADA,
+  ...POPULAR_EUROPE,
+  ...POPULAR_ASIA,
+  ...POPULAR_LATAM_AFRICA
+];
+var TYPE_MAP2 = {
+  EQUITY: "stock",
+  ETF: "etf",
+  CRYPTOCURRENCY: "crypto",
+  INDEX: "index",
+  MUTUALFUND: "stock",
+  FUTURE: "stock"
+};
+router3.get("/market/hours/:symbol", (req, res) => {
+  const symbol2 = decodeURIComponent(req.params.symbol ?? "").toUpperCase();
+  if (!symbol2) return res.status(400).json({ error: "symbol requis" });
+  const exchange = getExchangeForSymbol(symbol2);
+  const result = isMarketOpen(symbol2);
+  const openTime = "09:30";
+  const closeTime = "16:00";
+  const timezone = "America/New_York";
+  if (exchange === "UNSUPPORTED") {
+    return res.json({
+      symbol: symbol2,
+      exchange,
+      exchangeLabel: "24/7",
+      open: true,
+      message: "Cet actif se n\xE9gocie en continu, sans horaire de bourse.",
+      openTime: "00:00",
+      closeTime: "23:59",
+      timezone: "UTC",
+      continuous: true
+    });
+  }
+  return res.json({
+    symbol: symbol2,
+    exchange,
+    exchangeLabel: result.exchangeLabel,
+    open: result.open,
+    message: result.message,
+    openTime,
+    closeTime,
+    timezone,
+    continuous: false
+  });
+});
+router3.get("/market/overview", async (req, res) => {
+  try {
+    const allSymbols = [...INDICES, ...WEALTHSIMPLE_POPULAR];
+    const allQuotes = await getQuotes(allSymbols);
+    const indices = allQuotes.filter((q) => INDICES.includes(q.symbol));
+    const popular = allQuotes.filter((q) => WEALTHSIMPLE_POPULAR.includes(q.symbol));
+    const sortedByChange = [...popular].sort((a, b) => b.changePercent - a.changePercent);
+    const topGainers = sortedByChange.filter((q) => q.changePercent > 0).slice(0, 5);
+    const topLosers = [...sortedByChange].reverse().filter((q) => q.changePercent < 0).slice(0, 5);
+    return res.json({
+      indices,
+      topGainers,
+      topLosers,
+      wealthsimplePopular: popular
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch market overview");
+    return res.status(500).json({ error: "Failed to fetch market overview" });
+  }
+});
+var CURATED_NAMES = {
+  "^GSPC": "S&P 500",
+  "^IXIC": "Nasdaq Composite",
+  "^DJI": "Dow Jones Industrial Average",
+  "^GSPTSX": "TSX Composite Toronto",
+  "^RUT": "Russell 2000",
+  "^VIX": "VIX indice de volatilit\xE9",
+  "^FTSE": "FTSE 100 Londres",
+  "^GDAXI": "DAX Allemagne Francfort",
+  "^FCHI": "CAC 40 France Paris",
+  "^STOXX50E": "Euro Stoxx 50",
+  "^IBEX": "IBEX 35 Espagne Madrid",
+  "^FTMIB": "FTSE MIB Italie Milan",
+  "^AEX": "AEX Pays-Bas Amsterdam",
+  "^SSMI": "SMI Suisse Zurich",
+  "^N225": "Nikkei 225 Japon Tokyo",
+  "^HSI": "Hang Seng Hong Kong",
+  "^BSESN": "Sensex Inde Bombay",
+  "^KS11": "KOSPI Cor\xE9e du Sud S\xE9oul",
+  "^AXJO": "ASX 200 Australie",
+  "^STI": "Straits Times Singapour",
+  "^TWII": "Taiwan Weighted Ta\xEFwan",
+  "^BVSP": "Bovespa Br\xE9sil",
+  "^MXX": "IPC Mexique",
+  "BTC-USD": "Bitcoin BTC crypto cryptomonnaie",
+  "ETH-USD": "Ethereum ETH crypto cryptomonnaie",
+  "SOL-USD": "Solana SOL crypto cryptomonnaie",
+  "XRP-USD": "XRP Ripple crypto cryptomonnaie",
+  "ADA-USD": "Cardano ADA crypto cryptomonnaie",
+  "DOGE-USD": "Dogecoin DOGE crypto cryptomonnaie",
+  "BNB-USD": "BNB Binance Coin crypto cryptomonnaie",
+  "AVAX-USD": "Avalanche AVAX crypto cryptomonnaie",
+  "LINK-USD": "Chainlink LINK crypto cryptomonnaie",
+  "MATIC-USD": "Polygon MATIC crypto cryptomonnaie",
+  "GC=F": "Or Gold mati\xE8re premi\xE8re",
+  "CL=F": "P\xE9trole brut Crude Oil WTI mati\xE8re premi\xE8re",
+  "SI=F": "Argent Silver mati\xE8re premi\xE8re",
+  "NG=F": "Gaz naturel Natural Gas mati\xE8re premi\xE8re",
+  "HG=F": "Cuivre Copper mati\xE8re premi\xE8re",
+  "ZC=F": "Ma\xEFs Corn mati\xE8re premi\xE8re agricole",
+  "ZW=F": "Bl\xE9 Wheat mati\xE8re premi\xE8re agricole",
+  "EURUSD=X": "Euro Dollar am\xE9ricain EUR/USD devise",
+  "USDCAD=X": "Dollar am\xE9ricain Dollar canadien USD/CAD devise",
+  "GBPUSD=X": "Livre sterling Dollar am\xE9ricain GBP/USD devise",
+  "JPY=X": "Dollar am\xE9ricain Yen japonais USD/JPY devise",
+  // Nouveaux indices
+  "^NYA": "NYSE Composite New York",
+  "^XAX": "NYSE American Composite",
+  "^OMXS30": "OMX Stockholm 30 Su\xE8de",
+  "^OSEAX": "Oslo Bors Norv\xE8ge",
+  "^ATX": "ATX Autriche Vienne",
+  "^BFX": "BEL 20 Belgique Bruxelles",
+  "^PSI20": "PSI 20 Portugal Lisbonne",
+  "^NSEI": "Nifty 50 Inde",
+  "^JKSE": "Jakarta Composite Indon\xE9sie",
+  "^KLSE": "FTSE Bursa Malaisie",
+  "^NZ50": "NZX 50 Nouvelle-Z\xE9lande",
+  "000001.SS": "SSE Composite Shanghai Chine",
+  "399001.SZ": "SZSE Composite Shenzhen Chine",
+  "^MERV": "Merval Argentine Buenos Aires",
+  "^IPSA": "IPSA Chili Santiago",
+  "^TA125.TA": "TA-125 Isra\xEBl Tel Aviv",
+  "^CASE30": "EGX 30 \xC9gypte Le Caire",
+  "^J203.JO": "JSE Top 40 Afrique du Sud",
+  // Nouvelles cryptos
+  "DOT-USD": "Polkadot DOT crypto cryptomonnaie",
+  "LTC-USD": "Litecoin LTC crypto cryptomonnaie",
+  "SHIB-USD": "Shiba Inu SHIB crypto cryptomonnaie",
+  "TRX-USD": "Tron TRX crypto cryptomonnaie",
+  "ATOM-USD": "Cosmos ATOM crypto cryptomonnaie",
+  "UNI-USD": "Uniswap UNI crypto cryptomonnaie",
+  "XLM-USD": "Stellar XLM crypto cryptomonnaie",
+  "NEAR-USD": "Near Protocol NEAR crypto cryptomonnaie",
+  "APT-USD": "Aptos APT crypto cryptomonnaie",
+  "ARB-USD": "Arbitrum ARB crypto cryptomonnaie",
+  // Nouvelles matières premières
+  "ZS=F": "Soya Soybeans mati\xE8re premi\xE8re agricole",
+  "KC=F": "Caf\xE9 Coffee mati\xE8re premi\xE8re agricole",
+  "SB=F": "Sucre Sugar mati\xE8re premi\xE8re agricole",
+  "CT=F": "Coton Cotton mati\xE8re premi\xE8re agricole",
+  "PL=F": "Platine Platinum mati\xE8re premi\xE8re",
+  "PA=F": "Palladium mati\xE8re premi\xE8re",
+  "BZ=F": "P\xE9trole Brent Brent Crude mati\xE8re premi\xE8re",
+  "RB=F": "Essence RBOB Gasoline mati\xE8re premi\xE8re",
+  // Nouvelles devises
+  "USDCHF=X": "Dollar am\xE9ricain Franc suisse USD/CHF devise",
+  "AUDUSD=X": "Dollar australien Dollar am\xE9ricain AUD/USD devise",
+  "NZDUSD=X": "Dollar n\xE9o-z\xE9landais Dollar am\xE9ricain NZD/USD devise",
+  "USDCNY=X": "Dollar am\xE9ricain Yuan chinois USD/CNY devise",
+  "USDMXN=X": "Dollar am\xE9ricain Peso mexicain USD/MXN devise",
+  "USDINR=X": "Dollar am\xE9ricain Roupie indienne USD/INR devise",
+  "USDBRL=X": "Dollar am\xE9ricain Real br\xE9silien USD/BRL devise",
+  "EURGBP=X": "Euro Livre sterling EUR/GBP devise",
+  "EURJPY=X": "Euro Yen japonais EUR/JPY devise",
+  "EURCAD=X": "Euro Dollar canadien EUR/CAD devise"
+};
+function searchCurated(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const allSymbols = [...INDICES, ...WEALTHSIMPLE_POPULAR];
+  return allSymbols.filter((sym) => {
+    const label = CURATED_NAMES[sym] ?? sym;
+    return sym.toLowerCase().includes(q) || label.toLowerCase().includes(q);
+  }).map((sym) => ({
+    symbol: sym,
+    name: CURATED_NAMES[sym] ?? sym,
+    type: sym.startsWith("^") ? "index" : sym.endsWith("-USD") ? "crypto" : sym.endsWith("=F") ? "commodity" : sym.endsWith("=X") ? "currency" : "stock",
+    exchange: ""
+  }));
+}
+router3.get("/market/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: "q query param required" });
+  try {
+    const seen = /* @__PURE__ */ new Set();
+    const combined = [];
+    for (const item of searchCurated(q)) {
+      if (!seen.has(item.symbol)) {
+        seen.add(item.symbol);
+        combined.push(item);
+      }
+    }
+    try {
+      const results = await yahooFinance.search(q, { newsCount: 0 });
+      for (const item of results.quotes ?? []) {
+        const symbol2 = item.symbol ?? "";
+        if (!symbol2 || seen.has(symbol2)) continue;
+        seen.add(symbol2);
+        combined.push({
+          symbol: symbol2,
+          name: "longname" in item && item.longname ? item.longname : "shortname" in item && item.shortname ? item.shortname : symbol2,
+          type: "quoteType" in item && item.quoteType ? TYPE_MAP2[item.quoteType.toUpperCase()] ?? "stock" : "stock",
+          exchange: "exchange" in item && item.exchange ? item.exchange : ""
+        });
+      }
+    } catch (err) {
+      req.log.warn({ err }, "Yahoo fuzzy search failed, falling back to curated + direct lookup only");
+    }
+    if (combined.length === 0) {
+      const candidate = q.trim().toUpperCase();
+      try {
+        const quote2 = await yahooFinance.quote(candidate);
+        if (quote2?.symbol) {
+          combined.push({
+            symbol: quote2.symbol,
+            name: quote2.longName ?? quote2.shortName ?? quote2.symbol,
+            type: quote2.quoteType ? TYPE_MAP2[String(quote2.quoteType).toUpperCase()] ?? "stock" : "stock",
+            exchange: quote2.fullExchangeName ?? quote2.exchange ?? ""
+          });
+        }
+      } catch {
+      }
+    }
+    return res.json(combined.slice(0, 15));
+  } catch (err) {
+    req.log.error({ err }, "Search failed");
+    return res.status(500).json({ error: "Search failed" });
+  }
+});
+var market_default = router3;
+
+// src/routes/news.ts
+var import_express4 = __toESM(require_express2(), 1);
+
+// src/lib/freeNews.ts
+var CACHE_TTL_MS = 10 * 60 * 1e3;
+var cache3 = /* @__PURE__ */ new Map();
+var BULLISH_WORDS = [
+  "hausse",
+  "bondit",
+  "grimpe",
+  "record",
+  "optimis",
+  "rebond",
+  "croissance",
+  "profit",
+  "surperforme",
+  "rallye",
+  "soars",
+  "surge",
+  "rally",
+  "jumps",
+  "gains",
+  "beats",
+  "outperform"
+];
+var BEARISH_WORDS = [
+  "chute",
+  "recul",
+  "baisse",
+  "plonge",
+  "effondr",
+  "perte",
+  "d\xE9ficit",
+  "crainte",
+  "r\xE9cession",
+  "misses",
+  "plunge",
+  "slump",
+  "selloff",
+  "tumbles",
+  "falls",
+  "drops",
+  "losses",
+  "fear",
+  "warns"
+];
+function estimateSentiment(text2) {
+  const t = text2.toLowerCase();
+  let score = 0;
+  for (const w of BULLISH_WORDS) if (t.includes(w)) score += 1;
+  for (const w of BEARISH_WORDS) if (t.includes(w)) score -= 1;
+  const label = score > 0 ? "haussier" : score < 0 ? "baissier" : "neutre";
+  return { label, score: Math.max(-1, Math.min(1, score / 3)) };
+}
+function decodeEntities(s) {
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").trim();
+}
+function extractTag(block, tag2) {
+  const m = block.match(new RegExp(`<${tag2}[^>]*>([\\s\\S]*?)</${tag2}>`));
+  return m ? decodeEntities(m[1]) : "";
+}
+function parseRssItems(xml) {
+  const items = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let m;
+  while (m = itemRegex.exec(xml)) {
+    const block = m[1];
+    const rawTitle = extractTag(block, "title");
+    const link = extractTag(block, "link");
+    const pubDate = extractTag(block, "pubDate");
+    const sourceMatch = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+    const dashIdx = rawTitle.lastIndexOf(" - ");
+    const source = sourceMatch ? decodeEntities(sourceMatch[1]) : dashIdx > -1 ? rawTitle.slice(dashIdx + 3) : "Google News";
+    const title = dashIdx > -1 && !sourceMatch ? rawTitle.slice(0, dashIdx) : rawTitle;
+    if (title && link) items.push({ title, link, pubDate, source });
+  }
+  return items;
+}
+async function fetchGoogleNewsRss(query, limit2) {
+  const url3 = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=fr-CA&gl=CA&ceid=CA:fr`;
+  try {
+    const res = await fetch(url3, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        Accept: "application/rss+xml, application/xml, text/xml, */*"
+      }
+    });
+    if (!res.ok) throw new Error(`Google News HTTP ${res.status}`);
+    const xml = await res.text();
+    const items = parseRssItems(xml).slice(0, limit2);
+    if (items.length === 0) {
+      logger.warn({ query, status: res.status, xmlLength: xml.length }, "Flux Google News vide ou non pars\xE9");
+    }
+    return items;
+  } catch (err) {
+    logger.error({ err, query }, "\xC9chec de r\xE9cup\xE9ration du flux Google News");
+    return [];
+  }
+}
+function rssItemToNews(item, theme) {
+  const { label, score } = estimateSentiment(item.title);
+  return {
+    id: item.link,
+    title: item.title,
+    summary: "",
+    source: item.source,
+    url: item.link,
+    publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
+    theme,
+    overallSentimentScore: score,
+    overallSentimentLabel: label,
+    tickers: []
+  };
+}
+var THEME_FEEDS = [
+  { theme: "March\xE9s financiers", query: "march\xE9s boursiers Wall Street TSX" },
+  { theme: "Politique mon\xE9taire", query: "taux d'int\xE9r\xEAt banque centrale Fed" },
+  { theme: "R\xE9sultats d'entreprises", query: "r\xE9sultats trimestriels bourse" },
+  { theme: "Technologie", query: "actions technologiques bourse" },
+  { theme: "Cryptomonnaies", query: "cryptomonnaie bitcoin march\xE9" },
+  { theme: "\xC9conomie", query: "inflation \xE9conomie march\xE9" }
+];
+async function fetchThemeNews(limitPerTheme) {
+  const cacheKey = `themes:${limitPerTheme}`;
+  const cached2 = cache3.get(cacheKey);
+  if (cached2 && cached2.expiresAt > Date.now()) return cached2.data;
+  const results = await Promise.all(
+    THEME_FEEDS.map(async (f) => {
+      const items = await fetchGoogleNewsRss(f.query, limitPerTheme);
+      return { theme: f.theme, count: items.length, items: items.map((it) => rssItemToNews(it, f.theme)) };
+    })
+  );
+  logger.info(
+    { counts: Object.fromEntries(results.map((r) => [r.theme, r.count])) },
+    "R\xE9sum\xE9 des flux Google News par th\xE8me"
+  );
+  const flat = results.flatMap((r) => r.items);
+  cache3.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, data: flat });
+  return flat;
+}
+async function fetchTickerNews(tickers, limitPerTicker) {
+  const cacheKey = `tickers:${tickers.join(",")}:${limitPerTicker}`;
+  const cached2 = cache3.get(cacheKey);
+  if (cached2 && cached2.expiresAt > Date.now()) return cached2.data;
+  const results = await Promise.all(
+    tickers.map(async (ticker) => {
+      try {
+        const result = await yahooFinance.search(ticker, { newsCount: limitPerTicker, quotesCount: 0 });
+        const news = result?.news ?? [];
+        return news.map((n) => {
+          const { label, score } = estimateSentiment(n.title ?? "");
+          return {
+            id: n.uuid ?? n.link,
+            title: n.title ?? "",
+            summary: "",
+            source: n.publisher ?? "Yahoo Finance",
+            url: n.link,
+            publishedAt: n.providerPublishTime ? new Date(n.providerPublishTime * 1e3).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
+            theme: "Actualit\xE9 du titre",
+            overallSentimentScore: score,
+            overallSentimentLabel: label,
+            tickers: [{ ticker, relevanceScore: 1, sentimentScore: score, sentimentLabel: label }]
+          };
+        });
+      } catch (err) {
+        logger.error({ err, ticker }, "\xC9chec de r\xE9cup\xE9ration des news Yahoo Finance pour ce titre");
+        return [];
+      }
+    })
+  );
+  const flat = results.flat();
+  cache3.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, data: flat });
+  return flat;
+}
+async function fetchMarketNews(opts = {}) {
+  const limit2 = opts.limit ?? 40;
+  const tickers = opts.tickers ? opts.tickers.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  const [themeNews, tickerNews] = await Promise.all([
+    fetchThemeNews(6),
+    tickers.length > 0 ? fetchTickerNews(tickers, 6) : Promise.resolve([])
+  ]);
+  const combined = [...tickerNews, ...themeNews].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
+  return combined.slice(0, limit2);
+}
+
+// src/routes/news.ts
+var router4 = (0, import_express4.Router)();
+router4.get("/market/news", async (req, res) => {
+  const { tickers, limit: limit2 } = req.query;
+  try {
+    const news = await fetchMarketNews({
+      tickers,
+      limit: limit2 ? Number(limit2) : void 0
+    });
+    return res.json(news);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch market news");
+    return res.status(500).json({ error: "Failed to fetch market news" });
+  }
+});
+var news_default = router4;
+
+// src/routes/watchlist.ts
+var import_express5 = __toESM(require_express2(), 1);
+init_drizzle_orm();
+var router5 = (0, import_express5.Router)();
+router5.get("/watchlist", async (req, res) => {
+  try {
+    const items = await db.select().from(watchlistTable).orderBy(watchlistTable.addedAt);
+    return res.json(
+      items.map((i) => ({
+        id: i.id,
+        symbol: i.symbol,
+        name: i.name,
+        note: i.note ?? null,
+        listName: i.listName,
+        addedAt: i.addedAt.toISOString()
+      }))
+    );
+  } catch (err) {
+    req.log.error({ err }, "Failed to get watchlist");
+    return res.status(500).json({ error: "Failed to get watchlist" });
+  }
+});
+router5.post("/watchlist", async (req, res) => {
+  const { symbol: symbol2, name: name2, note, listName } = req.body;
+  if (!symbol2 || !name2) {
+    return res.status(400).json({ error: "symbol and name are required" });
+  }
+  try {
+    const [item] = await db.insert(watchlistTable).values({ symbol: symbol2.toUpperCase(), name: name2, note: note ?? null, listName: listName?.trim() || "G\xE9n\xE9ral" }).returning();
+    return res.status(201).json({
+      id: item.id,
+      symbol: item.symbol,
+      name: item.name,
+      note: item.note ?? null,
+      listName: item.listName,
+      addedAt: item.addedAt.toISOString()
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to add to watchlist");
+    return res.status(500).json({ error: "Failed to add to watchlist" });
+  }
+});
+router5.patch("/watchlist/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const { listName } = req.body;
+  if (!listName || !listName.trim()) {
+    return res.status(400).json({ error: "listName is required" });
+  }
+  try {
+    const [item] = await db.update(watchlistTable).set({ listName: listName.trim() }).where(eq(watchlistTable.id, id)).returning();
+    if (!item) return res.status(404).json({ error: "Not found" });
+    return res.json({
+      id: item.id,
+      symbol: item.symbol,
+      name: item.name,
+      note: item.note ?? null,
+      listName: item.listName,
+      addedAt: item.addedAt.toISOString()
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to update watchlist item");
+    return res.status(500).json({ error: "Failed to update watchlist item" });
+  }
+});
+router5.delete("/watchlist/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  try {
+    await db.delete(watchlistTable).where(eq(watchlistTable.id, id));
+    return res.status(204).send();
+  } catch (err) {
+    req.log.error({ err }, "Failed to remove from watchlist");
+    return res.status(500).json({ error: "Failed to remove from watchlist" });
+  }
+});
+var watchlist_default = router5;
+
 // src/routes/alerts.ts
+var import_express6 = __toESM(require_express2(), 1);
+init_drizzle_orm();
 var router6 = (0, import_express6.Router)();
 function serialize(a) {
   return {
@@ -112284,10 +112922,10 @@ async function jwkToKey(jwk) {
 
 // ../../node_modules/.pnpm/jose@6.2.3/node_modules/jose/dist/webapi/lib/normalize_key.js
 var unusableForAlg = "given KeyObject instance cannot be used for this algorithm";
-var cache2;
+var cache4;
 var handleJWK = async (key, jwk, alg, freeze = false) => {
-  cache2 ||= /* @__PURE__ */ new WeakMap();
-  let cached2 = cache2.get(key);
+  cache4 ||= /* @__PURE__ */ new WeakMap();
+  let cached2 = cache4.get(key);
   if (cached2?.[alg]) {
     return cached2[alg];
   }
@@ -112295,15 +112933,15 @@ var handleJWK = async (key, jwk, alg, freeze = false) => {
   if (freeze)
     Object.freeze(key);
   if (!cached2) {
-    cache2.set(key, { [alg]: cryptoKey });
+    cache4.set(key, { [alg]: cryptoKey });
   } else {
     cached2[alg] = cryptoKey;
   }
   return cryptoKey;
 };
 var handleKeyObject = (keyObject, alg) => {
-  cache2 ||= /* @__PURE__ */ new WeakMap();
-  let cached2 = cache2.get(keyObject);
+  cache4 ||= /* @__PURE__ */ new WeakMap();
+  let cached2 = cache4.get(keyObject);
   if (cached2?.[alg]) {
     return cached2[alg];
   }
@@ -112405,7 +113043,7 @@ var handleKeyObject = (keyObject, alg) => {
     throw new TypeError(unusableForAlg);
   }
   if (!cached2) {
-    cache2.set(keyObject, { [alg]: cryptoKey });
+    cache4.set(keyObject, { [alg]: cryptoKey });
   } else {
     cached2[alg] = cryptoKey;
   }
@@ -124773,593 +125411,6 @@ async function placeOrder(params) {
 
 // src/lib/orderEngine.ts
 init_drizzle_orm();
-
-// src/lib/risk.ts
-init_drizzle_orm();
-
-// src/lib/settings.ts
-init_drizzle_orm();
-
-// src/lib/audit.ts
-init_drizzle_orm();
-async function logAudit(action, summary, details) {
-  try {
-    await db.insert(auditLogTable).values({ action, summary, details: details ?? null });
-  } catch (err) {
-    logger.error({ err, action }, "audit: failed to write log entry");
-  }
-}
-async function listAuditLog(limit2 = 100) {
-  return db.select().from(auditLogTable).orderBy(desc(auditLogTable.createdAt)).limit(limit2);
-}
-
-// src/lib/emailClient.ts
-async function sendEmail({ to, subject }) {
-  logger.warn(
-    { to, subject },
-    "Canal email non configur\xE9 \u2014 notification ignor\xE9e (l'\xE9v\xE9nement est quand m\xEAme enregistr\xE9 en DB)"
-  );
-  return false;
-}
-function alertEmailHtml(params) {
-  const { symbol: symbol2, name: name2, condition, targetPrice, currentPrice } = params;
-  const conditionText = condition === "above" ? "est mont\xE9 au-dessus de" : "est descendu en dessous de";
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">\u{1F514} Alerte de prix d\xE9clench\xE9e</h2>
-      <p style="font-size: 16px; color: #333;">
-        <strong>${name2 ?? symbol2} (${symbol2})</strong> ${conditionText}
-        <strong>${targetPrice.toFixed(2)} $</strong>.
-      </p>
-      <p style="font-size: 14px; color: #666;">Prix actuel : ${currentPrice.toFixed(2)} $</p>
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement \u2014
-        cr\xE9e-en une nouvelle si tu veux continuer \xE0 suivre ce titre.
-      </p>
-    </div>
-  `;
-}
-function signalAlertEmailHtml(params) {
-  const { symbol: symbol2, name: name2, overall, score, topSignals } = params;
-  const isBuy = overall === "ACHAT" || overall === "FORT ACHAT";
-  const isSell = overall === "VENTE" || overall === "FORTE VENTE";
-  const tagColor = isBuy ? "#10b981" : isSell ? "#ef4444" : "#6b7280";
-  const signalList = topSignals.map((s) => `<li style="margin: 4px 0;">${s}</li>`).join("");
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">\u{1F4C8} Signal technique composite</h2>
-      <p style="font-size: 16px; color: #333;">
-        <strong>${name2 ?? symbol2} (${symbol2})</strong> \u2014 signal
-        <strong style="color: ${tagColor}; background: ${tagColor}1a; padding: 2px 8px; border-radius: 4px;">${overall}</strong>
-        (score ${score > 0 ? "+" : ""}${score}).
-      </p>
-      ${signalList ? `<ul style="font-size: 14px; color: #555; padding-left: 20px;">${signalList}</ul>` : ""}
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement.
-        \u26A0\uFE0F Ce n'est pas un conseil financier.
-      </p>
-    </div>
-  `;
-}
-function patternAlertEmailHtml(params) {
-  const { symbol: symbol2, name: name2, patternName, signal, strength, description, howToUse } = params;
-  const signalColor = signal === "haussier" ? "#10b981" : signal === "baissier" ? "#ef4444" : "#6b7280";
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">\u{1F4CA} Alerte intelligente d\xE9clench\xE9e</h2>
-      <p style="font-size: 16px; color: #333;">
-        <strong>${name2 ?? symbol2} (${symbol2})</strong> vient de former un pattern
-        <strong style="color: ${signalColor};">${patternName}</strong>
-        (signal <strong style="color: ${signalColor};">${signal}</strong>, force ${strength}).
-      </p>
-      <p style="font-size: 14px; color: #666;">${description}</p>
-      <p style="font-size: 13px; color: #666; font-style: italic; border-left: 3px solid ${signalColor}; padding-left: 10px;">${howToUse}</p>
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par Soliris Market. Cette alerte a \xE9t\xE9 d\xE9sactiv\xE9e automatiquement.
-        \u26A0\uFE0F Ce n'est pas un conseil financier.
-      </p>
-    </div>
-  `;
-}
-
-// src/lib/notificationPrefs.ts
-init_drizzle_orm();
-var CHANNELS = ["email", "sms", "both", "none"];
-var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-var cache3 = null;
-function toOut(row) {
-  return {
-    email: row.email ?? null,
-    phone: row.phone ?? null,
-    killSwitchChannel: row.killSwitchChannel,
-    largeOrderChannel: row.largeOrderChannel,
-    thresholdChangeChannel: row.thresholdChangeChannel,
-    priceAlertChannel: row.priceAlertChannel,
-    patternAlertChannel: row.patternAlertChannel,
-    signalAlertChannel: row.signalAlertChannel,
-    updatedAt: row.updatedAt.toISOString()
-  };
-}
-async function ensureRow() {
-  const [existing] = await db.select().from(notificationPreferencesTable).limit(1);
-  if (existing) return existing;
-  const [created] = await db.insert(notificationPreferencesTable).values({}).returning();
-  return created;
-}
-async function getNotificationPreferences() {
-  if (cache3) return cache3;
-  const row = await ensureRow();
-  cache3 = toOut(row);
-  return cache3;
-}
-var CHANNEL_FIELDS = [
-  "killSwitchChannel",
-  "largeOrderChannel",
-  "thresholdChangeChannel",
-  "priceAlertChannel",
-  "patternAlertChannel",
-  "signalAlertChannel"
-];
-async function updateNotificationPreferences(patch) {
-  const current = await getNotificationPreferences();
-  const next = { ...current, ...patch };
-  if (next.email !== null && next.email !== void 0 && next.email !== "" && !EMAIL_RE.test(next.email)) {
-    throw new Error("L'adresse email n'est pas valide.");
-  }
-  if (next.phone !== null && next.phone !== void 0 && next.phone !== "" && !isValidE164(next.phone)) {
-    throw new Error("Le num\xE9ro de t\xE9l\xE9phone doit \xEAtre au format E.164 (ex. +15145551234).");
-  }
-  for (const field of CHANNEL_FIELDS) {
-    const value = next[field];
-    if (value !== void 0 && !CHANNELS.includes(value)) {
-      throw new Error(`Canal invalide pour ${field} \u2014 attendu : email, sms, both ou none.`);
-    }
-    if ((value === "sms" || value === "both") && !next.phone) {
-      throw new Error("Configure d'abord un num\xE9ro de t\xE9l\xE9phone avant d'activer le SMS pour un \xE9v\xE9nement.");
-    }
-  }
-  const [row] = await db.select().from(notificationPreferencesTable).limit(1);
-  const values = {
-    email: next.email === "" ? null : next.email ?? current.email,
-    phone: next.phone === "" ? null : next.phone ?? current.phone,
-    killSwitchChannel: next.killSwitchChannel ?? current.killSwitchChannel,
-    largeOrderChannel: next.largeOrderChannel ?? current.largeOrderChannel,
-    thresholdChangeChannel: next.thresholdChangeChannel ?? current.thresholdChangeChannel,
-    priceAlertChannel: next.priceAlertChannel ?? current.priceAlertChannel,
-    patternAlertChannel: next.patternAlertChannel ?? current.patternAlertChannel,
-    signalAlertChannel: next.signalAlertChannel ?? current.signalAlertChannel
-  };
-  const [updated] = row ? await db.update(notificationPreferencesTable).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq(notificationPreferencesTable.id, row.id)).returning() : [await ensureRow()];
-  cache3 = toOut(updated);
-  return cache3;
-}
-async function resolveDestinations(eventType) {
-  const prefs = await getNotificationPreferences();
-  const channelField = `${eventType}Channel`;
-  const channel = prefs[channelField];
-  return {
-    email: prefs.email,
-    phone: prefs.phone,
-    sendEmail: channel === "email" || channel === "both",
-    sendSms: channel === "sms" || channel === "both"
-  };
-}
-
-// src/lib/notifications.ts
-function wrapEmail(title, bodyHtml) {
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">${title}</h2>
-      ${bodyHtml}
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoy\xE9 par Soliris Market \u2014 notification critique.
-      </p>
-    </div>
-  `;
-}
-async function notify(eventType, subject, html, smsText) {
-  const { email: email3, phone, sendEmail: shouldEmail, sendSms: shouldSms } = await resolveDestinations(eventType);
-  if (!shouldEmail && !shouldSms) return;
-  if (shouldEmail) {
-    if (email3) {
-      try {
-        await sendEmail({ to: email3, subject, html });
-      } catch (err) {
-        logger.error({ err, eventType, subject }, "notifications: \xE9chec de l'envoi de l'email critique");
-      }
-    } else {
-      logger.warn({ eventType, subject }, "notifications: canal email configur\xE9 mais aucune adresse enregistr\xE9e \u2014 envoi ignor\xE9");
-    }
-  }
-  if (shouldSms) {
-    if (phone) {
-      try {
-        await sendSms({ to: phone, body: smsText });
-      } catch (err) {
-        logger.error({ err, eventType, subject }, "notifications: \xE9chec de l'envoi du SMS critique");
-      }
-    } else {
-      logger.warn({ eventType, subject }, "notifications: canal SMS configur\xE9 mais aucun num\xE9ro enregistr\xE9 \u2014 envoi ignor\xE9");
-    }
-  }
-}
-async function notifyKillSwitchActivated(reason) {
-  await notify(
-    "killSwitch",
-    "\u{1F6D1} Kill-switch activ\xE9 sur Soliris Market",
-    wrapEmail(
-      "\u{1F6D1} Trading suspendu",
-      `<p style="font-size:15px;color:#333;">Le kill-switch a \xE9t\xE9 activ\xE9 \u2014 plus aucun ordre live ne sera envoy\xE9 au courtier jusqu'\xE0 r\xE9activation manuelle.</p>${reason ? `<p style="font-size:13px;color:#666;">${reason}</p>` : ""}`
-    ),
-    `\u{1F6D1} Soliris Market : kill-switch activ\xE9 \u2014 trading suspendu.${reason ? ` ${reason}` : ""}`
-  );
-}
-async function notifyLargeOrderExecuted(params) {
-  const { symbol: symbol2, side, quantity, orderValue, currency, mode } = params;
-  const sideText = side === "BUY" ? "Achat" : "Vente";
-  await notify(
-    "largeOrder",
-    `\u{1F4B0} Ordre important ex\xE9cut\xE9 \u2014 ${symbol2}`,
-    wrapEmail(
-      "\u{1F4B0} Ordre important ex\xE9cut\xE9",
-      `<p style="font-size:15px;color:#333;">
-        ${sideText} de <strong>${quantity} ${symbol2}</strong>
-        pour <strong>${currency}${orderValue.toFixed(2)}</strong> (mode ${mode}).
-      </p>`
-    ),
-    `\u{1F4B0} Soliris Market : ${sideText.toLowerCase()} de ${quantity} ${symbol2} pour ${currency}${orderValue.toFixed(2)} (mode ${mode}).`
-  );
-}
-async function notifySettingsChanged(changes) {
-  const entries = Object.entries(changes);
-  const rows = entries.map(([key, { from, to }]) => `<li>${key} : ${from} \u2192 ${to}</li>`).join("");
-  const smsLines = entries.map(([key, { from, to }]) => `${key} : ${from} \u2192 ${to}`).join(", ");
-  await notify(
-    "thresholdChange",
-    "\u2699\uFE0F Param\xE8tres de risque modifi\xE9s",
-    wrapEmail("\u2699\uFE0F Param\xE8tres de risque modifi\xE9s", `<ul style="font-size:14px;color:#333;">${rows}</ul>`),
-    `\u2699\uFE0F Soliris Market : param\xE8tres de risque modifi\xE9s \u2014 ${smsLines}`
-  );
-}
-
-// src/lib/settings.ts
-var DEFAULT_MAX_ORDER_VALUE = Number(process.env.MAX_ORDER_VALUE ?? 5e3);
-var DEFAULT_MAX_PORTFOLIO_EXPOSURE = Number(process.env.MAX_PORTFOLIO_EXPOSURE ?? 25e3);
-var DEFAULT_FRICTION_PCT = 0.5;
-var cache4 = null;
-function toRiskSettings(row) {
-  return {
-    maxOrderValue: Number(row.maxOrderValue),
-    maxPortfolioExposure: Number(row.maxPortfolioExposure),
-    largeOrderFrictionPct: Number(row.largeOrderFrictionPct),
-    updatedAt: row.updatedAt.toISOString()
-  };
-}
-async function ensureRow2() {
-  const [existing] = await db.select().from(appSettingsTable).limit(1);
-  if (existing) return existing;
-  const [created] = await db.insert(appSettingsTable).values({
-    maxOrderValue: String(DEFAULT_MAX_ORDER_VALUE),
-    maxPortfolioExposure: String(DEFAULT_MAX_PORTFOLIO_EXPOSURE),
-    largeOrderFrictionPct: String(DEFAULT_FRICTION_PCT)
-  }).returning();
-  return created;
-}
-async function getRiskSettings() {
-  if (cache4) return cache4;
-  const row = await ensureRow2();
-  cache4 = toRiskSettings(row);
-  return cache4;
-}
-async function updateRiskSettings(patch) {
-  const current = await getRiskSettings();
-  const next = {
-    maxOrderValue: patch.maxOrderValue ?? current.maxOrderValue,
-    maxPortfolioExposure: patch.maxPortfolioExposure ?? current.maxPortfolioExposure,
-    largeOrderFrictionPct: patch.largeOrderFrictionPct ?? current.largeOrderFrictionPct
-  };
-  if (!Number.isFinite(next.maxOrderValue) || next.maxOrderValue <= 0) {
-    throw new Error("La valeur maximale par ordre doit \xEAtre un nombre positif.");
-  }
-  if (!Number.isFinite(next.maxPortfolioExposure) || next.maxPortfolioExposure <= 0) {
-    throw new Error("L'exposition maximale du portefeuille doit \xEAtre un nombre positif.");
-  }
-  if (next.maxOrderValue > next.maxPortfolioExposure) {
-    throw new Error("La valeur maximale par ordre ne peut pas d\xE9passer l'exposition maximale du portefeuille.");
-  }
-  if (!Number.isFinite(next.largeOrderFrictionPct) || next.largeOrderFrictionPct <= 0 || next.largeOrderFrictionPct > 1) {
-    throw new Error("Le seuil de confirmation renforc\xE9e doit \xEAtre compris entre 0 et 100 %.");
-  }
-  const [row] = await db.select().from(appSettingsTable).limit(1);
-  const [updated] = row ? await db.update(appSettingsTable).set({
-    maxOrderValue: String(next.maxOrderValue),
-    maxPortfolioExposure: String(next.maxPortfolioExposure),
-    largeOrderFrictionPct: String(next.largeOrderFrictionPct),
-    updatedAt: /* @__PURE__ */ new Date()
-  }).where(eq(appSettingsTable.id, row.id)).returning() : [await ensureRow2()];
-  cache4 = toRiskSettings(updated);
-  const changes = {};
-  if (patch.maxOrderValue !== void 0 && patch.maxOrderValue !== current.maxOrderValue) {
-    changes.maxOrderValue = { from: current.maxOrderValue, to: next.maxOrderValue };
-  }
-  if (patch.maxPortfolioExposure !== void 0 && patch.maxPortfolioExposure !== current.maxPortfolioExposure) {
-    changes.maxPortfolioExposure = { from: current.maxPortfolioExposure, to: next.maxPortfolioExposure };
-  }
-  if (patch.largeOrderFrictionPct !== void 0 && patch.largeOrderFrictionPct !== current.largeOrderFrictionPct) {
-    changes.largeOrderFrictionPct = { from: current.largeOrderFrictionPct, to: next.largeOrderFrictionPct };
-  }
-  if (Object.keys(changes).length > 0) {
-    await logAudit(
-      "settings.update",
-      "Param\xE8tres de risque modifi\xE9s",
-      changes
-    );
-    await notifySettingsChanged(changes);
-  }
-  return cache4;
-}
-
-// src/lib/risk.ts
-async function getMaxOrderValue() {
-  return (await getRiskSettings()).maxOrderValue;
-}
-async function getMaxPortfolioExposure() {
-  return (await getRiskSettings()).maxPortfolioExposure;
-}
-function getExchangeForSymbol(symbol2) {
-  const upper = symbol2.toUpperCase();
-  if (upper.startsWith("^")) return "UNSUPPORTED";
-  if (upper.endsWith("=F") || upper.endsWith("=X")) return "UNSUPPORTED";
-  if (/-USD$|-CAD$|-EUR$|-GBP$/.test(upper)) return "UNSUPPORTED";
-  if (/\.(TO|V|NE|CN)$/.test(upper)) return "TSX";
-  if (/\.(DE|PA|L|SW|AS|MI|MC|BR|LS|ST|CO|OL|HE|VI|PR|WA|AT|IR|VX|AMS)$/.test(upper)) {
-    return "UNSUPPORTED";
-  }
-  if (/\.(T|KS|KQ|HK|NS|BO|SS|SZ|AX|SI|KL|BK|TW|JK|NZ)$/.test(upper)) {
-    return "UNSUPPORTED";
-  }
-  if (/\.(JO|TA)$/.test(upper)) return "UNSUPPORTED";
-  if (/\.MX$/.test(upper)) return "UNSUPPORTED";
-  return "NASDAQ_NYSE";
-}
-function toKey(d) {
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-function addDays(d, n) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-function observed(d) {
-  const dow = d.getDay();
-  if (dow === 0) return addDays(d, 1);
-  if (dow === 6) return addDays(d, -1);
-  return d;
-}
-function nthWeekday(year2, month, weekday, n) {
-  const first = new Date(year2, month - 1, 1).getDay();
-  const day2 = (weekday - first + 7) % 7 + 1 + (n - 1) * 7;
-  return new Date(year2, month - 1, day2);
-}
-function lastWeekday(year2, month, weekday) {
-  const lastDay = new Date(year2, month, 0);
-  const day2 = lastDay.getDate() - (lastDay.getDay() - weekday + 7) % 7;
-  return new Date(year2, month - 1, day2);
-}
-function easterSunday(year2) {
-  const a = year2 % 19;
-  const b = Math.floor(year2 / 100);
-  const c = year2 % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day2 = (h + l - 7 * m + 114) % 31 + 1;
-  return new Date(year2, month - 1, day2);
-}
-function victoriaDay(year2) {
-  const may24 = new Date(year2, 4, 24);
-  const dow = may24.getDay();
-  const daysBack = dow === 1 ? 0 : dow === 0 ? 6 : dow - 1;
-  return new Date(year2, 4, 24 - daysBack);
-}
-function getMarketHolidays(year2, exchange) {
-  const holidays = /* @__PURE__ */ new Set();
-  const add = (d) => holidays.add(toKey(d));
-  add(observed(new Date(year2, 0, 1)));
-  add(addDays(easterSunday(year2), -2));
-  if (exchange === "NASDAQ_NYSE") {
-    add(nthWeekday(year2, 1, 1, 3));
-    add(nthWeekday(year2, 2, 1, 3));
-    add(lastWeekday(year2, 5, 1));
-    if (year2 >= 2021) add(observed(new Date(year2, 5, 19)));
-    add(observed(new Date(year2, 6, 4)));
-    add(nthWeekday(year2, 9, 1, 1));
-    add(nthWeekday(year2, 11, 4, 4));
-    add(observed(new Date(year2, 11, 25)));
-  }
-  if (exchange === "TSX") {
-    add(nthWeekday(year2, 2, 1, 3));
-    add(victoriaDay(year2));
-    add(observed(new Date(year2, 6, 1)));
-    add(nthWeekday(year2, 8, 1, 1));
-    add(nthWeekday(year2, 9, 1, 1));
-    add(nthWeekday(year2, 10, 1, 2));
-    const christmas = new Date(year2, 11, 25);
-    add(observed(christmas));
-    const christmasDow = christmas.getDay();
-    let boxingDay;
-    if (christmasDow === 5) {
-      boxingDay = new Date(year2, 11, 28);
-    } else if (christmasDow === 6) {
-      boxingDay = new Date(year2, 11, 28);
-    } else if (christmasDow === 0) {
-      boxingDay = new Date(year2, 11, 27);
-    } else {
-      boxingDay = observed(new Date(year2, 11, 26));
-    }
-    add(boxingDay);
-  }
-  return holidays;
-}
-function isMarketOpen(symbol2, now = /* @__PURE__ */ new Date()) {
-  const exchange = getExchangeForSymbol(symbol2);
-  if (exchange === "UNSUPPORTED") {
-    return {
-      open: false,
-      exchange,
-      exchangeLabel: "Bourse non support\xE9e",
-      message: `Le symbole ${symbol2} est cot\xE9 sur une bourse non support\xE9e par Wealthsimple via SnapTrade.`
-    };
-  }
-  const exchangeLabel = exchange === "TSX" ? "TSX (Toronto)" : "NASDAQ/NYSE";
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "numeric",
-    weekday: "short",
-    hour12: false
-  }).formatToParts(now);
-  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
-  const weekday = get("weekday");
-  const year2 = Number(get("year"));
-  const month = get("month");
-  const day2 = get("day");
-  const hour2 = Number(get("hour"));
-  const minute2 = Number(get("minute"));
-  const isWeekday = !["Sat", "Sun"].includes(weekday);
-  const dateKey = `${year2}-${month}-${day2}`;
-  const holidays = getMarketHolidays(year2, exchange);
-  const isHoliday = holidays.has(dateKey);
-  const minutesSinceMidnight = hour2 * 60 + minute2;
-  const openAt = 9 * 60 + 30;
-  const closeAt = 16 * 60;
-  const withinHours = minutesSinceMidnight >= openAt && minutesSinceMidnight < closeAt;
-  const open = isWeekday && !isHoliday && withinHours;
-  let message2;
-  if (!isWeekday) {
-    message2 = `${exchangeLabel} est ferm\xE9 le week-end. R\xE9essayez du lundi au vendredi pendant les heures d'ouverture (9h30\u201316h00, heure de l'Est).`;
-  } else if (isHoliday) {
-    message2 = `${exchangeLabel} est ferm\xE9 aujourd'hui (jour f\xE9ri\xE9 boursier). R\xE9essayez le prochain jour ouvrable.`;
-  } else if (!withinHours) {
-    message2 = `${exchangeLabel} est ferm\xE9 en ce moment. Heures d'ouverture : 9h30\u201316h00, heure de l'Est, du lundi au vendredi.`;
-  } else {
-    message2 = `${exchangeLabel} est ouvert.`;
-  }
-  return { open, exchange, exchangeLabel, message: message2 };
-}
-async function getCurrentExposureByCurrency(mode, brokerPositions) {
-  if (mode === "live" && brokerPositions && brokerPositions.length > 0) {
-    const exposureByCurrency2 = {};
-    for (const pos of brokerPositions) {
-      if (pos.units <= 0 || pos.price <= 0) continue;
-      const currency = (pos.currency ?? "USD").toUpperCase();
-      exposureByCurrency2[currency] = (exposureByCurrency2[currency] ?? 0) + pos.units * pos.price;
-    }
-    return exposureByCurrency2;
-  }
-  const orders = await db.select().from(ordersTable).where(eq(ordersTable.mode, mode));
-  const relevant = orders.filter(
-    (o) => ["simulated", "submitted", "filled", "partially_filled"].includes(o.status)
-  );
-  if (relevant.length === 0) return {};
-  const netUnitsBySymbol = /* @__PURE__ */ new Map();
-  for (const o of relevant) {
-    const qty = Number(o.filledQuantity ?? o.quantity ?? 0);
-    const signed = o.side.toUpperCase() === "BUY" ? qty : -qty;
-    netUnitsBySymbol.set(o.symbol, (netUnitsBySymbol.get(o.symbol) ?? 0) + signed);
-  }
-  const symbols = [...netUnitsBySymbol.keys()].filter((s) => (netUnitsBySymbol.get(s) ?? 0) !== 0);
-  if (symbols.length === 0) return {};
-  let quotes = [];
-  try {
-    quotes = await getQuotes(symbols);
-  } catch (err) {
-    logger.error({ err }, "risk: failed to fetch quotes for exposure calculation");
-    throw new Error(
-      "Impossible de calculer l'exposition du portefeuille (prix indisponibles). Ordre refus\xE9 par prudence."
-    );
-  }
-  const priceBySymbol = new Map(quotes.map((q) => [q.symbol.toUpperCase(), q]));
-  const exposureByCurrency = {};
-  for (const symbol2 of symbols) {
-    const units = netUnitsBySymbol.get(symbol2) ?? 0;
-    const quote2 = priceBySymbol.get(symbol2.toUpperCase());
-    if (!quote2) continue;
-    const value = Math.abs(units) * quote2.price;
-    exposureByCurrency[quote2.currency] = (exposureByCurrency[quote2.currency] ?? 0) + value;
-  }
-  return exposureByCurrency;
-}
-async function checkOrderRisk(input) {
-  const { symbol: symbol2, side, quantity, mode, brokerPositions } = input;
-  const exchange = getExchangeForSymbol(symbol2);
-  if (exchange === "UNSUPPORTED") {
-    return {
-      ok: false,
-      reason: "exchange_not_supported",
-      message: `Le symbole ${symbol2} est cot\xE9 sur une bourse non support\xE9e par Wealthsimple (indices, futures, forex, cryptos hors SnapTrade, bourses europ\xE9ennes/asiatiques). Seuls les titres cot\xE9s sur TSX, NASDAQ et NYSE sont ex\xE9cutables.`,
-      details: { symbol: symbol2 }
-    };
-  }
-  const hours = isMarketOpen(symbol2);
-  if (!hours.open) {
-    return {
-      ok: false,
-      reason: "market_closed",
-      message: hours.message,
-      details: { exchange: hours.exchange }
-    };
-  }
-  const quotes = await getQuotes([symbol2]);
-  const quote2 = quotes.find((q) => q.symbol.toUpperCase() === symbol2.toUpperCase());
-  if (!quote2) {
-    return {
-      ok: false,
-      reason: "price_unavailable",
-      message: `Prix courant introuvable pour ${symbol2}. Ordre refus\xE9 par prudence.`,
-      details: {}
-    };
-  }
-  const orderValue = quantity * quote2.price;
-  const maxOrderValue = await getMaxOrderValue();
-  if (orderValue > maxOrderValue) {
-    return {
-      ok: false,
-      reason: "order_value_exceeded",
-      message: `Ordre refus\xE9 : la valeur (${quote2.currency}${orderValue.toFixed(2)}) d\xE9passe la limite autoris\xE9e de ${quote2.currency}${maxOrderValue.toFixed(2)} par ordre. V\xE9rifiez la quantit\xE9 saisie.`,
-      details: { orderValue, maxOrderValue, currency: quote2.currency, quantity, price: quote2.price }
-    };
-  }
-  if (side === "BUY") {
-    const exposureByCurrency = await getCurrentExposureByCurrency(mode, brokerPositions);
-    const currentExposure = exposureByCurrency[quote2.currency] ?? 0;
-    const projectedExposure = currentExposure + orderValue;
-    const maxExposure = await getMaxPortfolioExposure();
-    if (projectedExposure > maxExposure) {
-      return {
-        ok: false,
-        reason: "portfolio_exposure_exceeded",
-        message: `Ordre refus\xE9 : l'exposition totale du portefeuille en ${quote2.currency} passerait de ${quote2.currency}${currentExposure.toFixed(2)} \xE0 ${quote2.currency}${projectedExposure.toFixed(2)}, au-del\xE0 de la limite de ${quote2.currency}${maxExposure.toFixed(2)}.`,
-        details: { currentExposure, projectedExposure, maxExposure, currency: quote2.currency }
-      };
-    }
-  }
-  return { ok: true, livePrice: quote2.price, currency: quote2.currency, orderValue };
-}
-
-// src/lib/orderEngine.ts
 var OrderValidationError = class extends Error {
 };
 function normalizeSide(side) {
@@ -125492,10 +125543,9 @@ async function submitOrder(input) {
   let snaptradeOrderId = null;
   let orderStatus = "submitted";
   let errorMessage = null;
-  const wholeQty = Math.floor(quantity);
-  if (wholeQty < 1) {
-    await db.update(ordersTable).set({ status: "error", errorMessage: "La quantit\xE9 doit \xEAtre d'au moins 1 action enti\xE8re. Wealthsimple ne supporte pas les fractions." }).where(eq(ordersTable.id, pendingOrder.id));
-    return { status: "accepted", order: { ...pendingOrder, status: "error", errorMessage: "La quantit\xE9 doit \xEAtre d'au moins 1 action enti\xE8re." } };
+  if (quantity < 1e-4) {
+    await db.update(ordersTable).set({ status: "error", errorMessage: "La quantit\xE9 doit \xEAtre sup\xE9rieure \xE0 0.0001." }).where(eq(ordersTable.id, pendingOrder.id));
+    return { status: "accepted", order: { ...pendingOrder, status: "error", errorMessage: "La quantit\xE9 doit \xEAtre sup\xE9rieure \xE0 0.0001." } };
   }
   try {
     const result = await placeOrder({
@@ -125504,7 +125554,7 @@ async function submitOrder(input) {
       accountId,
       symbol: symbol2.toUpperCase(),
       side,
-      quantity: wholeQty,
+      quantity,
       clientOrderId: signalId
     });
     snaptradeOrderId = result?.id ?? result?.brokerage_order_id ?? null;
@@ -129752,31 +129802,190 @@ router21.get("/symbols/search", async (req, res) => {
 });
 var symbols_default = router21;
 
-// src/routes/index.ts
+// src/routes/agentTasks.ts
+var import_express22 = __toESM(require_express2(), 1);
+
+// src/lib/agentTasks.ts
+init_drizzle_orm();
+function parseJson(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function toOut3(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    stepsCompleted: parseJson(row.stepsCompleted),
+    nextSteps: parseJson(row.nextSteps),
+    checkpointNotes: row.checkpointNotes,
+    startedAt: row.startedAt.toISOString(),
+    pausedAt: row.pausedAt ? row.pausedAt.toISOString() : null,
+    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+async function getAllAgentTasks() {
+  const rows = await db.select().from(agentTasksTable).orderBy(desc(agentTasksTable.startedAt));
+  return rows.map(toOut3);
+}
+async function getAgentTaskById(id) {
+  const [row] = await db.select().from(agentTasksTable).where(eq(agentTasksTable.id, id)).limit(1);
+  return row ? toOut3(row) : null;
+}
+async function createAgentTask(input) {
+  const [row] = await db.insert(agentTasksTable).values({
+    title: input.title,
+    description: input.description,
+    status: "in_progress",
+    stepsCompleted: JSON.stringify(input.stepsCompleted ?? []),
+    nextSteps: JSON.stringify(input.nextSteps ?? []),
+    checkpointNotes: input.checkpointNotes ?? "",
+    startedAt: /* @__PURE__ */ new Date(),
+    updatedAt: /* @__PURE__ */ new Date()
+  }).returning();
+  return toOut3(row);
+}
+async function updateAgentTask(id, input) {
+  const now = /* @__PURE__ */ new Date();
+  const updates = {
+    updatedAt: now
+  };
+  if (input.title !== void 0) updates.title = input.title;
+  if (input.description !== void 0) updates.description = input.description;
+  if (input.status !== void 0) {
+    updates.status = input.status;
+    if (input.status === "paused") updates.pausedAt = now;
+    if (input.status === "completed") updates.completedAt = now;
+  }
+  if (input.stepsCompleted !== void 0)
+    updates.stepsCompleted = JSON.stringify(input.stepsCompleted);
+  if (input.nextSteps !== void 0)
+    updates.nextSteps = JSON.stringify(input.nextSteps);
+  if (input.checkpointNotes !== void 0)
+    updates.checkpointNotes = input.checkpointNotes;
+  const [row] = await db.update(agentTasksTable).set(updates).where(eq(agentTasksTable.id, id)).returning();
+  return row ? toOut3(row) : null;
+}
+async function deleteAgentTask(id) {
+  const result = await db.delete(agentTasksTable).where(eq(agentTasksTable.id, id)).returning();
+  return result.length > 0;
+}
+
+// src/routes/agentTasks.ts
 var router22 = (0, import_express22.Router)();
-router22.use(health_default);
-router22.use(auth_default);
-router22.use(clientErrors_default);
-router22.use(requireAuth);
-router22.use(quotes_default);
-router22.use(market_default);
-router22.use(news_default);
-router22.use(watchlist_default);
-router22.use(alerts_default);
-router22.use(whop_default);
-router22.use(broker_default);
-router22.use(settings_default);
-router22.use(notificationPreferences_default);
-router22.use(audit_default);
-router22.use(performance_default);
-router22.use(calendar_default);
-router22.use(learn_default);
-router22.use(notes_default);
-router22.use(metatrader_default);
-router22.use(copyTrading_default);
-router22.use(spotify_default);
-router22.use(symbols_default);
-var routes_default = router22;
+router22.get("/agent-tasks", async (_req, res) => {
+  try {
+    const tasks = await getAllAgentTasks();
+    return res.json(tasks);
+  } catch (err) {
+    console.error("[agent-tasks] GET /agent-tasks error:", err);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+router22.get("/agent-tasks/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "ID invalide" });
+  try {
+    const task = await getAgentTaskById(id);
+    if (!task) return res.status(404).json({ error: "T\xE2che introuvable" });
+    return res.json(task);
+  } catch (err) {
+    console.error("[agent-tasks] GET /agent-tasks/:id error:", err);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+router22.post("/agent-tasks", async (req, res) => {
+  const { title, description, stepsCompleted, nextSteps, checkpointNotes } = req.body ?? {};
+  if (!title || typeof title !== "string" || !title.trim()) {
+    return res.status(400).json({ error: "title requis" });
+  }
+  if (!description || typeof description !== "string" || !description.trim()) {
+    return res.status(400).json({ error: "description requise" });
+  }
+  try {
+    const task = await createAgentTask({
+      title: title.trim(),
+      description: description.trim(),
+      stepsCompleted: Array.isArray(stepsCompleted) ? stepsCompleted : [],
+      nextSteps: Array.isArray(nextSteps) ? nextSteps : [],
+      checkpointNotes: typeof checkpointNotes === "string" ? checkpointNotes : ""
+    });
+    return res.status(201).json(task);
+  } catch (err) {
+    console.error("[agent-tasks] POST /agent-tasks error:", err);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+router22.patch("/agent-tasks/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "ID invalide" });
+  const { title, description, status, stepsCompleted, nextSteps, checkpointNotes } = req.body ?? {};
+  const validStatuses = ["in_progress", "paused", "completed", "cancelled"];
+  if (status !== void 0 && !validStatuses.includes(status)) {
+    return res.status(400).json({ error: `status invalide. Valeurs accept\xE9es : ${validStatuses.join(", ")}` });
+  }
+  try {
+    const task = await updateAgentTask(id, {
+      ...title !== void 0 && { title },
+      ...description !== void 0 && { description },
+      ...status !== void 0 && { status },
+      ...Array.isArray(stepsCompleted) && { stepsCompleted },
+      ...Array.isArray(nextSteps) && { nextSteps },
+      ...checkpointNotes !== void 0 && { checkpointNotes }
+    });
+    if (!task) return res.status(404).json({ error: "T\xE2che introuvable" });
+    return res.json(task);
+  } catch (err) {
+    console.error("[agent-tasks] PATCH /agent-tasks/:id error:", err);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+router22.delete("/agent-tasks/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "ID invalide" });
+  try {
+    const deleted = await deleteAgentTask(id);
+    if (!deleted) return res.status(404).json({ error: "T\xE2che introuvable" });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[agent-tasks] DELETE /agent-tasks/:id error:", err);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+var agentTasks_default = router22;
+
+// src/routes/index.ts
+var router23 = (0, import_express23.Router)();
+router23.use(health_default);
+router23.use(auth_default);
+router23.use(clientErrors_default);
+router23.use(requireAuth);
+router23.use(quotes_default);
+router23.use(market_default);
+router23.use(news_default);
+router23.use(watchlist_default);
+router23.use(alerts_default);
+router23.use(whop_default);
+router23.use(broker_default);
+router23.use(settings_default);
+router23.use(notificationPreferences_default);
+router23.use(audit_default);
+router23.use(performance_default);
+router23.use(calendar_default);
+router23.use(learn_default);
+router23.use(notes_default);
+router23.use(metatrader_default);
+router23.use(copyTrading_default);
+router23.use(spotify_default);
+router23.use(symbols_default);
+router23.use(agentTasks_default);
+var routes_default = router23;
 
 // src/lib/integrations/metatrader/sync.ts
 init_drizzle_orm();
@@ -129910,7 +130119,7 @@ function startCopyTradingSync() {
 }
 
 // src/app.ts
-var app = (0, import_express23.default)();
+var app = (0, import_express24.default)();
 app.set("trust proxy", 1);
 app.use(
   (0, import_pino_http.default)({
@@ -129932,8 +130141,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express23.default.json());
-app.use(import_express23.default.urlencoded({ extended: true }));
+app.use(import_express24.default.json());
+app.use(import_express24.default.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
 app.use("/api", routes_default);
 initTradingMode().catch((err) => logger.warn({ err }, "initTradingMode: \xE9chec"));

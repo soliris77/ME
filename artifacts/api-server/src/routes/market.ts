@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
+import { isMarketOpen, getExchangeForSymbol } from "../lib/risk";
 
 const router = Router();
 
@@ -145,6 +146,50 @@ const TYPE_MAP: Record<string, string> = {
   MUTUALFUND: "stock",
   FUTURE: "stock",
 };
+
+// ─── GET /api/market/hours/:symbol ──────────────────────────────────────────
+// Retourne les heures d'ouverture du marché pour un symbole donné et son statut
+// actuel (ouvert / fermé). Ne dépend pas de Yahoo Finance.
+router.get("/market/hours/:symbol", (req, res) => {
+  const symbol = decodeURIComponent(req.params.symbol ?? "").toUpperCase();
+  if (!symbol) return res.status(400).json({ error: "symbol requis" });
+
+  const exchange = getExchangeForSymbol(symbol);
+  const result = isMarketOpen(symbol);
+
+  // Heures d'ouverture (toujours 9h30–16h00 ET pour TSX et NASDAQ/NYSE)
+  const openTime  = "09:30";
+  const closeTime = "16:00";
+  const timezone  = "America/New_York";
+
+  // Crypto / forex / indices non supportés → marché considéré toujours "ouvert"
+  // (les prix sont continus — pas d'horaire de bourse à afficher)
+  if (exchange === "UNSUPPORTED") {
+    return res.json({
+      symbol,
+      exchange,
+      exchangeLabel: "24/7",
+      open: true,
+      message: "Cet actif se négocie en continu, sans horaire de bourse.",
+      openTime: "00:00",
+      closeTime: "23:59",
+      timezone: "UTC",
+      continuous: true,
+    });
+  }
+
+  return res.json({
+    symbol,
+    exchange,
+    exchangeLabel: result.exchangeLabel,
+    open: result.open,
+    message: result.message,
+    openTime,
+    closeTime,
+    timezone,
+    continuous: false,
+  });
+});
 
 router.get("/market/overview", async (req, res) => {
   try {

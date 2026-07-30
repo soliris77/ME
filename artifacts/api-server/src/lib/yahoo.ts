@@ -52,9 +52,11 @@ export function formatQuote(q: any): FormattedQuote {
     low: q.regularMarketDayLow ?? null,
     volume: q.regularMarketVolume ?? null,
     marketCap: q.marketCap ?? null,
-    currency: q.currency ?? "USD",
+    currency: typeof q.currency === "string" ? q.currency : (q.currency?.code ?? "USD"),
     type: mapQuoteType(q.quoteType),
-    exchange: q.fullExchangeName ?? q.exchange ?? null,
+    exchange: (typeof q.fullExchangeName === "string" ? q.fullExchangeName : null)
+           ?? (typeof q.exchange === "string" ? q.exchange : null)
+           ?? null,
     lastUpdated: new Date().toISOString(),
   };
 }

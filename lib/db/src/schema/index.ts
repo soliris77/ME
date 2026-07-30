@@ -6,3 +6,4 @@ export * from "./learn";
 export * from "./notes";
 export * from "./copyTrading";
 export * from "./spotify";
+export * from "./agentTasks";

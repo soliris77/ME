@@ -20,6 +20,7 @@ import metatraderRouter from "./metatrader";
 import copyTradingRouter from "./copyTrading";
 import spotifyRouter from "./spotify";
 import symbolsRouter from "./symbols";
+import agentTasksRouter from "./agentTasks";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -54,5 +55,6 @@ router.use(metatraderRouter);
 router.use(copyTradingRouter);
 router.use(spotifyRouter);
 router.use(symbolsRouter);
+router.use(agentTasksRouter);
 
 export default router;

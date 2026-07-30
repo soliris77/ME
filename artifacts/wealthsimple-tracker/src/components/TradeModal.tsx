@@ -332,13 +332,11 @@ export default function TradeModal({
             <input
               id={`${uid}-qty`}
               type="number"
-              min="1"
-              step="1"
+              min="0.001"
+              step="any"
               value={qty}
               onChange={(e) => {
-                // Forcer les entiers — Wealthsimple ne supporte pas les fractions
-                const v = e.target.value;
-                setQty(v.includes(".") ? String(Math.floor(Number(v))) : v);
+                setQty(e.target.value);
               }}
               className="w-full rounded-lg px-4 py-3 text-[14px] focus:outline-none"
               style={{ ...MONO, background: BASE_BG, border: `1px solid ${BORDER_C}`, color: "#E8E9ED", transition: "border-color 0.15s" }}
@@ -399,7 +397,10 @@ export default function TradeModal({
                   style={{ background: "rgba(212,167,44,0.06)", border: "1px solid rgba(212,167,44,0.15)" }}
                 >
                   {balanceQ.data.map((b, i) => {
-                    const cur = b.currency ?? "";
+                    // SnapTrade peut retourner currency comme objet {code,name,id}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const rawCur = b.currency as any;
+                    const cur = typeof rawCur === "string" ? rawCur : (rawCur?.code ?? "");
                     const fmt = (v?: number) =>
                       v == null ? null : v.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const cash        = fmt(b.cash);

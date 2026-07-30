@@ -219,15 +219,13 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   let orderStatus = "submitted";
   let errorMessage: string | null = null;
 
-  // Wealthsimple ne supporte pas les fractions (code 1141) — on arrondit
-  // à l'entier inférieur. Si ça donne 0, on rejette proprement.
-  const wholeQty = Math.floor(quantity);
-  if (wholeQty < 1) {
+  // Valider la quantité minimale (fractions supportées selon le courtier/instrument)
+  if (quantity < 0.0001) {
     await db
       .update(ordersTable)
-      .set({ status: "error", errorMessage: "La quantité doit être d'au moins 1 action entière. Wealthsimple ne supporte pas les fractions." })
+      .set({ status: "error", errorMessage: "La quantité doit être supérieure à 0.0001." })
       .where(eq(ordersTable.id, pendingOrder.id));
-    return { status: "accepted", order: { ...pendingOrder, status: "error", errorMessage: "La quantité doit être d'au moins 1 action entière." } as typeof pendingOrder };
+    return { status: "accepted", order: { ...pendingOrder, status: "error", errorMessage: "La quantité doit être supérieure à 0.0001." } as typeof pendingOrder };
   }
 
   try {
@@ -237,7 +235,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       accountId,
       symbol: symbol.toUpperCase(),
       side,
-      quantity: wholeQty,
+      quantity,
       clientOrderId: signalId,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
