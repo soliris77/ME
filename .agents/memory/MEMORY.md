@@ -1,7 +1,3 @@
-<!-- AGENT_TASK_ALERT_START -->
-## ⚠️ TÂCHE EN COURS — LIRE EN PREMIER
-- [in-progress.md](in-progress.md) — **TÂCHE INTERROMPUE À REPRENDRE** : "Test de vérification du système" · Statut: paused · 2 prochaines étapes documentées
-<!-- AGENT_TASK_ALERT_END -->
 
 ## 🔴 PROTOCOLE OBLIGATOIRE — À LIRE AVANT TOUT TRAVAIL
 - [current-task.md](current-task.md) — **LIRE EN PREMIER** : état exact de la tâche en cours (étapes ✅ FAIT / → EN COURS / ☐ À FAIRE)

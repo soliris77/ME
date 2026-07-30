@@ -293,10 +293,10 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
         onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-2 mb-3 w-full text-left group"
       >
-        <div className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-widest ${t.badge}`}>
+        <div className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-widest font-mono ${t.badge}`}>
           {cat.badge}
         </div>
-        <span className={`text-[12px] font-semibold uppercase tracking-wider ${t.label}`}>
+        <span className={`text-[12px] font-semibold uppercase tracking-wider font-mono ${t.label}`}>
           {cat.label}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
@@ -369,15 +369,15 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
       <div className="flex items-center gap-2 mb-3">
         <span className="text-base leading-none select-none" aria-hidden>{ex.flag}</span>
         <div className="flex-1 min-w-0">
-          <div className={`text-[12px] font-semibold uppercase tracking-wider leading-tight ${
+          <div className={`text-[12px] font-semibold uppercase tracking-wider leading-tight font-mono ${
             open ? "text-green-400" : "text-foreground/70"
           }`}>
             {ex.name}
           </div>
-          <div className="text-[10px] text-muted-foreground truncate">{ex.location}</div>
+          <div className="text-[10px] text-muted-foreground truncate font-mono">{ex.location}</div>
         </div>
         {/* Status badge */}
-        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono ${
           open ? "bg-green-500/15 text-green-400" : "bg-muted/60 text-muted-foreground"
         }`}>
           {open

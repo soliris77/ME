@@ -1,6 +1,6 @@
 import { useGetQuotes } from "@workspace/api-client-react";
 import { useRef, useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link } from "wouter";
 import { formatPrice, formatPercent, isUp } from "@/lib/format";
 
 const TICKER_SYMBOLS = [
@@ -61,9 +61,10 @@ export default function LiveTicker() {
           const up = isUp(q.changePercent);
           const name = DISPLAY_NAMES[q.symbol] ?? q.symbol;
           return (
-            <span
+            <Link
               key={`${q.symbol}-${i}`}
-              className="inline-flex items-center gap-2 px-5 text-[11px] tracking-wide"
+              href={`/quote/${encodeURIComponent(q.symbol)}`}
+              className="inline-flex items-center gap-2 px-5 text-[11px] tracking-wide cursor-pointer hover:bg-sidebar-accent/40 transition-colors duration-150"
               style={{ borderRight: "1px solid hsl(var(--sidebar-border) / 0.4)" }}
             >
               <span className="font-semibold text-sidebar-foreground/70 uppercase tracking-widest text-[10px]">{name}</span>
@@ -81,7 +82,7 @@ export default function LiveTicker() {
                 {up !== null && (up ? "▲" : "▼")}{" "}
                 {formatPercent(q.changePercent)}
               </span>
-            </span>
+            </Link>
           );
         })}
       </div>
