@@ -1,14 +1,12 @@
 /**
  * Détermination du statut d'ouverture des marchés côté client.
  * ─────────────────────────────────────────────────────────────────────────────
- * Miroir simplifié de isMarketOpen() du backend (risk.ts).
- * Utilisé dans le tableau de bord pour classer les actifs en :
- *   - "continuous"  : 24/7 (crypto, futures, forex, indices)
- *   - "open"        : marché actuellement ouvert
- *   - "closed"      : marché actuellement fermé
+ * Catégories :
+ *   "continuous" : 24/7 (crypto) ou 24/5 (forex, futures) — pas d'horaire fixe
+ *   "open"       : marché actuellement en séance
+ *   "closed"     : marché actuellement fermé
  *
- * Règles : NYSE/NASDAQ et TSX → lundi–vendredi 9h30–16h00 heure de New York.
- * Les jours fériés exacts ne sont pas calculés côté client — le backend
+ * Les jours fériés exacts ne sont pas calculés ici — le backend
  * (/api/market/hours/:symbol) est la source de vérité pour les fiches détail.
  */
 
@@ -16,11 +14,12 @@ import { getExchangeForSymbol } from "@/lib/tradeability";
 
 export type MarketSessionStatus = "continuous" | "open" | "closed";
 
-/** Renvoie { dow, totalMinutes } en heure America/New_York. */
-function getETTime(): { dow: number; totalMinutes: number } {
+// ─── Utilitaire : heure locale dans un fuseau horaire ─────────────────────────
+
+function getTimeInTZ(tz: string): { dow: number; totalMinutes: number } {
   const now = new Date();
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+    timeZone: tz,
     weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
@@ -35,72 +34,203 @@ function getETTime(): { dow: number; totalMinutes: number } {
   return { dow: dowMap[weekday] ?? 1, totalMinutes: hour * 60 + minute };
 }
 
-/** Statut d'ouverture pour NYSE/NASDAQ et TSX (mêmes horaires). */
-function usEquityStatus(): MarketSessionStatus {
-  const { dow, totalMinutes } = getETTime();
-  if (dow === 0 || dow === 6) return "closed";               // week-end
-  const openAt  = 9 * 60 + 30;   // 9h30 ET
-  const closeAt = 16 * 60;       // 16h00 ET
+function checkExchangeStatus(
+  tz: string,
+  openAt: number,
+  closeAt: number,
+): "open" | "closed" {
+  const { dow, totalMinutes } = getTimeInTZ(tz);
+  if (dow === 0 || dow === 6) return "closed";
   return totalMinutes >= openAt && totalMinutes < closeAt ? "open" : "closed";
 }
 
-/** Statut d'ouverture d'un symbole quelconque. */
+function buildNextEvent(tz: string, openAt: number, closeAt: number): string {
+  const { dow, totalMinutes } = getTimeInTZ(tz);
+
+  const fmt = (diff: number) => {
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h}h`;
+    return `${m}min`;
+  };
+
+  if (dow === 6) return `Ouvre lundi`;
+  if (dow === 0) return `Ouvre lundi`;
+
+  if (totalMinutes < openAt)   return `Ouvre dans ${fmt(openAt - totalMinutes)}`;
+  if (totalMinutes < closeAt)  return `Ferme dans ${fmt(closeAt - totalMinutes)}`;
+  if (dow === 5)               return `Reprend lundi`;
+  return `Ouvre demain dans ${fmt((24 * 60 - totalMinutes) + openAt)}`;
+}
+
+// ─── Définitions des bourses ──────────────────────────────────────────────────
+
+export interface ExchangeDef {
+  id: string;
+  name: string;
+  location: string;
+  flag: string;
+  tz: string;
+  openAt: number;   // minutes depuis minuit heure locale
+  closeAt: number;
+  hoursLabel: string;
+  symbols: string[];
+}
+
+export const EXCHANGES: ExchangeDef[] = [
+  {
+    id: "nyse_nasdaq",
+    name: "NYSE / NASDAQ",
+    location: "New York, É.-U.",
+    flag: "🇺🇸",
+    tz: "America/New_York",
+    openAt:  9 * 60 + 30,
+    closeAt: 16 * 60,
+    hoursLabel: "9h30 – 16h00 ET",
+    symbols: ["AAPL", "MSFT", "NVDA", "AMZN", "META", "TSLA", "GOOG"],
+  },
+  {
+    id: "tsx",
+    name: "TSX",
+    location: "Toronto, Canada",
+    flag: "🇨🇦",
+    tz: "America/New_York",
+    openAt:  9 * 60 + 30,
+    closeAt: 16 * 60,
+    hoursLabel: "9h30 – 16h00 ET",
+    symbols: ["RY.TO", "TD.TO", "SHOP.TO", "ENB.TO", "CNR.TO", "BNS.TO"],
+  },
+  {
+    id: "lse",
+    name: "LSE",
+    location: "Londres, R.-U.",
+    flag: "🇬🇧",
+    tz: "Europe/London",
+    openAt:  8 * 60,
+    closeAt: 16 * 60 + 30,
+    hoursLabel: "8h00 – 16h30 GMT",
+    symbols: ["AZN.L", "HSBA.L", "SHEL.L", "ULVR.L", "BP.L", "GSK.L"],
+  },
+  {
+    id: "xetra_euronext",
+    name: "Euronext / XETRA",
+    location: "Paris · Francfort",
+    flag: "🇪🇺",
+    tz: "Europe/Paris",
+    openAt:  9 * 60,
+    closeAt: 17 * 60 + 30,
+    hoursLabel: "9h00 – 17h30 CET",
+    symbols: ["MC.PA", "SAP.DE", "ASML.AS", "OR.PA", "SIE.DE", "TTE.PA"],
+  },
+  {
+    id: "tse",
+    name: "TSE (Tokyo)",
+    location: "Tokyo, Japon",
+    flag: "🇯🇵",
+    tz: "Asia/Tokyo",
+    openAt:  9 * 60,
+    closeAt: 15 * 60 + 30,
+    hoursLabel: "9h00 – 15h30 JST",
+    symbols: ["7203.T", "9984.T", "6758.T", "8306.T", "6501.T"],
+  },
+  {
+    id: "hkex",
+    name: "HKEX",
+    location: "Hong Kong",
+    flag: "🇭🇰",
+    tz: "Asia/Hong_Kong",
+    openAt:  9 * 60 + 30,
+    closeAt: 16 * 60,
+    hoursLabel: "9h30 – 16h00 HKT",
+    symbols: ["0700.HK", "9988.HK", "0941.HK", "1299.HK", "0388.HK"],
+  },
+  {
+    id: "asx",
+    name: "ASX",
+    location: "Sydney, Australie",
+    flag: "🇦🇺",
+    tz: "Australia/Sydney",
+    openAt:  10 * 60,
+    closeAt: 16 * 60,
+    hoursLabel: "10h00 – 16h00 AEST",
+    symbols: ["BHP.AX", "CBA.AX", "CSL.AX", "ANZ.AX", "WBC.AX"],
+  },
+  {
+    id: "bse_nse",
+    name: "BSE / NSE",
+    location: "Mumbai, Inde",
+    flag: "🇮🇳",
+    tz: "Asia/Kolkata",
+    openAt:  9 * 60 + 15,
+    closeAt: 15 * 60 + 30,
+    hoursLabel: "9h15 – 15h30 IST",
+    symbols: ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS"],
+  },
+  {
+    id: "bovespa",
+    name: "B3 (Bovespa)",
+    location: "São Paulo, Brésil",
+    flag: "🇧🇷",
+    tz: "America/Sao_Paulo",
+    openAt:  10 * 60,
+    closeAt: 17 * 60 + 55,
+    hoursLabel: "10h00 – 17h55 BRT",
+    symbols: ["VALE", "ITUB", "PBR", "ABEV", "MELI", "BBD"],
+  },
+  {
+    id: "jse",
+    name: "JSE",
+    location: "Johannesburg, Afr. du S.",
+    flag: "🇿🇦",
+    tz: "Africa/Johannesburg",
+    openAt:  9 * 60,
+    closeAt: 17 * 60,
+    hoursLabel: "9h00 – 17h00 SAST",
+    symbols: ["NPN.JO", "GFI", "AU", "SBK.JO"],
+  },
+];
+
+/** Statut ouvert/fermé pour une bourse donnée. */
+export function getExchangeOpenStatus(ex: ExchangeDef): "open" | "closed" {
+  return checkExchangeStatus(ex.tz, ex.openAt, ex.closeAt);
+}
+
+/** Prochain événement (ex. "Ferme dans 2h 15min"). */
+export function getExchangeNextEvent(ex: ExchangeDef): string {
+  return buildNextEvent(ex.tz, ex.openAt, ex.closeAt);
+}
+
+// ─── Compatibilité avec le code existant ─────────────────────────────────────
+
+/** Renvoie { dow, totalMinutes } en heure America/New_York. */
+function getETTime(): { dow: number; totalMinutes: number } {
+  return getTimeInTZ("America/New_York");
+}
+
+function usEquityStatus(): MarketSessionStatus {
+  const { dow, totalMinutes } = getETTime();
+  if (dow === 0 || dow === 6) return "closed";
+  const openAt  = 9 * 60 + 30;
+  const closeAt = 16 * 60;
+  return totalMinutes >= openAt && totalMinutes < closeAt ? "open" : "closed";
+}
+
 export function getSymbolMarketStatus(symbol: string): MarketSessionStatus {
   const exchange = getExchangeForSymbol(symbol);
   if (exchange === "UNSUPPORTED") return "continuous";
   return usEquityStatus();
 }
 
-/** Statut global NYSE/NASDAQ (et TSX — mêmes horaires). */
 export function getUSMarketStatus(): MarketSessionStatus {
   return usEquityStatus();
 }
 
-/**
- * Minuterie : heure restante avant ouverture ou fermeture.
- * Retourne une chaîne lisible, ex. "Ferme dans 2h 15min" ou "Ouvre dans 45min".
- */
 export function getNextMarketEvent(): string {
-  const { dow, totalMinutes } = getETTime();
-
-  const openAt  = 9 * 60 + 30;
-  const closeAt = 16 * 60;
-
-  // Week-end
-  if (dow === 6) {
-    const minsToMonday = (2 * 24 * 60) + openAt;
-    return `Ouvre lundi à 9h30 ET (dans ${Math.round(minsToMonday / 60)}h)`;
-  }
-  if (dow === 0) {
-    const minsToMonday = (1 * 24 * 60) + openAt;
-    return `Ouvre lundi à 9h30 ET (dans ${Math.round(minsToMonday / 60)}h)`;
-  }
-
-  if (totalMinutes < openAt) {
-    const diff = openAt - totalMinutes;
-    const h = Math.floor(diff / 60);
-    const m = diff % 60;
-    return `Ouvre dans ${h > 0 ? h + "h " : ""}${m > 0 ? m + "min" : ""}`;
-  }
-
-  if (totalMinutes < closeAt) {
-    const diff = closeAt - totalMinutes;
-    const h = Math.floor(diff / 60);
-    const m = diff % 60;
-    return `Ferme dans ${h > 0 ? h + "h " : ""}${m > 0 ? m + "min" : ""}`;
-  }
-
-  // Après 16h — si vendredi, pas de réouverture avant lundi
-  if (dow === 5) {
-    return `Reprend lundi à 9h30 ET`;
-  }
-  const diff = (24 * 60 - totalMinutes) + openAt;
-  const h = Math.floor(diff / 60);
-  const m = diff % 60;
-  return `Ouvre demain dans ${h > 0 ? h + "h " : ""}${m > 0 ? m + "min" : ""}`;
+  const nyse = EXCHANGES.find((e) => e.id === "nyse_nasdaq")!;
+  return buildNextEvent(nyse.tz, nyse.openAt, nyse.closeAt);
 }
 
-/** Labels et label court pour un exchange donné. */
 export function getExchangeLabel(symbol: string): string {
   const exchange = getExchangeForSymbol(symbol);
   if (exchange === "TSX") return "TSX";
