@@ -8,7 +8,7 @@ import { Link } from "wouter";
 import {
   ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown,
   Globe, Bitcoin, BarChart3, AlertTriangle, Bookmark,
-  Radio, Clock, Infinity,
+  Radio, Clock, Infinity, ChevronDown, ChevronUp, ExternalLink,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
@@ -178,14 +178,32 @@ function useMarketStatusNow() {
   return tick;
 }
 
-// H24 asset categories (crypto 24/7, forex & futures 24/5)
-const H24_CATEGORIES = [
+// H24 asset categories — chaque actif a un label affiché + un symbole Yahoo Finance (null = non navigable)
+interface H24Asset { label: string; symbol: string | null }
+
+const H24_CATEGORIES: {
+  id: string; label: string; badge: string; color: "violet" | "sky" | "amber";
+  assets: H24Asset[]; note: string;
+}[] = [
   {
     id: "crypto",
     label: "Cryptomonnaies",
     badge: "24/7",
     color: "violet",
-    items: ["BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "MATIC", "DOT", "LINK", "AVAX"],
+    assets: [
+      { label: "BTC",   symbol: "BTC-USD"  },
+      { label: "ETH",   symbol: "ETH-USD"  },
+      { label: "SOL",   symbol: "SOL-USD"  },
+      { label: "XRP",   symbol: "XRP-USD"  },
+      { label: "ADA",   symbol: "ADA-USD"  },
+      { label: "DOGE",  symbol: "DOGE-USD" },
+      { label: "AVAX",  symbol: "AVAX-USD" },
+      { label: "DOT",   symbol: "DOT-USD"  },
+      { label: "LINK",  symbol: "LINK-USD" },
+      { label: "MATIC", symbol: "MATIC-USD"},
+      { label: "UNI",   symbol: "UNI-USD"  },
+      { label: "ATOM",  symbol: "ATOM-USD" },
+    ],
     note: "Cotations continues — 7j/7, 24h/24",
   },
   {
@@ -193,7 +211,18 @@ const H24_CATEGORIES = [
     label: "Forex",
     badge: "24/5",
     color: "sky",
-    items: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD", "NZD/USD", "USD/MXN"],
+    assets: [
+      { label: "EUR/USD", symbol: "EURUSD=X"  },
+      { label: "GBP/USD", symbol: "GBPUSD=X"  },
+      { label: "USD/JPY", symbol: "USDJPY=X"  },
+      { label: "USD/CHF", symbol: "USDCHF=X"  },
+      { label: "AUD/USD", symbol: "AUDUSD=X"  },
+      { label: "USD/CAD", symbol: "USDCAD=X"  },
+      { label: "NZD/USD", symbol: "NZDUSD=X"  },
+      { label: "USD/MXN", symbol: "USDMXN=X"  },
+      { label: "USD/BRL", symbol: "USDBRL=X"  },
+      { label: "EUR/GBP", symbol: "EURGBP=X"  },
+    ],
     note: "Lun matin Sydney — Ven soir New York",
   },
   {
@@ -201,64 +230,119 @@ const H24_CATEGORIES = [
     label: "Matières premières",
     badge: "24/5",
     color: "amber",
-    items: ["Or (GC)", "Pétrole WTI (CL)", "Argent (SI)", "Brent (BZ)", "Gaz nat. (NG)", "Cuivre (HG)"],
+    assets: [
+      { label: "Or",           symbol: "GC=F"  },
+      { label: "Pétrole WTI",  symbol: "CL=F"  },
+      { label: "Argent",       symbol: "SI=F"  },
+      { label: "Brent",        symbol: "BZ=F"  },
+      { label: "Gaz naturel",  symbol: "NG=F"  },
+      { label: "Cuivre",       symbol: "HG=F"  },
+      { label: "Blé",          symbol: "ZW=F"  },
+      { label: "Maïs",         symbol: "ZC=F"  },
+      { label: "Soja",         symbol: "ZS=F"  },
+    ],
     note: "Pause quotidienne ~1h (17h–18h ET)",
   },
-] as const;
+];
 
 type H24Color = "violet" | "sky" | "amber";
 
-const H24_THEME: Record<H24Color, { dot: string; badge: string; label: string; border: string; note: string }> = {
+const H24_THEME: Record<H24Color, {
+  border: string; badge: string; label: string; note: string;
+  chip: string; chipHover: string;
+}> = {
   violet: {
-    border: "border-violet-500/25",
-    dot:    "bg-violet-400/70",
-    badge:  "bg-violet-500/15 text-violet-300",
-    label:  "text-violet-300",
-    note:   "text-violet-400/50",
+    border:    "border-violet-500/25",
+    badge:     "bg-violet-500/15 text-violet-300",
+    label:     "text-violet-300",
+    note:      "text-violet-400/50",
+    chip:      "bg-violet-500/10 text-violet-200/70",
+    chipHover: "hover:bg-violet-500/25 hover:text-violet-200",
   },
   sky: {
-    border: "border-sky-500/25",
-    dot:    "bg-sky-400/70",
-    badge:  "bg-sky-500/15 text-sky-300",
-    label:  "text-sky-300",
-    note:   "text-sky-400/50",
+    border:    "border-sky-500/25",
+    badge:     "bg-sky-500/15 text-sky-300",
+    label:     "text-sky-300",
+    note:      "text-sky-400/50",
+    chip:      "bg-sky-500/10 text-sky-200/70",
+    chipHover: "hover:bg-sky-500/25 hover:text-sky-200",
   },
   amber: {
-    border: "border-amber-500/25",
-    dot:    "bg-amber-400/70",
-    badge:  "bg-amber-500/15 text-amber-300",
-    label:  "text-amber-300",
-    note:   "text-amber-400/50",
+    border:    "border-amber-500/25",
+    badge:     "bg-amber-500/15 text-amber-300",
+    label:     "text-amber-300",
+    note:      "text-amber-400/50",
+    chip:      "bg-amber-500/10 text-amber-200/70",
+    chipHover: "hover:bg-amber-500/25 hover:text-amber-200",
   },
 };
 
+// Nombre d'actifs affichés par défaut avant d'étendre
+const H24_DEFAULT_VISIBLE = 6;
+
 function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
+  const [expanded, setExpanded] = useState(false);
   const t = H24_THEME[cat.color];
+  const visible = expanded ? cat.assets : cat.assets.slice(0, H24_DEFAULT_VISIBLE);
+  const hasMore = cat.assets.length > H24_DEFAULT_VISIBLE;
+
   return (
     <div className={`bg-card border ${t.border} rounded-xl p-4 flex flex-col`}>
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      {/* Header — cliquable pour étendre */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-2 mb-3 w-full text-left group"
+      >
         <div className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-widest ${t.badge}`}>
           {cat.badge}
         </div>
         <span className={`text-[12px] font-semibold uppercase tracking-wider ${t.label}`}>
           {cat.label}
         </span>
-        <span className="ml-auto">
-          <Infinity className={`w-3.5 h-3.5 ${t.label}`} />
+        <span className="ml-auto flex items-center gap-1.5">
+          <Infinity className={`w-3.5 h-3.5 ${t.label} opacity-50`} />
+          {hasMore && (
+            expanded
+              ? <ChevronUp  className={`w-3.5 h-3.5 ${t.label} opacity-60`} />
+              : <ChevronDown className={`w-3.5 h-3.5 ${t.label} opacity-60`} />
+          )}
         </span>
-      </div>
-      {/* Asset chips */}
+      </button>
+
+      {/* Asset chips — navigables */}
       <div className="flex flex-wrap gap-1.5 mb-3 flex-1">
-        {cat.items.map((item) => (
-          <span
-            key={item}
-            className="text-[10px] font-mono bg-muted/50 text-foreground/60 px-1.5 py-0.5 rounded"
+        {visible.map((asset) =>
+          asset.symbol ? (
+            <Link
+              key={asset.symbol}
+              href={`/quote/${encodeURIComponent(asset.symbol)}`}
+              className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded
+                transition-colors cursor-pointer ${t.chip} ${t.chipHover}`}
+              title={`Voir ${asset.label}`}
+            >
+              {asset.label}
+              <ExternalLink className="w-2.5 h-2.5 opacity-40" />
+            </Link>
+          ) : (
+            <span
+              key={asset.label}
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${t.chip}`}
+            >
+              {asset.label}
+            </span>
+          )
+        )}
+        {!expanded && hasMore && (
+          <button
+            onClick={() => setExpanded(true)}
+            className={`text-[10px] font-mono px-1.5 py-0.5 rounded border border-dashed
+              opacity-50 hover:opacity-80 transition-opacity ${t.label} border-current`}
           >
-            {item}
-          </span>
-        ))}
+            +{cat.assets.length - H24_DEFAULT_VISIBLE} autres
+          </button>
+        )}
       </div>
+
       {/* Footer */}
       <div className={`text-[10px] border-t border-border/30 pt-2 ${t.note}`}>
         {cat.note}
@@ -268,9 +352,14 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
 }
 
 function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
+  const [expanded, setExpanded] = useState(false);
   const status = getExchangeOpenStatus(ex);
   const next   = getExchangeNextEvent(ex);
   const open   = status === "open";
+
+  const VISIBLE = 5;
+  const visible = expanded ? ex.symbols : ex.symbols.slice(0, VISIBLE);
+  const hasMore = ex.symbols.length > VISIBLE;
 
   return (
     <div className={`bg-card border rounded-xl p-4 flex flex-col ${
@@ -299,20 +388,42 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
         </div>
       </div>
 
-      {/* Symbol chips */}
+      {/* Symbol chips — navigables */}
       <div className="flex flex-wrap gap-1 mb-3 flex-1">
-        {ex.symbols.slice(0, 6).map((sym) => (
-          <span
+        {visible.map((sym) => (
+          <Link
             key={sym}
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+            href={`/quote/${encodeURIComponent(sym)}`}
+            className={`inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded
+              transition-colors cursor-pointer group/chip ${
               open
-                ? "bg-green-500/10 text-green-300/80"
-                : "bg-muted/40 text-foreground/40"
+                ? "bg-green-500/10 text-green-300/80 hover:bg-green-500/25 hover:text-green-200"
+                : "bg-muted/40 text-foreground/40 hover:bg-muted/70 hover:text-foreground/70"
             }`}
+            title={`Voir ${sym}`}
           >
             {sym}
-          </span>
+            <ExternalLink className="w-2 h-2 opacity-0 group-hover/chip:opacity-60 transition-opacity" />
+          </Link>
         ))}
+        {!expanded && hasMore && (
+          <button
+            onClick={() => setExpanded(true)}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-dashed
+              border-border/40 text-muted-foreground hover:text-foreground/60 transition-colors"
+          >
+            +{ex.symbols.length - VISIBLE}
+          </button>
+        )}
+        {expanded && hasMore && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-dashed
+              border-border/40 text-muted-foreground hover:text-foreground/60 transition-colors"
+          >
+            Réduire
+          </button>
+        )}
       </div>
 
       {/* Footer — hours + next event */}
