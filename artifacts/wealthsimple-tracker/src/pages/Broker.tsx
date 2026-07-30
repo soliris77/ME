@@ -111,7 +111,7 @@ export default function BrokerPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // ── Formulaire credentials ──
-  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
+  const [credsForm, setCredsForm] = useState({ clientId: "", consumerKey: "" });
   const [showSecrets, setShowSecrets] = useState(false);
   const [credsSaved, setCredsSaved] = useState(false);
 
@@ -133,12 +133,12 @@ export default function BrokerPage() {
       fetch(`${BASE}/api/broker/credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey, userId: data.userId, userSecret: data.userSecret }),
+        body: JSON.stringify({ clientId: data.clientId, consumerKey: data.consumerKey }),
       }).then((r) => r.json()),
     onSuccess: (d) => {
       if (d.ok) {
         setCredsSaved(true);
-        setCredsForm({ clientId: "", consumerKey: "", userId: "", userSecret: "" });
+        setCredsForm({ clientId: "", consumerKey: "" });
         qc.invalidateQueries({ queryKey: ["broker-status"] });
       }
     },
@@ -299,12 +299,14 @@ export default function BrokerPage() {
                   </div>
                 )}
 
-                {(["clientId", "consumerKey", "userId", "userSecret"] as const).map((field) => {
+                {(["clientId", "consumerKey"] as const).map((field) => {
                   const labels: Record<string, string> = {
                     clientId:    "Client ID",
                     consumerKey: "Consumer Key",
-                    userId:      "User ID",
-                    userSecret:  "User Secret",
+                  };
+                  const hints: Record<string, string> = {
+                    clientId:    "Ex. : PERS-XXXXXXXXXXXXXXXX",
+                    consumerKey: "Clé secrète — visible dans Account Settings",
                   };
                   return (
                     <div key={field}>
@@ -314,7 +316,7 @@ export default function BrokerPage() {
                         autoComplete="off"
                         value={credsForm[field]}
                         onChange={(e) => { setCredsForm((f) => ({ ...f, [field]: e.target.value })); setCredsSaved(false); }}
-                        placeholder={`Ton ${labels[field]} SnapTrade`}
+                        placeholder={hints[field]}
                         className="w-full rounded-lg px-3 py-2 text-[12px] outline-none focus:ring-1"
                         style={{
                           background: SURFACE,
@@ -329,7 +331,7 @@ export default function BrokerPage() {
 
                 <Btn
                   onClick={() => credsMut.mutate(credsForm)}
-                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey || !credsForm.userId || !credsForm.userSecret}
+                  disabled={credsMut.isPending || !credsForm.clientId || !credsForm.consumerKey}
                 >
                   {credsMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Sauvegarder les clés

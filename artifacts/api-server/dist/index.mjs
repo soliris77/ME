@@ -124723,6 +124723,24 @@ async function getSnaptradeClientAsync() {
   _client = new Snaptrade({ clientId: creds.clientId ?? SNAPTRADE_CLIENT_ID_DEFAULT, consumerKey: creds.consumerKey });
   return _client;
 }
+async function registerSnaptradeUser(userId) {
+  const client = getSnaptradeClient();
+  try {
+    const res = await client.authentication.registerSnapTradeUser({ userId });
+    const data = res.data;
+    logger.info({ userId }, "snaptrade: user registered");
+    return { userId: data.userId, userSecret: data.userSecret };
+  } catch (err) {
+    const status = err.response?.status;
+    if (status === 409) {
+      logger.info({ userId }, "snaptrade: user already exists, rotating secret");
+      const reset = await client.authentication.resetSnapTradeUserSecret({ userId, userSecret: "" });
+      const data = reset.data;
+      return { userId: data.userId, userSecret: data.userSecret };
+    }
+    throw err;
+  }
+}
 async function getConnectionPortalUrl(userId, userSecret, reconnect) {
   const client = getSnaptradeClient();
   const res = await client.authentication.loginSnapTradeUser({
@@ -125550,20 +125568,20 @@ async function getConnection() {
 }
 router8.post("/broker/credentials", async (req, res) => {
   try {
-    const { clientId, consumerKey, userId, userSecret } = req.body;
-    if (!clientId || !consumerKey || !userId || !userSecret) {
-      return res.status(400).json({ error: "Les 4 champs sont requis : clientId, consumerKey, userId, userSecret." });
+    const { clientId, consumerKey } = req.body;
+    if (!clientId || !consumerKey) {
+      return res.status(400).json({ error: "Les 2 champs sont requis : clientId et consumerKey." });
     }
     const rows = await db.select().from(appSettingsTable).limit(1);
     if (rows.length === 0) {
       return res.status(503).json({ error: "Serveur pas encore initialis\xE9. R\xE9essaie dans quelques secondes." });
     }
     const row = rows[0];
-    await db.update(appSettingsTable).set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey, snaptradeUserId: userId, snaptradeUserSecret: userSecret }).where(eq(appSettingsTable.id, row.id));
+    await db.update(appSettingsTable).set({ snaptradeClientId: clientId, snaptradeConsumerKey: consumerKey }).where(eq(appSettingsTable.id, row.id));
     invalidateSnaptradeClient();
-    await logAudit("broker.credentials", "Credentials SnapTrade mis \xE0 jour via l'interface (stock\xE9s en base).", { userId });
-    logger.info({ userId }, "broker: credentials SnapTrade mis \xE0 jour en base");
-    return res.json({ ok: true, message: "Credentials sauvegard\xE9s. Ils survivront aux remixes." });
+    await logAudit("broker.credentials", "Cl\xE9s d\xE9veloppeur SnapTrade mises \xE0 jour via l'interface (stock\xE9es en base).");
+    logger.info("broker: cl\xE9s d\xE9veloppeur SnapTrade mises \xE0 jour en base");
+    return res.json({ ok: true, message: "Cl\xE9s sauvegard\xE9es. Elles survivront aux remixes." });
   } catch (err) {
     logger.error({ err }, "broker: save credentials failed");
     return res.status(500).json({ error: String(err) });
@@ -125619,18 +125637,23 @@ router8.post("/broker/setup", async (req, res) => {
         status: existing.status
       });
     }
-    const userId = process.env.SNAPTRADE_USER_ID ?? "";
-    const userSecret = process.env.SNAPTRADE_USER_SECRET ?? "";
-    if (!userId || !userSecret) {
+    const creds = await resolveCredentials();
+    if (!creds.consumerKey) {
       return res.status(400).json({
-        error: "SNAPTRADE_USER_ID et SNAPTRADE_USER_SECRET doivent \xEAtre configur\xE9s comme Secrets Replit. R\xE9cup\xE8re-les dans ton dashboard SnapTrade \u2192 Account Settings."
+        error: "Les cl\xE9s SnapTrade (Client ID et Consumer Key) doivent \xEAtre configur\xE9es via l'interface avant l'initialisation."
       });
     }
+    const generatedUserId = `soliris-${Date.now()}`;
+    const { userId, userSecret } = await registerSnaptradeUser(generatedUserId);
+    const rows = await db.select().from(appSettingsTable).limit(1);
+    if (rows.length > 0) {
+      await db.update(appSettingsTable).set({ snaptradeUserId: userId, snaptradeUserSecret: userSecret }).where(eq(appSettingsTable.id, rows[0].id));
+    }
     const [row] = await db.insert(brokerConnectionsTable).values({ snaptradeUserId: userId, snaptradeUserSecret: userSecret, status: "pending" }).returning();
-    logger.info({ userId }, "broker: setup complete (personal key flow)");
-    await logAudit("broker.setup", "Compte courtier SnapTrade enregistr\xE9 (cl\xE9s personnelles).", { userId });
+    logger.info({ userId }, "broker: setup complete \u2014 user registered via API");
+    await logAudit("broker.setup", "Compte courtier SnapTrade enregistr\xE9 \u2014 user g\xE9n\xE9r\xE9 automatiquement via API.", { userId });
     return res.status(201).json({
-      message: "Credentials enregistr\xE9s. Ouvre /api/broker/connect-url pour lier Wealthsimple via le portail OAuth.",
+      message: "Compte initialis\xE9. Ouvre le portail pour lier Wealthsimple.",
       userId: row.snaptradeUserId,
       status: row.status
     });
