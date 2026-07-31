@@ -9,7 +9,7 @@ import {
   Bot, Plus, Trash2, Power, PowerOff, ChevronDown, ChevronUp,
   TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
   Clock, Shield, Bell, BellOff, Play, ArrowUpRight, ArrowDownRight,
-  FlaskConical, Briefcase, CalendarCheck, Scale, ShieldAlert,
+  FlaskConical, Briefcase, CalendarCheck, Scale, ShieldAlert, ShieldCheck,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
@@ -870,6 +870,11 @@ export default function AutoTrader() {
     refetchInterval: 30_000,
   });
 
+  const resumeMut = useMutation({
+    mutationFn: () => fetch(`${BASE}/api/broker/resume`, { method: "POST" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }),
+  });
+
   const dailyPnlQ = useQuery<{ realizedPnL: number; maxDailyLossAmount: number | null; mode: string }>({
     queryKey: ["auto-trader-daily-pnl"],
     queryFn: () => fetch(`${BASE}/api/auto-trader/daily-pnl`).then(r => r.json()),
@@ -958,12 +963,21 @@ export default function AutoTrader() {
       {brokerStatusQ.data?.halted && (
         <div className="mb-5 rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/25 flex items-start gap-2.5">
           <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-          <div className="text-[12px] text-red-400 leading-relaxed">
+          <div className="flex-1 text-[12px] text-red-400 leading-relaxed">
             <strong>Kill-switch actif — trading suspendu.</strong> Aucun ordre automatique ne sera passé
             {brokerStatusQ.data.haltedAt ? ` (depuis le ${new Date(brokerStatusQ.data.haltedAt).toLocaleString("fr-CA")})` : ""}.
-            Réactive le trading depuis la page <Link href="/courtier" className="underline font-semibold">Courtier</Link>.
             La limite de perte journalière se règle dans les <Link href="/parametres" className="underline font-semibold">Paramètres</Link>.
           </div>
+          <button
+            onClick={() => {
+              if (window.confirm("Réactiver le trading ? Les ordres live seront de nouveau acceptés.")) resumeMut.mutate();
+            }}
+            disabled={resumeMut.isPending}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 border border-green-500/30 text-[12px] font-semibold text-green-400 hover:bg-green-500/25 transition-colors disabled:opacity-60"
+          >
+            {resumeMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+            Réactiver le trading
+          </button>
         </div>
       )}
 
