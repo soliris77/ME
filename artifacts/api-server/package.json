@@ -10,7 +10,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:daily-loss": "tsx scripts/test-daily-loss.mjs"
+    "test:daily-loss": "tsx scripts/test-daily-loss.mjs",
+    "test:daily-loss-warning": "tsx scripts/test-daily-loss-warning.mjs"
   },
   "dependencies": {
     "@whop/sdk": "^0.0.40",

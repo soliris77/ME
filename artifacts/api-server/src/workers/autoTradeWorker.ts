@@ -6,7 +6,7 @@
  *   2. checkDailyLossCircuitBreaker() — coupe-circuit de perte journalière
  *   3. processRule() — évalue chaque règle active (signal → ordre ou notif)
  */
-import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable } from "@workspace/db";
+import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
@@ -17,7 +17,7 @@ import { sendEmail } from "../lib/emailClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { logger } from "../lib/logger";
 import { getTradingMode } from "../lib/tradingMode";
-import { notifyKillSwitchActivated } from "../lib/notifications";
+import { notifyKillSwitchActivated, notifyDailyLossWarning } from "../lib/notifications";
 
 const WORKER_INTERVAL_MS = 60_000;
 const OHLC_DAYS = 90;
@@ -533,6 +533,72 @@ export async function getDailyRealizedPnLStatus(options?: {
   return { realizedPnL, maxDailyLossAmount, mode };
 }
 
+// ── Avertissement de perte journalière (80 % de la limite) ───────────────────
+export const DAILY_LOSS_WARNING_RATIO = 0.8;
+const DAILY_LOSS_WARNING_ACTION = "daily_loss.warning";
+
+/** Vrai si la perte du jour mérite un avertissement : ≥ 80 % de la limite sans l'avoir dépassée. */
+export function shouldWarnDailyLoss(realizedPnL: number, maxLoss: number): boolean {
+  const loss = Math.max(0, -realizedPnL);
+  return loss >= DAILY_LOSS_WARNING_RATIO * maxLoss && realizedPnL >= -maxLoss;
+}
+
+// Clé stable pour le verrou consultatif Postgres (sérialise la réclamation).
+const DAILY_LOSS_WARNING_LOCK_KEY = 0x50414c57; // "PALW" — Perte Avertissement Lock Warning
+
+// Envoie l'avertissement une seule fois par jour (UTC). L'anti-doublon est
+// persisté dans audit_log (survit aux redémarrages) et rendu ATOMIQUE face aux
+// cycles concurrents par un verrou consultatif transactionnel Postgres :
+// un seul appelant peut réclamer le créneau du jour ; les autres voient la
+// ligne déjà insérée et abandonnent. Si TOUS les envois échouent, la
+// réclamation est libérée (ligne supprimée) pour permettre une nouvelle
+// tentative au cycle suivant.
+export async function maybeNotifyDailyLossWarning(
+  loss: number,
+  maxLoss: number,
+  // Injectable pour les tests — retourne true si au moins un canal a livré.
+  notifyFn: (p: { loss: number; maxLoss: number; pct: number }) => Promise<boolean> = notifyDailyLossWarning,
+): Promise<void> {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const pct = (loss / maxLoss) * 100;
+
+  try {
+    // ÉTAPE 1 — Réclamation atomique du créneau du jour.
+    const claimedId = await db.transaction(async (tx) => {
+      // Le verrou est relâché automatiquement à la fin de la transaction.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${DAILY_LOSS_WARNING_LOCK_KEY})`);
+
+      const [existing] = await tx.select({ id: auditLogTable.id }).from(auditLogTable)
+        .where(and(
+          eq(auditLogTable.action, DAILY_LOSS_WARNING_ACTION),
+          gte(auditLogTable.createdAt, todayStart),
+        ))
+        .limit(1);
+      if (existing) return null; // déjà réclamé (envoyé ou en cours) aujourd'hui
+
+      const [row] = await tx.insert(auditLogTable).values({
+        action: DAILY_LOSS_WARNING_ACTION,
+        summary: `Avertissement : perte du jour de ${loss.toFixed(2)} $ (${pct.toFixed(0)} % de la limite de ${maxLoss.toFixed(2)} $).`,
+        details: { loss, maxLoss, pct },
+      }).returning({ id: auditLogTable.id });
+      return row.id;
+    });
+    if (claimedId == null) return;
+
+    // ÉTAPE 2 — Envoi (hors transaction). En cas d'échec total, on libère la
+    // réclamation pour qu'un cycle ultérieur puisse re-tenter.
+    logger.warn({ loss, maxLoss, pct }, "autoTradeWorker: perte du jour proche de la limite — notification d'avertissement");
+    const delivered = await notifyFn({ loss, maxLoss, pct });
+    if (!delivered) {
+      await db.delete(auditLogTable).where(eq(auditLogTable.id, claimedId));
+      logger.warn({ claimedId }, "autoTradeWorker: envoi de l'avertissement échoué — réclamation libérée pour re-tentative");
+    }
+  } catch (err) {
+    logger.error({ err }, "autoTradeWorker: échec de l'avertissement de perte journalière");
+  }
+}
+
 // ── I2 — Coupe-circuit de perte journalière agrégée ───────────────────────────
 // Si la perte réalisée du jour dépasse maxDailyLossAmount, le kill-switch s'active.
 async function checkDailyLossCircuitBreaker(
@@ -544,6 +610,13 @@ async function checkDailyLossCircuitBreaker(
     const { realizedPnL, maxDailyLossAmount } = await getDailyRealizedPnLStatus({ conn });
     if (maxDailyLossAmount == null) return; // désactivé
     const maxLoss = maxDailyLossAmount;
+
+    // Avertissement proactif : perte ≥ 80 % de la limite (sans la dépasser).
+    // Anti-doublon persistant via audit_log : une seule notification par jour
+    // (survit aux redémarrages du serveur).
+    if (shouldWarnDailyLoss(realizedPnL, maxLoss)) {
+      await maybeNotifyDailyLossWarning(Math.max(0, -realizedPnL), maxLoss);
+    }
 
     // pnl négatif = perte nette
     if (realizedPnL < -maxLoss) {

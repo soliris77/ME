@@ -4,7 +4,7 @@
  * Exécution : pnpm run test:daily-loss (via tsx, sans DB).
  */
 import assert from "node:assert/strict";
-import { computeRealizedDailyPnL, mapSnaptradeStatus, snaptradeRecordKeys, syncWindowDays } from "../src/workers/autoTradeWorker.ts";
+import { computeRealizedDailyPnL, mapSnaptradeStatus, snaptradeRecordKeys, syncWindowDays, shouldWarnDailyLoss } from "../src/workers/autoTradeWorker.ts";
 import { extractSnaptradeOrderId, validateLiveOrderPrerequisites } from "../src/lib/orderEngine.ts";
 
 const today = new Date(); today.setUTCHours(0, 0, 0, 0);
@@ -143,6 +143,15 @@ t("ordre live sans accountId → rejeté avant toute insertion (brokerAccountId 
   assert.equal(r?.status, "rejected");
   assert.equal(r?.reason, "account_required");
   assert.equal(validateLiveOrderPrerequisites({ id: "conn-1" }, "acct-1"), null, "prérequis remplis → pas de rejet");
+});
+
+t("avertissement à 80 % : sous le seuil non, à/au-dessus oui, limite dépassée non (le kill-switch prend le relais)", () => {
+  assert.equal(shouldWarnDailyLoss(-199, 250), false, "79,6 % → pas d'avertissement");
+  assert.equal(shouldWarnDailyLoss(-200, 250), true, "80 % exactement → avertissement");
+  assert.equal(shouldWarnDailyLoss(-240, 250), true, "96 % → avertissement");
+  assert.equal(shouldWarnDailyLoss(-250, 250), true, "100 % pile → avertissement (le breaker exige un dépassement strict)");
+  assert.equal(shouldWarnDailyLoss(-251, 250), false, "limite dépassée → kill-switch, pas d'avertissement");
+  assert.equal(shouldWarnDailyLoss(50, 250), false, "gain → jamais d'avertissement");
 });
 
 console.log(`\n${n} tests passés.`);

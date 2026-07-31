@@ -24,15 +24,27 @@ function wrapEmail(title: string, bodyHtml: string): string {
   `;
 }
 
-async function notify(eventType: NotificationEventType, subject: string, html: string, smsText: string): Promise<void> {
+/**
+ * Retourne `true` si au moins un canal configuré a livré la notification
+ * (ou si aucun canal n'est configuré — rien à livrer), `false` si tous les
+ * envois tentés ont échoué. Permet aux appelants critiques de re-tenter.
+ */
+async function notify(eventType: NotificationEventType, subject: string, html: string, smsText: string): Promise<boolean> {
   const { email, phone, sendEmail: shouldEmail, sendSms: shouldSms } = await resolveDestinations(eventType);
 
-  if (!shouldEmail && !shouldSms) return; // canal "none" pour ce type d'événement
+  if (!shouldEmail && !shouldSms) return true; // canal "none" pour ce type d'événement
+
+  let attempted = 0;
+  let delivered = 0;
 
   if (shouldEmail) {
     if (email) {
+      attempted++;
       try {
-        await sendEmail({ to: email, subject, html });
+        // sendEmail retourne false pour les échecs ordinaires (credentials
+        // manquants, rejet du fournisseur…) sans lever d'exception.
+        if (await sendEmail({ to: email, subject, html })) delivered++;
+        else logger.error({ eventType, subject }, "notifications: l'email critique n'a pas été livré");
       } catch (err) {
         logger.error({ err, eventType, subject }, "notifications: échec de l'envoi de l'email critique");
       }
@@ -43,8 +55,12 @@ async function notify(eventType: NotificationEventType, subject: string, html: s
 
   if (shouldSms) {
     if (phone) {
+      attempted++;
       try {
-        await sendSms({ to: phone, body: smsText });
+        // sendSms retourne false pour les échecs ordinaires (numéro invalide,
+        // rejet Twilio…) sans lever d'exception.
+        if (await sendSms({ to: phone, body: smsText })) delivered++;
+        else logger.error({ eventType, subject }, "notifications: le SMS critique n'a pas été livré");
       } catch (err) {
         logger.error({ err, eventType, subject }, "notifications: échec de l'envoi du SMS critique");
       }
@@ -52,6 +68,8 @@ async function notify(eventType: NotificationEventType, subject: string, html: s
       logger.warn({ eventType, subject }, "notifications: canal SMS configuré mais aucun numéro enregistré — envoi ignoré");
     }
   }
+
+  return attempted === 0 || delivered > 0;
 }
 
 export async function notifyKillSwitchActivated(reason?: string): Promise<void> {
@@ -65,6 +83,28 @@ export async function notifyKillSwitchActivated(reason?: string): Promise<void> 
       }`,
     ),
     `🛑 Soliris Market : kill-switch activé — trading suspendu.${reason ? ` ${reason}` : ""}`,
+  );
+}
+
+/** Avertissement : la perte du jour approche la limite du coupe-circuit (mêmes canaux que le kill-switch). */
+export async function notifyDailyLossWarning(params: {
+  loss: number;
+  maxLoss: number;
+  pct: number;
+}): Promise<boolean> {
+  const { loss, maxLoss, pct } = params;
+  return notify(
+    "killSwitch",
+    "⚠️ Perte du jour proche de la limite — Soliris Market",
+    wrapEmail(
+      "⚠️ Perte du jour proche de la limite",
+      `<p style="font-size:15px;color:#333;">
+        La perte réalisée du jour atteint <strong>${loss.toFixed(2)} $</strong>,
+        soit ${pct.toFixed(0)} % de la limite de <strong>${maxLoss.toFixed(2)} $</strong>.
+        Si elle dépasse la limite, le coupe-circuit suspendra automatiquement le trading.
+      </p>`,
+    ),
+    `⚠️ Soliris Market : perte du jour ${loss.toFixed(2)} $ (${pct.toFixed(0)} % de la limite de ${maxLoss.toFixed(2)} $). Le coupe-circuit suspendra le trading si elle est dépassée.`,
   );
 }
 
