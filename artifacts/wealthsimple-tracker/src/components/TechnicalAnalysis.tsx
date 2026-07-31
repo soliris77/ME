@@ -765,7 +765,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
   const [taZoomEnd, setTaZoomEnd] = useState(0);
 
   const data: IndicatorPoint[] = useMemo(() => computeIndicators(history), [history]);
-  const analysis = useMemo(() => analyzeTradingSignals(data, currentPrice), [data, currentPrice]);
+  const analysis = useMemo(() => analyzeTradingSignals(data, currentPrice, history), [data, currentPrice, history]);
   const allPatterns = useMemo(() => detectCandlePatterns(history), [history]);
   // Show only patterns from the last 30 candles, most recent first, deduplicate by same idx+name
   const recentPatterns = useMemo(() => {

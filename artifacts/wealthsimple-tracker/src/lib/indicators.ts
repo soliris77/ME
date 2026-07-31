@@ -931,86 +931,344 @@ export interface TradingSignal {
   beginnerSummary: string;
 }
 
-export function analyzeTradingSignals(data: IndicatorPoint[], currentPrice: number): TradingSignal {
+/**
+ * Analyse les signaux de trading avec prise en compte du régime de marché,
+ * des divergences, du volume et sans double-comptage des moyennes mobiles.
+ *
+ * Améliorations vs version précédente :
+ *  1. detectDivergences() branché dans le score (signal précoce de retournement)
+ *  2. detectMarketStructure() utilisé pour pondérer différemment selon le régime
+ *     (range vs tendance) — RSI/Bollinger plus fiables en range, MACD en tendance
+ *  3. Volume ajouté comme modificateur (+/- selon ratio vs moyenne 20 bougies)
+ *  4. SMA 20/50 + Prix vs SMA20 fusionnés en un seul signal "Tendance" (évite
+ *     le double-comptage de la même information)
+ *  5. Croisement MACD valable sur les 3 dernières bougies (pas seulement la dernière)
+ *  6. Zone RSI 45-60 conditionnée au régime (inactive en tendance baissière)
+ *
+ * @param data           Série d'indicateurs calculés (computeIndicators)
+ * @param currentPrice   Prix courant
+ * @param history        Historique OHLCV brut — optionnel mais recommandé pour
+ *                       activer la détection de structure de marché
+ */
+export function analyzeTradingSignals(
+  data: IndicatorPoint[],
+  currentPrice: number,
+  history?: OHLCPoint[],
+): TradingSignal {
   const signals: TradingSignal["signals"] = [];
   let score = 0;
 
   const last = data[data.length - 1];
-  const prev = data.length > 1 ? data[data.length - 2] : null;
 
-  // RSI
+  // ── 1. Régime de marché ───────────────────────────────────────────────────
+  // Détermine si on est en tendance (haussière/baissière) ou en range.
+  // Cela change le poids de chaque indicateur :
+  //   Range    → RSI et Bollinger plus fiables ; MACD génère des faux signaux
+  //   Tendance → MACD et moyennes mobiles plus fiables ; RSI peut rester extrême
+  const ms = history && history.length >= 10 ? detectMarketStructure(history) : null;
+  const isRange = !ms || ms.trend === "range";
+  const isBullTrend = ms?.trend === "haussière";
+  const isBearTrend = ms?.trend === "baissière";
+
+  // ── 2. Divergences ────────────────────────────────────────────────────────
+  // Une divergence prix/indicateur est souvent plus fiable qu'un simple seuil
+  // (RSI<30 etc.) car elle capte l'essoufflement du momentum AVANT le retournement.
+  const divergences = detectDivergences(data);
+  const recentCutoff = data.length - 10;
+  const recentDivBull = divergences.filter((d) => d.type === "haussière" && d.idx >= recentCutoff);
+  const recentDivBear = divergences.filter((d) => d.type === "baissière" && d.idx >= recentCutoff);
+
+  for (const div of recentDivBull.slice(0, 1)) {
+    signals.push({
+      name: `Divergence haussière (${div.indicator})`,
+      value: "Divergence haussière 📈",
+      verdict: "buy",
+      description: div.description,
+      beginnerTip:
+        "Le prix baisse encore, mais l'indicateur remonte — les vendeurs s'essoufflent. Signal précoce souvent plus fiable qu'un simple RSI survendu.",
+    });
+    score += 20;
+  }
+  for (const div of recentDivBear.slice(0, 1)) {
+    signals.push({
+      name: `Divergence baissière (${div.indicator})`,
+      value: "Divergence baissière 📉",
+      verdict: "sell",
+      description: div.description,
+      beginnerTip:
+        "Le prix monte encore, mais l'indicateur fléchit — les acheteurs s'essoufflent. Signal précoce d'un potentiel retournement baissier.",
+    });
+    score -= 20;
+  }
+
+  // ── 3. RSI — pondéré selon le régime ────────────────────────────────────
+  // En range : RSI survendu/suracheté est très fiable (poids fort)
+  // En tendance baissière + RSI survendu = "attraper un couteau" → poids réduit
+  // En tendance haussière + RSI suracheté = correction dans la hausse → poids réduit
   if (last.rsi !== undefined) {
     const r = last.rsi;
+    const oversoldScore = isRange ? 30 : isBullTrend ? 20 : 15;
+    const overboughtScore = isRange ? 30 : isBearTrend ? 20 : 15;
+
     if (r < 30) {
-      signals.push({ name: "RSI (Force relative)", value: r.toFixed(1), verdict: "buy", description: "RSI en zone de survente — rebond probable", beginnerTip: "Le RSI mesure si un actif a trop baissé. En dessous de 30, les vendeurs sont épuisés — le prix remonte souvent." });
-      score += 25;
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "buy",
+        description: isBearTrend
+          ? "RSI en zone de survente — attention : en tendance baissière, ce signal est moins fiable"
+          : "RSI en zone de survente — rebond probable",
+        beginnerTip: isBearTrend
+          ? "Le RSI est très bas mais on est en tendance baissière. Attendre une confirmation avant d'acheter évite l'erreur classique d'attraper un couteau qui tombe."
+          : "Le RSI mesure si un actif a trop baissé. En dessous de 30, les vendeurs sont épuisés — le prix remonte souvent.",
+      });
+      score += oversoldScore;
     } else if (r > 70) {
-      signals.push({ name: "RSI (Force relative)", value: r.toFixed(1), verdict: "sell", description: "RSI en zone de surachat — correction possible", beginnerTip: "Au-dessus de 70, le prix a trop monté trop vite. Un recul est fréquent — prudence avant d'acheter." });
-      score -= 25;
-    } else if (r >= 45 && r <= 60) {
-      signals.push({ name: "RSI (Force relative)", value: r.toFixed(1), verdict: "buy", description: "Momentum haussier sain", beginnerTip: "Le RSI est dans une zone idéale — ni trop haut ni trop bas. La tendance est positive." });
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "sell",
+        description: isBullTrend
+          ? "RSI en surachat — correction possible dans la hausse"
+          : "RSI en zone de surachat — correction probable",
+        beginnerTip: isBullTrend
+          ? "Le RSI est élevé mais la tendance reste haussière — cela peut continuer. Prudence mais la vente n'est pas forcément urgente."
+          : "Au-dessus de 70, le prix a trop monté trop vite. Un recul est fréquent — prudence avant d'acheter.",
+      });
+      score -= overboughtScore;
+    } else if (r >= 45 && r <= 60 && !isBearTrend) {
+      // Zone de momentum sain — pertinent seulement hors tendance baissière
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "buy",
+        description: "Momentum haussier sain — zone favorable en tendance ou range neutre",
+        beginnerTip: "Le RSI est dans une zone idéale — ni trop haut ni trop bas. La tendance est positive.",
+      });
       score += 10;
     } else {
-      signals.push({ name: "RSI (Force relative)", value: r.toFixed(1), verdict: "neutral", description: "Zone neutre — pas de signal clair", beginnerTip: "Le RSI ne donne pas de direction claire. Attendez qu'il sorte de cette zone." });
+      signals.push({
+        name: "RSI (Force relative)",
+        value: r.toFixed(1),
+        verdict: "neutral",
+        description: "Zone neutre — pas de signal clair",
+        beginnerTip: "Le RSI ne donne pas de direction claire. Attendez qu'il sorte de cette zone.",
+      });
     }
   }
 
-  // MACD
-  if (last.macdLine !== undefined && last.macdSignal !== undefined && prev?.macdLine !== undefined && prev?.macdSignal !== undefined) {
-    const crossedUp = prev.macdLine < prev.macdSignal && last.macdLine > last.macdSignal;
-    const crossedDown = prev.macdLine > prev.macdSignal && last.macdLine < last.macdSignal;
-    if (crossedUp) {
-      signals.push({ name: "MACD (Momentum)", value: "Croisement haussier", verdict: "buy", description: "Le MACD vient de croiser la ligne signal vers le haut — signal d'achat", beginnerTip: "Quand la ligne MACD (bleue) croise vers le haut la ligne signal (rouge), c'est souvent le début d'une hausse." });
-      score += 30;
-    } else if (crossedDown) {
-      signals.push({ name: "MACD (Momentum)", value: "Croisement baissier", verdict: "sell", description: "Le MACD a croisé la ligne signal vers le bas — signal de vente", beginnerTip: "Quand la ligne MACD croise vers le bas, les vendeurs reprennent le contrôle." });
-      score -= 30;
+  // ── 4. MACD — croisement valable sur les 3 dernières bougies ────────────
+  // Un croisement d'il y a 2 bougies reste pertinent ; ne pénalise plus le
+  // signal après une seule bougie de décalage.
+  // En range : les croisements MACD génèrent beaucoup de faux signaux (whipsaws)
+  // → poids réduit de moitié en range vs tendance.
+  const macdCrossWeight = isRange ? 20 : 30;
+  const macdTrendWeight = isRange ? 10 : 15;
+
+  let macdCrossedUp = false;
+  let macdCrossedDown = false;
+  const macdLookback = Math.min(3, data.length - 1);
+  for (let i = data.length - macdLookback; i < data.length; i++) {
+    const cur = data[i];
+    const prv = data[i - 1];
+    if (
+      !prv ||
+      cur.macdLine === undefined ||
+      cur.macdSignal === undefined ||
+      prv.macdLine === undefined ||
+      prv.macdSignal === undefined
+    )
+      continue;
+    if (prv.macdLine < prv.macdSignal && cur.macdLine > cur.macdSignal) macdCrossedUp = true;
+    if (prv.macdLine > prv.macdSignal && cur.macdLine < cur.macdSignal) macdCrossedDown = true;
+  }
+
+  if (last.macdLine !== undefined && last.macdSignal !== undefined) {
+    if (macdCrossedUp) {
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Croisement haussier",
+        verdict: "buy",
+        description: isRange
+          ? "Le MACD a croisé vers le haut récemment — signal plus faible en range (whipsaws fréquents)"
+          : "Le MACD a croisé vers le haut récemment — signal d'achat",
+        beginnerTip:
+          "Quand la ligne MACD (bleue) croise vers le haut la ligne signal (rouge), c'est souvent le début d'une hausse.",
+      });
+      score += macdCrossWeight;
+    } else if (macdCrossedDown) {
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Croisement baissier",
+        verdict: "sell",
+        description: isRange
+          ? "Le MACD a croisé vers le bas récemment — signal plus faible en range"
+          : "Le MACD a croisé vers le bas récemment — signal de vente",
+        beginnerTip: "Quand la ligne MACD croise vers le bas, les vendeurs reprennent le contrôle.",
+      });
+      score -= macdCrossWeight;
     } else if (last.macdLine > last.macdSignal) {
-      signals.push({ name: "MACD (Momentum)", value: "Haussier", verdict: "buy", description: "MACD au-dessus de la ligne signal", beginnerTip: "Le MACD est positif — le momentum est encore favorable aux acheteurs." });
-      score += 15;
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Haussier",
+        verdict: "buy",
+        description: "MACD au-dessus de la ligne signal",
+        beginnerTip: "Le MACD est positif — le momentum est encore favorable aux acheteurs.",
+      });
+      score += macdTrendWeight;
     } else {
-      signals.push({ name: "MACD (Momentum)", value: "Baissier", verdict: "sell", description: "MACD en dessous de la ligne signal", beginnerTip: "Le MACD est négatif — les vendeurs ont l'avantage pour l'instant." });
-      score -= 15;
+      signals.push({
+        name: "MACD (Momentum)",
+        value: "Baissier",
+        verdict: "sell",
+        description: "MACD en dessous de la ligne signal",
+        beginnerTip: "Le MACD est négatif — les vendeurs ont l'avantage pour l'instant.",
+      });
+      score -= macdTrendWeight;
     }
   }
 
-  // SMA 20 vs 50
+  // ── 5. Tendance SMA — signal unifié (fusionné) ───────────────────────────
+  // Les deux anciens signaux séparés (SMA20/50 et Prix vs SMA20) mesuraient la
+  // même tendance → combinés en une seule entrée pour éviter le double-comptage.
   if (last.sma20 !== undefined && last.sma50 !== undefined) {
     const golden = last.sma20 > last.sma50;
-    signals.push({
-      name: "Moyennes mobiles SMA 20/50",
-      value: golden ? "Croix dorée 🥇" : "Croix de la mort ☠️",
-      verdict: golden ? "buy" : "sell",
-      description: golden ? `MM20 ($${last.sma20.toFixed(2)}) au-dessus de MM50 ($${last.sma50.toFixed(2)})` : `MM20 ($${last.sma20.toFixed(2)}) en dessous de MM50 ($${last.sma50.toFixed(2)})`,
-      beginnerTip: golden ? "La 'croix dorée' : la moyenne courte dépasse la longue. Signe que la tendance haussière s'installe." : "La 'croix de la mort' : tendance baissière. Beaucoup de traders l'utilisent comme signal de sortie.",
-    });
-    score += golden ? 20 : -20;
-  }
+    const aboveSMA20 = currentPrice > last.sma20;
 
-  // Prix vs SMA 20
-  if (last.sma20 !== undefined) {
+    if (golden && aboveSMA20) {
+      signals.push({
+        name: "Tendance (MM 20/50)",
+        value: "Haussière confirmée 🥇",
+        verdict: "buy",
+        description: `Croix dorée ET prix au-dessus de la MM20 ($${last.sma20.toFixed(2)}) — double confirmation haussière`,
+        beginnerTip:
+          "La moyenne courte est au-dessus de la longue ET le prix est plus haut que sa moyenne des 20 jours. Deux confirmations de tendance haussière.",
+      });
+      score += 25;
+    } else if (!golden && !aboveSMA20) {
+      signals.push({
+        name: "Tendance (MM 20/50)",
+        value: "Baissière confirmée ☠️",
+        verdict: "sell",
+        description: `Croix de la mort ET prix en dessous de la MM20 ($${last.sma20.toFixed(2)}) — double confirmation baissière`,
+        beginnerTip:
+          "La moyenne courte est sous la longue ET le prix est plus bas que sa moyenne des 20 jours. Double signal de faiblesse.",
+      });
+      score -= 25;
+    } else if (golden) {
+      signals.push({
+        name: "Tendance (MM 20/50)",
+        value: "Mixte — structure haussière, prix en repli",
+        verdict: "neutral",
+        description: `MM20 ($${last.sma20.toFixed(2)}) > MM50 (structure positive) mais prix sous la MM20 — repli temporaire dans une hausse`,
+        beginnerTip:
+          "La structure de fond est haussière (croix dorée) mais le prix recule temporairement sous sa moyenne 20 jours — souvent une zone d'entrée.",
+      });
+      score += 5;
+    } else {
+      signals.push({
+        name: "Tendance (MM 20/50)",
+        value: "Mixte — rebond dans une baisse",
+        verdict: "sell",
+        description: `Prix au-dessus de la MM20 ($${last.sma20.toFixed(2)}) mais MM20 < MM50 — rebond dans une structure baissière`,
+        beginnerTip:
+          "Le prix remonte temporairement mais la structure globale reste baissière (croix de la mort). Méfiez-vous des faux rebonds.",
+      });
+      score -= 5;
+    }
+  } else if (last.sma20 !== undefined) {
+    // Pas encore assez de données pour SMA50
     const above = currentPrice > last.sma20;
     signals.push({
-      name: "Prix vs Moyenne 20 jours",
+      name: "Tendance (MM 20)",
       value: above ? "Au-dessus ✅" : "En dessous ⚠️",
       verdict: above ? "buy" : "sell",
-      description: above ? `Prix au-dessus de la MM20 ($${last.sma20.toFixed(2)})` : `Prix en dessous de la MM20 ($${last.sma20.toFixed(2)})`,
-      beginnerTip: above ? "Le prix est plus haut que sa moyenne des 20 derniers jours — signe de force à court terme." : "Le prix est plus bas que sa moyenne des 20 jours — signal de faiblesse.",
+      description: above
+        ? `Prix au-dessus de la MM20 ($${last.sma20.toFixed(2)})`
+        : `Prix en dessous de la MM20 ($${last.sma20.toFixed(2)})`,
+      beginnerTip: above
+        ? "Le prix est plus haut que sa moyenne des 20 derniers jours — signe de force à court terme."
+        : "Le prix est plus bas que sa moyenne des 20 jours — signal de faiblesse.",
     });
     score += above ? 10 : -10;
   }
 
-  // Bollinger Bands
+  // ── 6. Bollinger — pondéré selon le régime ───────────────────────────────
+  // En range : Bollinger est l'un des meilleurs indicateurs disponibles (poids fort)
+  // En tendance : le prix peut rester longtemps en dehors des bandes → poids réduit
+  const bbWeight = isRange ? 25 : 15;
   if (last.bbUpper !== undefined && last.bbLower !== undefined && last.bbMiddle !== undefined) {
     if (currentPrice < last.bbLower) {
-      signals.push({ name: "Bandes de Bollinger", value: "Sous la bande basse", verdict: "buy", description: "Prix en dessous de la bande inférieure — zone de retournement potentielle", beginnerTip: "Quand le prix touche la bande du bas, il rebondit souvent vers le haut — opportunité d'achat." });
-      score += 20;
+      signals.push({
+        name: "Bandes de Bollinger",
+        value: "Sous la bande basse",
+        verdict: "buy",
+        description: isRange
+          ? "Prix en dessous de la bande inférieure — signal de retournement fiable en range"
+          : "Prix en dessous de la bande inférieure — rebond probable, mais en tendance le prix peut rester étiré",
+        beginnerTip:
+          "Quand le prix touche la bande du bas, il rebondit souvent vers le haut — opportunité d'achat.",
+      });
+      score += bbWeight;
     } else if (currentPrice > last.bbUpper) {
-      signals.push({ name: "Bandes de Bollinger", value: "Au-dessus de la bande haute", verdict: "sell", description: "Prix au-dessus de la bande supérieure — zone d'épuisement potentielle", beginnerTip: "Quand le prix touche la bande du haut, il peut revenir vers le milieu. Signe de prudence." });
-      score -= 20;
+      signals.push({
+        name: "Bandes de Bollinger",
+        value: "Au-dessus de la bande haute",
+        verdict: "sell",
+        description: isRange
+          ? "Prix au-dessus de la bande supérieure — signal d'épuisement fiable en range"
+          : "Prix au-dessus de la bande supérieure — attention, en tendance forte le prix peut rester étiré",
+        beginnerTip:
+          "Quand le prix touche la bande du haut, il peut revenir vers le milieu. Signe de prudence.",
+      });
+      score -= bbWeight;
     } else {
       const pct = ((currentPrice - last.bbLower) / (last.bbUpper - last.bbLower)) * 100;
-      signals.push({ name: "Bandes de Bollinger", value: `${pct.toFixed(0)}% de la plage`, verdict: "neutral", description: `Prix dans les bandes à ${pct.toFixed(0)}% de la plage`, beginnerTip: "Le prix est entre les deux bandes — c'est normal. Observez s'il tend vers le haut ou le bas." });
+      signals.push({
+        name: "Bandes de Bollinger",
+        value: `${pct.toFixed(0)}% de la plage`,
+        verdict: "neutral",
+        description: `Prix dans les bandes à ${pct.toFixed(0)}% de la plage`,
+        beginnerTip:
+          "Le prix est entre les deux bandes — c'est normal. Observez s'il tend vers le haut ou le bas.",
+      });
+    }
+  }
+
+  // ── 7. Volume — confirmation ou invalidation du signal ───────────────────
+  // Un signal sur volume fort (>1.5× la moyenne 20 bougies) est plus crédible.
+  // Un signal sur volume très faible (<0.5×) est souvent un faux mouvement.
+  const volPeriod = 20;
+  if (data.length >= volPeriod && last.volume !== null && last.volume !== undefined && last.volume > 0) {
+    const recentVols = data.slice(-volPeriod).map((d) => d.volume ?? 0);
+    const avgVol = recentVols.reduce((a, b) => a + b, 0) / volPeriod;
+    if (avgVol > 0) {
+      const volRatio = last.volume / avgVol;
+      const volPct = Math.round(volRatio * 100);
+      if (volRatio >= 1.5) {
+        const volBonus = score > 0 ? 10 : score < 0 ? -10 : 0;
+        const volVerdict: "buy" | "sell" | "neutral" =
+          score > 5 ? "buy" : score < -5 ? "sell" : "neutral";
+        score += volBonus;
+        signals.push({
+          name: "Volume",
+          value: `${volPct}% de la moyenne`,
+          verdict: volVerdict,
+          description: `Volume nettement au-dessus de la moyenne (${volPct}%) — confirme le signal en cours`,
+          beginnerTip:
+            "Un signal sur fort volume est plus crédible qu'un signal sur volume faible — les grands acteurs participent au mouvement.",
+        });
+      } else if (volRatio < 0.5) {
+        score = Math.round(score * 0.85);
+        signals.push({
+          name: "Volume",
+          value: `${volPct}% de la moyenne`,
+          verdict: "neutral",
+          description: `Volume très faible (${volPct}% de la moyenne) — signal à pondérer avec prudence`,
+          beginnerTip:
+            "Un signal sur faible volume est souvent trompeur — peu de participants confirment le mouvement.",
+        });
+      }
     }
   }
 
@@ -1022,24 +1280,34 @@ export function analyzeTradingSignals(data: IndicatorPoint[], currentPrice: numb
 
   if (clampedScore >= 60) {
     overall = "FORT ACHAT";
-    recommendation = "Plusieurs indicateurs s'alignent en faveur des acheteurs. Opportunité d'entrée forte — confirmez avec le volume et les actualités.";
-    beginnerSummary = "🟢 La majorité des signaux disent d'acheter. Pour un débutant : c'est le moment où beaucoup de traders entreraient en position. Utilisez toujours un stop-loss.";
+    recommendation =
+      "Plusieurs indicateurs s'alignent en faveur des acheteurs. Opportunité d'entrée forte — confirmez avec le volume et les actualités.";
+    beginnerSummary =
+      "🟢 La majorité des signaux disent d'acheter. Pour un débutant : c'est le moment où beaucoup de traders entreraient en position. Utilisez toujours un stop-loss.";
   } else if (clampedScore >= 20) {
     overall = "ACHAT";
-    recommendation = "Les indicateurs penchent vers le haussier. Envisagez une position partielle avec un stop-loss sous le support le plus proche.";
-    beginnerSummary = "🟡 Les signaux sont plutôt positifs, mais pas unanimes. Pour un débutant : n'investissez qu'une petite partie de votre capital et fixez une limite de perte.";
+    recommendation =
+      "Les indicateurs penchent vers le haussier. Envisagez une position partielle avec un stop-loss sous le support le plus proche.";
+    beginnerSummary =
+      "🟡 Les signaux sont plutôt positifs, mais pas unanimes. Pour un débutant : n'investissez qu'une petite partie de votre capital et fixez une limite de perte.";
   } else if (clampedScore <= -60) {
     overall = "FORTE VENTE";
-    recommendation = "Plusieurs indicateurs s'alignent vers le baissier. Envisagez de sortir ou d'éviter de nouvelles positions jusqu'à des signaux de retournement.";
-    beginnerSummary = "🔴 La majorité des signaux sont négatifs. Pour un débutant : ce n'est pas le moment d'acheter. Patientez ou réduisez votre exposition.";
+    recommendation =
+      "Plusieurs indicateurs s'alignent vers le baissier. Envisagez de sortir ou d'éviter de nouvelles positions jusqu'à des signaux de retournement.";
+    beginnerSummary =
+      "🔴 La majorité des signaux sont négatifs. Pour un débutant : ce n'est pas le moment d'acheter. Patientez ou réduisez votre exposition.";
   } else if (clampedScore <= -20) {
     overall = "VENTE";
-    recommendation = "Les indicateurs penchent vers le baissier. Prudence — attendez une confirmation de retournement avant d'acheter.";
-    beginnerSummary = "🟠 Les signaux sont plutôt négatifs. Pour un débutant : attendez que la situation se stabilise avant d'investir.";
+    recommendation =
+      "Les indicateurs penchent vers le baissier. Prudence — attendez une confirmation de retournement avant d'acheter.";
+    beginnerSummary =
+      "🟠 Les signaux sont plutôt négatifs. Pour un débutant : attendez que la situation se stabilise avant d'investir.";
   } else {
     overall = "NEUTRE";
-    recommendation = "Signaux mixtes — pas d'avantage clair. Attendez un setup plus propre ou une confirmation de direction.";
-    beginnerSummary = "⚪ Les signaux s'annulent mutuellement. Pour un débutant : il n'y a pas de direction claire. C'est souvent le bon moment de ne rien faire.";
+    recommendation =
+      "Signaux mixtes — pas d'avantage clair. Attendez un setup plus propre ou une confirmation de direction.";
+    beginnerSummary =
+      "⚪ Les signaux s'annulent mutuellement. Pour un débutant : il n'y a pas de direction claire. C'est souvent le bon moment de ne rien faire.";
   }
 
   return { overall, score: clampedScore, signals, recommendation, beginnerSummary };

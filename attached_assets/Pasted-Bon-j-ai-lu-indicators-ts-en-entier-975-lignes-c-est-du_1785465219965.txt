@@ -1,0 +1,29 @@
+Bon, j'ai lu indicators.ts en entier (975 lignes — c'est du sérieux ce que t'as déjà). Première chose à te dire clairement : les formules elles-mêmes sont justes. RSI avec le lissage de Wilder correctement implémenté, ATR pareil, EMA/MACD en 12/26/9 standard, Bollinger avec l'écart-type de population (c'est la vraie méthode de Bollinger, pas une approximation). Zéro bug de calcul à signaler là-dessus. Le vrai terrain de jeu, c'est la "théorie du tri" — analyzeTradingSignals(), la fonction qui prend 5 indicateurs et sort UN verdict (ACHAT/VENTE/FORT ACHAT).
+
+Les deux trucs les plus payants — le code existe déjà, juste jamais branché
+
+Ton fichier a detectDivergences() et detectMarketStructure(), deux fonctions vraiment bien construites, et ni l'une ni l'autre n'est appelée dans analyzeTradingSignals(). C'est le genre de trou qui fait mal :
+
+Une divergence (le prix fait un nouveau sommet mais le RSI ou le MACD fait un sommet plus bas) est en théorie technique un signal plus fiable qu'un simple croisement, parce qu'il capte l'essoufflement du momentum AVANT que le prix ne se retourne. Là, ton système la détecte, l'affiche probablement quelque part dans l'UI — mais elle ne pèse pas un gramme dans le score composite.
+La structure de marché (trend: "haussière" | "baissière" | "range") est exactement ce qui manque pour contextualiser les autres signaux — voir point suivant.
+
+Le vrai problème de méthode : ça ne tient pas compte du régime de marché
+
+En ce moment, RSI survendu vaut +25 peu importe le contexte. Sauf qu'acheter un RSI survendu en pleine tendance baissière forte, c'est le classique "attraper un couteau qui tombe" — en tendance, les indicateurs de retournement (RSI, Bollinger) sont beaucoup moins fiables, alors qu'en range latéral, ce sont justement les MEILLEURS signaux, et les croisements MACD/SMA génèrent plein de faux signaux ("whipsaws"). detectMarketStructure() te donne déjà cette info gratuitement — l'utiliser pour pondérer différemment selon le régime (favoriser les signaux de retournement en range, les signaux de tendance en tendance établie) serait probablement l'amélioration avec le plus d'impact réel sur la qualité du signal.
+
+Le volume est complètement absent
+
+IndicatorPoint a un champ volume, il est calculé, il existe dans les données — et il n'est utilisé nulle part dans le scoring. En analyse technique classique, le volume confirme ou invalide un signal : un croisement MACD sur un volume nettement au-dessus de la moyenne récente est plus crédible qu'un croisement sur volume mou. C'est un modificateur simple à ajouter (genre : bonus/malus de quelques points si le volume du jour dépasse sa moyenne 20 jours) qui donnerait un vrai boost de qualité pour un ajout relativement mineur.
+
+Une redondance qui gonfle artificiellement le score
+
+SMA20 vs SMA50 (croix dorée/mortelle) et Prix vs SMA20 sont scorés séparément (+20 et +10), mais dans la vaste majorité des cas ce sont juste deux façons de mesurer la MÊME tendance — si le prix est au-dessus de sa MM20 ET que la MM20 est au-dessus de la MM50, t'as de très bonnes chances que les deux disent la même chose en même temps. Résultat : le score compte deux fois la même information de tendance sans vraie confirmation indépendante. Idéalement, ces deux-là devraient être combinés en un seul signal "tendance" plutôt que deux entrées séparées.
+
+Des poids choisis à l'instinct, jamais vérifiés
+
+25/30/20/10/20 — ça vient d'où ? Probablement de l'intuition, ce qui n'est pas un défaut en soi (faut bien commencer quelque part), mais tu as déjà backtestPatterns() dans le même fichier qui fait exactement ce genre de validation pour les patterns de bougies (regarder ce qui s'est passé N jours après chaque occurrence historique). Étendre cette même logique pour backtester le SCORE COMPOSITE lui-même contre les rendements réels — et ajuster les poids selon ce qui a vraiment prédit quelque chose historiquement plutôt que ce qui semble logique — serait la façon la plus rigoureuse de sortir du pur pif.
+
+Deux détails plus fins, pour être complet
+
+La zone RSI 45-60 comme "momentum haussier sain" (+10) n'est pas standard — en théorie classique, cette zone est plutôt considérée neutre. Si c'est intentionnel (genre : "en tendance, le RSI oscille plus haut que 30-70"), ça vaudrait la peine de le conditionner à la structure de marché plutôt que de l'appliquer statiquement.
+Le croisement MACD ne compte que sur la barre la plus récente — un croisement d'il y a 2 jours retombe automatiquement dans la branche plus faible (+15 au lieu de +30), même s'il reste largement pertinent.
