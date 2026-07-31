@@ -9,6 +9,8 @@ import { Router } from "express";
 import { db, ordersTable, autoTradeLogsTable, auditLogTable } from "@workspace/db";
 import { and, gte, lt, asc } from "drizzle-orm";
 import { computeRealizedDailyPnL } from "../workers/autoTradeWorker";
+import { analyzeDayTrades } from "../lib/tradeAnalysis";
+import { getRiskSettings } from "../lib/settings";
 
 const router = Router();
 
@@ -45,6 +47,10 @@ router.get("/debrief", async (req, res) => {
     const dayOrders = ordersUpToDay.filter((o) => o.createdAt >= dayStart);
     const { realizedPnL, unmatchedSells } = computeRealizedDailyPnL(ordersUpToDay, dayStart);
 
+    // Analyse pédagogique par trade — lecture seule, mêmes règles que les garde-fous.
+    const riskSettings = await getRiskSettings();
+    const analysisByOrderId = analyzeDayTrades(ordersUpToDay, dayStart, riskSettings);
+
     // Classement auto vs manuel : un ordre référencé par un log auto-trader est automatique.
     const autoOrderIds = new Set(dayLogs.map((l) => l.orderId).filter((id): id is number => id != null));
 
@@ -79,6 +85,7 @@ router.get("/debrief", async (req, res) => {
         expectedPrice: o.expectedPrice,
         errorMessage: o.errorMessage,
         isAuto: autoOrderIds.has(o.id),
+        analysis: analysisByOrderId.get(o.id) ?? [],
       })),
       autoTrader: dayLogs.map((l) => ({
         id: l.id,

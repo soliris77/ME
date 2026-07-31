@@ -3,20 +3,22 @@
  * P&L réalisé, ordres (auto vs manuel, exécutés vs échoués), activité
  * auto-trader, événements critiques. Lecture seule, navigable par date.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import {
   CalendarCheck, ChevronLeft, ChevronRight, Loader2, TrendingUp, TrendingDown,
-  Cpu, ScrollText, Receipt, AlertTriangle,
+  Cpu, ScrollText, Receipt, AlertTriangle, GraduationCap,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+interface TradeFinding { tone: "good" | "warn" | "info"; text: string }
 interface DebriefOrder {
   id: number; createdAt: string; symbol: string; side: string; quantity: string;
   orderType: string; mode: string; status: string; fillPrice: string | null;
   expectedPrice: string | null; errorMessage: string | null; isAuto: boolean;
+  analysis: TradeFinding[];
 }
 interface DebriefLog {
   id: number; createdAt: string; symbol: string; side: string; triggerType: string;
@@ -182,25 +184,43 @@ export default function DebriefPage() {
                   </thead>
                   <tbody>
                     {d.orders.map((o) => (
-                      <tr key={o.id} className="border-b border-border/20 last:border-0">
-                        <td className="px-4 py-2.5 font-mono text-muted-foreground">{fmtTime(o.createdAt)}</td>
-                        <td className="px-4 py-2.5 font-mono font-semibold">{o.symbol}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`inline-flex items-center gap-1 font-semibold ${o.side === "BUY" ? "gain" : "loss"}`}>
-                            {o.side === "BUY" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {o.side === "BUY" ? "Achat" : "Vente"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-mono sensitive">{o.quantity}</td>
-                        <td className="px-4 py-2.5 text-right font-mono">{o.fillPrice ?? o.expectedPrice ?? "—"}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={["rejected", "error"].includes(o.status) ? "text-red-400" : ["filled", "simulated", "partially_filled"].includes(o.status) ? "text-emerald-400" : "text-muted-foreground"}>
-                            {STATUS_LABEL[o.status] ?? o.status}
-                          </span>
-                          {o.errorMessage && <div className="text-[10px] text-red-400/70 mt-0.5 max-w-48 truncate" title={o.errorMessage}>{o.errorMessage}</div>}
-                        </td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{o.isAuto ? "Auto-trader" : "Manuel"}{o.mode === "paper" ? " · papier" : ""}</td>
-                      </tr>
+                      <Fragment key={o.id}>
+                        <tr className="border-b border-border/20 last:border-0">
+                          <td className="px-4 py-2.5 font-mono text-muted-foreground">{fmtTime(o.createdAt)}</td>
+                          <td className="px-4 py-2.5 font-mono font-semibold">{o.symbol}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-flex items-center gap-1 font-semibold ${o.side === "BUY" ? "gain" : "loss"}`}>
+                              {o.side === "BUY" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                              {o.side === "BUY" ? "Achat" : "Vente"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono sensitive">{o.quantity}</td>
+                          <td className="px-4 py-2.5 text-right font-mono">{o.fillPrice ?? o.expectedPrice ?? "—"}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={["rejected", "error"].includes(o.status) ? "text-red-400" : ["filled", "simulated", "partially_filled"].includes(o.status) ? "text-emerald-400" : "text-muted-foreground"}>
+                              {STATUS_LABEL[o.status] ?? o.status}
+                            </span>
+                            {o.errorMessage && <div className="text-[10px] text-red-400/70 mt-0.5 max-w-48 truncate" title={o.errorMessage}>{o.errorMessage}</div>}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{o.isAuto ? "Auto-trader" : "Manuel"}{o.mode === "paper" ? " · papier" : ""}</td>
+                        </tr>
+                        {o.analysis?.length > 0 && (
+                          <tr className="border-b border-border/20 last:border-0">
+                            <td colSpan={7} className="px-4 pb-3 pt-0">
+                              <div className="flex items-start gap-2 rounded-lg bg-muted/30 border border-border/30 px-3 py-2">
+                                <GraduationCap className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary/60" />
+                                <ul className="space-y-0.5">
+                                  {o.analysis.map((f, i) => (
+                                    <li key={i} className={`text-[11px] leading-relaxed ${f.tone === "warn" ? "text-amber-400" : f.tone === "good" ? "text-emerald-400/90" : "text-muted-foreground"}`}>
+                                      {f.text}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
