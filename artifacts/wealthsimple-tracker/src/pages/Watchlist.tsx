@@ -4,7 +4,6 @@ import {
   useRemoveFromWatchlist,
   useUpdateWatchlistItem,
   useGetQuotes,
-  useGetQuoteHistory,
   getGetWatchlistQueryKey,
   useGetWatchlistLists,
   getGetWatchlistListsQueryKey,
@@ -27,41 +26,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, listItemVariants, modalBackdropVariants, modalContentVariants, hoverScale, EASE_PRECISION } from "@/lib/motion";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { PageTransition } from "@/components/PageTransition";
-
-// ─── Sparkline SVG inline ─────────────────────────────────────────────────────
-
-function WatchlistSparkline({ symbol }: { symbol: string }) {
-  const { data: history = [] } = useGetQuoteHistory(
-    symbol, "5d",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { staleTime: 5 * 60_000, refetchInterval: 5 * 60_000 } as any }
-  );
-
-  const prices = (history as { close: number }[]).map((h) => h.close).filter((v) => typeof v === "number" && !isNaN(v));
-  if (prices.length < 2) return <div className="w-14 h-5 shrink-0" />;
-
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const range = max - min || 1;
-  const W = 56, H = 20;
-
-  const pts = prices.map((p, i) => ({
-    x: (i / (prices.length - 1)) * W,
-    y: H - 2 - ((p - min) / range) * (H - 4),
-  }));
-
-  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const rising = prices[prices.length - 1] >= prices[0];
-
-  return (
-    <svg width={W} height={H} className="overflow-visible shrink-0 opacity-80">
-      <path d={d} fill="none"
-        stroke={rising ? "#22c55e" : "#ef4444"}
-        strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+import { Sparkline } from "@/components/Sparkline";
 
 const DEFAULT_LIST = "Général";
 
@@ -687,7 +652,7 @@ export default function Watchlist() {
                     <div className="flex items-center gap-3 ml-4">
                       {/* Sparkline 5d — masquée sur mobile */}
                       <div className="hidden sm:block">
-                        <WatchlistSparkline symbol={item.symbol} />
+                        <Sparkline symbol={item.symbol} />
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-mono font-semibold">
