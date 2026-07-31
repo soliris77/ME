@@ -18,6 +18,7 @@ export * from './alertMinStrength';
 export * from './alertPatternSignal';
 export * from './chartNote';
 export * from './chartNoteInput';
+export * from './createWatchlistListBody';
 export * from './getMarketNewsParams';
 export * from './getNotesParams';
 export * from './getQuotesParams';

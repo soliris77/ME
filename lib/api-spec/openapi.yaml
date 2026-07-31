@@ -242,6 +242,29 @@ paths:
           description: Removed
 
   /watchlist/lists:
+    post:
+      operationId: createWatchlistList
+      tags: [watchlist]
+      summary: Create a new empty watchlist list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchlistList"
+        "409":
+          description: List already exists
     get:
       operationId: getWatchlistLists
       tags: [watchlist]

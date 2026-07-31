@@ -1,5 +1,5 @@
 import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import type { Alert, AlertInput, ChartNote, ChartNoteInput, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarkAllNotificationsRead200, MarketOverview, NewsItem, NotificationEntry, NotificationsUnreadCount, Quote, RenameWatchlistList200, RenameWatchlistListBody, ReorderWatchlistListsBody, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem, WatchlistList } from './api.schemas';
+import type { Alert, AlertInput, ChartNote, ChartNoteInput, CreateWatchlistListBody, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarkAllNotificationsRead200, MarketOverview, NewsItem, NotificationEntry, NotificationsUnreadCount, Quote, RenameWatchlistList200, RenameWatchlistListBody, ReorderWatchlistListsBody, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem, WatchlistList } from './api.schemas';
 import { customFetch } from '../custom-fetch';
 import type { ErrorType, BodyType } from '../custom-fetch';
 type AwaitedInput<T> = PromiseLike<T> | T;
@@ -272,6 +272,33 @@ export declare const useRemoveFromWatchlist: <TError = ErrorType<unknown>, TCont
     request?: SecondParameter<typeof customFetch>;
 }) => UseMutationResult<Awaited<ReturnType<typeof removeFromWatchlist>>, TError, {
     id: number;
+}, TContext>;
+export declare const getCreateWatchlistListUrl: () => string;
+/**
+ * @summary Create a new empty watchlist list
+ */
+export declare const createWatchlistList: (createWatchlistListBody: CreateWatchlistListBody, options?: RequestInit) => Promise<WatchlistList>;
+export declare const getCreateWatchlistListMutationOptions: <TError = ErrorType<void>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createWatchlistList>>, TError, {
+        data: BodyType<CreateWatchlistListBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createWatchlistList>>, TError, {
+    data: BodyType<CreateWatchlistListBody>;
+}, TContext>;
+export type CreateWatchlistListMutationResult = NonNullable<Awaited<ReturnType<typeof createWatchlistList>>>;
+export type CreateWatchlistListMutationBody = BodyType<CreateWatchlistListBody>;
+export type CreateWatchlistListMutationError = ErrorType<void>;
+/**
+* @summary Create a new empty watchlist list
+*/
+export declare const useCreateWatchlistList: <TError = ErrorType<void>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createWatchlistList>>, TError, {
+        data: BodyType<CreateWatchlistListBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createWatchlistList>>, TError, {
+    data: BodyType<CreateWatchlistListBody>;
 }, TContext>;
 export declare const getGetWatchlistListsUrl: () => string;
 /**

@@ -273,6 +273,19 @@ export const RemoveFromWatchlistResponse = zod.void()
 
 
 /**
+ * @summary Create a new empty watchlist list
+ */
+export const CreateWatchlistListBody = zod.object({
+  "name": zod.string()
+})
+
+export const CreateWatchlistListResponse = zod.object({
+  "name": zod.string(),
+  "position": zod.number()
+})
+
+
+/**
  * @summary Get all watchlist lists in display order
  */
 export const GetWatchlistListsResponseItem = zod.object({

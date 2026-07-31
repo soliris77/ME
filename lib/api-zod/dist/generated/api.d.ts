@@ -891,6 +891,26 @@ export declare const RemoveFromWatchlistParams: zod.ZodObject<{
 }>;
 export declare const RemoveFromWatchlistResponse: zod.ZodVoid;
 /**
+ * @summary Create a new empty watchlist list
+ */
+export declare const CreateWatchlistListBody: zod.ZodObject<{
+    name: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+}, {
+    name: string;
+}>;
+export declare const CreateWatchlistListResponse: zod.ZodObject<{
+    name: zod.ZodString;
+    position: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    position: number;
+}, {
+    name: string;
+    position: number;
+}>;
+/**
  * @summary Get all watchlist lists in display order
  */
 export declare const GetWatchlistListsResponseItem: zod.ZodObject<{

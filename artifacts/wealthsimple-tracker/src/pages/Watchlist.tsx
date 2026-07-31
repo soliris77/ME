@@ -11,6 +11,7 @@ import {
   useReorderWatchlistLists,
   useRenameWatchlistList,
   useDeleteWatchlistList,
+  useCreateWatchlistList,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { playSound } from "@/lib/sounds";
@@ -322,6 +323,29 @@ export default function Watchlist() {
       onError: () => { playSound("error"); toast({ title: "Impossible de renommer la liste", variant: "destructive" }); },
     },
   });
+  // Création d'une liste vide depuis la barre d'onglets (bouton « + »).
+  const [creatingList, setCreatingList] = useState(false);
+  const [newListValue, setNewListValue] = useState("");
+  const createList = useCreateWatchlistList({
+    mutation: {
+      onSuccess: (created) => {
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistListsQueryKey() });
+        setActiveList(created.name);
+        playSound("success");
+        toast({ title: "Liste créée" });
+      },
+      onError: () => { playSound("error"); toast({ title: "Impossible de créer la liste (existe-t-elle déjà ?)", variant: "destructive" }); },
+    },
+  });
+
+  const commitCreateList = useCallback(() => {
+    const name = newListValue.trim();
+    setCreatingList(false);
+    setNewListValue("");
+    if (name) createList.mutate({ data: { name } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newListValue]);
+
   const deleteList = useDeleteWatchlistList({
     mutation: {
       onSuccess: (_data, vars) => {
@@ -453,8 +477,9 @@ export default function Watchlist() {
         </motion.button>
       </motion.div>
 
-      {watchlist.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
+      {/* Barre d'onglets toujours visible : permet de créer sa première liste
+          vide même quand la watchlist est totalement vierge. */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
           <button
             onClick={() => setActiveList("__all__")}
             className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
@@ -541,8 +566,31 @@ export default function Watchlist() {
               </div>
             );
           })}
+          {creatingList ? (
+            <input
+              autoFocus
+              value={newListValue}
+              onChange={(e) => setNewListValue(e.target.value)}
+              onBlur={commitCreateList}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitCreateList();
+                else if (e.key === "Escape") { setCreatingList(false); setNewListValue(""); }
+              }}
+              placeholder="Nom de la liste…"
+              className="px-3 py-1.5 text-xs font-medium rounded-full border border-primary bg-background focus:outline-none focus:ring-2 focus:ring-ring w-36"
+            />
+          ) : (
+            <button
+              onClick={() => setCreatingList(true)}
+              disabled={createList.isPending}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary/60 transition-colors disabled:opacity-50"
+              title="Créer une nouvelle liste vide"
+            >
+              <Plus className="w-3 h-3" />
+              Nouvelle liste
+            </button>
+          )}
         </div>
-      )}
 
       {isLoading ? (
         <div className="bg-card border border-card-border rounded-2xl overflow-hidden divide-y divide-border">

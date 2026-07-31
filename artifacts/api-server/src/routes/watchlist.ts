@@ -34,6 +34,31 @@ router.get("/watchlist/lists", async (req, res) => {
   }
 });
 
+// Crée une liste vide persistée (bouton « + » de la barre d'onglets).
+router.post("/watchlist/lists", async (req, res) => {
+  const { name } = req.body as { name?: string };
+  const trimmed = name?.trim();
+  if (!trimmed) return res.status(400).json({ error: "name is required" });
+  try {
+    const existing = await getMergedLists();
+    if (existing.includes(trimmed)) {
+      return res.status(409).json({ error: "List already exists" });
+    }
+    const [{ max }] = await db
+      .select({ max: sql<number>`coalesce(max(${watchlistListsTable.position}), -1)` })
+      .from(watchlistListsTable);
+    const position = Number(max) + 1;
+    await db
+      .insert(watchlistListsTable)
+      .values({ name: trimmed, position })
+      .onConflictDoNothing({ target: watchlistListsTable.name });
+    return res.status(201).json({ name: trimmed, position });
+  } catch (err) {
+    req.log.error({ err }, "Failed to create watchlist list");
+    return res.status(500).json({ error: "Failed to create watchlist list" });
+  }
+});
+
 // Persiste l'ordre complet des listes (drag-and-drop des onglets).
 router.put("/watchlist/lists/order", async (req, res) => {
   const { names } = req.body as { names?: string[] };

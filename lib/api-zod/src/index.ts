@@ -4,6 +4,7 @@ export * from "./generated/types";
 // générés — TS2308 exige une ré-exportation explicite pour lever l'ambiguïté :
 // le *schéma zod* (valeur) vient de generated/api, le *type* de generated/types.
 export type {
+  CreateWatchlistListBody,
   RenameWatchlistListBody,
   ReorderWatchlistListsBody,
   UpdateWatchlistItemBody,

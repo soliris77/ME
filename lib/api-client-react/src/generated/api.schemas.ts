@@ -319,6 +319,10 @@ export type UpdateWatchlistItemBody = {
   listName: string;
 };
 
+export type CreateWatchlistListBody = {
+  name: string;
+};
+
 export type ReorderWatchlistListsBody = {
   names: string[];
 };
