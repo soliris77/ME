@@ -7,7 +7,7 @@
  *   3. processRule() — évalue chaque règle active (signal → ordre ou notif)
  */
 import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable } from "@workspace/db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
 import type { OHLCPoint } from "../lib/patternDetect";
@@ -16,6 +16,7 @@ import { sendSms } from "../lib/smsClient";
 import { sendEmail } from "../lib/emailClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { logger } from "../lib/logger";
+import { getTradingMode } from "../lib/tradingMode";
 import { notifyKillSwitchActivated } from "../lib/notifications";
 
 const WORKER_INTERVAL_MS = 60_000;
@@ -279,6 +280,187 @@ async function checkProtectiveExits(
   }
 }
 
+// ── P&L réalisé du jour — appariement des lots (coût moyen) ──────────────────
+// Rejoue l'historique chronologique des ordres exécutés pour reconstruire le
+// coût moyen par symbole, puis ne comptabilise que le P&L réalisé par les
+// ventes effectuées aujourd'hui : (prix de vente − coût moyen) × qté appariée.
+// Exportée pure pour être testable sans DB.
+export interface PnLOrder {
+  symbol: string;
+  side: string; // "BUY" | "SELL"
+  quantity: string | null;
+  filledQuantity: string | null;
+  fillPrice: string | null;
+  expectedPrice: string | null;
+  createdAt: Date;
+}
+
+export interface DailyPnLResult {
+  realizedPnL: number;
+  /** Ventes d'aujourd'hui dont le coût de revient est inconnu (position acquise hors de l'app). */
+  unmatchedSells: { symbol: string; quantity: number }[];
+}
+
+export function computeRealizedDailyPnL(orders: PnLOrder[], todayStart: Date): DailyPnLResult {
+  const positions = new Map<string, { qty: number; avgCost: number }>();
+  let realizedPnL = 0; // P&L réalisé des ventes d'aujourd'hui uniquement
+  const unmatchedSells: { symbol: string; quantity: number }[] = [];
+
+  for (const o of orders) {
+    const price = parseFloat(o.fillPrice ?? o.expectedPrice ?? "0");
+    const qty   = parseFloat(o.filledQuantity ?? o.quantity ?? "0");
+    if (!isFinite(price) || !isFinite(qty) || price <= 0 || qty <= 0) continue;
+
+    const sym = o.symbol.toUpperCase();
+    const pos = positions.get(sym) ?? { qty: 0, avgCost: 0 };
+
+    if (o.side === "BUY") {
+      const totalCost = pos.qty * pos.avgCost + qty * price;
+      pos.qty += qty;
+      pos.avgCost = totalCost / pos.qty;
+    } else {
+      // Vente : seule la quantité appariée à une entrée connue réalise du P&L.
+      const matchedQty = Math.min(qty, pos.qty);
+      if (matchedQty > 0 && o.createdAt >= todayStart) {
+        realizedPnL += (price - pos.avgCost) * matchedQty;
+      }
+      if (qty > pos.qty && o.createdAt >= todayStart) {
+        // Base de coût inconnue (position externe / historique incomplet) —
+        // impossible de calculer le P&L de cette portion : signalée à l'appelant.
+        unmatchedSells.push({ symbol: sym, quantity: qty - pos.qty });
+      }
+      pos.qty = Math.max(0, pos.qty - qty);
+      if (pos.qty === 0) pos.avgCost = 0;
+    }
+    positions.set(sym, pos);
+  }
+  return { realizedPnL, unmatchedSells };
+}
+
+// ── Synchronisation des exécutions live depuis SnapTrade ─────────────────────
+// Les ordres live sont enregistrés "submitted" (le courtier a accepté la
+// requête) sans donnée de fill. Avant de calculer le P&L réalisé, on interroge
+// SnapTrade pour rapprocher chaque ordre submitted de son exécution réelle et
+// persister status/fillPrice/filledQuantity. Ainsi le coupe-circuit ne compte
+// que des transactions avérées.
+export function mapSnaptradeStatus(status: string | null | undefined): string | null {
+  switch (status) {
+    case "EXECUTED": return "filled";
+    case "PARTIAL":
+    case "PARTIALLY_EXECUTED": return "partially_filled";
+    case "REJECTED":
+    case "FAILED": return "rejected";
+    case "CANCELED":
+    case "PARTIAL_CANCELED":
+    case "EXPIRED": return "error";
+    default: return null; // PENDING/ACCEPTED/QUEUED... → toujours en attente
+  }
+}
+
+// Clés d'appariement d'un enregistrement SnapTrade : selon le courtier, l'ID
+// persisté à la soumission peut être le `brokerage_order_id` OU l'`id` interne
+// SnapTrade. On indexe donc les deux formes pour un rapprochement déterministe.
+export function snaptradeRecordKeys(rec: { brokerage_order_id?: string | null; id?: string | null }): string[] {
+  const keys: string[] = [];
+  if (rec.brokerage_order_id) keys.push(String(rec.brokerage_order_id));
+  if (rec.id && String(rec.id) !== String(rec.brokerage_order_id ?? "")) keys.push(String(rec.id));
+  return keys;
+}
+
+// Fenêtre de requête (en jours) couvrant le plus ancien ordre non résolu,
+// avec marge d'1 jour ; SnapTrade plafonne à 90.
+export function syncWindowDays(oldestCreatedAt: Date | null, now: Date): number {
+  if (!oldestCreatedAt) return 7;
+  const age = Math.ceil((now.getTime() - oldestCreatedAt.getTime()) / 86400000) + 1;
+  return Math.min(90, Math.max(7, age));
+}
+
+async function syncLiveOrderFills(
+  conn: typeof brokerConnectionsTable.$inferSelect,
+): Promise<void> {
+  if (!conn.snaptradeUserId || !conn.snaptradeUserSecret) return;
+
+  // Tous les ordres live non terminaux : "submitted" (accepté, fill inconnu)
+  // et "partially_filled" (fills incrémentaux — à re-synchroniser jusqu'à
+  // l'état terminal pour capter la quantité/le prix final).
+  const submitted = await db.select().from(ordersTable)
+    .where(and(inArray(ordersTable.status, ["submitted", "partially_filled"]), eq(ordersTable.mode, "live")));
+  if (submitted.length === 0) return;
+
+  // Garde-fou : un ordre live sans brokerAccountId ou sans snaptradeOrderId ne
+  // peut pas être rapproché — signalé bruyamment (ne devrait jamais arriver :
+  // l'orderEngine rejette tout ordre live sans accountId avant insertion).
+  const unsyncable = submitted.filter((o) => !o.brokerAccountId || !o.snaptradeOrderId);
+  if (unsyncable.length > 0) {
+    logger.error(
+      { orders: unsyncable.map((o) => ({ id: o.id, symbol: o.symbol, hasAccount: !!o.brokerAccountId, hasSnaptradeId: !!o.snaptradeOrderId })) },
+      "autoTradeWorker: ordres live non synchronisables (brokerAccountId ou snaptradeOrderId manquant) — exclus du P&L du coupe-circuit",
+    );
+  }
+
+  const accountIds = [...new Set(submitted.map((o) => o.brokerAccountId).filter((a): a is string => !!a))];
+  if (accountIds.length === 0) return;
+
+  const { getSnaptradeClientAsync } = await import("../lib/snaptrade");
+  const client = await getSnaptradeClientAsync();
+
+  for (const accountId of accountIds) {
+    let records: Awaited<ReturnType<typeof client.accountInformation.getUserAccountOrders>>["data"];
+    try {
+      const res = await client.accountInformation.getUserAccountOrders({
+        userId: conn.snaptradeUserId,
+        userSecret: conn.snaptradeUserSecret,
+        accountId,
+        state: "all",
+        days: syncWindowDays(
+          submitted.reduce<Date | null>((min, o) => (!min || o.createdAt < min ? o.createdAt : min), null),
+          new Date(),
+        ),
+      });
+      records = res.data;
+    } catch (err) {
+      logger.warn({ err, accountId }, "autoTradeWorker: syncLiveOrderFills — lecture des ordres SnapTrade échouée");
+      continue;
+    }
+
+    const byBrokerageId = new Map<string, (typeof records extends (infer T)[] | undefined ? T : never)>();
+    for (const r of records ?? []) {
+      for (const key of snaptradeRecordKeys(r as { brokerage_order_id?: string | null; id?: string | null })) {
+        byBrokerageId.set(key, r);
+      }
+    }
+
+    for (const o of submitted) {
+      if (o.brokerAccountId !== accountId || !o.snaptradeOrderId) continue;
+      const rec = byBrokerageId.get(o.snaptradeOrderId);
+      if (!rec) continue;
+      const newStatus = mapSnaptradeStatus(rec.status as string | undefined);
+      if (!newStatus) continue;
+
+      await db.update(ordersTable)
+        .set({
+          status: newStatus,
+          fillPrice: rec.execution_price != null ? String(rec.execution_price) : o.fillPrice,
+          filledQuantity: rec.filled_quantity != null ? String(rec.filled_quantity) : o.filledQuantity,
+        })
+        .where(eq(ordersTable.id, o.id));
+      logger.info(
+        { orderId: o.id, symbol: o.symbol, newStatus, executionPrice: rec.execution_price, filledQuantity: rec.filled_quantity },
+        "autoTradeWorker: exécution live synchronisée depuis SnapTrade",
+      );
+    }
+  }
+}
+
+// Statuts d'ordre représentant une exécution avérée :
+// - "simulated" : ordre paper enregistré avec expectedPrice (jamais "filled")
+// - "filled" / "partially_filled" : exécution confirmée avec fillPrice
+// "submitted" est volontairement EXCLU : le courtier a seulement accepté la
+// requête — l'ordre peut rester non exécuté ou être rejeté/annulé ensuite.
+// Compter un submitted fausserait la base de coût et pourrait déclencher (ou
+// masquer) le coupe-circuit sur des transactions jamais exécutées.
+export const EXECUTED_ORDER_STATUSES = ["filled", "partially_filled", "simulated"] as const;
+
 // ── I2 — Coupe-circuit de perte journalière agrégée ───────────────────────────
 // Si la perte réalisée du jour dépasse maxDailyLossAmount, le kill-switch s'active.
 async function checkDailyLossCircuitBreaker(
@@ -292,24 +474,39 @@ async function checkDailyLossCircuitBreaker(
   const maxLoss = parseFloat(settings.maxDailyLossAmount);
   if (!isFinite(maxLoss) || maxLoss <= 0) return;
 
-  // Calculer la perte réalisée du jour (ordres exécutés aujourd'hui, mode live, côté SELL)
-  // Approximation : somme des (price × quantity) SELL − (price × quantity) BUY du jour
+  // P&L réalisé du jour par appariement des lots (méthode du coût moyen).
+  // On rejoue TOUT l'historique des ordres exécutés (du mode courant) en ordre
+  // chronologique pour reconstruire le prix de revient moyen par symbole, puis
+  // on ne comptabilise que le P&L réalisé par les VENTES d'aujourd'hui :
+  // (prix de vente − coût moyen) × quantité appariée. Un achat n'est jamais une
+  // perte en soi ; une vente gagnante ne déclenche jamais le coupe-circuit.
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
   try {
-    const todayOrders = await db.select().from(ordersTable)
-      .where(and(
-        gte(ordersTable.createdAt, todayStart),
-        eq(ordersTable.status, "filled"),
-      ));
+    const mode = getTradingMode();
 
-    let realizedPnL = 0;
-    for (const o of todayOrders) {
-      const price = parseFloat((o.fillPrice ?? o.expectedPrice ?? "0") as string);
-      const qty   = parseFloat(o.quantity as string ?? "0");
-      const value = price * qty;
-      realizedPnL += o.side === "SELL" ? value : -value;
+    // En mode live : rapprocher d'abord les ordres "submitted" de leurs
+    // exécutions réelles côté SnapTrade (status/fillPrice/filledQuantity).
+    if (mode === "live") {
+      await syncLiveOrderFills(conn).catch((err) =>
+        logger.warn({ err }, "autoTradeWorker: syncLiveOrderFills échoué — P&L calculé sur les fills déjà confirmés"),
+      );
+    }
+
+    const executedOrders = await db.select().from(ordersTable)
+      .where(and(
+        inArray(ordersTable.status, [...EXECUTED_ORDER_STATUSES]),
+        eq(ordersTable.mode, mode),
+      ))
+      .orderBy(ordersTable.createdAt, ordersTable.id);
+
+    const { realizedPnL, unmatchedSells } = computeRealizedDailyPnL(executedOrders, todayStart);
+    if (unmatchedSells.length > 0) {
+      logger.warn(
+        { unmatchedSells },
+        "autoTradeWorker: ventes du jour sans coût de revient local — leur P&L est exclu du coupe-circuit (position acquise hors de l'app)",
+      );
     }
 
     // pnl négatif = perte nette
@@ -545,19 +742,23 @@ export async function runAutoTradeCheck(): Promise<void> {
     resolveConnection(),
   ]);
 
-  if (rules.length === 0) return;
-
-  logger.info({ count: rules.length }, "autoTradeWorker: cycle démarré");
-
-  // 1. Sorties protectrices (SL/TP) — toujours vérifiées, ignorent cooldown/quota
+  // 1. Sorties protectrices (SL/TP/trailing) — toujours vérifiées en premier,
+  // ignorent cooldown/quota. Exécutées avant le coupe-circuit pour que les
+  // pertes réalisées par ces sorties soient comptées dans le même cycle.
   await checkProtectiveExits(conn).catch((err) =>
     logger.error({ err }, "autoTradeWorker: checkProtectiveExits échoué"),
   );
 
-  // 2. Coupe-circuit de perte journalière
+  // 2. Coupe-circuit de perte journalière — évalué à chaque cycle, même sans
+  // règle active : des pertes peuvent provenir d'ordres manuels, de règles
+  // désactivées entre-temps ou des sorties protectrices ci-dessus.
   await checkDailyLossCircuitBreaker(conn).catch((err) =>
     logger.error({ err }, "autoTradeWorker: checkDailyLossCircuitBreaker échoué"),
   );
+
+  if (rules.length === 0) return;
+
+  logger.info({ count: rules.length }, "autoTradeWorker: cycle démarré");
 
   // 3. Évaluation des règles actives
   for (const rule of rules) {

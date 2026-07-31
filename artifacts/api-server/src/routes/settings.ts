@@ -15,12 +15,13 @@ router.get("/settings", async (_req, res) => {
 
 router.put("/settings", async (req, res) => {
   try {
-    const { maxOrderValue, maxPortfolioExposure, largeOrderFrictionPct } = req.body as {
+    const { maxOrderValue, maxPortfolioExposure, largeOrderFrictionPct, maxDailyLossAmount } = req.body as {
       maxOrderValue?: number;
       maxPortfolioExposure?: number;
       largeOrderFrictionPct?: number;
+      maxDailyLossAmount?: number | null;
     };
-    const updated = await updateRiskSettings({ maxOrderValue, maxPortfolioExposure, largeOrderFrictionPct });
+    const updated = await updateRiskSettings({ maxOrderValue, maxPortfolioExposure, largeOrderFrictionPct, maxDailyLossAmount });
     return res.json(updated);
   } catch (err) {
     return res.status(400).json({ error: String(err instanceof Error ? err.message : err) });

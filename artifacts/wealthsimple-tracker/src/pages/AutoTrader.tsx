@@ -864,6 +864,12 @@ export default function AutoTrader() {
     refetchInterval: 30_000,
   });
 
+  const brokerStatusQ = useQuery<{ halted: boolean; haltedAt: string | null }>({
+    queryKey: ["broker-status"],
+    queryFn: () => fetch(`${BASE}/api/broker/status`).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
   const rules: AutoTradeRule[] = Array.isArray(rulesQ.data) ? rulesQ.data : [];
   const logs: AutoTradeLog[] = Array.isArray(logsQ.data) ? logsQ.data : [];
 
@@ -941,6 +947,19 @@ export default function AutoTrader() {
           </button>
         </div>
       </div>
+
+      {/* Kill-switch banner */}
+      {brokerStatusQ.data?.halted && (
+        <div className="mb-5 rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/25 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+          <div className="text-[12px] text-red-400 leading-relaxed">
+            <strong>Kill-switch actif — trading suspendu.</strong> Aucun ordre automatique ne sera passé
+            {brokerStatusQ.data.haltedAt ? ` (depuis le ${new Date(brokerStatusQ.data.haltedAt).toLocaleString("fr-CA")})` : ""}.
+            Réactive le trading depuis la page <Link href="/courtier" className="underline font-semibold">Courtier</Link>.
+            La limite de perte journalière se règle dans les <Link href="/parametres" className="underline font-semibold">Paramètres</Link>.
+          </div>
+        </div>
+      )}
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-6">

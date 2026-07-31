@@ -10,6 +10,7 @@ interface RiskSettings {
   maxOrderValue: number;
   maxPortfolioExposure: number;
   largeOrderFrictionPct: number;
+  maxDailyLossAmount: number | null;
   updatedAt: string;
 }
 
@@ -226,12 +227,14 @@ export default function SettingsPage() {
   const [maxOrderValue, setMaxOrderValue] = useState("");
   const [maxPortfolioExposure, setMaxPortfolioExposure] = useState("");
   const [frictionPct, setFrictionPct] = useState("");
+  const [maxDailyLoss, setMaxDailyLoss] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const resetFromServer = (data: RiskSettings) => {
     setMaxOrderValue(String(data.maxOrderValue));
     setMaxPortfolioExposure(String(data.maxPortfolioExposure));
     setFrictionPct(String(Math.round(data.largeOrderFrictionPct * 100)));
+    setMaxDailyLoss(data.maxDailyLossAmount != null ? String(data.maxDailyLossAmount) : "");
   };
 
   useEffect(() => {
@@ -246,6 +249,7 @@ export default function SettingsPage() {
         maxOrderValue: parseFloat(maxOrderValue),
         maxPortfolioExposure: parseFloat(maxPortfolioExposure),
         largeOrderFrictionPct: parseFloat(frictionPct) / 100,
+        maxDailyLossAmount: maxDailyLoss.trim() === "" ? null : parseFloat(maxDailyLoss),
       };
       const res = await fetch(`${BASE}/api/settings`, {
         method: "PUT",
@@ -270,7 +274,8 @@ export default function SettingsPage() {
     settingsQ.data &&
     (Number(maxOrderValue) !== settingsQ.data.maxOrderValue ||
       Number(maxPortfolioExposure) !== settingsQ.data.maxPortfolioExposure ||
-      Math.round(Number(frictionPct)) !== Math.round(settingsQ.data.largeOrderFrictionPct * 100));
+      Math.round(Number(frictionPct)) !== Math.round(settingsQ.data.largeOrderFrictionPct * 100) ||
+      (maxDailyLoss.trim() === "" ? null : Number(maxDailyLoss)) !== settingsQ.data.maxDailyLossAmount);
 
   return (
     <div className="p-6 sm:p-8 max-w-2xl mx-auto animate-fadeUp">
@@ -346,6 +351,28 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground mt-1.5">
               % de la valeur maximale par ordre au-delà duquel un délai de confirmation de 3 secondes s'applique.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+              Perte journalière max ($)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                placeholder="Vide = désactivé"
+                className="w-full px-3 py-2.5 pr-9 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                value={maxDailyLoss}
+                onChange={(e) => setMaxDailyLoss(e.target.value)}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Coupe-circuit : si la perte réalisée du jour dépasse ce montant, le trading automatique est
+              suspendu (kill-switch) jusqu'à réactivation manuelle. Laisse vide pour désactiver.
             </p>
           </div>
 

@@ -44,6 +44,40 @@ export type SubmitOrderResult =
 
 export class OrderValidationError extends Error {}
 
+/**
+ * Extrait l'identifiant d'ordre de la réponse SnapTrade. La réponse peut être
+ * un AccountOrderRecord (ID au premier niveau) ou une OrderUpdatedResponse
+ * (ID imbriqué sous `order`). Le brokerage_order_id est préféré car c'est la
+ * clé des listes d'ordres — indispensable à la synchronisation des fills
+ * (coupe-circuit de perte journalière).
+ */
+export function extractSnaptradeOrderId(result: unknown): string | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = result as any;
+  const id = r?.brokerage_order_id ?? r?.order?.brokerage_order_id ?? r?.id ?? r?.order?.id ?? null;
+  return id != null ? String(id) : null;
+}
+
+/**
+ * Prérequis d'un ordre LIVE — garde-fou "fail closed" : sans connexion
+ * courtier ET sans accountId concret, aucun ordre réel n'est soumis ni
+ * enregistré. Garantit que chaque ordre live persisté porte un
+ * brokerAccountId, condition nécessaire à la synchronisation des fills
+ * (et donc au coupe-circuit de perte journalière).
+ */
+export function validateLiveOrderPrerequisites(
+  brokerConnection: unknown,
+  accountId: string | undefined,
+): Extract<SubmitOrderResult, { status: "rejected" }> | null {
+  if (!brokerConnection) {
+    return { status: "rejected", reason: "broker_not_connected", message: "Aucune connexion courtier configurée. Rendez-vous dans /courtier.", details: {} };
+  }
+  if (!accountId) {
+    return { status: "rejected", reason: "account_required", message: "accountId requis en mode live.", details: {} };
+  }
+  return null;
+}
+
 function normalizeSide(side: string): "BUY" | "SELL" {
   const upper = side.toUpperCase();
   if (upper !== "BUY" && upper !== "SELL") throw new OrderValidationError("side doit être BUY ou SELL");
@@ -173,12 +207,10 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   // ── 5b) Mode LIVE ───────────────────────────────────────────────────────────
-  if (!brokerConnection) {
-    return { status: "rejected", reason: "broker_not_connected", message: "Aucune connexion courtier configurée. Rendez-vous dans /courtier.", details: {} };
-  }
-  if (!accountId) {
-    return { status: "rejected", reason: "account_required", message: "accountId requis en mode live.", details: {} };
-  }
+  const livePrereq = validateLiveOrderPrerequisites(brokerConnection, accountId);
+  if (livePrereq) return livePrereq;
+  // Le garde-fou ci-dessus garantit ces deux valeurs (fail closed).
+  if (!brokerConnection || !accountId) throw new Error("invariant: connexion courtier et accountId requis après validation live");
 
   // ÉTAPE A — Réserver le signalId en base AVANT d'appeler le courtier.
   // La contrainte unique est le verrou : si une requête concurrente a déjà
@@ -238,8 +270,10 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       quantity,
       clientOrderId: signalId,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    snaptradeOrderId = (result as any)?.id ?? (result as any)?.brokerage_order_id ?? null;
+    snaptradeOrderId = extractSnaptradeOrderId(result);
+    if (!snaptradeOrderId) {
+      logger.warn({ signalId, resultKeys: result && typeof result === "object" ? Object.keys(result) : null }, "orderEngine: aucun brokerage_order_id dans la réponse SnapTrade — la synchronisation des fills ne pourra pas rapprocher cet ordre");
+    }
     logger.info({ signalId, symbol, side, quantity, snaptradeOrderId, source: source ?? "manual" }, "orderEngine: live order submitted to broker");
   } catch (err) {
     errorMessage = String(err);

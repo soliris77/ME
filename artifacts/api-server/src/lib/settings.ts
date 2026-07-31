@@ -20,6 +20,8 @@ export interface RiskSettings {
   maxOrderValue: number;
   maxPortfolioExposure: number;
   largeOrderFrictionPct: number;
+  /** Coupe-circuit de perte journalière ($) — null = désactivé. */
+  maxDailyLossAmount: number | null;
   updatedAt: string;
 }
 
@@ -30,6 +32,7 @@ function toRiskSettings(row: AppSettings): RiskSettings {
     maxOrderValue: Number(row.maxOrderValue),
     maxPortfolioExposure: Number(row.maxPortfolioExposure),
     largeOrderFrictionPct: Number(row.largeOrderFrictionPct),
+    maxDailyLossAmount: row.maxDailyLossAmount != null ? Number(row.maxDailyLossAmount) : null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -60,6 +63,8 @@ export interface UpdateRiskSettingsInput {
   maxOrderValue?: number;
   maxPortfolioExposure?: number;
   largeOrderFrictionPct?: number;
+  /** null explicite = désactiver le coupe-circuit ; undefined = inchangé. */
+  maxDailyLossAmount?: number | null;
 }
 
 /** Valide les nouvelles valeurs, les persiste, invalide le cache et journalise le changement. */
@@ -70,6 +75,8 @@ export async function updateRiskSettings(patch: UpdateRiskSettingsInput): Promis
     maxOrderValue: patch.maxOrderValue ?? current.maxOrderValue,
     maxPortfolioExposure: patch.maxPortfolioExposure ?? current.maxPortfolioExposure,
     largeOrderFrictionPct: patch.largeOrderFrictionPct ?? current.largeOrderFrictionPct,
+    maxDailyLossAmount:
+      patch.maxDailyLossAmount !== undefined ? patch.maxDailyLossAmount : current.maxDailyLossAmount,
   };
 
   if (!Number.isFinite(next.maxOrderValue) || next.maxOrderValue <= 0) {
@@ -84,6 +91,9 @@ export async function updateRiskSettings(patch: UpdateRiskSettingsInput): Promis
   if (!Number.isFinite(next.largeOrderFrictionPct) || next.largeOrderFrictionPct <= 0 || next.largeOrderFrictionPct > 1) {
     throw new Error("Le seuil de confirmation renforcée doit être compris entre 0 et 100 %.");
   }
+  if (next.maxDailyLossAmount !== null && (!Number.isFinite(next.maxDailyLossAmount) || next.maxDailyLossAmount <= 0)) {
+    throw new Error("La perte journalière maximale doit être un nombre positif, ou vide pour désactiver.");
+  }
 
   const [row] = await db
     .select()
@@ -97,6 +107,7 @@ export async function updateRiskSettings(patch: UpdateRiskSettingsInput): Promis
           maxOrderValue: String(next.maxOrderValue),
           maxPortfolioExposure: String(next.maxPortfolioExposure),
           largeOrderFrictionPct: String(next.largeOrderFrictionPct),
+          maxDailyLossAmount: next.maxDailyLossAmount !== null ? String(next.maxDailyLossAmount) : null,
           updatedAt: new Date(),
         })
         .where(eq(appSettingsTable.id, row.id))
@@ -114,6 +125,12 @@ export async function updateRiskSettings(patch: UpdateRiskSettingsInput): Promis
   }
   if (patch.largeOrderFrictionPct !== undefined && patch.largeOrderFrictionPct !== current.largeOrderFrictionPct) {
     changes.largeOrderFrictionPct = { from: current.largeOrderFrictionPct, to: next.largeOrderFrictionPct };
+  }
+  if (patch.maxDailyLossAmount !== undefined && patch.maxDailyLossAmount !== current.maxDailyLossAmount) {
+    changes.maxDailyLossAmount = {
+      from: (current.maxDailyLossAmount ?? 0),
+      to: (next.maxDailyLossAmount ?? 0),
+    };
   }
 
   if (Object.keys(changes).length > 0) {
