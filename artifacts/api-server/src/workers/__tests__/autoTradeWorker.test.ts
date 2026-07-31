@@ -13,7 +13,7 @@ const h = vi.hoisted(() => {
   const rulesTable = { id: Symbol("rules.id"), enabled: Symbol("rules.enabled"), $inferSelect: undefined };
   const logsTable = { $inferSelect: undefined };
   const connectionsTable = { id: Symbol("conns.id"), $inferSelect: undefined };
-  const ordersTable = { createdAt: Symbol(), status: Symbol(), $inferSelect: undefined };
+  const ordersTable = { id: Symbol("orders.id"), createdAt: Symbol(), status: Symbol("orders.status"), mode: Symbol("orders.mode"), $inferSelect: undefined };
   const settingsTable = { $inferSelect: undefined };
   const auditLogTable = { id: Symbol(), action: Symbol(), createdAt: Symbol(), $inferSelect: undefined };
 
@@ -42,15 +42,19 @@ const h = vi.hoisted(() => {
   const auditColName = (col: unknown) =>
     col === auditLogTable.action ? "action" :
     col === auditLogTable.createdAt ? "createdAt" :
-    col === auditLogTable.id ? "id" : null;
+    col === auditLogTable.id ? "id" :
+    col === ordersTable.status ? "status" :
+    col === ordersTable.mode ? "mode" :
+    col === ordersTable.id ? "id" : null;
   const matches = (row: Record<string, unknown>, pred: unknown): boolean => {
-    const p = pred as { and?: unknown[]; op?: string; col?: unknown; val?: unknown } | undefined;
+    const p = pred as { and?: unknown[]; op?: string; col?: unknown; val?: unknown; vals?: unknown[] } | undefined;
     if (!p) return true;
     if (p.and) return p.and.every(sub => matches(row, sub));
     const name = auditColName(p.col);
     if (name == null) return true; // colonne d'une autre table → pas de filtre
     if (p.op === "eq") return row[name] === p.val;
     if (p.op === "gte") return (row[name] as Date) >= (p.val as Date);
+    if (p.op === "inArray") return (p.vals ?? []).includes(row[name]);
     return true;
   };
 
@@ -66,8 +70,15 @@ const h = vi.hoisted(() => {
     select: () => ({ from: (table: unknown) => thenable(rowsFor(table)) }),
     update: (table: unknown) => ({
       set: (set: Record<string, unknown>) => ({
-        where: () => {
+        where: (pred?: unknown) => {
           state.updates.push({ table, set });
+          // Les ordres sont réellement mutés : syncLiveOrderFills persiste les
+          // fills PUIS le P&L relit la même table — la mutation doit être visible.
+          if (table === ordersTable) {
+            for (const row of state.orders) {
+              if (matches(row, pred)) Object.assign(row, set);
+            }
+          }
           return Promise.resolve();
         },
       }),
@@ -117,6 +128,8 @@ const h = vi.hoisted(() => {
     getQuotes: vi.fn(),
     chart: vi.fn(),
     analyzeTradingSignals: vi.fn(),
+    getTradingMode: vi.fn(),
+    getUserAccountOrders: vi.fn(),
   };
 });
 
@@ -133,7 +146,7 @@ vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ op: "eq", col, val }),
   and: (...args: unknown[]) => ({ and: args }),
   gte: (col: unknown, val: unknown) => ({ op: "gte", col, val }),
-  inArray: (col: unknown, vals: unknown) => ({ col, vals }),
+  inArray: (col: unknown, vals: unknown) => ({ op: "inArray", col, vals }),
   sql: () => ({}),
 }));
 vi.mock("../../lib/yahoo", () => ({
@@ -157,8 +170,14 @@ vi.mock("../../lib/notifications", () => ({
 vi.mock("../../lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
+vi.mock("../../lib/tradingMode", () => ({ getTradingMode: h.getTradingMode }));
+vi.mock("../../lib/snaptrade", () => ({
+  getSnaptradeClientAsync: async () => ({
+    accountInformation: { getUserAccountOrders: h.getUserAccountOrders },
+  }),
+}));
 
-import { checkProtectiveExits, processRule, checkDailyLossCircuitBreaker, maybeNotifyDailyLossWarning } from "../autoTradeWorker";
+import { checkProtectiveExits, processRule, checkDailyLossCircuitBreaker, maybeNotifyDailyLossWarning, getDailyRealizedPnLStatus } from "../autoTradeWorker";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function makeRule(overrides: Record<string, unknown> = {}) {
@@ -220,6 +239,8 @@ beforeEach(() => {
   h.state.deletes.length = 0;
   h.state.txExecutes.length = 0;
   h.state.nextAuditId = 1;
+  h.getTradingMode.mockReturnValue("paper");
+  h.notifyDailyLossWarning.mockResolvedValue(true);
 });
 
 // ── checkProtectiveExits — confirmation de la vente ───────────────────────────
@@ -706,5 +727,143 @@ describe("maybeNotifyDailyLossWarning — une seule notification par jour", () =
 
     expect(notifyFn).not.toHaveBeenCalled();
     (h.db as { transaction: unknown }).transaction = origTx;
+  });
+});
+
+// ── getDailyRealizedPnLStatus — synchronisation des fills live ────────────────
+describe("getDailyRealizedPnLStatus — le coupe-circuit compte les vraies exécutions du courtier", () => {
+  const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const TODAY = new Date();
+
+  const liveConn = () => ({
+    id: 7,
+    snaptradeUserId: "u-1",
+    snaptradeUserSecret: "s-1",
+    tradingHalted: false,
+  }) as never;
+
+  /** Achat live confirmé hier @100 (qty 10). */
+  function seedLiveBuy() {
+    h.state.orders.push({
+      id: 1, symbol: "AAPL", side: "BUY", status: "filled", mode: "live",
+      quantity: "10", filledQuantity: "10", fillPrice: "100",
+      expectedPrice: null, createdAt: YESTERDAY,
+      brokerAccountId: "acc-1", snaptradeOrderId: "B-BUY",
+    });
+  }
+
+  it("mode live → sync appelée, le fill fraîchement rapproché compte dans le P&L", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    seedLiveBuy();
+    // Vente d'aujourd'hui encore "submitted" : fill inconnu localement.
+    h.state.orders.push({
+      id: 2, symbol: "AAPL", side: "SELL", status: "submitted", mode: "live",
+      quantity: "10", filledQuantity: null, fillPrice: null,
+      expectedPrice: null, createdAt: TODAY,
+      brokerAccountId: "acc-1", snaptradeOrderId: "B-SELL",
+    });
+    // SnapTrade rapporte l'exécution réelle : vendu @90.
+    h.getUserAccountOrders.mockResolvedValue({
+      data: [{ brokerage_order_id: "B-SELL", status: "EXECUTED", execution_price: 90, filled_quantity: 10 }],
+    });
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+
+    const res = await getDailyRealizedPnLStatus({ conn: liveConn() });
+
+    expect(h.getUserAccountOrders).toHaveBeenCalledTimes(1);
+    expect(h.getUserAccountOrders.mock.calls[0][0]).toMatchObject({
+      userId: "u-1", userSecret: "s-1", accountId: "acc-1", state: "all",
+    });
+    // L'ordre a bien été persisté comme exécuté...
+    expect(h.state.orders[1]).toMatchObject({ status: "filled", fillPrice: "90", filledQuantity: "10" });
+    // ...et son fill compte dans le P&L : (90 − 100) × 10 = −100.
+    expect(res.realizedPnL).toBeCloseTo(-100, 6);
+    expect(res.mode).toBe("live");
+    expect(res.maxDailyLossAmount).toBe(100);
+  });
+
+  it("échec de la sync SnapTrade → pas d'exception, P&L calculé sur les fills déjà confirmés", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    seedLiveBuy();
+    // Vente confirmée @95 aujourd'hui (déjà rapprochée lors d'un cycle précédent).
+    h.state.orders.push({
+      id: 2, symbol: "AAPL", side: "SELL", status: "filled", mode: "live",
+      quantity: "5", filledQuantity: "5", fillPrice: "95",
+      expectedPrice: null, createdAt: TODAY,
+      brokerAccountId: "acc-1", snaptradeOrderId: "B-SELL-OK",
+    });
+    // Vente "submitted" dont le fill reste inconnu — la sync échoue.
+    h.state.orders.push({
+      id: 3, symbol: "AAPL", side: "SELL", status: "submitted", mode: "live",
+      quantity: "5", filledQuantity: null, fillPrice: null,
+      expectedPrice: null, createdAt: TODAY,
+      brokerAccountId: "acc-1", snaptradeOrderId: "B-SELL-KO",
+    });
+    h.getUserAccountOrders.mockRejectedValue(new Error("SnapTrade indisponible"));
+
+    const res = await getDailyRealizedPnLStatus({ conn: liveConn() });
+
+    expect(h.getUserAccountOrders).toHaveBeenCalledTimes(1);
+    // Seule la vente confirmée compte : (95 − 100) × 5 = −25 ; la submitted est exclue.
+    expect(res.realizedPnL).toBeCloseTo(-25, 6);
+    expect(h.state.orders[2].status).toBe("submitted"); // pas touché
+  });
+
+  it("mode paper → aucune sync SnapTrade, même avec une connexion fournie", async () => {
+    h.getTradingMode.mockReturnValue("paper");
+    // Ordres paper : achat hier @100, vente aujourd'hui @95 (qty 10).
+    h.state.orders.push(
+      {
+        id: 1, symbol: "AAPL", side: "BUY", status: "filled", mode: "paper",
+        quantity: "10", filledQuantity: "10", fillPrice: "100",
+        expectedPrice: null, createdAt: YESTERDAY,
+      },
+      {
+        id: 2, symbol: "AAPL", side: "SELL", status: "simulated", mode: "paper",
+        quantity: "10", filledQuantity: null, fillPrice: null,
+        expectedPrice: "95", createdAt: TODAY,
+      },
+    );
+
+    const res = await getDailyRealizedPnLStatus({ conn: liveConn() });
+
+    expect(h.getUserAccountOrders).not.toHaveBeenCalled();
+    expect(res.mode).toBe("paper");
+    expect(res.realizedPnL).toBeCloseTo(-50, 6);
+  });
+
+  it("mode live sans connexion → aucune sync, pas d'exception", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    seedLiveBuy();
+
+    const res = await getDailyRealizedPnLStatus({});
+
+    expect(h.getUserAccountOrders).not.toHaveBeenCalled();
+    expect(res.mode).toBe("live");
+    expect(res.realizedPnL).toBe(0);
+  });
+
+  it("mode live → les ordres du mode paper sont exclus du P&L", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    // Grosse perte paper aujourd'hui : ne doit PAS compter en live.
+    h.state.orders.push(
+      {
+        id: 1, symbol: "TSLA", side: "BUY", status: "filled", mode: "paper",
+        quantity: "10", filledQuantity: "10", fillPrice: "100",
+        expectedPrice: null, createdAt: YESTERDAY,
+      },
+      {
+        id: 2, symbol: "TSLA", side: "SELL", status: "filled", mode: "paper",
+        quantity: "10", filledQuantity: "10", fillPrice: "10",
+        expectedPrice: null, createdAt: TODAY,
+      },
+    );
+    h.getUserAccountOrders.mockResolvedValue({ data: [] });
+
+    const res = await getDailyRealizedPnLStatus({ conn: liveConn() });
+
+    expect(res.realizedPnL).toBe(0);
+    // Aucun ordre live non terminal → pas même besoin d'interroger SnapTrade.
+    expect(h.getUserAccountOrders).not.toHaveBeenCalled();
   });
 });
