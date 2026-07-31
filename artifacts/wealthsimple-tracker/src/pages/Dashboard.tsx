@@ -22,6 +22,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import LiveTicker from "@/components/LiveTicker";
+import CommandCenter from "@/components/CommandCenter";
 import TradeModal from "@/components/TradeModal";
 import type { Quote } from "@workspace/api-client-react";
 import SectorHeatmap from "@/components/SectorHeatmap";
@@ -1007,6 +1008,9 @@ export default function Dashboard() {
             Actualiser
           </motion.button>
         </motion.div>
+
+        {/* Centre de commande — P&L du jour, coupe-circuit, limite de perte */}
+        <CommandCenter />
 
         {/* Market status */}
         <MarketStatusSection />
