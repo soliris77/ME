@@ -14,4 +14,5 @@
 - [Motion system frontend](motion-system.md) — variants partagés src/lib/motion.ts; reduced-motion via MotionConfig racine + useReducedMotion (pas automatique); easings `as const`.
 - [Alertes en arrière-plan](background-alerts.md) — poll fiable = page (≥60 s survit au throttling) ; timers SW non fiables ; periodicsync = bonus ; navigateur fermé → Web Push.
 - [Confirmation des ventes protectrices](api-server-tests.md) — "accepted" de submitOrder peut cacher un ordre en erreur ; ne jamais effacer une position sans vérifier order.status.
+- [Suggestion de stop-loss](stop-suggestion.md) — un « plus bas 20 jours » exige un historique quotidien dédié (range=1mo), jamais la plage visible du graphique (bougies hebdo/mensuelles en 6m/1a).
 - [Auto-Trader System](auto-trader-system.md) — tables auto_trade_rules + auto_trade_logs; worker 60s; routes /api/auto-trader/*; page /auto-trader; SMS Twilio sur signal.

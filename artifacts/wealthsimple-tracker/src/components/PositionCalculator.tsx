@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { X, Calculator, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { suggestStopLoss } from "@/lib/stopSuggestion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -7,6 +8,10 @@ interface Props {
   onClose: () => void;
   defaultEntryPrice?: number;
   symbol?: string;
+  /** Plus bas récent (ex. plus bas 20 jours) pour suggérer un stop-loss. */
+  recentLow?: number;
+  /** Libellé de la source du plus bas (ex. "plus bas 20 jours"). */
+  recentLowLabel?: string;
 }
 
 // ─── Résultat d'un champ affiché ──────────────────────────────────────────────
@@ -38,11 +43,22 @@ function ResultItem({
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function PositionCalculator({ onClose, defaultEntryPrice, symbol }: Props) {
+export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentLow, recentLowLabel }: Props) {
+  const suggestion = useMemo(
+    () => suggestStopLoss(defaultEntryPrice, recentLow, recentLowLabel),
+    [defaultEntryPrice, recentLow, recentLowLabel]
+  );
   const [capital,     setCapital]     = useState("10000");
   const [riskPct,     setRiskPct]     = useState("1");
   const [entryPrice,  setEntryPrice]  = useState(defaultEntryPrice?.toFixed(2) ?? "");
-  const [stopPrice,   setStopPrice]   = useState("");
+  const [stopPrice,   setStopPrice]   = useState(suggestion ? suggestion.value.toFixed(2) : "");
+  const stopTouched = useRef(false);
+
+  // Le plus bas 20 jours arrive de façon asynchrone : applique la suggestion
+  // tant que l'utilisateur n'a pas modifié le champ lui-même.
+  useEffect(() => {
+    if (suggestion && !stopTouched.current) setStopPrice(suggestion.value.toFixed(2));
+  }, [suggestion]);
   const [targetPrice, setTargetPrice] = useState("");
 
   const calc = useMemo(() => {
@@ -149,12 +165,18 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol }: Props
               {stopErr && <span className="text-red-400 ml-1 normal-case font-normal">↑ doit être &lt; entrée</span>}
             </label>
             <input
-              type="number" value={stopPrice} onChange={(e) => setStopPrice(e.target.value)}
+              type="number" value={stopPrice}
+              onChange={(e) => { stopTouched.current = true; setStopPrice(e.target.value); }}
               className={`w-full px-3 py-2.5 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 font-mono ${
                 stopErr ? "border-red-500/50 focus:ring-red-500/30" : "border-input focus:ring-ring"
               }`}
               placeholder="0.00" step="0.01"
             />
+            {suggestion && (
+              <p className="text-[10px] text-muted-foreground/70 mt-1">
+                Suggestion : <span className="font-mono">${suggestion.value.toFixed(2)}</span> ({suggestion.source})
+              </p>
+            )}
           </div>
           <div className="col-span-2">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">

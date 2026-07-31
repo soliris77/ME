@@ -32,6 +32,7 @@ import type { CandlePattern } from "@/lib/patternDetect";
 import { useChartNotes, useAddChartNote, useDeleteChartNote } from "@/lib/useChartNotes";
 import type { ChartNoteItem } from "@/lib/useChartNotes";
 import NoteModal from "@/components/NoteModal";
+import { twentyDayLow } from "@/lib/stopSuggestion";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -347,6 +348,11 @@ export default function QuoteDetail() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: !!decodedSymbol, refetchInterval: 5_000 } as any,
   });
+  // Historique quotidien dédié pour la suggestion de stop-loss (chargé à l'ouverture du calculateur)
+  const { data: dailyHistory = [] } = useGetQuoteHistory(decodedSymbol, "1mo", {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: !!decodedSymbol && showCalculator, staleTime: 60_000 } as any,
+  });
   const { data: symbolNews = [] } = useGetMarketNews(
     { tickers: decodedSymbol, limit: 5 },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -416,6 +422,13 @@ export default function QuoteDetail() {
     }
     return [...byIdx.values()].filter((p) => !!simpleChartData[p.idx]);
   }, [ohlcHistory, simpleChartData]);
+
+  // Plus bas 20 jours pour la suggestion de stop-loss du calculateur —
+  // historique quotidien dédié (1 mois), indépendant de la plage du graphique.
+  const low20d = useMemo(
+    () => twentyDayLow(dailyHistory.map((p) => ({ date: p.date, low: p.low ?? null }))),
+    [dailyHistory]
+  );
 
   // ── Trade handler ─────────────────────────────────────────────────────────
   const handleTrade = useCallback(
@@ -992,6 +1005,8 @@ export default function QuoteDetail() {
         <PositionCalculator
           symbol={quote.symbol}
           defaultEntryPrice={quote.price ?? undefined}
+          recentLow={low20d}
+          recentLowLabel="plus bas 20 jours"
           onClose={() => setShowCalculator(false)}
         />
       )}
