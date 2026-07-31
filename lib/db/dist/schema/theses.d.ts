@@ -127,8 +127,8 @@ export declare const investmentThesesTable: import("drizzle-orm/pg-core").PgTabl
 }>;
 export declare const insertThesisSchema: z.ZodObject<{
     symbol: z.ZodString;
-    reason: z.ZodString;
     targetPrice: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    reason: z.ZodString;
     invalidationPrice: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, {
     out: {};
