@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Cinzel:wght@400;500;600;700&display=swap');
+
+/* ─── Soliris Market — Dark Mode Tokens ─── */
+:root {
+  /* Dark theme values from Wealthsimple Tracker */
+  --background: 220 29% 6%;
+  --foreground: 230 10% 92%;
+  --border: 226 23% 18%;
+  --card: 224 28% 10%;
+  --card-foreground: 230 10% 92%;
+  --card-border: 226 23% 18%;
+  --primary: 43 66% 50%;
+  --primary-foreground: 224 32% 5%;
+  --secondary: 225 28% 14%;
+  --secondary-foreground: 230 10% 82%;
+  --muted: 225 24% 13%;
+  --muted-foreground: 225 13% 60%;
+
+  --app-font-sans: 'Instrument Sans', system-ui, sans-serif;
+  --app-font-serif: 'Cormorant Garamond', Georgia, serif;
+  --app-font-mono: 'IBM Plex Mono', 'JetBrains Mono', Menlo, monospace;
+  --radius: 0.5rem;
+}
+
+/* ─── Brand typography ─── */
+.brand-serif { font-family: var(--app-font-serif); }
+.brand-mark {
+  font-family: 'Cinzel', 'Cormorant Garamond', var(--app-font-serif);
+  letter-spacing: 0.18em;
+}
+
+/* ─── Section divider ─── */
+.section-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+.section-rule::before {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 1px;
+  background: hsl(var(--primary) / 0.35);
+  flex-shrink: 0;
+}
+.section-rule::after {
+  content: "";
+  display: block;
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border) / 0.6);
+}
+
+/* ─── Gain / Loss colours ─── */
+.gain { color: #16A34A; }
+.loss { color: #DC2626; }
+
+/* ─── Pulse animation ─── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+.live-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* ─── Counter animation ─── */
+@keyframes counter-flash-gain {
+  0% { color: #16A34A; transform: scale(1.05); }
+  100% { color: inherit; transform: scale(1); }
+}
+@keyframes counter-flash-loss {
+  0% { color: #DC2626; transform: scale(1.05); }
+  100% { color: inherit; transform: scale(1); }
+}
+.counter-flash-gain { animation: counter-flash-gain 0.5s ease-out; }
+.counter-flash-loss { animation: counter-flash-loss 0.5s ease-out; }
