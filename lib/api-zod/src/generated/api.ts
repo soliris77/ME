@@ -273,6 +273,53 @@ export const RemoveFromWatchlistResponse = zod.void()
 
 
 /**
+ * @summary Get all watchlist lists in display order
+ */
+export const GetWatchlistListsResponseItem = zod.object({
+  "name": zod.string(),
+  "position": zod.number()
+})
+export const GetWatchlistListsResponse = zod.array(GetWatchlistListsResponseItem)
+
+
+/**
+ * @summary Persist the display order of watchlist lists
+ */
+export const ReorderWatchlistListsBody = zod.object({
+  "names": zod.array(zod.string())
+})
+
+export const ReorderWatchlistListsResponseItem = zod.object({
+  "name": zod.string(),
+  "position": zod.number()
+})
+export const ReorderWatchlistListsResponse = zod.array(ReorderWatchlistListsResponseItem)
+
+
+/**
+ * @summary Rename a watchlist list for all its items
+ */
+export const RenameWatchlistListBody = zod.object({
+  "oldName": zod.string(),
+  "newName": zod.string()
+})
+
+export const RenameWatchlistListResponse = zod.object({
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Delete an empty watchlist list
+ */
+export const DeleteWatchlistListParams = zod.object({
+  "name": zod.coerce.string()
+})
+
+export const DeleteWatchlistListResponse = zod.void()
+
+
+/**
  * @summary Get chart notes for a symbol
  */
 export const GetNotesQueryParams = zod.object({
@@ -361,7 +408,7 @@ export const GetAlertsResponseItem = zod.object({
   "id": zod.number(),
   "symbol": zod.string(),
   "name": zod.string().nullish(),
-  "alertType": zod.enum(['price', 'pattern']),
+  "alertType": zod.enum(['price', 'pattern', 'signal']),
   "condition": zod.union([zod.literal('above'),zod.literal('below'),zod.literal(null)]).nullish(),
   "targetPrice": zod.number().nullish(),
   "patternSignal": zod.union([zod.literal('haussier'),zod.literal('baissier'),zod.literal(null)]).nullish(),
@@ -381,7 +428,7 @@ export const GetAlertsResponse = zod.array(GetAlertsResponseItem)
 export const CreateAlertBody = zod.object({
   "symbol": zod.string(),
   "name": zod.string().optional(),
-  "alertType": zod.enum(['price', 'pattern']).optional(),
+  "alertType": zod.enum(['price', 'pattern', 'signal']).optional(),
   "condition": zod.enum(['above', 'below']).optional(),
   "targetPrice": zod.number().optional(),
   "patternSignal": zod.enum(['haussier', 'baissier']).optional(),
@@ -394,7 +441,7 @@ export const CreateAlertResponse = zod.object({
   "id": zod.number(),
   "symbol": zod.string(),
   "name": zod.string().nullish(),
-  "alertType": zod.enum(['price', 'pattern']),
+  "alertType": zod.enum(['price', 'pattern', 'signal']),
   "condition": zod.union([zod.literal('above'),zod.literal('below'),zod.literal(null)]).nullish(),
   "targetPrice": zod.number().nullish(),
   "patternSignal": zod.union([zod.literal('haussier'),zod.literal('baissier'),zod.literal(null)]).nullish(),
@@ -428,7 +475,7 @@ export const GetTriggeredAlertsResponse = zod.object({
   "id": zod.number(),
   "symbol": zod.string(),
   "name": zod.string().nullish(),
-  "alertType": zod.enum(['price', 'pattern']),
+  "alertType": zod.enum(['price', 'pattern', 'signal']),
   "condition": zod.union([zod.literal('above'),zod.literal('below'),zod.literal(null)]).nullish(),
   "targetPrice": zod.number().nullish(),
   "patternSignal": zod.union([zod.literal('haussier'),zod.literal('baissier'),zod.literal(null)]).nullish(),

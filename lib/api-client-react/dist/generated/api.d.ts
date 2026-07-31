@@ -1,5 +1,5 @@
 import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import type { Alert, AlertInput, ChartNote, ChartNoteInput, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarketOverview, NewsItem, Quote, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem } from './api.schemas';
+import type { Alert, AlertInput, ChartNote, ChartNoteInput, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarketOverview, NewsItem, Quote, RenameWatchlistList200, RenameWatchlistListBody, ReorderWatchlistListsBody, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem, WatchlistList } from './api.schemas';
 import type { ErrorType, BodyType } from '../custom-fetch';
 type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -248,6 +248,101 @@ export declare const useRemoveFromWatchlist: <TError = ErrorType<unknown>, TCont
     }, TContext>;
 }) => UseMutationResult<Awaited<ReturnType<typeof removeFromWatchlist>>, TError, {
     id: number;
+}, TContext>;
+export declare const getGetWatchlistListsUrl: () => string;
+/**
+ * @summary Get all watchlist lists in display order
+ */
+export declare const getWatchlistLists: (options?: RequestInit) => Promise<WatchlistList[]>;
+export declare const getGetWatchlistListsQueryKey: () => readonly ["/api/watchlist/lists"];
+export declare const getGetWatchlistListsQueryOptions: <TData = Awaited<ReturnType<typeof getWatchlistLists>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getWatchlistLists>>, TError, TData>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getWatchlistLists>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetWatchlistListsQueryResult = NonNullable<Awaited<ReturnType<typeof getWatchlistLists>>>;
+export type GetWatchlistListsQueryError = ErrorType<unknown>;
+/**
+ * @summary Get all watchlist lists in display order
+ */
+export declare function useGetWatchlistLists<TData = Awaited<ReturnType<typeof getWatchlistLists>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getWatchlistLists>>, TError, TData>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getReorderWatchlistListsUrl: () => string;
+/**
+ * @summary Persist the display order of watchlist lists
+ */
+export declare const reorderWatchlistLists: (reorderWatchlistListsBody: ReorderWatchlistListsBody, options?: RequestInit) => Promise<WatchlistList[]>;
+export declare const getReorderWatchlistListsMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError, {
+        data: BodyType<ReorderWatchlistListsBody>;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError, {
+    data: BodyType<ReorderWatchlistListsBody>;
+}, TContext>;
+export type ReorderWatchlistListsMutationResult = NonNullable<Awaited<ReturnType<typeof reorderWatchlistLists>>>;
+export type ReorderWatchlistListsMutationBody = BodyType<ReorderWatchlistListsBody>;
+export type ReorderWatchlistListsMutationError = ErrorType<unknown>;
+/**
+* @summary Persist the display order of watchlist lists
+*/
+export declare const useReorderWatchlistLists: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError, {
+        data: BodyType<ReorderWatchlistListsBody>;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError, {
+    data: BodyType<ReorderWatchlistListsBody>;
+}, TContext>;
+export declare const getRenameWatchlistListUrl: () => string;
+/**
+ * @summary Rename a watchlist list for all its items
+ */
+export declare const renameWatchlistList: (renameWatchlistListBody: RenameWatchlistListBody, options?: RequestInit) => Promise<RenameWatchlistList200>;
+export declare const getRenameWatchlistListMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof renameWatchlistList>>, TError, {
+        data: BodyType<RenameWatchlistListBody>;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof renameWatchlistList>>, TError, {
+    data: BodyType<RenameWatchlistListBody>;
+}, TContext>;
+export type RenameWatchlistListMutationResult = NonNullable<Awaited<ReturnType<typeof renameWatchlistList>>>;
+export type RenameWatchlistListMutationBody = BodyType<RenameWatchlistListBody>;
+export type RenameWatchlistListMutationError = ErrorType<unknown>;
+/**
+* @summary Rename a watchlist list for all its items
+*/
+export declare const useRenameWatchlistList: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof renameWatchlistList>>, TError, {
+        data: BodyType<RenameWatchlistListBody>;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof renameWatchlistList>>, TError, {
+    data: BodyType<RenameWatchlistListBody>;
+}, TContext>;
+export declare const getDeleteWatchlistListUrl: (name: string) => string;
+/**
+ * @summary Delete an empty watchlist list
+ */
+export declare const deleteWatchlistList: (name: string, options?: RequestInit) => Promise<void>;
+export declare const getDeleteWatchlistListMutationOptions: <TError = ErrorType<void>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteWatchlistList>>, TError, {
+        name: string;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteWatchlistList>>, TError, {
+    name: string;
+}, TContext>;
+export type DeleteWatchlistListMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWatchlistList>>>;
+export type DeleteWatchlistListMutationError = ErrorType<void>;
+/**
+* @summary Delete an empty watchlist list
+*/
+export declare const useDeleteWatchlistList: <TError = ErrorType<void>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteWatchlistList>>, TError, {
+        name: string;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteWatchlistList>>, TError, {
+    name: string;
 }, TContext>;
 export declare const getGetNotesUrl: (params: GetNotesParams) => string;
 /**

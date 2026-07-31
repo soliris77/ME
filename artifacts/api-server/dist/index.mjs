@@ -59349,6 +59349,30 @@ var RemoveFromWatchlistParams = objectType({
   "id": coerce.number()
 });
 var RemoveFromWatchlistResponse = voidType();
+var GetWatchlistListsResponseItem = objectType({
+  "name": stringType(),
+  "position": numberType()
+});
+var GetWatchlistListsResponse = arrayType(GetWatchlistListsResponseItem);
+var ReorderWatchlistListsBody = objectType({
+  "names": arrayType(stringType())
+});
+var ReorderWatchlistListsResponseItem = objectType({
+  "name": stringType(),
+  "position": numberType()
+});
+var ReorderWatchlistListsResponse = arrayType(ReorderWatchlistListsResponseItem);
+var RenameWatchlistListBody = objectType({
+  "oldName": stringType(),
+  "newName": stringType()
+});
+var RenameWatchlistListResponse = objectType({
+  "name": stringType()
+});
+var DeleteWatchlistListParams = objectType({
+  "name": coerce.string()
+});
+var DeleteWatchlistListResponse = voidType();
 var GetNotesQueryParams = objectType({
   "symbol": coerce.string()
 });
@@ -59405,7 +59429,7 @@ var GetAlertsResponseItem = objectType({
   "id": numberType(),
   "symbol": stringType(),
   "name": stringType().nullish(),
-  "alertType": enumType(["price", "pattern"]),
+  "alertType": enumType(["price", "pattern", "signal"]),
   "condition": unionType([literalType("above"), literalType("below"), literalType(null)]).nullish(),
   "targetPrice": numberType().nullish(),
   "patternSignal": unionType([literalType("haussier"), literalType("baissier"), literalType(null)]).nullish(),
@@ -59420,7 +59444,7 @@ var GetAlertsResponse = arrayType(GetAlertsResponseItem);
 var CreateAlertBody = objectType({
   "symbol": stringType(),
   "name": stringType().optional(),
-  "alertType": enumType(["price", "pattern"]).optional(),
+  "alertType": enumType(["price", "pattern", "signal"]).optional(),
   "condition": enumType(["above", "below"]).optional(),
   "targetPrice": numberType().optional(),
   "patternSignal": enumType(["haussier", "baissier"]).optional(),
@@ -59432,7 +59456,7 @@ var CreateAlertResponse = objectType({
   "id": numberType(),
   "symbol": stringType(),
   "name": stringType().nullish(),
-  "alertType": enumType(["price", "pattern"]),
+  "alertType": enumType(["price", "pattern", "signal"]),
   "condition": unionType([literalType("above"), literalType("below"), literalType(null)]).nullish(),
   "targetPrice": numberType().nullish(),
   "patternSignal": unionType([literalType("haussier"), literalType("baissier"), literalType(null)]).nullish(),
@@ -59454,7 +59478,7 @@ var GetTriggeredAlertsResponse = objectType({
   "id": numberType(),
   "symbol": stringType(),
   "name": stringType().nullish(),
-  "alertType": enumType(["price", "pattern"]),
+  "alertType": enumType(["price", "pattern", "signal"]),
   "condition": unionType([literalType("above"), literalType("below"), literalType(null)]).nullish(),
   "targetPrice": numberType().nullish(),
   "patternSignal": unionType([literalType("haussier"), literalType("baissier"), literalType(null)]).nullish(),
@@ -93772,6 +93796,7 @@ __export(schema_exports, {
   ordersTable: () => ordersTable,
   rejectedSignalsTable: () => rejectedSignalsTable,
   spotifyConnectionsTable: () => spotifyConnectionsTable,
+  watchlistListsTable: () => watchlistListsTable,
   watchlistTable: () => watchlistTable
 });
 
@@ -105174,6 +105199,11 @@ var watchlistTable = pgTable("watchlist", {
   listName: text("list_name").default("G\xE9n\xE9ral").notNull(),
   addedAt: timestamp("added_at").defaultNow().notNull()
 });
+var watchlistListsTable = pgTable("watchlist_lists", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  position: integer("position").notNull().default(0)
+});
 var insertWatchlistSchema = createInsertSchema(watchlistTable).omit({ id: true, addedAt: true });
 
 // ../../lib/db/src/schema/alerts.ts
@@ -112292,6 +112322,91 @@ var news_default = router4;
 var import_express5 = __toESM(require_express2(), 1);
 init_drizzle_orm();
 var router5 = (0, import_express5.Router)();
+var DEFAULT_LIST = "G\xE9n\xE9ral";
+async function getMergedLists() {
+  const [stored, items] = await Promise.all([
+    db.select().from(watchlistListsTable).orderBy(watchlistListsTable.position, watchlistListsTable.id),
+    db.select({ listName: watchlistTable.listName }).from(watchlistTable)
+  ]);
+  const names = stored.map((l) => l.name);
+  const implicit = new Set(items.map((i) => i.listName || DEFAULT_LIST));
+  for (const n of names) implicit.delete(n);
+  const extra = Array.from(implicit).sort(
+    (a, b) => a === DEFAULT_LIST ? -1 : b === DEFAULT_LIST ? 1 : a.localeCompare(b)
+  );
+  return [...names, ...extra];
+}
+router5.get("/watchlist/lists", async (req, res) => {
+  try {
+    const names = await getMergedLists();
+    return res.json(names.map((name2, position) => ({ name: name2, position })));
+  } catch (err) {
+    req.log.error({ err }, "Failed to get watchlist lists");
+    return res.status(500).json({ error: "Failed to get watchlist lists" });
+  }
+});
+router5.put("/watchlist/lists/order", async (req, res) => {
+  const { names } = req.body;
+  if (!Array.isArray(names) || names.some((n) => typeof n !== "string" || !n.trim())) {
+    return res.status(400).json({ error: "names must be a non-empty string array" });
+  }
+  try {
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < names.length; i++) {
+        const name2 = names[i].trim();
+        await tx.insert(watchlistListsTable).values({ name: name2, position: i }).onConflictDoUpdate({ target: watchlistListsTable.name, set: { position: i } });
+      }
+    });
+    const merged = await getMergedLists();
+    return res.json(merged.map((name2, position) => ({ name: name2, position })));
+  } catch (err) {
+    req.log.error({ err }, "Failed to reorder watchlist lists");
+    return res.status(500).json({ error: "Failed to reorder watchlist lists" });
+  }
+});
+router5.patch("/watchlist/lists/rename", async (req, res) => {
+  const { oldName, newName } = req.body;
+  if (!oldName?.trim() || !newName?.trim()) {
+    return res.status(400).json({ error: "oldName and newName are required" });
+  }
+  const from = oldName.trim();
+  const to = newName.trim();
+  if (from === to) return res.json({ name: to });
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(watchlistTable).set({ listName: to }).where(eq(watchlistTable.listName, from));
+      const [existingTarget] = await tx.select().from(watchlistListsTable).where(eq(watchlistListsTable.name, to));
+      if (existingTarget) {
+        await tx.delete(watchlistListsTable).where(eq(watchlistListsTable.name, from));
+      } else {
+        const updated = await tx.update(watchlistListsTable).set({ name: to }).where(eq(watchlistListsTable.name, from)).returning();
+        if (updated.length === 0) {
+          const [{ max: max2 }] = await tx.select({ max: sql`coalesce(max(${watchlistListsTable.position}), -1)` }).from(watchlistListsTable);
+          await tx.insert(watchlistListsTable).values({ name: to, position: Number(max2) + 1 });
+        }
+      }
+    });
+    return res.json({ name: to });
+  } catch (err) {
+    req.log.error({ err }, "Failed to rename watchlist list");
+    return res.status(500).json({ error: "Failed to rename watchlist list" });
+  }
+});
+router5.delete("/watchlist/lists/:name", async (req, res) => {
+  const name2 = decodeURIComponent(req.params.name || "").trim();
+  if (!name2) return res.status(400).json({ error: "name is required" });
+  try {
+    const items = await db.select({ id: watchlistTable.id }).from(watchlistTable).where(eq(watchlistTable.listName, name2));
+    if (items.length > 0) {
+      return res.status(409).json({ error: "List is not empty" });
+    }
+    await db.delete(watchlistListsTable).where(eq(watchlistListsTable.name, name2));
+    return res.status(204).send();
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete watchlist list");
+    return res.status(500).json({ error: "Failed to delete watchlist list" });
+  }
+});
 router5.get("/watchlist", async (req, res) => {
   try {
     const items = await db.select().from(watchlistTable).orderBy(watchlistTable.addedAt);

@@ -6,6 +6,11 @@ import {
   useGetQuotes,
   useGetQuoteHistory,
   getGetWatchlistQueryKey,
+  useGetWatchlistLists,
+  getGetWatchlistListsQueryKey,
+  useReorderWatchlistLists,
+  useRenameWatchlistList,
+  useDeleteWatchlistList,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { playSound } from "@/lib/sounds";
@@ -297,12 +302,85 @@ export default function Watchlist() {
 
   const quoteMap = Object.fromEntries(quotes.map((q) => [q.symbol, q]));
 
+  // Ordre des listes persisté côté serveur (drag-and-drop des onglets).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: serverLists = [] } = useGetWatchlistLists({ query: { staleTime: 30_000 } as any });
+  const reorder = useReorderWatchlistLists({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetWatchlistListsQueryKey() }),
+    },
+  });
+  const rename = useRenameWatchlistList({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistListsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistQueryKey() });
+        if (activeList === vars.data.oldName) setActiveList(vars.data.newName);
+        playSound("success");
+        toast({ title: "Liste renommée" });
+      },
+      onError: () => { playSound("error"); toast({ title: "Impossible de renommer la liste", variant: "destructive" }); },
+    },
+  });
+  const deleteList = useDeleteWatchlistList({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        queryClient.invalidateQueries({ queryKey: getGetWatchlistListsQueryKey() });
+        if (activeList === vars.name) setActiveList("__all__");
+        playSound("click");
+        toast({ title: "Liste supprimée" });
+      },
+      onError: () => { playSound("error"); toast({ title: "Impossible de supprimer la liste", variant: "destructive" }); },
+    },
+  });
+
+  // Réordonnancement local optimiste pendant le drag, avant confirmation serveur.
+  const [localOrder, setLocalOrder] = useState<string[] | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  // Renommage inline (double-clic).
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
   const lists = useMemo(() => {
-    const s = new Set<string>();
-    watchlist.forEach((w: WatchlistItem) => s.add(w.listName || DEFAULT_LIST));
-    if (s.size === 0) s.add(DEFAULT_LIST);
-    return Array.from(s).sort((a, b) => (a === DEFAULT_LIST ? -1 : b === DEFAULT_LIST ? 1 : a.localeCompare(b)));
-  }, [watchlist]);
+    // Base : ordre serveur, complété par les listes implicites dérivées des actifs.
+    const fromServer = serverLists.map((l) => l.name);
+    const s = new Set<string>(fromServer);
+    watchlist.forEach((w: WatchlistItem) => {
+      const n = w.listName || DEFAULT_LIST;
+      if (!s.has(n)) { s.add(n); fromServer.push(n); }
+    });
+    if (fromServer.length === 0) fromServer.push(DEFAULT_LIST);
+    if (localOrder) {
+      // Applique l'ordre local optimiste, en conservant les nouvelles listes à la fin.
+      const known = localOrder.filter((n) => s.has(n));
+      const rest = fromServer.filter((n) => !known.includes(n));
+      return [...known, ...rest];
+    }
+    return fromServer;
+  }, [watchlist, serverLists, localOrder]);
+
+  const commitReorder = useCallback((names: string[]) => {
+    setLocalOrder(names);
+    reorder.mutate({ data: { names } }, {
+      onSettled: () => setLocalOrder(null),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const startRename = useCallback((name: string) => {
+    setRenaming(name);
+    setRenameValue(name);
+  }, []);
+
+  const commitRename = useCallback(() => {
+    const to = renameValue.trim();
+    if (renaming && to && to !== renaming) {
+      rename.mutate({ data: { oldName: renaming, newName: to } });
+    }
+    setRenaming(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renaming, renameValue]);
 
   const filtered = useMemo(
     () => (activeList === "__all__" ? watchlist : watchlist.filter((w: WatchlistItem) => (w.listName || DEFAULT_LIST) === activeList)),
@@ -376,16 +454,60 @@ export default function Watchlist() {
           </button>
           {lists.map((l) => {
             const count = watchlist.filter((w: WatchlistItem) => (w.listName || DEFAULT_LIST) === l).length;
+            if (renaming === l) {
+              return (
+                <input
+                  key={l}
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    else if (e.key === "Escape") setRenaming(null);
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full border border-primary bg-background focus:outline-none focus:ring-2 focus:ring-ring w-32"
+                />
+              );
+            }
             return (
-              <button
+              <div
                 key={l}
-                onClick={() => setActiveList(l)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                draggable
+                onDragStart={(e) => { setDragging(l); e.dataTransfer.effectAllowed = "move"; }}
+                onDragEnd={() => { setDragging(null); setDragOver(null); }}
+                onDragOver={(e) => { e.preventDefault(); if (dragging && dragging !== l) setDragOver(l); }}
+                onDragLeave={() => { if (dragOver === l) setDragOver(null); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(null);
+                  if (!dragging || dragging === l) return;
+                  const next = lists.filter((n) => n !== dragging);
+                  next.splice(next.indexOf(l) + (lists.indexOf(dragging) < lists.indexOf(l) ? 1 : 0), 0, dragging);
+                  commitReorder(next);
+                }}
+                className={`group/tab relative flex items-center rounded-full border transition-colors cursor-grab active:cursor-grabbing select-none ${
                   activeList === l ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                }`}
+                } ${dragging === l ? "opacity-40" : ""} ${dragOver === l ? "ring-2 ring-primary/50" : ""}`}
+                title="Glisser pour réorganiser · double-clic pour renommer"
               >
-                {l} ({count})
-              </button>
+                <button
+                  onClick={() => setActiveList(l)}
+                  onDoubleClick={(e) => { e.preventDefault(); startRename(l); }}
+                  className={`px-3 py-1.5 text-xs font-medium ${count === 0 ? "pr-1" : ""}`}
+                >
+                  {l} ({count})
+                </button>
+                {count === 0 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteList.mutate({ name: l }); }}
+                    className="opacity-0 group-hover/tab:opacity-100 mr-1.5 p-0.5 rounded-full hover:bg-destructive/15 hover:text-destructive transition-all"
+                    title="Supprimer cette liste vide"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

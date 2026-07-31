@@ -34,11 +34,15 @@ import type {
   MarketOverview,
   NewsItem,
   Quote,
+  RenameWatchlistList200,
+  RenameWatchlistListBody,
+  ReorderWatchlistListsBody,
   SearchResult,
   SearchSymbolsParams,
   UpdateWatchlistItemBody,
   WatchlistInput,
-  WatchlistItem
+  WatchlistItem,
+  WatchlistList
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -917,6 +921,293 @@ export const useRemoveFromWatchlist = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRemoveFromWatchlistMutationOptions(options));
+    }
+
+export const getGetWatchlistListsUrl = () => {
+
+
+
+
+  return `/api/watchlist/lists`
+}
+
+/**
+ * @summary Get all watchlist lists in display order
+ */
+export const getWatchlistLists = async ( options?: RequestInit): Promise<WatchlistList[]> => {
+
+  return customFetch<WatchlistList[]>(getGetWatchlistListsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWatchlistListsQueryKey = () => {
+    return [
+    `/api/watchlist/lists`
+    ] as const;
+    }
+
+
+export const getGetWatchlistListsQueryOptions = <TData = Awaited<ReturnType<typeof getWatchlistLists>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWatchlistLists>>, TError, TData>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWatchlistListsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWatchlistLists>>> = ({ signal }) => getWatchlistLists({ signal });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWatchlistLists>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWatchlistListsQueryResult = NonNullable<Awaited<ReturnType<typeof getWatchlistLists>>>
+export type GetWatchlistListsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get all watchlist lists in display order
+ */
+
+export function useGetWatchlistLists<TData = Awaited<ReturnType<typeof getWatchlistLists>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWatchlistLists>>, TError, TData>, }
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWatchlistListsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReorderWatchlistListsUrl = () => {
+
+
+
+
+  return `/api/watchlist/lists/order`
+}
+
+/**
+ * @summary Persist the display order of watchlist lists
+ */
+export const reorderWatchlistLists = async (reorderWatchlistListsBody: ReorderWatchlistListsBody, options?: RequestInit): Promise<WatchlistList[]> => {
+
+  return customFetch<WatchlistList[]>(getReorderWatchlistListsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reorderWatchlistListsBody)
+  }
+);}
+
+
+
+
+export const getReorderWatchlistListsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError,{data: BodyType<ReorderWatchlistListsBody>}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError,{data: BodyType<ReorderWatchlistListsBody>}, TContext> => {
+
+const mutationKey = ['reorderWatchlistLists'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderWatchlistLists>>, {data: BodyType<ReorderWatchlistListsBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reorderWatchlistLists(data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderWatchlistListsMutationResult = NonNullable<Awaited<ReturnType<typeof reorderWatchlistLists>>>
+    export type ReorderWatchlistListsMutationBody = BodyType<ReorderWatchlistListsBody>
+    export type ReorderWatchlistListsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Persist the display order of watchlist lists
+ */
+export const useReorderWatchlistLists = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderWatchlistLists>>, TError,{data: BodyType<ReorderWatchlistListsBody>}, TContext>, }
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderWatchlistLists>>,
+        TError,
+        {data: BodyType<ReorderWatchlistListsBody>},
+        TContext
+      > => {
+      return useMutation(getReorderWatchlistListsMutationOptions(options));
+    }
+
+export const getRenameWatchlistListUrl = () => {
+
+
+
+
+  return `/api/watchlist/lists/rename`
+}
+
+/**
+ * @summary Rename a watchlist list for all its items
+ */
+export const renameWatchlistList = async (renameWatchlistListBody: RenameWatchlistListBody, options?: RequestInit): Promise<RenameWatchlistList200> => {
+
+  return customFetch<RenameWatchlistList200>(getRenameWatchlistListUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(renameWatchlistListBody)
+  }
+);}
+
+
+
+
+export const getRenameWatchlistListMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameWatchlistList>>, TError,{data: BodyType<RenameWatchlistListBody>}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof renameWatchlistList>>, TError,{data: BodyType<RenameWatchlistListBody>}, TContext> => {
+
+const mutationKey = ['renameWatchlistList'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameWatchlistList>>, {data: BodyType<RenameWatchlistListBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  renameWatchlistList(data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameWatchlistListMutationResult = NonNullable<Awaited<ReturnType<typeof renameWatchlistList>>>
+    export type RenameWatchlistListMutationBody = BodyType<RenameWatchlistListBody>
+    export type RenameWatchlistListMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rename a watchlist list for all its items
+ */
+export const useRenameWatchlistList = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameWatchlistList>>, TError,{data: BodyType<RenameWatchlistListBody>}, TContext>, }
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renameWatchlistList>>,
+        TError,
+        {data: BodyType<RenameWatchlistListBody>},
+        TContext
+      > => {
+      return useMutation(getRenameWatchlistListMutationOptions(options));
+    }
+
+export const getDeleteWatchlistListUrl = (name: string,) => {
+
+
+
+
+  return `/api/watchlist/lists/${name}`
+}
+
+/**
+ * @summary Delete an empty watchlist list
+ */
+export const deleteWatchlistList = async (name: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWatchlistListUrl(name),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteWatchlistListMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWatchlistList>>, TError,{name: string}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWatchlistList>>, TError,{name: string}, TContext> => {
+
+const mutationKey = ['deleteWatchlistList'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWatchlistList>>, {name: string}> = (props) => {
+          const {name} = props ?? {};
+
+          return  deleteWatchlistList(name,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWatchlistListMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWatchlistList>>>
+
+    export type DeleteWatchlistListMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete an empty watchlist list
+ */
+export const useDeleteWatchlistList = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWatchlistList>>, TError,{name: string}, TContext>, }
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWatchlistList>>,
+        TError,
+        {name: string},
+        TContext
+      > => {
+      return useMutation(getDeleteWatchlistListMutationOptions(options));
     }
 
 export const getGetNotesUrl = (params: GetNotesParams,) => {

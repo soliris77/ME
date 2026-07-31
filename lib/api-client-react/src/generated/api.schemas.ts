@@ -110,6 +110,11 @@ export interface WatchlistItem {
   addedAt: string;
 }
 
+export interface WatchlistList {
+  name: string;
+  position: number;
+}
+
 export interface WatchlistInput {
   symbol: string;
   name: string;
@@ -283,6 +288,19 @@ limit?: number;
 
 export type UpdateWatchlistItemBody = {
   listName: string;
+};
+
+export type ReorderWatchlistListsBody = {
+  names: string[];
+};
+
+export type RenameWatchlistListBody = {
+  oldName: string;
+  newName: string;
+};
+
+export type RenameWatchlistList200 = {
+  name: string;
 };
 
 export type GetNotesParams = {

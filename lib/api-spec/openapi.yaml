@@ -239,6 +239,94 @@ paths:
         "204":
           description: Removed
 
+  /watchlist/lists:
+    get:
+      operationId: getWatchlistLists
+      tags: [watchlist]
+      summary: Get all watchlist lists in display order
+      responses:
+        "200":
+          description: Ordered lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WatchlistList"
+
+  /watchlist/lists/order:
+    put:
+      operationId: reorderWatchlistLists
+      tags: [watchlist]
+      summary: Persist the display order of watchlist lists
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [names]
+              properties:
+                names:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: New ordered lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WatchlistList"
+
+  /watchlist/lists/rename:
+    patch:
+      operationId: renameWatchlistList
+      tags: [watchlist]
+      summary: Rename a watchlist list for all its items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldName, newName]
+              properties:
+                oldName:
+                  type: string
+                newName:
+                  type: string
+      responses:
+        "200":
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name]
+                properties:
+                  name:
+                    type: string
+
+  /watchlist/lists/{name}:
+    delete:
+      operationId: deleteWatchlistList
+      tags: [watchlist]
+      summary: Delete an empty watchlist list
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+        "409":
+          description: List is not empty
+
   /notes:
     get:
       operationId: getNotes
@@ -556,6 +644,15 @@ components:
         addedAt:
           type: string
 
+    WatchlistList:
+      type: object
+      required: [name, position]
+      properties:
+        name:
+          type: string
+        position:
+          type: integer
+
     WatchlistInput:
       type: object
       required: [symbol, name]
@@ -635,7 +732,7 @@ components:
           type: ["string", "null"]
         alertType:
           type: string
-          enum: [price, pattern]
+          enum: [price, pattern, signal]
         condition:
           type: ["string", "null"]
           enum: [above, below, null]
@@ -668,7 +765,7 @@ components:
           type: string
         alertType:
           type: string
-          enum: [price, pattern]
+          enum: [price, pattern, signal]
         condition:
           type: string
           enum: [above, below]
