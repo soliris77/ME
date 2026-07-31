@@ -227,6 +227,10 @@ export interface PlaceOrderParams {
   quantity: number;
   orderType?: "Market" | "Limit" | "Stop" | "StopLimit";
   limitPrice?: number;
+  /** Prix de déclenchement — requis pour Stop / StopLimit */
+  stopPrice?: number;
+  /** Durée de validité — "Day" (défaut) ou "GTC" (stops de protection persistants) */
+  timeInForce?: "Day" | "GTC";
   /** Client-side idempotency key (signal ID) */
   clientOrderId?: string;
 }
@@ -252,10 +256,11 @@ export async function placeOrder(params: PlaceOrderParams) {
     account_id: params.accountId,
     action: params.side, // "BUY" | "SELL"
     order_type: params.orderType ?? "Market",
-    time_in_force: "Day",
+    time_in_force: params.timeInForce ?? "Day",
     symbol: params.symbol,
     units: params.quantity,
     ...(params.limitPrice != null ? { price: params.limitPrice } : {}),
+    ...(params.stopPrice != null ? { stop: params.stopPrice } : {}),
     ...(params.clientOrderId != null ? { client_order_id: params.clientOrderId } : {}),
   });
 

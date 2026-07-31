@@ -219,7 +219,10 @@ export default function TradeModal({
       setQty(defaultQuantity && defaultQuantity > 0 ? String(defaultQuantity) : "1");
       setResult(null);
       setRejection(null);
+      setStopResult(null);
+      setStopRejection(null);
       protectMut.reset();
+      stopOrderMut.reset();
     }
   }, [open]);
 
@@ -277,6 +280,51 @@ export default function TradeModal({
       return res.json();
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: getGetAlertsQueryKey() }),
+  });
+
+  /* Ordre stop réel au courtier — protection ferme au stop du calculateur.
+     Contrairement à l'alerte, l'ordre est soumis via le même pipeline que les
+     achats (garde-fous, paper/live, coupe-circuit). On vérifie toujours
+     order.status au retour — jamais de succès supposé. */
+  const [stopResult,    setStopResult]    = useState<TradeResult | null>(null);
+  const [stopRejection, setStopRejection] = useState<{ message: string; reason: string } | null>(null);
+  const [stopSignalId]  = useState(() => crypto.randomUUID());
+
+  const stopOrderMut = useMutation({
+    mutationFn: async () => {
+      setStopRejection(null);
+      const executedQty = result ? parseFloat(result.quantity) : 0;
+      const body = {
+        signalId: stopSignalId,
+        symbol,
+        side: "SELL",
+        quantity: executedQty > 0 ? executedQty : parseFloat(qty) || 0,
+        accountId: accountId || undefined,
+        orderType: "stop",
+        stopPrice: stopLossPrice,
+        source: "stop-protection",
+      };
+      const res = await fetch(`${BASE}/api/broker/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({ error: "Erreur serveur" }));
+        if (res.status === 422 && payload.rejected) {
+          setStopRejection({ message: payload.error ?? "Ordre refusé", reason: payload.reason ?? "unknown" });
+          return null;
+        }
+        throw new Error(payload.error ?? "Erreur inconnue");
+      }
+      return res.json() as Promise<TradeResult>;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        setStopResult(data);
+        qc.invalidateQueries({ queryKey: ["broker-orders"] });
+      }
+    },
   });
 
   const cadRateQ    = useCadRate(currency);
@@ -646,6 +694,14 @@ export default function TradeModal({
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 Protéger la position
               </div>
+              <p className="text-[12px] leading-relaxed" style={{ color: MUTED }}>
+                Le calculateur avait fixé le stop-loss à{" "}
+                <strong style={{ ...MONO, color: "#E8E9ED" }}>{stopLossPrice.toFixed(2)} $</strong>.
+                Crée une alerte pour être averti, ou soumets un vrai ordre stop au courtier
+                (vente automatique de {result.quantity} action{parseFloat(result.quantity) !== 1 ? "s" : ""} si le prix passe en dessous).
+              </p>
+
+              {/* Option 1 — Alerte de prix */}
               {protectMut.isSuccess ? (
                 <div className="flex items-center gap-2 text-[12px]" style={{ color: GAIN }}>
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -654,11 +710,6 @@ export default function TradeModal({
                 </div>
               ) : (
                 <>
-                  <p className="text-[12px] leading-relaxed" style={{ color: MUTED }}>
-                    Le calculateur avait fixé le stop-loss à{" "}
-                    <strong style={{ ...MONO, color: "#E8E9ED" }}>{stopLossPrice.toFixed(2)} $</strong>.
-                    Crée l'alerte correspondante pour être averti si le prix passe en dessous.
-                  </p>
                   <button
                     onClick={() => protectMut.mutate()}
                     disabled={protectMut.isPending}
@@ -672,6 +723,71 @@ export default function TradeModal({
                   {protectMut.error && (
                     <p className="text-[11px]" style={{ color: LOSS }}>
                       {String(protectMut.error instanceof Error ? protectMut.error.message : protectMut.error)}
+                    </p>
+                  )}
+                </>
+              )}
+
+              {/* Option 2 — Ordre stop réel au courtier */}
+              {stopResult ? (
+                stopResult.status === "error" ? (
+                  <div className="space-y-1 text-[12px]" style={{ color: LOSS }}>
+                    <div className="flex items-center gap-2 font-semibold">
+                      <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                      Ordre stop refusé par le courtier
+                    </div>
+                    {stopResult.errorMessage && (
+                      <p className="leading-relaxed">
+                        {(() => {
+                          try {
+                            const m = stopResult.errorMessage.match(/"detail"\s*:\s*"([^"]+)"/);
+                            if (m) return m[1];
+                          } catch { /* ignore */ }
+                          return stopResult.errorMessage;
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1 text-[12px]" style={{ color: GAIN }}>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      {stopResult.mode === "paper"
+                        ? <>Ordre stop simulé enregistré à <span style={MONO}>{stopLossPrice.toFixed(2)} $</span></>
+                        : <>Ordre stop soumis au courtier à <span style={MONO}>{stopLossPrice.toFixed(2)} $</span></>}
+                    </div>
+                    <div style={{ ...MONO, color: MUTED, fontSize: 11 }}>
+                      Statut : <strong style={{ color: "#E8E9ED" }}>{stopResult.status}</strong>
+                      {stopResult.snaptradeOrderId && <> · ID SnapTrade : {stopResult.snaptradeOrderId}</>}
+                    </div>
+                  </div>
+                )
+              ) : (
+                <>
+                  <button
+                    onClick={() => stopOrderMut.mutate()}
+                    disabled={stopOrderMut.isPending || (isLive && !isConnected)}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[12px] font-bold tracking-[0.04em] transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A72C]"
+                    style={{ background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.35)", color: "#F87171" }}
+                  >
+                    {stopOrderMut.isPending
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Soumission…</>
+                      : <>Soumettre l'ordre stop au courtier ({stopLossPrice.toFixed(2)} $)</>}
+                  </button>
+                  <p className="text-[10px] leading-relaxed" style={{ color: MUTED }}>
+                    {isLive
+                      ? "Ordre SELL stop réel (GTC — reste actif jusqu'à exécution ou annulation) : vente déclenchée automatiquement par le courtier."
+                      : "Mode paper : l'ordre stop sera simulé, aucun ordre réel."}
+                  </p>
+                  {stopRejection && (
+                    <div className="flex items-start gap-2 text-[11px]" style={{ color: ACCENT }}>
+                      <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>Bloqué par les garde-fous : {stopRejection.message}</span>
+                    </div>
+                  )}
+                  {stopOrderMut.error && (
+                    <p className="text-[11px]" style={{ color: LOSS }}>
+                      {String(stopOrderMut.error instanceof Error ? stopOrderMut.error.message : stopOrderMut.error)}
                     </p>
                   )}
                 </>

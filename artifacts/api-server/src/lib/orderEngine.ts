@@ -34,6 +34,10 @@ export interface SubmitOrderInput {
   expectedPrice?: number;
   /** Provenance : "manual" | "auto-signal" | autre libellé libre */
   source?: string;
+  /** Type d'ordre — "market" (défaut) ou "stop" (SELL stop de protection) */
+  orderType?: "market" | "stop";
+  /** Prix de déclenchement — requis si orderType === "stop" */
+  stopPrice?: number;
   /** Connexion courtier — requise uniquement en mode live */
   brokerConnection?: { snaptradeUserId: string; snaptradeUserSecret: string } | null;
 }
@@ -131,6 +135,16 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity <= 0) {
     throw new OrderValidationError("quantity doit être un nombre positif");
   }
+  const orderType: "market" | "stop" = input.orderType === "stop" ? "stop" : "market";
+  const stopPrice = input.stopPrice;
+  if (orderType === "stop") {
+    if (side !== "SELL") {
+      throw new OrderValidationError("seuls les ordres stop SELL (protection) sont supportés");
+    }
+    if (typeof stopPrice !== "number" || !Number.isFinite(stopPrice) || stopPrice <= 0) {
+      throw new OrderValidationError("stopPrice doit être un nombre positif pour un ordre stop");
+    }
+  }
 
   const mode = getTradingMode();
 
@@ -165,6 +179,24 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
 
   // ── 4) Garde-fous de risque ─────────────────────────────────────────────────
   const risk = await checkOrderRisk({ signalId, symbol: symbol.toUpperCase(), side, quantity, mode, brokerPositions });
+  if (risk.ok && orderType === "stop" && stopPrice != null && stopPrice >= risk.livePrice) {
+    // Un stop SELL de protection doit être STRICTEMENT sous le prix courant :
+    // un stop >= marché serait déclenché immédiatement — c'est-à-dire une
+    // vente market déguisée, jamais l'intention d'un ordre de protection.
+    logger.warn({ signalId, symbol, stopPrice, livePrice: risk.livePrice }, "orderEngine: stop order rejected — stopPrice >= live price");
+    await db.insert(rejectedSignalsTable).values({
+      signalId,
+      symbol: symbol.toUpperCase(),
+      reason: "stop_above_market",
+      details: { stopPrice, livePrice: risk.livePrice, side, quantity, source: source ?? "manual", mode },
+    });
+    return {
+      status: "rejected",
+      reason: "stop_above_market",
+      message: `Le prix de stop (${stopPrice}) doit être strictement inférieur au prix courant (${risk.livePrice}) — sinon l'ordre se déclencherait immédiatement.`,
+      details: { stopPrice, livePrice: risk.livePrice },
+    };
+  }
   if (!risk.ok) {
     await db.insert(rejectedSignalsTable).values({
       signalId,
@@ -186,10 +218,10 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
           symbol: symbol.toUpperCase(),
           side,
           quantity: String(quantity),
-          orderType: "market",
+          orderType,
           mode: "paper",
           status: "simulated",
-          expectedPrice: String(risk.livePrice),
+          expectedPrice: orderType === "stop" ? String(stopPrice) : String(risk.livePrice),
           brokerAccountId: accountId ?? null,
           submittedAt: new Date(),
         })
@@ -224,10 +256,12 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
         symbol: symbol.toUpperCase(),
         side,
         quantity: String(quantity),
-        orderType: "market",
+        orderType,
         mode: "live",
         status: "pending",
-        expectedPrice: expectedPrice != null ? String(expectedPrice) : String(risk.livePrice),
+        expectedPrice: orderType === "stop"
+          ? String(stopPrice)
+          : expectedPrice != null ? String(expectedPrice) : String(risk.livePrice),
         brokerAccountId: accountId,
         submittedAt: new Date(),
       })
@@ -269,6 +303,12 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       side,
       quantity,
       clientOrderId: signalId,
+      // Un stop de protection doit survivre à la séance : GTC, sinon un stop
+      // non exécuté expirerait en fin de journée et la position resterait
+      // sans protection dès le lendemain. Si le courtier ne supporte pas GTC,
+      // SnapTrade renvoie une erreur → l'ordre est marqué "error" et affiché
+      // tel quel (jamais de succès supposé).
+      ...(orderType === "stop" ? { orderType: "Stop" as const, stopPrice, timeInForce: "GTC" as const } : {}),
     });
     snaptradeOrderId = extractSnaptradeOrderId(result);
     if (!snaptradeOrderId) {

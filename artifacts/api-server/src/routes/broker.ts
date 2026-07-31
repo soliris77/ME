@@ -357,6 +357,8 @@ router.post("/broker/orders", async (req, res) => {
       accountId,
       expectedPrice,
       source,
+      orderType,
+      stopPrice,
     } = req.body as {
       signalId?: string;
       symbol?: string;
@@ -365,7 +367,16 @@ router.post("/broker/orders", async (req, res) => {
       accountId?: string;
       expectedPrice?: number;
       source?: string;
+      orderType?: string;
+      stopPrice?: number;
     };
+
+    // Validation stricte du type d'ordre au boundary HTTP — fail closed :
+    // absence => market ; toute autre valeur que "market"/"stop" => 400,
+    // jamais de repli silencieux vers un ordre market réel.
+    if (orderType !== undefined && orderType !== "market" && orderType !== "stop") {
+      return res.status(400).json({ error: `orderType invalide : "${orderType}" (valeurs acceptées : "market", "stop")` });
+    }
 
     // Récupérer la connexion courtier (nécessaire en mode live uniquement,
     // mais on la passe toujours — submitOrder ignore si mode=paper).
@@ -379,6 +390,8 @@ router.post("/broker/orders", async (req, res) => {
       accountId,
       expectedPrice,
       source: source ?? "manual",
+      orderType: orderType === "stop" ? "stop" : "market",
+      stopPrice,
       brokerConnection: conn
         ? { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret }
         : null,

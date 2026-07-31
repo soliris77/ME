@@ -357,6 +357,73 @@ describe("submitOrder — mode live nominal", () => {
     expect(update?.set).toMatchObject({ status: "submitted", snaptradeOrderId: "bo-123", errorMessage: null });
   });
 
+  it("ordre stop SELL live → placeOrder reçoit orderType Stop + stopPrice, orderType 'stop' en base", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.listPositions.mockResolvedValue([]);
+    h.placeOrder.mockResolvedValue({ brokerage_order_id: "bo-stop-1" });
+
+    const res = await submitOrder({
+      ...baseInput,
+      side: "SELL",
+      orderType: "stop",
+      stopPrice: 91.5,
+      accountId: "acct-1",
+      brokerConnection: { snaptradeUserId: "u", snaptradeUserSecret: "s" },
+    });
+
+    expect(res.status).toBe("accepted");
+    expect(h.placeOrder).toHaveBeenCalledOnce();
+    // GTC obligatoire : un stop de protection "Day" expirerait en fin de séance
+    // et laisserait la position sans protection dès le lendemain.
+    expect(h.placeOrder.mock.calls[0][0]).toMatchObject({ side: "SELL", orderType: "Stop", stopPrice: 91.5, timeInForce: "GTC" });
+    expect(orderInserts()[0].values).toMatchObject({ orderType: "stop", expectedPrice: "91.5", mode: "live" });
+    const update = h.state.updates.find(u => u.table === h.ordersTable);
+    expect(update?.set).toMatchObject({ status: "submitted", snaptradeOrderId: "bo-stop-1" });
+  });
+
+  it("ordre stop en PAPER → simulé avec orderType 'stop', AUCUN appel courtier", async () => {
+    const res = await submitOrder({ ...baseInput, side: "SELL", orderType: "stop", stopPrice: 91.5 });
+
+    expect(res.status).toBe("accepted");
+    expect(h.placeOrder).not.toHaveBeenCalled();
+    expect(orderInserts()[0].values).toMatchObject({ orderType: "stop", mode: "paper", status: "simulated", expectedPrice: "91.5" });
+  });
+
+  it("ordre stop sans stopPrice ou avec stopPrice invalide → OrderValidationError", async () => {
+    await expect(submitOrder({ ...baseInput, side: "SELL", orderType: "stop" })).rejects.toBeInstanceOf(OrderValidationError);
+    await expect(submitOrder({ ...baseInput, side: "SELL", orderType: "stop", stopPrice: 0 })).rejects.toBeInstanceOf(OrderValidationError);
+    await expect(submitOrder({ ...baseInput, side: "SELL", orderType: "stop", stopPrice: NaN })).rejects.toBeInstanceOf(OrderValidationError);
+  });
+
+  it("stop SELL avec stopPrice >= prix live → rejected stop_above_market, AUCUN ordre créé ni appel courtier", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.listPositions.mockResolvedValue([]);
+    // riskOk.livePrice = 100 — un stop à 100 (égal) ou 105 (au-dessus) se
+    // déclencherait immédiatement : vente market déguisée, jamais une protection.
+    for (const bad of [100, 105]) {
+      h.state.inserts.length = 0;
+      const res = await submitOrder({
+        ...baseInput,
+        signalId: `sig-stop-${bad}`,
+        side: "SELL",
+        orderType: "stop",
+        stopPrice: bad,
+        accountId: "acct-1",
+        brokerConnection: { snaptradeUserId: "u", snaptradeUserSecret: "s" },
+      });
+      expect(res.status).toBe("rejected");
+      if (res.status === "rejected") expect(res.reason).toBe("stop_above_market");
+      expect(orderInserts()).toHaveLength(0);
+      expect(rejectedInserts()).toHaveLength(1);
+      expect(rejectedInserts()[0].values).toMatchObject({ reason: "stop_above_market" });
+    }
+    expect(h.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("ordre stop BUY → OrderValidationError (seule la protection SELL est supportée)", async () => {
+    await expect(submitOrder({ ...baseInput, side: "BUY", orderType: "stop", stopPrice: 91.5 })).rejects.toBeInstanceOf(OrderValidationError);
+  });
+
   it("échec courtier → accepted mais ordre marqué error (pas d'exception)", async () => {
     h.getTradingMode.mockReturnValue("live");
     h.listPositions.mockResolvedValue([]);
