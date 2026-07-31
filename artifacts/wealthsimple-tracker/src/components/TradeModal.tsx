@@ -142,6 +142,47 @@ function useAccountBalance(accountId: string, enabled: boolean) {
 }
 
 
+/* Stop de protection déjà actif pour un symbole — interroge la même source que
+   la page Courtier. Sert à avertir AVANT de soumettre un second stop (le
+   serveur le rejetterait de toute façon : garde-fou duplicate_stop). */
+interface StopOrderRow {
+  id: number;
+  symbol: string;
+  status: string;
+  expectedPrice: string | null;
+  brokerAccountId: string | null;
+  active: boolean;
+}
+
+/** Même politique de correspondance de compte que le garde-fou serveur
+    (duplicate_stop) : comptes différents = positions différentes → pas un
+    doublon. Un compte absent (ancien ordre ou pas de sélection) reste bloquant. */
+export function matchesAccount(stopAccountId: string | null | undefined, selectedAccountId: string): boolean {
+  return !selectedAccountId || !stopAccountId || stopAccountId === selectedAccountId;
+}
+
+function useActiveStop(symbol: string, accountId: string, enabled: boolean) {
+  return useQuery<StopOrderRow | null>({
+    queryKey: ["broker-stop-orders", "active", symbol, accountId],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/broker/stop-orders`);
+      if (!r.ok) return null;
+      const data = await r.json();
+      const orders: StopOrderRow[] = Array.isArray(data?.orders) ? data.orders : [];
+      return (
+        orders.find(
+          (o) =>
+            o.active &&
+            o.symbol?.toUpperCase() === symbol.toUpperCase() &&
+            matchesAccount(o.brokerAccountId, accountId),
+        ) ?? null
+      );
+    },
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
 /* ── Design tokens (inline — garantit l'indépendance du dark/light) ─── */
 const GAIN   = "#16A34A";
 const LOSS   = "#DC2626";
@@ -323,9 +364,14 @@ export default function TradeModal({
       if (data) {
         setStopResult(data);
         qc.invalidateQueries({ queryKey: ["broker-orders"] });
+        qc.invalidateQueries({ queryKey: ["broker-stop-orders"] });
       }
     },
   });
+
+  /* Stop actif existant pour ce symbole — avertir avant d'en empiler un second */
+  const activeStopQ = useActiveStop(symbol, accountId, open);
+  const existingStop = activeStopQ.data ?? null;
 
   const cadRateQ    = useCadRate(currency);
   const cadRate     = cadRateQ.data ?? null;
@@ -762,6 +808,29 @@ export default function TradeModal({
                     </div>
                   </div>
                 )
+              ) : existingStop ? (
+                /* Un stop actif protège déjà ce symbole — ne pas en empiler un
+                   second (double vente au déclenchement). Le serveur le
+                   rejetterait aussi (duplicate_stop) : ici on l'explique AVANT. */
+                <div
+                  className="rounded-lg px-3 py-2.5 space-y-1"
+                  style={{ background: "rgba(212,167,44,0.08)", border: "1px solid rgba(212,167,44,0.28)" }}
+                >
+                  <div className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: ACCENT }}>
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                    Un ordre stop est déjà actif pour {symbol}
+                  </div>
+                  <p className="text-[11px] leading-relaxed" style={{ color: MUTED }}>
+                    Stop existant à{" "}
+                    <strong style={{ ...MONO, color: "#E8E9ED" }}>
+                      {existingStop.expectedPrice != null ? Number(existingStop.expectedPrice).toFixed(2) : "?"} $
+                    </strong>{" "}
+                    (statut : {existingStop.status}). En soumettre un second doublerait la
+                    quantité vendue au déclenchement. Pour le remplacer, annule d'abord
+                    l'existant depuis la{" "}
+                    <a href="/courtier" className="underline" style={{ color: ACCENT }}>page Courtier</a>.
+                  </p>
+                </div>
               ) : (
                 <>
                   <button

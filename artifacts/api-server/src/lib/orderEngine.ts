@@ -49,6 +49,12 @@ export type SubmitOrderResult =
 export class OrderValidationError extends Error {}
 
 /**
+ * Statuts sous lesquels un ordre stop protège encore la position.
+ * Doit rester aligné avec ACTIVE_STATUSES de GET /api/broker/stop-orders.
+ */
+export const ACTIVE_STOP_STATUSES = ["pending", "submitted", "simulated"];
+
+/**
  * Extrait l'identifiant d'ordre de la réponse SnapTrade. La réponse peut être
  * un AccountOrderRecord (ID au premier niveau) ou une OrderUpdatedResponse
  * (ID imbriqué sous `order`). Le brokerage_order_id est préféré car c'est la
@@ -160,6 +166,56 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   if (existing.length > 0) {
     logger.info({ signalId, source }, "orderEngine: duplicate order suppressed (idempotence)");
     return { status: "duplicate", order: existing[0] };
+  }
+
+  // ── 2b) Anti-empilement des stops de protection ────────────────────────────
+  // L'idempotence par signalId ne couvre PAS le cas « l'utilisateur ferme le
+  // modal, rachète, et resoummet un stop » : chaque montage du modal génère un
+  // nouveau signalId. Un stop actif (pending/submitted/simulated) pour le même
+  // symbole signifie que la position est déjà protégée — en empiler un second
+  // doublerait silencieusement la quantité vendue au déclenchement. On rejette
+  // donc explicitement : l'utilisateur doit d'abord annuler le stop existant
+  // (page Courtier) s'il veut le remplacer.
+  if (orderType === "stop") {
+    const symbolUpper = symbol.toUpperCase();
+    const stopRows = await db
+      .select()
+      .from(ordersTable)
+      .where(and(eq(ordersTable.orderType, "stop"), eq(ordersTable.symbol, symbolUpper)));
+    const activeStop = stopRows.find(
+      (o) =>
+        ACTIVE_STOP_STATUSES.includes(o.status) &&
+        // Comptes différents = positions différentes → pas un doublon.
+        (!accountId || !o.brokerAccountId || o.brokerAccountId === accountId),
+    );
+    if (activeStop) {
+      logger.warn(
+        { signalId, symbol: symbolUpper, existingOrderId: activeStop.id, existingStatus: activeStop.status },
+        "orderEngine: stop order rejected — an active protective stop already exists for this symbol",
+      );
+      await db.insert(rejectedSignalsTable).values({
+        signalId,
+        symbol: symbolUpper,
+        reason: "duplicate_stop",
+        details: {
+          existingOrderId: activeStop.id,
+          existingSignalId: activeStop.signalId,
+          existingStatus: activeStop.status,
+          existingStopPrice: activeStop.expectedPrice,
+          side, quantity, stopPrice, source: source ?? "manual", mode,
+        },
+      });
+      return {
+        status: "rejected",
+        reason: "duplicate_stop",
+        message: `Un ordre stop de protection est déjà actif pour ${symbolUpper} (stop à ${activeStop.expectedPrice ?? "?"} $, statut « ${activeStop.status} »). Annulez-le d'abord depuis la page Courtier si vous voulez le remplacer.`,
+        details: {
+          existingOrderId: activeStop.id,
+          existingStatus: activeStop.status,
+          existingStopPrice: activeStop.expectedPrice,
+        },
+      };
+    }
   }
 
   // ── 3) Positions réelles du courtier ────────────────────────────────────────

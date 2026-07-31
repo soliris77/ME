@@ -13,7 +13,33 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // ── Mocks hissés ──────────────────────────────────────────────────────────────
 const h = vi.hoisted(() => {
   // Sentinelles de tables (identité d'objet suffisante pour le fake db)
-  const ordersTable = { id: Symbol("orders.id"), signalId: Symbol("orders.signalId"), createdAt: Symbol("orders.createdAt"), $inferSelect: undefined };
+  const ordersTable = {
+    id: Symbol("orders.id"),
+    signalId: Symbol("orders.signalId"),
+    createdAt: Symbol("orders.createdAt"),
+    orderType: Symbol("orders.orderType"),
+    symbol: Symbol("orders.symbol"),
+    $inferSelect: undefined,
+  };
+  // Correspondance sentinelle → nom de champ, pour que where() filtre vraiment
+  // (indispensable depuis le garde-fou anti-empilement des stops : deux SELECT
+  // successifs sur ordersTable avec des conditions différentes).
+  const colName = new Map<unknown, string>([
+    [ordersTable.id, "id"],
+    [ordersTable.signalId, "signalId"],
+    [ordersTable.createdAt, "createdAt"],
+    [ordersTable.orderType, "orderType"],
+    [ordersTable.symbol, "symbol"],
+  ]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rowMatches = (row: Record<string, unknown>, cond: any): boolean => {
+    if (!cond) return true;
+    if (Array.isArray(cond.and)) return cond.and.every((c: unknown) => rowMatches(row, c));
+    const field = colName.get(cond.col);
+    if (!field || row[field] == null) return true; // champ absent du fixture → ne filtre pas
+    if (cond.op === "gte") return (row[field] as number | Date) >= cond.val;
+    return row[field] === cond.val;
+  };
   const rejectedSignalsTable = { $inferSelect: undefined };
   const brokerConnectionsTable = { $inferSelect: undefined };
 
@@ -32,8 +58,9 @@ const h = vi.hoisted(() => {
     table === brokerConnectionsTable ? state.connections :
     table === ordersTable ? state.orders : [];
 
-  const thenable = (rows: unknown[]) => ({
-    where: () => thenable(rows),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const thenable = (rows: unknown[]): any => ({
+    where: (cond: unknown) => thenable((rows as Record<string, unknown>[]).filter((r) => rowMatches(r, cond))),
     limit: (n: number) => thenable(rows.slice(0, n)),
     orderBy: () => thenable(rows),
     then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
@@ -99,7 +126,7 @@ vi.mock("@workspace/db", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val }),
   and: (...args: unknown[]) => ({ and: args }),
-  gte: (col: unknown, val: unknown) => ({ col, val }),
+  gte: (col: unknown, val: unknown) => ({ col, val, op: "gte" }),
   desc: (col: unknown) => ({ desc: col }),
 }));
 vi.mock("../snaptrade", () => ({
@@ -418,6 +445,95 @@ describe("submitOrder — mode live nominal", () => {
       expect(rejectedInserts()[0].values).toMatchObject({ reason: "stop_above_market" });
     }
     expect(h.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("stop actif pour le même symbole (nouveau signalId) → rejected duplicate_stop, AUCUN appel courtier", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.listPositions.mockResolvedValue([]);
+    // Scénario réel : le modal a été rouvert → nouveau signalId, mais un stop
+    // "submitted" protège déjà la position. L'idempotence ne le voit pas.
+    h.state.orders.push({
+      id: 11, signalId: "sig-old", symbol: "AAPL", orderType: "stop",
+      side: "SELL", status: "submitted", expectedPrice: "91.5", brokerAccountId: "acct-1",
+    });
+
+    const res = await submitOrder({
+      ...baseInput,
+      signalId: "sig-new",
+      side: "SELL",
+      orderType: "stop",
+      stopPrice: 90,
+      accountId: "acct-1",
+      brokerConnection: { snaptradeUserId: "u", snaptradeUserSecret: "s" },
+    });
+
+    expect(res.status).toBe("rejected");
+    if (res.status === "rejected") {
+      expect(res.reason).toBe("duplicate_stop");
+      expect(res.details).toMatchObject({ existingOrderId: 11, existingStatus: "submitted" });
+    }
+    expect(h.placeOrder).not.toHaveBeenCalled();
+    expect(orderInserts()).toHaveLength(0);
+    expect(rejectedInserts()).toHaveLength(1);
+    expect(rejectedInserts()[0].values).toMatchObject({ reason: "duplicate_stop", signalId: "sig-new" });
+  });
+
+  it("stop actif en PAPER (simulated) → rejected duplicate_stop aussi", async () => {
+    h.state.orders.push({
+      id: 12, signalId: "sig-old", symbol: "AAPL", orderType: "stop",
+      side: "SELL", status: "simulated", expectedPrice: "91.5",
+    });
+
+    const res = await submitOrder({ ...baseInput, signalId: "sig-new", side: "SELL", orderType: "stop", stopPrice: 90 });
+
+    expect(res.status).toBe("rejected");
+    if (res.status === "rejected") expect(res.reason).toBe("duplicate_stop");
+    expect(orderInserts()).toHaveLength(0);
+  });
+
+  it("stop terminal (cancelled/filled/error) ou autre symbole → nouveau stop AUTORISÉ", async () => {
+    for (const old of [
+      { id: 13, signalId: "s-c", symbol: "AAPL", orderType: "stop", status: "cancelled" },
+      { id: 14, signalId: "s-f", symbol: "AAPL", orderType: "stop", status: "filled" },
+      { id: 15, signalId: "s-e", symbol: "AAPL", orderType: "stop", status: "error" },
+      { id: 16, signalId: "s-o", symbol: "MSFT", orderType: "stop", status: "submitted" },
+    ]) {
+      h.state.orders.length = 0;
+      h.state.inserts.length = 0;
+      h.state.orders.push(old);
+      const res = await submitOrder({ ...baseInput, signalId: `sig-new-${old.id}`, side: "SELL", orderType: "stop", stopPrice: 90 });
+      expect(res.status).toBe("accepted");
+      expect(orderInserts()).toHaveLength(1);
+    }
+  });
+
+  it("stop actif sur un AUTRE compte → nouveau stop autorisé (positions distinctes)", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.listPositions.mockResolvedValue([]);
+    h.placeOrder.mockResolvedValue({ brokerage_order_id: "bo-2" });
+    h.state.orders.push({
+      id: 17, signalId: "sig-old", symbol: "AAPL", orderType: "stop",
+      side: "SELL", status: "submitted", brokerAccountId: "acct-OTHER",
+    });
+
+    const res = await submitOrder({
+      ...baseInput, signalId: "sig-new", side: "SELL", orderType: "stop", stopPrice: 90,
+      accountId: "acct-1", brokerConnection: { snaptradeUserId: "u", snaptradeUserSecret: "s" },
+    });
+
+    expect(res.status).toBe("accepted");
+    expect(h.placeOrder).toHaveBeenCalledOnce();
+  });
+
+  it("un ordre MARKET n'est jamais bloqué par un stop actif du même symbole", async () => {
+    h.state.orders.push({
+      id: 18, signalId: "sig-old", symbol: "AAPL", orderType: "stop",
+      side: "SELL", status: "simulated",
+    });
+
+    const res = await submitOrder({ ...baseInput, signalId: "sig-new" });
+
+    expect(res.status).toBe("accepted");
   });
 
   it("ordre stop BUY → OrderValidationError (seule la protection SELL est supportée)", async () => {
