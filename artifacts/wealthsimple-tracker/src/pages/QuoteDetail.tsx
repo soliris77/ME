@@ -21,7 +21,7 @@ import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 import TradeModal from "@/components/TradeModal";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ComposedChart, AreaChart, Area, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Brush, ReferenceArea, Customized,
 } from "recharts";
 import TechnicalAnalysis from "@/components/TechnicalAnalysis";
@@ -89,17 +89,32 @@ const CustomTooltip = ({
   active, payload, label,
 }: {
   active?: boolean;
-  payload?: { value: number }[];
+  payload?: { name?: string; value: number; payload?: { open: number; close: number; volume: number | null } }[];
   label?: string;
 }) => {
   if (!active || !payload?.length) return null;
+  const priceEntry = payload.find((p) => p.name === "close" || p.name === undefined || p.name === "Prix");
+  const price = priceEntry?.value ?? payload[0]?.value;
+  const d = payload[0]?.payload;
+  const isUp = d ? d.close >= d.open : true;
+  const vol = d?.volume;
+  const volFmt = vol == null ? null
+    : vol >= 1e9 ? `${(vol / 1e9).toFixed(1)}G`
+    : vol >= 1e6 ? `${(vol / 1e6).toFixed(1)}M`
+    : vol >= 1e3 ? `${(vol / 1e3).toFixed(0)}K`
+    : `${vol}`;
   return (
     <div className="bg-card border border-card-border rounded-xl px-4 py-3 shadow-xl"
          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px hsl(var(--primary)/0.1)" }}>
       <p className="text-[10px] tracking-wider text-muted-foreground mb-1 uppercase">{label}</p>
       <p className="text-[15px] font-mono font-bold text-foreground">
-        {payload[0]?.value !== undefined ? `$${payload[0].value.toFixed(2)}` : "—"}
+        {price !== undefined ? `$${price.toFixed(2)}` : "—"}
       </p>
+      {volFmt && (
+        <p className="text-[11px] font-mono mt-0.5" style={{ color: isUp ? "#22c55e" : "#ef4444" }}>
+          Vol. {volFmt}
+        </p>
+      )}
     </div>
   );
 };
@@ -354,7 +369,12 @@ export default function QuoteDetail() {
     Math.abs(new Date(history[1].date).getTime() - new Date(history[0].date).getTime()) <= 60_000;
 
   const simpleChartData = useMemo(
-    () => history.map((p) => ({ date: formatCandleDate(p.date, intraday, fineGrained), close: p.close })),
+    () => history.map((p) => ({
+      date: formatCandleDate(p.date, intraday, fineGrained),
+      close: p.close,
+      open: p.open ?? p.close,
+      volume: p.volume ?? null,
+    })),
     [history, intraday, fineGrained]
   );
 
@@ -675,7 +695,7 @@ export default function QuoteDetail() {
               <>
                 <div onWheel={handleChartWheel} style={{ touchAction: "none" }}>
               <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart
+                  <ComposedChart
                     data={simpleChartData}
                     margin={{ top: 14, right: 4, bottom: 0, left: 0 }}
                     onClick={handleChartClick}
@@ -691,15 +711,30 @@ export default function QuoteDetail() {
                     <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border) / 0.4)" vertical={false} />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} interval="preserveStartEnd"
                            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono, monospace" }} />
-                    <YAxis axisLine={false} tickLine={false} domain={["auto", "auto"]}
+                    {/* YAxis principal — prix */}
+                    <YAxis yAxisId="price" axisLine={false} tickLine={false} domain={["auto", "auto"]}
                            tickFormatter={(v) => `$${v.toFixed(0)}`} width={58}
                            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono, monospace" }} />
+                    {/* YAxis secondaire — volume (invisible, mis à l'échelle à ~22% du bas) */}
+                    <YAxis yAxisId="vol" orientation="right" hide
+                           domain={[0, (dataMax: number) => dataMax * 4.5]} />
                     <Tooltip content={<CustomTooltip />} />
+
+                    {/* Mini-barres volume — en fond, 22% du bas, bicolor vert/rouge */}
+                    <Bar yAxisId="vol" dataKey="volume" isAnimationActive={false} maxBarSize={12}>
+                      {simpleChartData.map((d, i) => (
+                        <Cell
+                          key={`vol-${i}`}
+                          fill={d.close >= d.open ? "rgba(34,197,94,0.30)" : "rgba(239,68,68,0.30)"}
+                        />
+                      ))}
+                    </Bar>
 
                     {/* TIER 2 — gap fill bands */}
                     {gapAnnotations.map((g, i) => (
                       <ReferenceArea
                         key={`gap-${i}`}
+                        yAxisId="price"
                         x1={g.x1} x2={g.x2} y1={g.lo} y2={g.hi}
                         fill={g.isBullish ? "rgba(52,211,153,0.13)" : "rgba(239,68,68,0.13)"}
                         stroke={g.isBullish ? "rgba(52,211,153,0.35)" : "rgba(239,68,68,0.35)"}
@@ -725,7 +760,7 @@ export default function QuoteDetail() {
                       onOpen={(n, d) => setNoteModal({ isoDate: n.candleDate, displayDate: d, existingNote: n })}
                     /> as any} />
 
-                    <Area type="monotone" dataKey="close"
+                    <Area yAxisId="price" type="monotone" dataKey="close"
                           stroke={chartColor} strokeWidth={2.5}
                           fill="url(#colorClose)" dot={false}
                           activeDot={{ r: 5, strokeWidth: 0, fill: chartColor }} />
@@ -747,7 +782,7 @@ export default function QuoteDetail() {
                               fill={chartColor} fillOpacity={0.15} dot={false} />
                       </AreaChart>
                     </Brush>
-                  </AreaChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
                 </div>
                 <p className="text-center text-[10px] text-muted-foreground/40 mt-1 tracking-wider">
