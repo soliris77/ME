@@ -21,7 +21,7 @@ interface Props {
    * Fourni uniquement lorsque le calculateur est ouvert depuis une fiche
    * de titre négociable — ouvre TradeModal (BUY) prérempli.
    */
-  onBuy?: (units: number) => void;
+  onBuy?: (units: number, stopPrice?: number) => void;
 }
 
 // ─── Résultat d'un champ affiché ──────────────────────────────────────────────
@@ -295,7 +295,10 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentL
               {/* Passer directement à l'ordre d'achat avec la quantité calculée */}
               {onBuy && calc.units > 0 && (
                 <button
-                  onClick={() => onBuy(calc.units)}
+                  onClick={() => {
+                    const stop = parseFloat(stopPrice);
+                    onBuy(calc.units, Number.isFinite(stop) && stop > 0 ? stop : undefined);
+                  }}
                   className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#16A34A]/50"
                   style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.35)", color: "#22c55e" }}
                 >

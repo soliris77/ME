@@ -10,6 +10,7 @@
  */
 import { useState, useEffect, useId } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getGetAlertsQueryKey } from "@workspace/api-client-react";
 import {
   X, Loader2, CheckCircle2,
   TrendingUp, TrendingDown, Building2, ChevronDown, ShieldAlert, LinkIcon, ExternalLink,
@@ -97,6 +98,8 @@ interface Props {
   source?: string;
   /** Quantité initiale préremplie (ex : venant du calculateur de position). */
   defaultQuantity?: number;
+  /** Stop-loss du calculateur — propose de créer l'alerte de protection après achat. */
+  stopLossPrice?: number;
   onClose: () => void;
 }
 
@@ -155,7 +158,7 @@ const MONO: React.CSSProperties = {
 /* ── Composant ─────────────────────────────────────────── */
 
 export default function TradeModal({
-  open, side, symbol, currentPrice, currency, source, defaultQuantity, onClose,
+  open, side, symbol, currentPrice, currency, source, defaultQuantity, stopLossPrice, onClose,
 }: Props) {
   const uid = useId();
   const qc  = useQueryClient();
@@ -216,6 +219,7 @@ export default function TradeModal({
       setQty(defaultQuantity && defaultQuantity > 0 ? String(defaultQuantity) : "1");
       setResult(null);
       setRejection(null);
+      protectMut.reset();
     }
   }, [open]);
 
@@ -250,6 +254,29 @@ export default function TradeModal({
         qc.invalidateQueries({ queryKey: ["broker-orders"] });
       }
     },
+  });
+
+  /* Alerte de protection au stop du calculateur — proposée après un achat réussi */
+  const protectMut = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/alerts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          name: `Stop-loss calculateur — ${symbol}`,
+          alertType: "price",
+          condition: "below",
+          targetPrice: stopLossPrice,
+        }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error ?? "Erreur lors de la création de l'alerte");
+      }
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: getGetAlertsQueryKey() }),
   });
 
   const cadRateQ    = useCadRate(currency);
@@ -605,6 +632,50 @@ export default function TradeModal({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Protection au stop du calculateur — proposée après un achat réussi */}
+          {result && result.status !== "error" && isBuy &&
+            typeof stopLossPrice === "number" && stopLossPrice > 0 && stopLossPrice < currentPrice && (
+            <div
+              className="rounded-xl px-4 py-3 space-y-2.5"
+              style={{ background: "rgba(212,167,44,0.06)", border: "1px solid rgba(212,167,44,0.22)" }}
+            >
+              <div className="flex items-center gap-2 font-semibold text-[13px]" style={{ color: ACCENT }}>
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                Protéger la position
+              </div>
+              {protectMut.isSuccess ? (
+                <div className="flex items-center gap-2 text-[12px]" style={{ color: GAIN }}>
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  Alerte créée — tu seras averti si {symbol} passe sous{" "}
+                  <span style={MONO}>{stopLossPrice.toFixed(2)} $</span>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[12px] leading-relaxed" style={{ color: MUTED }}>
+                    Le calculateur avait fixé le stop-loss à{" "}
+                    <strong style={{ ...MONO, color: "#E8E9ED" }}>{stopLossPrice.toFixed(2)} $</strong>.
+                    Crée l'alerte correspondante pour être averti si le prix passe en dessous.
+                  </p>
+                  <button
+                    onClick={() => protectMut.mutate()}
+                    disabled={protectMut.isPending}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[12px] font-bold tracking-[0.04em] transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A72C]"
+                    style={{ background: "rgba(212,167,44,0.15)", border: "1px solid rgba(212,167,44,0.35)", color: ACCENT }}
+                  >
+                    {protectMut.isPending
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Création…</>
+                      : <>Créer l'alerte au stop ({stopLossPrice.toFixed(2)} $)</>}
+                  </button>
+                  {protectMut.error && (
+                    <p className="text-[11px]" style={{ color: LOSS }}>
+                      {String(protectMut.error instanceof Error ? protectMut.error.message : protectMut.error)}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           )}
 

@@ -322,7 +322,7 @@ export default function QuoteDetail() {
   const [tab, setTab]                           = useState<"chart" | "analysis">("chart");
   const [selectedAnnotation, setSelectedAnnotation] = useState<SelectedAnnotation | null>(null);
   const [noteModal, setNoteModal]               = useState<NoteModalState | null>(null);
-  const [tradeModal, setTradeModal]             = useState<{ side: "BUY" | "SELL"; source: string; quantity?: number } | null>(null);
+  const [tradeModal, setTradeModal]             = useState<{ side: "BUY" | "SELL"; source: string; quantity?: number; stopPrice?: number } | null>(null);
   const [showCalculator, setShowCalculator]     = useState(false);
   const [brushStart, setBrushStart]             = useState(0);
   const [brushEnd, setBrushEnd]                 = useState(0);
@@ -1003,6 +1003,7 @@ export default function QuoteDetail() {
           currency={quote.currency}
           source={tradeModal.source}
           defaultQuantity={tradeModal.quantity}
+          stopLossPrice={tradeModal.stopPrice}
           onClose={() => setTradeModal(null)}
         />
       )}
@@ -1018,9 +1019,9 @@ export default function QuoteDetail() {
           recentHighLabel="plus haut 20 jours"
           onBuy={
             isTradeableSymbol(quote.symbol)
-              ? (units) => {
+              ? (units, stopPrice) => {
                   setShowCalculator(false);
-                  setTradeModal({ side: "BUY", source: "Calculateur de position", quantity: units });
+                  setTradeModal({ side: "BUY", source: "Calculateur de position", quantity: units, stopPrice });
                 }
               : undefined
           }
