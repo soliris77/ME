@@ -645,3 +645,13 @@
 .pulse-alert {
   animation: pulseAlert 1.2s ease-in-out infinite;
 }
+
+/* ── Mode confidentialité : floute les montants sensibles ── */
+.privacy .sensitive {
+  filter: blur(7px);
+  user-select: none;
+  transition: filter 0.25s ease;
+}
+.sensitive {
+  transition: filter 0.25s ease;
+}

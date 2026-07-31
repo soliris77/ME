@@ -39,7 +39,7 @@ import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot, Cpu, Calculator } from "lucide-react";
+import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 import { PositionCalculator } from "@/components/PositionCalculator";
@@ -96,12 +96,19 @@ function Nav() {
   const [showApi, setShowApi] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
+  const [privacy, setPrivacy] = useState(() => localStorage.getItem("privacy") === "on");
   const activeAlertsCount = useActiveAlertsCount();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
+
+  // Mode confidentialité : floute les montants sensibles (classe .sensitive)
+  useEffect(() => {
+    document.documentElement.classList.toggle("privacy", privacy);
+    localStorage.setItem("privacy", privacy ? "on" : "off");
+  }, [privacy]);
 
   const links = [
     { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -188,6 +195,14 @@ function Nav() {
           >
             <Settings className="w-4 h-4 flex-shrink-0" />
             Coûts API &amp; données
+          </button>
+          <button
+            onClick={() => setPrivacy((p) => !p)}
+            className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
+            title="Floute les soldes et montants sensibles (partage d'écran, lieu public)"
+          >
+            {privacy ? <Eye className="w-4 h-4 flex-shrink-0" /> : <EyeOff className="w-4 h-4 flex-shrink-0" />}
+            {privacy ? "Afficher les montants" : "Masquer les montants"}
           </button>
           <button
             onClick={() => setDark((d) => !d)}

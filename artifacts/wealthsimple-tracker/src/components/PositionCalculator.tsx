@@ -178,6 +178,22 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentL
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono">%</span>
             </div>
+            <div className="flex gap-1 mt-1.5">
+              {["0.5", "1", "2"].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setRiskPct(p)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                    riskPct === p
+                      ? "bg-primary/20 text-primary border border-primary/40"
+                      : "bg-muted/40 text-muted-foreground border border-transparent hover:bg-muted"
+                  }`}
+                >
+                  {p} %
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">

@@ -86,12 +86,12 @@ function AnimatedStatCard({
   );
 }
 
-function StatCard({ label, value, tone, sub }: { label: string; value: string; tone?: "gain" | "loss" | "neutral"; sub?: string }) {
+function StatCard({ label, value, tone, sub, sensitive }: { label: string; value: string; tone?: "gain" | "loss" | "neutral"; sub?: string; sensitive?: boolean }) {
   const toneClass = tone === "gain" ? "gain" : tone === "loss" ? "loss" : "text-foreground";
   return (
     <div className="bg-card border border-card-border rounded-xl p-4 hover:border-primary/20 transition-colors">
       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
-      <div className={`text-xl font-mono font-bold ${toneClass}`}>{value}</div>
+      <div className={`text-xl font-mono font-bold ${toneClass}${sensitive ? " sensitive" : ""}`}>{value}</div>
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
@@ -149,18 +149,19 @@ function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: t
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Taux de réussite" value={pct(metrics.winRate)} tone={metrics.winRate === null ? "neutral" : metrics.winRate >= 0.5 ? "gain" : "loss"} />
         <StatCard label="Gains / Pertes" value={`${metrics.wins}G / ${metrics.losses}P`} />
-        <StatCard label="Gain moyen" value={money(metrics.avgWin)} tone="gain" />
-        <StatCard label="Perte moyenne" value={metrics.avgLoss === null ? "—" : `-${formatPrice(metrics.avgLoss)}`} tone="loss" />
+        <StatCard label="Gain moyen" value={money(metrics.avgWin)} tone="gain" sensitive />
+        <StatCard label="Perte moyenne" value={metrics.avgLoss === null ? "—" : `-${formatPrice(metrics.avgLoss)}`} tone="loss" sensitive />
         <StatCard label="Ratio R/R" value={metrics.riskRewardRatio === null ? "—" : metrics.riskRewardRatio.toFixed(2)} />
         <StatCard
           label="P&L total"
           value={metrics.totalPnl >= 0 ? `+${formatPrice(metrics.totalPnl)}` : `-${formatPrice(Math.abs(metrics.totalPnl))}`}
           tone={metrics.totalPnl >= 0 ? "gain" : "loss"}
+          sensitive
         />
       </div>
       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium">Drawdown max :</span>
-        <span className="font-mono loss">-{formatPrice(metrics.maxDrawdown)}</span>
+        <span className="font-mono loss sensitive">-{formatPrice(metrics.maxDrawdown)}</span>
         <span className="opacity-60">(plus grande baisse depuis un sommet de P&L cumulé)</span>
       </div>
     </div>

@@ -120,9 +120,9 @@ export default function ReconciliationPage() {
                   {data.rows.map((row) => (
                     <tr key={row.symbol} className={row.matches ? "" : "bg-amber-500/5"}>
                       <td className="px-4 py-2.5 font-mono font-medium">{row.symbol}</td>
-                      <td className="px-4 py-2.5 text-right font-mono">{fmtUnits(row.brokerUnits)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono">{fmtUnits(row.internalUnits)}</td>
-                      <td className={`px-4 py-2.5 text-right font-mono ${row.matches ? "text-muted-foreground" : "text-amber-500 font-semibold"}`}>
+                      <td className="px-4 py-2.5 text-right font-mono sensitive">{fmtUnits(row.brokerUnits)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono sensitive">{fmtUnits(row.internalUnits)}</td>
+                      <td className={`px-4 py-2.5 text-right font-mono sensitive ${row.matches ? "text-muted-foreground" : "text-amber-500 font-semibold"}`}>
                         {row.diff > 0 ? "+" : ""}{fmtUnits(row.diff)}
                       </td>
                       <td className="px-4 py-2.5 text-center">

@@ -101,7 +101,7 @@ function AccountBalance({ accountId }: { accountId: string }) {
         return lines.map((l) => (
           <span key={`${i}-${l.label}`} className="text-[11px]" style={MONO}>
             <span style={{ color: MUTED }}>{l.label} : </span>
-            <span style={{ color: "#E8E9ED" }}>{l.value}</span>
+            <span className="sensitive" style={{ color: "#E8E9ED" }}>{l.value}</span>
           </span>
         ));
       })}
