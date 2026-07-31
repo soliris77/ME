@@ -427,6 +427,251 @@ export const LESSONS: Lesson[] = [
       href: "/auto-trader",
     },
   },
+  {
+    slug: "types-d-ordres",
+    title: "Les types d'ordres (marché, limite, stop)",
+    emoji: "🎯",
+    minutes: 5,
+    summary: "Marché, limite, stop : choisir le bon ordre, c'est choisir entre vitesse et contrôle du prix.",
+    sections: [
+      {
+        heading: "Trois ordres, trois usages",
+        paragraphs: [
+          "Acheter ou vendre ne se résume pas à cliquer sur un bouton : le type d'ordre détermine À QUEL PRIX votre transaction se fera — ou si elle se fera tout court.",
+        ],
+        bullets: [
+          "Ordre au marché : exécution immédiate au meilleur prix disponible — rapide, mais le prix n'est pas garanti",
+          "Ordre limite : exécution seulement à votre prix ou mieux — prix garanti, mais exécution non garantie",
+          "Ordre stop : dormant jusqu'à ce que le prix touche votre seuil, puis se déclenche — c'est l'ordre du stop-loss",
+        ],
+      },
+      {
+        heading: "Le piège de l'ordre au marché",
+        paragraphs: [
+          "Sur un titre très liquide (grandes capitalisations), l'ordre au marché s'exécute quasi au prix affiché. Mais sur un titre peu échangé ou pendant une forte volatilité, l'écart entre le prix affiché et le prix d'exécution (le « slippage ») peut coûter cher.",
+          "Règle pratique : pour ENTRER dans une position, préférez l'ordre limite — vous contrôlez votre prix d'entrée, et si le marché ne vient pas à vous, vous ne payez pas trop cher. Pour SORTIR en urgence (stop touché, mauvaise nouvelle), l'ordre au marché garantit la sortie.",
+        ],
+        example: [
+          "Titre affiché à 10,00 $ mais peu liquide",
+          "Ordre au marché de 500 actions → exécuté à 10,35 $",
+          "Slippage : 0,35 $ × 500 = 175 $ « perdus » à l'entrée",
+          "Ordre limite à 10,00 $ → exécuté à 10,00 $ ou pas du tout",
+        ],
+      },
+      {
+        heading: "L'ordre stop, côté protection",
+        paragraphs: [
+          "L'ordre stop de vente reste invisible tant que le prix est au-dessus de votre seuil. Dès que le prix le touche, il devient un ordre au marché et vend. C'est la version automatique du stop-loss vu dans la leçon dédiée : la page Courtier de cette app permet d'en poser sur vos positions, avec validation que le stop est bien sous le prix actuel.",
+          "Attention au statut : un ordre « soumis » n'est pas exécuté. Vérifiez toujours dans le journal des ordres qu'un ordre limite ou stop a réellement été exécuté avant de considérer la transaction faite.",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Quelle est la différence clé entre ordre au marché et ordre limite ?",
+        options: [
+          "Le marché garantit le prix, la limite garantit l'exécution",
+          "Le marché garantit l'exécution, la limite garantit le prix",
+          "Aucune, c'est le même ordre sous deux noms",
+        ],
+        correctIndex: 1,
+        explanation: "L'ordre au marché s'exécute tout de suite mais au prix disponible ; l'ordre limite s'exécute à votre prix ou mieux — ou pas du tout.",
+      },
+      {
+        question: "Vous voulez entrer sur un titre peu liquide. Quel ordre choisir ?",
+        options: ["Ordre au marché, pour être sûr d'entrer", "Ordre limite, pour contrôler le prix payé", "Ordre stop d'achat, toujours"],
+        correctIndex: 1,
+        explanation: "Sur un titre peu liquide, l'ordre au marché expose au slippage. L'ordre limite fixe le prix maximum que vous acceptez de payer.",
+      },
+      {
+        question: "Comment fonctionne un ordre stop de vente ?",
+        options: [
+          "Il vend immédiatement au prix affiché",
+          "Il reste dormant, puis se déclenche quand le prix touche le seuil choisi",
+          "Il vend seulement si le prix monte au-dessus du seuil",
+        ],
+        correctIndex: 1,
+        explanation: "L'ordre stop dort au-dessus du seuil ; dès que le prix le touche, il devient un ordre au marché et exécute la vente. C'est le mécanisme du stop-loss.",
+      },
+      {
+        question: "Ordre au marché de 500 actions sur un titre affiché à 10 $, exécuté à 10,35 $. Comment s'appelle cet écart ?",
+        options: ["La commission", "Le slippage", "Le spread garanti"],
+        correctIndex: 1,
+        explanation: "Le slippage est l'écart entre le prix attendu et le prix d'exécution réel — fréquent sur les titres peu liquides ou en forte volatilité.",
+      },
+    ],
+    practice: {
+      label: "Vérifier les statuts dans mon journal",
+      description: "Ouvrez le journal des ordres et repérez pour chaque ordre son type (marché, limite, stop) et son statut : soumis ou réellement exécuté ?",
+      href: "/ordres",
+    },
+  },
+  {
+    slug: "fiscalite-celi-reer",
+    title: "Fiscalité : CELI, REER ou compte imposable ?",
+    emoji: "🍁",
+    minutes: 6,
+    summary: "Où loger ses placements au Canada : gains libres d'impôt (CELI), impôt différé (REER) ou compte imposable.",
+    sections: [
+      {
+        heading: "Trois enveloppes, trois logiques",
+        paragraphs: [
+          "Au Canada, le compte dans lequel vous tradez change complètement ce qui reste dans votre poche. Les trois grandes enveloppes :",
+        ],
+        bullets: [
+          "CELI : les gains (plus-values, dividendes canadiens, intérêts) sont libres d'impôt canadien, même au retrait — mais les cotisations ont un plafond annuel cumulatif. Nuance : les dividendes étrangers (ex. actions américaines) subissent une retenue à la source de leur pays, non récupérable dans un CELI",
+          "REER : la cotisation est déduite de votre revenu imposable aujourd'hui ; l'impôt est payé au retrait, idéalement à la retraite quand votre taux est plus bas",
+          "Compte imposable (non enregistré) : 50 % du gain en capital s'ajoute à votre revenu imposable l'année de la vente ; les pertes peuvent compenser des gains",
+        ],
+      },
+      {
+        heading: "Les pièges à connaître",
+        paragraphs: [
+          "Le CELI n'est pas un compte magique sans règles :",
+        ],
+        bullets: [
+          "Cotiser au-delà de vos droits CELI = pénalité de 1 % par mois sur l'excédent",
+          "Un retrait CELI ne redonne le droit de cotisation que l'ANNÉE SUIVANTE — retirer puis recotiser la même année peut créer un excédent",
+          "Day trading intensif dans un CELI : l'ARC peut requalifier l'activité en revenu d'entreprise, imposable à 100 %",
+          "Dans un compte imposable, une perte peut être refusée si le même titre est racheté (par vous ou une personne affiliée, ex. votre conjoint ou votre REER/CELI) dans les 30 jours et encore détenu à la fin de cette période — c'est la règle de la « perte apparente ». Résumé simplifié : vérifiez les détails auprès de l'ARC ou d'un fiscaliste avant d'agir",
+        ],
+      },
+      {
+        heading: "Quel compte pour quoi ?",
+        paragraphs: [
+          "Une logique simple pour débuter : le CELI d'abord pour la croissance libre d'impôt, le REER quand votre revenu (et donc votre taux d'imposition) est élevé, le compte imposable quand les deux enveloppes sont pleines.",
+        ],
+        example: [
+          "Gain de 1 000 $ réalisé, taux marginal de 40 % :",
+          "CELI → 1 000 $ dans votre poche (0 $ d'impôt)",
+          "Compte imposable → 500 $ imposables × 40 % = 200 $ d'impôt, il reste 800 $",
+          "REER → 0 $ d'impôt aujourd'hui, imposé au retrait",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Gain de 1 000 $ dans un CELI. Combien d'impôt payez-vous au retrait ?",
+        options: ["0 $", "200 $", "400 $"],
+        correctIndex: 0,
+        explanation: "Les gains réalisés dans un CELI sont libres d'impôt canadien, même au retrait. Seule nuance : les dividendes étrangers peuvent subir une retenue à la source de leur pays d'origine.",
+      },
+      {
+        question: "Quel est le principe fiscal du REER ?",
+        options: [
+          "Gains libres d'impôt pour toujours",
+          "Déduction d'impôt à la cotisation, impôt payé au retrait",
+          "Aucun avantage fiscal, juste un compte d'épargne",
+        ],
+        correctIndex: 1,
+        explanation: "Le REER reporte l'impôt : on déduit la cotisation de son revenu aujourd'hui et on paie l'impôt au retrait, idéalement à un taux plus bas à la retraite.",
+      },
+      {
+        question: "Dans un compte imposable, quelle part d'un gain en capital est imposable ?",
+        options: ["100 %", "50 %", "0 %"],
+        correctIndex: 1,
+        explanation: "La moitié du gain en capital s'ajoute à votre revenu imposable l'année de la vente. À 40 % de taux marginal, un gain de 1 000 $ coûte 200 $ d'impôt.",
+      },
+      {
+        question: "Vous retirez 5 000 $ de votre CELI en mars. Quand pouvez-vous recotiser ce montant sans risque ?",
+        options: ["Dès le lendemain", "L'année civile suivante (sauf droits inutilisés restants)", "Jamais, le droit est perdu"],
+        correctIndex: 1,
+        explanation: "Le retrait redonne le droit de cotisation seulement l'année suivante. Recotiser la même année sans droits disponibles crée un excédent pénalisé à 1 %/mois.",
+      },
+      {
+        question: "Faire du day trading intensif dans son CELI, c'est risqué parce que…",
+        options: [
+          "Les frais y sont plus élevés",
+          "L'ARC peut requalifier les gains en revenu d'entreprise imposable à 100 %",
+          "Le CELI interdit les actions",
+        ],
+        correctIndex: 1,
+        explanation: "Le CELI est conçu pour l'épargne et l'investissement. Une activité de trading intensive peut être considérée comme une entreprise, et les gains deviennent alors pleinement imposables.",
+      },
+    ],
+    practice: {
+      label: "Comparer deux titres candidats",
+      description: "Ouvrez l'outil Comparer et évaluez deux titres que vous envisagez : lequel logeriez-vous dans votre CELI pour la croissance long terme ?",
+      href: "/comparer",
+    },
+  },
+  {
+    slug: "diversification",
+    title: "La diversification",
+    emoji: "🧺",
+    minutes: 5,
+    summary: "Ne pas mettre tous ses œufs dans le même panier — et vérifier que les paniers sont vraiment différents.",
+    sections: [
+      {
+        heading: "Pourquoi diversifier ?",
+        paragraphs: [
+          "Aucune analyse ne protège d'un événement imprévisible sur UN titre : mauvais résultats, scandale, changement de réglementation. La diversification est la seule protection gratuite : répartir le capital pour qu'aucune position ne puisse, à elle seule, faire des dégâts majeurs.",
+        ],
+        bullets: [
+          "Limiter le poids d'un seul titre (ex. maximum 10–15 % du portefeuille)",
+          "Répartir entre plusieurs SECTEURS (tech, banques, énergie, consommation…)",
+          "Penser aussi aux devises : un portefeuille 100 % CAD ou 100 % USD porte un risque de change caché",
+        ],
+      },
+      {
+        heading: "Diversifier, ce n'est pas multiplier",
+        paragraphs: [
+          "Détenir 10 titres du même secteur n'est pas diversifier : c'est découper une seule grosse position en 10 morceaux qui chuteront ensemble. Ce qui compte, c'est que vos positions ne réagissent pas toutes de la même façon aux mêmes nouvelles.",
+          "À l'inverse, sur-diversifier (30, 50 lignes) dilue vos meilleures idées et devient impossible à suivre sérieusement. Pour un portefeuille personnel, une dizaine de positions bien choisies dans des secteurs différents est souvent un bon équilibre.",
+        ],
+        example: [
+          "Portefeuille A : 5 titres, tous bancaires → faux diversifié",
+          "Portefeuille B : 5 titres — banque, tech, énergie, consommation, santé",
+          "Une crise bancaire : A chute en bloc, B n'est touché que sur ~20 %",
+        ],
+      },
+      {
+        heading: "Vérifier avec les données, pas l'intuition",
+        paragraphs: [
+          "Deux titres de secteurs différents peuvent quand même bouger ensemble. La corrélation mesure ce comportement réel : la page Corrélation de cette app calcule à quel point vos positions montent et descendent ensemble. C'est le test objectif de votre diversification — le sujet est approfondi dans la leçon avancée « Corrélation et exposition réelle ».",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Vous détenez 10 titres, tous du secteur bancaire. Êtes-vous diversifié ?",
+        options: ["Oui, 10 titres c'est beaucoup", "Non : ils réagiront ensemble aux mêmes nouvelles", "Oui, si les montants sont égaux"],
+        correctIndex: 1,
+        explanation: "La diversification se juge par la variété des expositions (secteurs, devises), pas par le nombre de lignes. 10 banques = une seule grosse position bancaire.",
+      },
+      {
+        question: "Quel est le principal bénéfice de la diversification ?",
+        options: [
+          "Garantir un gain chaque année",
+          "Empêcher qu'un seul événement sur un titre fasse des dégâts majeurs",
+          "Éliminer complètement le risque de perte",
+        ],
+        correctIndex: 1,
+        explanation: "La diversification ne supprime pas le risque de marché, mais elle protège du risque spécifique à un titre — le seul « repas gratuit » de la finance.",
+      },
+      {
+        question: "Pourquoi éviter de détenir 40 positions différentes ?",
+        options: [
+          "C'est illégal dans un CELI",
+          "Ça dilue les meilleures idées et devient impossible à suivre sérieusement",
+          "Les frais deviennent nuls",
+        ],
+        correctIndex: 1,
+        explanation: "La sur-diversification disperse le capital et l'attention. Une dizaine de positions bien réparties est souvent un meilleur équilibre pour un portefeuille personnel.",
+      },
+      {
+        question: "Comment vérifier objectivement que vos positions sont vraiment diversifiées ?",
+        options: ["En comptant le nombre de lignes", "En mesurant la corrélation entre vos positions", "En vérifiant qu'elles ont toutes monté récemment"],
+        correctIndex: 1,
+        explanation: "La corrélation mesure si vos positions bougent ensemble dans les faits. Des corrélations faibles confirment une vraie diversification ; des corrélations élevées révèlent une concentration cachée.",
+      },
+    ],
+    practice: {
+      label: "Tester la corrélation de mes positions",
+      description: "Ouvrez la page Corrélation et vérifiez si vos positions bougent ensemble : une corrélation élevée révèle une fausse diversification.",
+      href: "/correlation",
+    },
+  },
 
   // ── Niveau avancé ──────────────────────────────────────────────────────────
   {
