@@ -9,7 +9,7 @@ import {
   Bot, Plus, Trash2, Power, PowerOff, ChevronDown, ChevronUp,
   TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
   Clock, Shield, Bell, BellOff, Play, ArrowUpRight, ArrowDownRight,
-  FlaskConical, Briefcase, CalendarCheck, Scale,
+  FlaskConical, Briefcase, CalendarCheck, Scale, ShieldAlert,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
@@ -870,6 +870,12 @@ export default function AutoTrader() {
     refetchInterval: 30_000,
   });
 
+  const dailyPnlQ = useQuery<{ realizedPnL: number; maxDailyLossAmount: number | null; mode: string }>({
+    queryKey: ["auto-trader-daily-pnl"],
+    queryFn: () => fetch(`${BASE}/api/auto-trader/daily-pnl`).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
   const rules: AutoTradeRule[] = Array.isArray(rulesQ.data) ? rulesQ.data : [];
   const logs: AutoTradeLog[] = Array.isArray(logsQ.data) ? logsQ.data : [];
 
@@ -960,6 +966,45 @@ export default function AutoTrader() {
           </div>
         </div>
       )}
+
+      {/* Perte du jour vs limite (coupe-circuit) */}
+      {dailyPnlQ.data?.maxDailyLossAmount != null && (() => {
+        const { realizedPnL, maxDailyLossAmount } = dailyPnlQ.data;
+        const loss = Math.max(0, -realizedPnL); // seule une perte nette compte
+        const pct = Math.min(100, (loss / maxDailyLossAmount) * 100);
+        const barColor = pct >= 90 ? "bg-red-500" : pct >= 60 ? "bg-yellow-500" : "bg-green-500";
+        const textColor = pct >= 90 ? "text-red-400" : pct >= 60 ? "text-yellow-400" : "text-muted-foreground";
+        return (
+          <div className="mb-5 bg-card border border-border/50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Perte du jour vs coupe-circuit
+                </span>
+              </div>
+              <span className={`text-[12px] font-mono font-semibold ${textColor}`}>
+                {realizedPnL >= 0
+                  ? `+${realizedPnL.toFixed(2)} $ réalisé`
+                  : `−${loss.toFixed(2)} $ / ${maxDailyLossAmount.toFixed(2)} $`}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-border/40 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-[10px] text-muted-foreground">
+              {pct >= 90
+                ? "Attention : le coupe-circuit est sur le point de suspendre le trading."
+                : pct >= 60
+                  ? "La perte réalisée se rapproche de la limite configurée."
+                  : "P&L réalisé des ventes du jour (appariement des lots) — le trading est suspendu si la perte dépasse la limite."}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-6">

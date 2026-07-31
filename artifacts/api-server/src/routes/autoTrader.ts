@@ -12,7 +12,7 @@ import { Router } from "express";
 import { db, autoTradeRulesTable, autoTradeLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { runAutoTradeCheck } from "../workers/autoTradeWorker";
+import { runAutoTradeCheck, getDailyRealizedPnLStatus } from "../workers/autoTradeWorker";
 import { runBacktest } from "../lib/backtest";
 import { yahooFinance } from "../lib/yahoo";
 import type { OHLCPoint } from "../lib/patternDetect";
@@ -198,6 +198,20 @@ router.get("/auto-trader/logs", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "auto-trader: GET logs error");
     res.status(500).json({ error: "Erreur lors du chargement des logs" });
+  }
+});
+
+// GET /api/auto-trader/daily-pnl — P&L réalisé du jour vs limite configurée
+// Même calcul que le coupe-circuit (appariement des lots, ventes du jour).
+router.get("/auto-trader/daily-pnl", async (_req, res) => {
+  try {
+    // Pas de sync des fills ici (appel léger, poll fréquent) — le worker les
+    // synchronise toutes les 60 s ; on lit l'état déjà persisté.
+    const status = await getDailyRealizedPnLStatus();
+    res.json(status);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: GET daily-pnl error");
+    res.status(500).json({ error: "Erreur lors du calcul du P&L du jour" });
   }
 });
 

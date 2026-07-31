@@ -490,6 +490,49 @@ async function syncLiveOrderFills(
 // masquer) le coupe-circuit sur des transactions jamais exécutées.
 export const EXECUTED_ORDER_STATUSES = ["filled", "partially_filled", "simulated"] as const;
 
+// ── P&L réalisé du jour — statut partagé (worker + API) ──────────────────────
+// Même calcul que le coupe-circuit : rejoue l'historique des ordres exécutés
+// du mode courant (appariement des lots, coût moyen) et ne comptabilise que
+// les ventes d'aujourd'hui. Utilisé par checkDailyLossCircuitBreaker et par
+// la route GET /api/auto-trader/daily-pnl.
+export async function getDailyRealizedPnLStatus(options?: {
+  /** Connexion courtier — si fournie en mode live, les fills sont d'abord synchronisés. */
+  conn?: typeof brokerConnectionsTable.$inferSelect | null;
+}): Promise<{ realizedPnL: number; maxDailyLossAmount: number | null; mode: string }> {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  const mode = getTradingMode();
+
+  // En mode live : rapprocher d'abord les ordres "submitted" de leurs
+  // exécutions réelles côté SnapTrade (status/fillPrice/filledQuantity).
+  if (mode === "live" && options?.conn) {
+    await syncLiveOrderFills(options.conn).catch((err) =>
+      logger.warn({ err }, "autoTradeWorker: syncLiveOrderFills échoué — P&L calculé sur les fills déjà confirmés"),
+    );
+  }
+
+  const [settings] = await db.select().from(appSettingsTable).limit(1);
+  const maxLossRaw = settings?.maxDailyLossAmount ? parseFloat(settings.maxDailyLossAmount) : NaN;
+  const maxDailyLossAmount = isFinite(maxLossRaw) && maxLossRaw > 0 ? maxLossRaw : null;
+
+  const executedOrders = await db.select().from(ordersTable)
+    .where(and(
+      inArray(ordersTable.status, [...EXECUTED_ORDER_STATUSES]),
+      eq(ordersTable.mode, mode),
+    ))
+    .orderBy(ordersTable.createdAt, ordersTable.id);
+
+  const { realizedPnL, unmatchedSells } = computeRealizedDailyPnL(executedOrders, todayStart);
+  if (unmatchedSells.length > 0) {
+    logger.warn(
+      { unmatchedSells },
+      "autoTradeWorker: ventes du jour sans coût de revient local — leur P&L est exclu du coupe-circuit (position acquise hors de l'app)",
+    );
+  }
+  return { realizedPnL, maxDailyLossAmount, mode };
+}
+
 // ── I2 — Coupe-circuit de perte journalière agrégée ───────────────────────────
 // Si la perte réalisée du jour dépasse maxDailyLossAmount, le kill-switch s'active.
 async function checkDailyLossCircuitBreaker(
@@ -497,46 +540,10 @@ async function checkDailyLossCircuitBreaker(
 ): Promise<void> {
   if (!conn || conn.tradingHalted) return; // déjà arrêté
 
-  const [settings] = await db.select().from(appSettingsTable).limit(1);
-  if (!settings?.maxDailyLossAmount) return; // désactivé
-
-  const maxLoss = parseFloat(settings.maxDailyLossAmount);
-  if (!isFinite(maxLoss) || maxLoss <= 0) return;
-
-  // P&L réalisé du jour par appariement des lots (méthode du coût moyen).
-  // On rejoue TOUT l'historique des ordres exécutés (du mode courant) en ordre
-  // chronologique pour reconstruire le prix de revient moyen par symbole, puis
-  // on ne comptabilise que le P&L réalisé par les VENTES d'aujourd'hui :
-  // (prix de vente − coût moyen) × quantité appariée. Un achat n'est jamais une
-  // perte en soi ; une vente gagnante ne déclenche jamais le coupe-circuit.
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
   try {
-    const mode = getTradingMode();
-
-    // En mode live : rapprocher d'abord les ordres "submitted" de leurs
-    // exécutions réelles côté SnapTrade (status/fillPrice/filledQuantity).
-    if (mode === "live") {
-      await syncLiveOrderFills(conn).catch((err) =>
-        logger.warn({ err }, "autoTradeWorker: syncLiveOrderFills échoué — P&L calculé sur les fills déjà confirmés"),
-      );
-    }
-
-    const executedOrders = await db.select().from(ordersTable)
-      .where(and(
-        inArray(ordersTable.status, [...EXECUTED_ORDER_STATUSES]),
-        eq(ordersTable.mode, mode),
-      ))
-      .orderBy(ordersTable.createdAt, ordersTable.id);
-
-    const { realizedPnL, unmatchedSells } = computeRealizedDailyPnL(executedOrders, todayStart);
-    if (unmatchedSells.length > 0) {
-      logger.warn(
-        { unmatchedSells },
-        "autoTradeWorker: ventes du jour sans coût de revient local — leur P&L est exclu du coupe-circuit (position acquise hors de l'app)",
-      );
-    }
+    const { realizedPnL, maxDailyLossAmount } = await getDailyRealizedPnLStatus({ conn });
+    if (maxDailyLossAmount == null) return; // désactivé
+    const maxLoss = maxDailyLossAmount;
 
     // pnl négatif = perte nette
     if (realizedPnL < -maxLoss) {
