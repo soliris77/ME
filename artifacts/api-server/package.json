@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "db:migrate": "node ./scripts/apply-migrations.mjs",
-    "db:push": "sh ./scripts/db-push.sh",
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run db:migrate && pnpm run db:push && pnpm run start",
+    "dev": "export NODE_ENV=development && pnpm run build && pnpm run db:migrate && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
