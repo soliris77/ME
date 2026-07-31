@@ -53,8 +53,8 @@ export function SpotifyWidget() {
       document.body.appendChild(script);
     }
 
-    (window as Record<string, unknown>).onSpotifyWebPlaybackSDKReady = () => {
-      const Spotify = (window as Record<string, unknown>).Spotify as {
+    (window as unknown as Record<string, unknown>).onSpotifyWebPlaybackSDKReady = () => {
+      const Spotify = (window as unknown as Record<string, unknown>).Spotify as {
         Player: new (opts: unknown) => unknown;
       };
       const player = new Spotify.Player({
@@ -94,8 +94,8 @@ export function SpotifyWidget() {
     };
 
     // Si le SDK est déjà chargé (rechargement HMR), déclencher manuellement
-    if ((window as Record<string, unknown>).Spotify) {
-      ((window as Record<string, unknown>).onSpotifyWebPlaybackSDKReady as () => void)?.();
+    if ((window as unknown as Record<string, unknown>).Spotify) {
+      ((window as unknown as Record<string, unknown>).onSpotifyWebPlaybackSDKReady as () => void)?.();
     }
   }, [getFreshToken]);
 

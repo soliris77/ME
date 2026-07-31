@@ -4,6 +4,7 @@ import {
   useRemoveFromWatchlist,
   useUpdateWatchlistItem,
   useGetQuotes,
+  useGetQuoteHistory,
   getGetWatchlistQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,10 +12,46 @@ import { playSound } from "@/lib/sounds";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link, useLocation } from "wouter";
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus, CheckCircle2, XCircle, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { WatchlistItem } from "@workspace/api-client-react";
 import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// ─── Sparkline SVG inline ─────────────────────────────────────────────────────
+
+function WatchlistSparkline({ symbol }: { symbol: string }) {
+  const { data: history = [] } = useGetQuoteHistory(
+    symbol, "5d",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { staleTime: 5 * 60_000, refetchInterval: 5 * 60_000 } as any }
+  );
+
+  const prices = (history as { close: number }[]).map((h) => h.close).filter((v) => typeof v === "number" && !isNaN(v));
+  if (prices.length < 2) return <div className="w-14 h-5 shrink-0" />;
+
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const W = 56, H = 20;
+
+  const pts = prices.map((p, i) => ({
+    x: (i / (prices.length - 1)) * W,
+    y: H - 2 - ((p - min) / range) * (H - 4),
+  }));
+
+  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const rising = prices[prices.length - 1] >= prices[0];
+
+  return (
+    <svg width={W} height={H} className="overflow-visible shrink-0 opacity-80">
+      <path d={d} fill="none"
+        stroke={rising ? "#22c55e" : "#ef4444"}
+        strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 const DEFAULT_LIST = "Général";
 
@@ -324,26 +361,51 @@ export default function Watchlist() {
       )}
 
       {isLoading ? (
-        <div className="bg-card border border-card-border rounded-lg divide-y divide-border">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="px-4 py-4 flex justify-between animate-pulse">
-              <div><div className="h-4 bg-muted rounded w-20 mb-2" /><div className="h-3 bg-muted rounded w-40" /></div>
-              <div><div className="h-4 bg-muted rounded w-24 mb-1" /><div className="h-3 bg-muted rounded w-16 ml-auto" /></div>
+        <div className="bg-card border border-card-border rounded-2xl overflow-hidden divide-y divide-border">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="px-4 py-4 flex items-center gap-4">
+              <div className="flex-1">
+                <Skeleton className="h-4 w-20 mb-2" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+              <Skeleton className="w-14 h-5 hidden sm:block" />
+              <div className="text-right">
+                <Skeleton className="h-4 w-20 mb-1 ml-auto" />
+                <Skeleton className="h-3 w-14 ml-auto" />
+              </div>
             </div>
           ))}
         </div>
       ) : watchlist.length === 0 ? (
-        <div className="bg-card border border-card-border rounded-xl p-12 text-center">
-          <Bookmark className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-          <p className="font-semibold text-foreground mb-1">Votre liste est vide</p>
-          <p className="text-sm text-muted-foreground mb-4">Ajoutez des actions, FNB ou cryptos pour suivre leurs prix en temps réel.</p>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-4 h-4" />
-            Ajouter votre premier actif
-          </button>
+        <div className="bg-card border border-card-border rounded-2xl p-14 text-center">
+          {/* Illustration SVG */}
+          <div className="w-20 h-20 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center mx-auto mb-5">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="text-primary/50">
+              <path d="M8 32L8 14L20 6L32 14L32 32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15 32V22H25V32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 14L20 10L26 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="20" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+          </div>
+          <p className="font-bold text-lg text-foreground mb-1.5">Portefeuille suivi vide</p>
+          <p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto leading-relaxed">
+            Ajoutez des actions, FNB ou cryptomonnaies pour suivre leurs prix en temps réel et recevoir des alertes.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter un actif
+            </button>
+            <Link href="/search">
+              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors cursor-pointer">
+                <Search className="w-4 h-4" />
+                Rechercher un titre
+              </span>
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="bg-card border border-card-border rounded-lg overflow-hidden divide-y divide-border">
@@ -383,16 +445,25 @@ export default function Watchlist() {
                     {item.note && <div className="text-xs text-muted-foreground/70 mt-0.5 italic truncate max-w-52">{item.note}</div>}
                   </div>
                   {q ? (
-                    <div className="text-right ml-4">
-                      <div className="text-sm font-mono font-semibold">{formatPrice(q.price, q.currency)}</div>
-                      <div className={`text-xs font-mono ${cls} flex items-center justify-end gap-0.5`}>
-                        {up === true && <ArrowUpRight className="w-3 h-3" />}
-                        {up === false && <ArrowDownRight className="w-3 h-3" />}
-                        {formatPercent(q.changePercent)}
+                    <div className="flex items-center gap-3 ml-4">
+                      {/* Sparkline 5d — masquée sur mobile */}
+                      <div className="hidden sm:block">
+                        <WatchlistSparkline symbol={item.symbol} />
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-mono font-semibold">{formatPrice(q.price, q.currency)}</div>
+                        <div className={`text-xs font-mono ${cls} flex items-center justify-end gap-0.5`}>
+                          {up === true && <ArrowUpRight className="w-3 h-3" />}
+                          {up === false && <ArrowDownRight className="w-3 h-3" />}
+                          {formatPercent(q.changePercent)}
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-right"><div className="h-4 bg-muted rounded w-20 animate-pulse" /></div>
+                    <div className="text-right ml-4 space-y-1">
+                      <Skeleton className="h-4 w-20 ml-auto" />
+                      <Skeleton className="h-3 w-14 ml-auto" />
+                    </div>
                   )}
                 </Link>
                 {activeList === "__all__" && (

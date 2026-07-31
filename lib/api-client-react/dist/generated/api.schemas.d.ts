@@ -87,39 +87,75 @@ export interface NewsItem {
     overallSentimentLabel: NewsSentimentLabel;
     tickers: NewsTickerSentiment[];
 }
-export type GetMarketNewsParams = {
-    tickers?: string;
-    limit?: number;
-};
 export interface WatchlistItem {
     id: number;
     symbol: string;
     name: string;
     /** @nullable */
     note?: string | null;
+    listName: string;
     addedAt: string;
 }
 export interface WatchlistInput {
     symbol: string;
     name: string;
+    listName?: string;
     note?: string;
+}
+export interface ChartNote {
+    id: number;
+    symbol: string;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}
+export interface ChartNoteInput {
+    symbol: string;
+    candleDate: string;
+    text: string;
+}
+export interface LearnProgress {
+    sectionId: string;
+    completed: boolean;
+    /** @nullable */
+    quizScore?: number | null;
+    /** @nullable */
+    quizTotal?: number | null;
+    /** @nullable */
+    completedAt?: string | null;
+    updatedAt: string;
+}
+export interface LearnProgressInput {
+    completed: boolean;
+    quizScore?: number;
+    quizTotal?: number;
 }
 export type AlertAlertType = typeof AlertAlertType[keyof typeof AlertAlertType];
 export declare const AlertAlertType: {
     readonly price: "price";
     readonly pattern: "pattern";
+    readonly signal: "signal";
 };
-export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition];
+/**
+ * @nullable
+ */
+export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition] | null;
 export declare const AlertCondition: {
     readonly above: "above";
     readonly below: "below";
 };
-export type AlertPatternSignal = typeof AlertPatternSignal[keyof typeof AlertPatternSignal];
+/**
+ * @nullable
+ */
+export type AlertPatternSignal = typeof AlertPatternSignal[keyof typeof AlertPatternSignal] | null;
 export declare const AlertPatternSignal: {
     readonly haussier: "haussier";
     readonly baissier: "baissier";
 };
-export type AlertMinStrength = typeof AlertMinStrength[keyof typeof AlertMinStrength];
+/**
+ * @nullable
+ */
+export type AlertMinStrength = typeof AlertMinStrength[keyof typeof AlertMinStrength] | null;
 export declare const AlertMinStrength: {
     readonly faible: "faible";
     readonly moyen: "moyen";
@@ -132,14 +168,18 @@ export interface Alert {
     name?: string | null;
     alertType: AlertAlertType;
     /** @nullable */
-    condition?: AlertCondition | null;
+    condition?: AlertCondition;
     /** @nullable */
     targetPrice?: number | null;
     /** @nullable */
-    patternSignal?: AlertPatternSignal | null;
+    patternSignal?: AlertPatternSignal;
     /** @nullable */
-    minStrength?: AlertMinStrength | null;
+    minStrength?: AlertMinStrength;
     active: boolean;
+    /** @nullable */
+    notifyEmail?: string | null;
+    /** @nullable */
+    notifyPhone?: string | null;
     /** @nullable */
     triggeredAt?: string | null;
     createdAt: string;
@@ -148,6 +188,7 @@ export type AlertInputAlertType = typeof AlertInputAlertType[keyof typeof AlertI
 export declare const AlertInputAlertType: {
     readonly price: "price";
     readonly pattern: "pattern";
+    readonly signal: "signal";
 };
 export type AlertInputCondition = typeof AlertInputCondition[keyof typeof AlertInputCondition];
 export declare const AlertInputCondition: {
@@ -173,6 +214,8 @@ export interface AlertInput {
     targetPrice?: number;
     patternSignal?: AlertInputPatternSignal;
     minStrength?: AlertInputMinStrength;
+    notifyEmail?: string;
+    notifyPhone?: string;
 }
 export type GetQuotesParams = {
     /**
@@ -182,5 +225,18 @@ export type GetQuotesParams = {
 };
 export type SearchSymbolsParams = {
     q: string;
+};
+export type GetMarketNewsParams = {
+    /**
+     * Comma-separated ticker symbols to include ticker-specific news for
+     */
+    tickers?: string;
+    limit?: number;
+};
+export type UpdateWatchlistItemBody = {
+    listName: string;
+};
+export type GetNotesParams = {
+    symbol: string;
 };
 //# sourceMappingURL=api.schemas.d.ts.map

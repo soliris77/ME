@@ -155,6 +155,7 @@ export type AlertAlertType = typeof AlertAlertType[keyof typeof AlertAlertType];
 export const AlertAlertType = {
   price: 'price',
   pattern: 'pattern',
+  signal: 'signal',
 } as const;
 
 /**
@@ -221,6 +222,7 @@ export type AlertInputAlertType = typeof AlertInputAlertType[keyof typeof AlertI
 export const AlertInputAlertType = {
   price: 'price',
   pattern: 'pattern',
+  signal: 'signal',
 } as const;
 
 export type AlertInputCondition = typeof AlertInputCondition[keyof typeof AlertInputCondition];

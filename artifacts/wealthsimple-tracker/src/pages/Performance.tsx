@@ -1,9 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { formatPrice } from "@/lib/format";
-import { LineChart, TrendingUp, TrendingDown, Loader2, RefreshCw, Layers } from "lucide-react";
+import { useMemo, useEffect, useState } from "react";
+import { loadJournal, computeJournalPnL } from "@/lib/journal";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
+} from "recharts";
+import {
+  LineChart as LineChartIcon, TrendingUp, TrendingDown, Loader2, RefreshCw,
+  Layers, Target, BarChart2, BookOpen, Trophy, AlertCircle,
+} from "lucide-react";
+import { useCountUp } from "@/hooks/use-count-up";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// ─── Types API ────────────────────────────────────────────────────────────────
 
 interface PerformanceMetrics {
   mode: "paper" | "live" | "combined";
@@ -25,6 +37,8 @@ interface PerformanceReport {
   combined: PerformanceMetrics;
 }
 
+// ─── API hook ─────────────────────────────────────────────────────────────────
+
 function usePerformance() {
   return useQuery<PerformanceReport>({
     queryKey: ["performance-report"],
@@ -33,28 +47,98 @@ function usePerformance() {
   });
 }
 
+// ─── Formatters ───────────────────────────────────────────────────────────────
+
 function pct(n: number | null): string {
   return n === null ? "—" : `${(n * 100).toFixed(1)}%`;
 }
-
 function money(n: number | null): string {
   return n === null ? "—" : formatPrice(n);
 }
 
-function StatCard({ label, value, tone }: { label: string; value: string; tone?: "gain" | "loss" | "neutral" }) {
+// ─── Compteur animé ───────────────────────────────────────────────────────────
+
+function AnimatedStatCard({
+  label, value, raw, tone, sub,
+}: {
+  label: string;
+  value: string;
+  raw?: number;
+  tone?: "gain" | "loss" | "neutral";
+  sub?: string;
+}) {
+  const animated = useCountUp(raw ?? 0, 1000);
   const toneClass = tone === "gain" ? "gain" : tone === "loss" ? "loss" : "text-foreground";
+  const displayValue = raw !== undefined
+    ? (value.includes("%")
+        ? `${animated.toFixed(1)}%`
+        : value.includes("$")
+          ? `$${Math.abs(animated).toFixed(0)}`
+          : String(Math.round(animated)))
+    : value;
+
   return (
-    <div className="bg-card border border-card-border rounded-xl p-4">
-      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className={`text-xl font-mono font-semibold mt-1.5 ${toneClass}`}>{value}</div>
+    <div className="bg-card border border-card-border rounded-xl p-4 hover:border-primary/20 transition-colors">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
+      <div className={`text-xl font-mono font-bold ${toneClass}`}>{displayValue}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }
 
+function StatCard({ label, value, tone, sub }: { label: string; value: string; tone?: "gain" | "loss" | "neutral"; sub?: string }) {
+  const toneClass = tone === "gain" ? "gain" : tone === "loss" ? "loss" : "text-foreground";
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4 hover:border-primary/20 transition-colors">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
+      <div className={`text-xl font-mono font-bold ${toneClass}`}>{value}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Win rate gauge (arc SVG) ─────────────────────────────────────────────────
+
+function WinRateGauge({ rate }: { rate: number | null }) {
+  const pctVal = rate === null ? 0 : Math.min(Math.max(rate * 100, 0), 100);
+  const animated = useCountUp(pctVal, 1200);
+
+  const R = 40, CX = 50, CY = 52;
+  const circumference = Math.PI * R; // demi-cercle
+  const offset = circumference * (1 - animated / 100);
+  const color = pctVal >= 55 ? "#16a34a" : pctVal >= 45 ? "#d4a72c" : "#dc2626";
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg width={100} height={60} viewBox="0 0 100 60">
+        {/* Track */}
+        <path
+          d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+          fill="none" stroke="hsl(var(--border))" strokeWidth={8} strokeLinecap="round"
+        />
+        {/* Progress */}
+        <path
+          d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+          fill="none" stroke={color} strokeWidth={8} strokeLinecap="round"
+          strokeDasharray={`${circumference}`}
+          strokeDashoffset={`${offset}`}
+          style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.22,1,0.36,1)" }}
+        />
+        <text x={CX} y={CY - 6} textAnchor="middle" fontSize={16} fontWeight="bold" fill={color} fontFamily="JetBrains Mono, monospace">
+          {rate === null ? "—" : `${animated.toFixed(1)}%`}
+        </text>
+      </svg>
+      <span className="text-xs text-muted-foreground -mt-1">Taux de réussite</span>
+    </div>
+  );
+}
+
+// ─── Métriques API ────────────────────────────────────────────────────────────
+
 function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: typeof TrendingUp; metrics: PerformanceMetrics }) {
   return (
     <div className="mb-8">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         <Icon className="w-4 h-4 text-primary" />
         <h2 className="text-sm font-semibold uppercase tracking-wide">{title}</h2>
         <span className="text-xs text-muted-foreground ml-1">
@@ -64,13 +148,10 @@ function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: t
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Taux de réussite" value={pct(metrics.winRate)} tone={metrics.winRate === null ? "neutral" : metrics.winRate >= 0.5 ? "gain" : "loss"} />
-        <StatCard label="Gains / pertes" value={`${metrics.wins}G / ${metrics.losses}P`} />
+        <StatCard label="Gains / Pertes" value={`${metrics.wins}G / ${metrics.losses}P`} />
         <StatCard label="Gain moyen" value={money(metrics.avgWin)} tone="gain" />
         <StatCard label="Perte moyenne" value={metrics.avgLoss === null ? "—" : `-${formatPrice(metrics.avgLoss)}`} tone="loss" />
-        <StatCard
-          label="Ratio risque/récompense"
-          value={metrics.riskRewardRatio === null ? "—" : metrics.riskRewardRatio.toFixed(2)}
-        />
+        <StatCard label="Ratio R/R" value={metrics.riskRewardRatio === null ? "—" : metrics.riskRewardRatio.toFixed(2)} />
         <StatCard
           label="P&L total"
           value={metrics.totalPnl >= 0 ? `+${formatPrice(metrics.totalPnl)}` : `-${formatPrice(Math.abs(metrics.totalPnl))}`}
@@ -78,13 +159,363 @@ function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: t
         />
       </div>
       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="font-medium">Drawdown maximal :</span>
+        <span className="font-medium">Drawdown max :</span>
         <span className="font-mono loss">-{formatPrice(metrics.maxDrawdown)}</span>
-        <span className="opacity-60">(plus grande baisse observée depuis un sommet de P&L cumulé)</span>
+        <span className="opacity-60">(plus grande baisse depuis un sommet de P&L cumulé)</span>
       </div>
     </div>
   );
 }
+
+// ─── Analyse locale du journal de trading ─────────────────────────────────────
+
+function useJournalAnalytics() {
+  const [data, setData] = useState<{
+    equityCurve: { date: string; valeur: number }[];
+    dayMap: Record<string, number>;
+    bySymbol: { symbol: string; wins: number; losses: number; totalPnl: number; total: number }[];
+    closedCount: number;
+    openCount: number;
+    winRate: number | null;
+    totalPnlPct: number;
+    bestTrade: { symbol: string; pnl: number } | null;
+    worstTrade: { symbol: string; pnl: number } | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const all = loadJournal();
+    const closed = all.filter((e) => e.closed && e.exitPrice !== undefined);
+    const open   = all.filter((e) => !e.closed);
+
+    if (closed.length === 0) {
+      setData({ equityCurve: [], dayMap: {}, bySymbol: [], closedCount: 0, openCount: open.length, winRate: null, totalPnlPct: 0, bestTrade: null, worstTrade: null });
+      return;
+    }
+
+    // Trier par date de sortie
+    const sorted = [...closed].sort((a, b) => new Date(a.exitDate!).getTime() - new Date(b.exitDate!).getTime());
+
+    // Courbe d'équité (rendement cumulé additif en %)
+    let cumulative = 0;
+    const equityCurve = [{ date: "Début", valeur: 0 }];
+    let wins = 0;
+    let bestTrade: { symbol: string; pnl: number } | null = null;
+    let worstTrade: { symbol: string; pnl: number } | null = null;
+
+    sorted.forEach((entry) => {
+      const pnl = computeJournalPnL(entry, entry.exitPrice!);
+      cumulative += pnl.pnlPct;
+      if (pnl.isWin) wins++;
+      if (bestTrade === null || pnl.pnlPct > bestTrade.pnl)  bestTrade  = { symbol: entry.symbol, pnl: pnl.pnlPct };
+      if (worstTrade === null || pnl.pnlPct < worstTrade.pnl) worstTrade = { symbol: entry.symbol, pnl: pnl.pnlPct };
+      const label = new Date(entry.exitDate!).toLocaleDateString("fr-CA", { month: "short", day: "numeric" });
+      equityCurve.push({ date: label, valeur: Math.round(cumulative * 100) / 100 });
+    });
+
+    // Calendrier P&L (91 derniers jours)
+    const today = new Date();
+    const calStart = new Date(today); calStart.setDate(today.getDate() - 90);
+    const dayMap: Record<string, number> = {};
+    sorted.forEach((entry) => {
+      const d = new Date(entry.exitDate!);
+      if (d < calStart) return;
+      const key = d.toISOString().slice(0, 10);
+      dayMap[key] = (dayMap[key] ?? 0) + computeJournalPnL(entry, entry.exitPrice!).pnlPct;
+    });
+
+    // Répartition par symbole (top 8)
+    const symMap: Record<string, { wins: number; losses: number; totalPnl: number }> = {};
+    sorted.forEach((entry) => {
+      if (!symMap[entry.symbol]) symMap[entry.symbol] = { wins: 0, losses: 0, totalPnl: 0 };
+      const pnl = computeJournalPnL(entry, entry.exitPrice!);
+      if (pnl.isWin) symMap[entry.symbol].wins++;
+      else           symMap[entry.symbol].losses++;
+      symMap[entry.symbol].totalPnl += pnl.pnlPct;
+    });
+    const bySymbol = Object.entries(symMap)
+      .map(([symbol, d]) => ({ symbol, ...d, total: d.wins + d.losses }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+
+    setData({
+      equityCurve,
+      dayMap,
+      bySymbol,
+      closedCount: closed.length,
+      openCount: open.length,
+      winRate: wins / closed.length,
+      totalPnlPct: cumulative,
+      bestTrade,
+      worstTrade,
+    });
+  }, []);
+
+  return data;
+}
+
+// ─── Calendrier P&L (GitHub-style) ────────────────────────────────────────────
+
+function PnLCalendar({ dayMap }: { dayMap: Record<string, number> }) {
+  const WEEKS = 13;
+  const today = new Date();
+
+  // Générer une grille de 91 jours (13 semaines × 7)
+  const days: { iso: string; pnl: number | null }[] = [];
+  for (let i = 90; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    days.push({ iso, pnl: dayMap[iso] ?? null });
+  }
+
+  // Regrouper par semaine (colonnes)
+  const weeks: { iso: string; pnl: number | null }[][] = [];
+  let week: { iso: string; pnl: number | null }[] = [];
+  days.forEach((d, i) => {
+    week.push(d);
+    if ((i + 1) % 7 === 0) { weeks.push(week); week = []; }
+  });
+  if (week.length > 0) weeks.push(week);
+
+  const cellColor = (pnl: number | null) => {
+    if (pnl === null) return "hsl(var(--muted) / 0.4)";
+    if (pnl >= 3)  return "#16a34a";
+    if (pnl >= 1)  return "#22c55e";
+    if (pnl > 0)   return "#4ade80";
+    if (pnl > -1)  return "#fca5a5";
+    if (pnl > -3)  return "#ef4444";
+    return "#dc2626";
+  };
+
+  const dayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+  return (
+    <div>
+      <div className="flex gap-1 items-start">
+        {/* Jour labels */}
+        <div className="flex flex-col gap-1 pt-5 pr-1">
+          {dayLabels.map((d) => (
+            <div key={d} className="text-[9px] text-muted-foreground h-[11px] leading-none">{d}</div>
+          ))}
+        </div>
+        {/* Grid */}
+        <div className="flex gap-1">
+          {weeks.map((wk, wi) => (
+            <div key={wi} className="flex flex-col gap-1">
+              {/* Month label (première cellule) */}
+              <div className="text-[9px] text-muted-foreground h-4 leading-none text-center">
+                {wi === 0 || new Date(wk[0].iso).getDate() <= 7
+                  ? new Date(wk[0].iso).toLocaleDateString("fr-CA", { month: "short" })
+                  : ""}
+              </div>
+              {wk.map((day) => (
+                <div
+                  key={day.iso}
+                  title={day.pnl !== null
+                    ? `${new Date(day.iso).toLocaleDateString("fr-CA", { day: "numeric", month: "long" })} : ${day.pnl >= 0 ? "+" : ""}${day.pnl.toFixed(2)}%`
+                    : new Date(day.iso).toLocaleDateString("fr-CA", { day: "numeric", month: "long" })}
+                  className="w-[11px] h-[11px] rounded-sm cursor-default transition-transform hover:scale-125"
+                  style={{ background: cellColor(day.pnl) }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Légende */}
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <span className="text-[10px] text-muted-foreground">Moins</span>
+        {[null, 0.5, 1.5, 3, -0.5, -1.5, -3].map((v, i) => (
+          <div key={i} className="w-[11px] h-[11px] rounded-sm" style={{ background: cellColor(v) }} />
+        ))}
+        <span className="text-[10px] text-muted-foreground">Plus</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Section journal local ────────────────────────────────────────────────────
+
+const DONUT_COLORS = ["#D4A72C","#22c55e","#3b82f6","#a855f7","#ef4444","#f97316","#06b6d4","#ec4899"];
+
+function JournalAnalyticsSection() {
+  const analytics = useJournalAnalytics();
+
+  if (!analytics) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin" /> Chargement du journal…
+      </div>
+    );
+  }
+
+  if (analytics.closedCount === 0) {
+    return (
+      <div className="bg-card border border-card-border rounded-2xl p-10 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center mx-auto mb-4">
+          <BookOpen className="w-8 h-8 text-primary/50" />
+        </div>
+        <p className="font-semibold text-foreground mb-1">Journal vide</p>
+        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+          Ouvrez la fiche d'un titre, notez une décision dans le Journal de trading, puis clôturez-la pour voir vos statistiques apparaître ici.
+        </p>
+        {analytics.openCount > 0 && (
+          <p className="text-xs text-primary mt-3">{analytics.openCount} position{analytics.openCount > 1 ? "s" : ""} ouverte{analytics.openCount > 1 ? "s" : ""} en attente de clôture</p>
+        )}
+      </div>
+    );
+  }
+
+  const equityColor = (analytics.totalPnlPct ?? 0) >= 0 ? "#22c55e" : "#ef4444";
+  const equityMin = Math.min(...analytics.equityCurve.map((d) => d.valeur));
+  const equityMax = Math.max(...analytics.equityCurve.map((d) => d.valeur));
+
+  return (
+    <div className="space-y-6">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-card border border-card-border rounded-xl p-4 col-span-2 sm:col-span-1 flex flex-col items-center justify-center py-5">
+          <WinRateGauge rate={analytics.winRate} />
+        </div>
+        <AnimatedStatCard
+          label="Trades clôturés"
+          value={String(analytics.closedCount)}
+          raw={analytics.closedCount}
+        />
+        <AnimatedStatCard
+          label="Rendement cumulé"
+          value={`${(analytics.totalPnlPct ?? 0) >= 0 ? "+" : ""}${(analytics.totalPnlPct ?? 0).toFixed(2)}%`}
+          raw={analytics.totalPnlPct ?? 0}
+          tone={(analytics.totalPnlPct ?? 0) >= 0 ? "gain" : "loss"}
+        />
+        <AnimatedStatCard
+          label="Positions ouvertes"
+          value={String(analytics.openCount)}
+          raw={analytics.openCount}
+          sub="dans le journal local"
+        />
+      </div>
+
+      {/* Best / Worst trades */}
+      {(analytics.bestTrade || analytics.worstTrade) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {analytics.bestTrade && (
+            <div className="bg-emerald-500/6 border border-emerald-500/20 rounded-xl px-4 py-3 flex items-center gap-3">
+              <Trophy className="w-5 h-5 text-emerald-500 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Meilleur trade</p>
+                <p className="font-mono font-bold text-emerald-500">
+                  {analytics.bestTrade.symbol} &mdash; +{analytics.bestTrade.pnl.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+          )}
+          {analytics.worstTrade && (
+            <div className="bg-red-500/6 border border-red-500/20 rounded-xl px-4 py-3 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Pire trade</p>
+                <p className="font-mono font-bold text-red-500">
+                  {analytics.worstTrade.symbol} &mdash; {analytics.worstTrade.pnl.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Equity curve */}
+      {analytics.equityCurve.length >= 2 && (
+        <div className="bg-card border border-card-border rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold uppercase tracking-wide">Courbe d'équité</h3>
+            <span className="text-xs text-muted-foreground ml-1">rendement cumulé (%) — journal local</span>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={analytics.equityCurve} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor={equityColor} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={equityColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border) / 0.3)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono, monospace" }}
+                axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono, monospace" }}
+                axisLine={false} tickLine={false} width={42} domain={[equityMin * 1.1, equityMax * 1.1]}
+                tickFormatter={(v) => `${v > 0 ? "+" : ""}${v.toFixed(0)}%`} />
+              <Tooltip
+                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}
+                formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toFixed(2)}%`, "Cumulé"]}
+              />
+              <Area dataKey="valeur" stroke={equityColor} strokeWidth={2} fill="url(#equityGrad)" dot={false}
+                activeDot={{ r: 4, fill: equityColor, strokeWidth: 0 }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* P&L calendar + donut row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Calendrier P&L */}
+        <div className="bg-card border border-card-border rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Target className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold uppercase tracking-wide">Calendrier P&amp;L</h3>
+            <span className="text-xs text-muted-foreground ml-1">13 dernières semaines</span>
+          </div>
+          <PnLCalendar dayMap={analytics.dayMap} />
+        </div>
+
+        {/* Donut par symbole */}
+        {analytics.bySymbol.length > 0 && (
+          <div className="bg-card border border-card-border rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <LineChartIcon className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold uppercase tracking-wide">Activité par symbole</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={120} height={120}>
+                <PieChart>
+                  <Pie data={analytics.bySymbol} dataKey="total" cx="50%" cy="50%"
+                    innerRadius={30} outerRadius={55} strokeWidth={0}>
+                    {analytics.bySymbol.map((_, i) => (
+                      <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: number, _: string, p: any) => [
+                      `${v} trade${v > 1 ? "s" : ""} · ${(p.payload as { wins: number; losses: number; totalPnl: number; symbol: string }).wins}G/${(p.payload as { wins: number; losses: number; totalPnl: number; symbol: string }).losses}P · ${(p.payload as { wins: number; losses: number; totalPnl: number; symbol: string }).totalPnl >= 0 ? "+" : ""}${(p.payload as { wins: number; losses: number; totalPnl: number; symbol: string }).totalPnl.toFixed(1)}%`,
+                      (p.payload as { symbol: string }).symbol,
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                {analytics.bySymbol.map((s, i) => (
+                  <div key={s.symbol} className="flex items-center gap-2 text-xs">
+                    <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                    <span className="font-mono font-bold shrink-0">{s.symbol}</span>
+                    <span className="text-muted-foreground truncate">{s.wins}G/{s.losses}P</span>
+                    <span className={`ml-auto font-mono shrink-0 ${s.totalPnl >= 0 ? "gain" : "loss"}`}>
+                      {s.totalPnl >= 0 ? "+" : ""}{s.totalPnl.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function Performance() {
   usePageMeta("Performance — Soliris Market", "Taux de réussite, risque/récompense et drawdown, paper vs. live.");
@@ -92,18 +523,18 @@ export default function Performance() {
   const data = q.data;
 
   return (
-    <div className="p-6 sm:p-8 max-w-4xl mx-auto animate-fadeUp">
+    <div className="p-6 sm:p-8 max-w-5xl mx-auto animate-fadeUp">
+      {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <div className="section-rule mb-4"><span>PERFORMANCE</span></div>
           <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-2.5">
-            <LineChart className="w-5 h-5 text-primary" />
+            <LineChartIcon className="w-5 h-5 text-primary" />
             Dashboard de performance
           </h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-xl">
-            Agrège l'historique des ordres remplis (appariement FIFO) en métriques de résultat —
-            distinct du journal de trading brut. Comparez le mode paper et le mode live une fois
-            qu'il y a assez de données des deux côtés.
+            Métriques issues des ordres remplis (FIFO) et du journal de trading local.
+            Comparez le mode paper et le mode live.
           </p>
         </div>
         <button
@@ -115,31 +546,53 @@ export default function Performance() {
         </button>
       </div>
 
-      {q.isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
+      {/* ── Section 1 : métriques API (ordres remplis) ── */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-1 h-5 bg-primary rounded-full" />
+          <h2 className="text-base font-semibold">Métriques des ordres (courtier)</h2>
         </div>
-      ) : !data ? (
-        <div className="text-sm text-destructive">Impossible de charger les métriques de performance.</div>
-      ) : data.combined.totalTrades === 0 ? (
-        <div className="text-sm text-muted-foreground border border-dashed border-card-border rounded-xl p-8 text-center">
-          Aucun trade clôturé pour le moment — les métriques apparaîtront après le premier aller-retour
-          (achat puis vente) complété sur un titre.
-        </div>
-      ) : (
-        <>
-          <MetricsSection title="Combiné (paper + live)" icon={Layers} metrics={data.combined} />
-          <MetricsSection title="Mode paper" icon={TrendingUp} metrics={data.paper} />
-          <MetricsSection title="Mode live" icon={TrendingDown} metrics={data.live} />
 
-          {data.paper.totalTrades > 0 && data.live.totalTrades > 0 && (
-            <div className="bg-primary/8 border border-primary/25 rounded-xl p-4 text-sm text-primary">
-              Comparaison directe : taux de réussite paper {pct(data.paper.winRate)} vs. live {pct(data.live.winRate)} ·
-              ratio risque/récompense paper {data.paper.riskRewardRatio?.toFixed(2) ?? "—"} vs. live {data.live.riskRewardRatio?.toFixed(2) ?? "—"}.
+        {q.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
+          </div>
+        ) : !data ? (
+          <div className="text-sm text-destructive">Impossible de charger les métriques de performance.</div>
+        ) : data.combined.totalTrades === 0 ? (
+          <div className="bg-card border border-card-border rounded-2xl p-8 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-3">
+              <LineChartIcon className="w-6 h-6 text-primary/40" />
             </div>
-          )}
-        </>
-      )}
+            <p className="font-semibold mb-1">Aucun ordre clôturé</p>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Les métriques apparaîtront après le premier aller-retour (achat + vente) complété via le courtier.
+            </p>
+          </div>
+        ) : (
+          <>
+            <MetricsSection title="Combiné (paper + live)" icon={Layers} metrics={data.combined} />
+            <MetricsSection title="Mode paper" icon={TrendingUp} metrics={data.paper} />
+            <MetricsSection title="Mode live" icon={TrendingDown} metrics={data.live} />
+            {data.paper.totalTrades > 0 && data.live.totalTrades > 0 && (
+              <div className="bg-primary/8 border border-primary/25 rounded-xl p-4 text-sm text-primary">
+                Comparaison : taux de réussite paper {pct(data.paper.winRate)} vs. live {pct(data.live.winRate)} ·
+                ratio R/R paper {data.paper.riskRewardRatio?.toFixed(2) ?? "—"} vs. live {data.live.riskRewardRatio?.toFixed(2) ?? "—"}.
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Section 2 : analyse du journal local ── */}
+      <div>
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+          <h2 className="text-base font-semibold">Analyse du journal de trading local</h2>
+          <span className="text-xs text-muted-foreground ml-1">— stockage navigateur uniquement</span>
+        </div>
+        <JournalAnalyticsSection />
+      </div>
     </div>
   );
 }

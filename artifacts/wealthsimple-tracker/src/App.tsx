@@ -38,9 +38,11 @@ import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot, Cpu } from "lucide-react";
+import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot, Cpu, Calculator } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
+import { PositionCalculator } from "@/components/PositionCalculator";
+import { useQuery } from "@tanstack/react-query";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +58,21 @@ function SolirisMark() {
   );
 }
 
+const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+/** Hook léger : compte les alertes actives pour le badge dans la sidebar */
+function useActiveAlertsCount() {
+  const { data } = useQuery<{ active: boolean }[]>({
+    queryKey: ["nav-alerts-count"],
+    queryFn: () => fetch(`${BASE_URL}/api/alerts`).then((r) => r.json()),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+    // On ne bloque pas le rendu si la requête échoue
+    retry: false,
+  });
+  return Array.isArray(data) ? data.filter((a) => a.active).length : 0;
+}
+
 function Nav() {
   const [location] = useLocation();
   const { logout } = useAuth();
@@ -65,7 +82,9 @@ function Nav() {
     return true; // default to dark (Obsidian Luxe)
   });
   const [showApi, setShowApi] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
+  const activeAlertsCount = useActiveAlertsCount();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -95,7 +114,8 @@ function Nav() {
 
   return (
     <>
-      {showApi && <ApiStatusModal onClose={() => setShowApi(false)} />}
+      {showApi  && <ApiStatusModal onClose={() => setShowApi(false)} />}
+      {showCalc && <PositionCalculator onClose={() => setShowCalc(false)} />}
       <aside className="fixed inset-y-0 left-0 w-56 bg-sidebar border-r border-sidebar-border flex flex-col z-30">
         {/* Logo */}
         <div className="px-5 py-5">
@@ -116,6 +136,7 @@ function Nav() {
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto min-h-0">
           {links.map(({ href, label, icon: Icon }) => {
             const active = location.startsWith(href);
+            const isAlerts = href === "/alerts";
             return (
               <Link
                 key={href}
@@ -124,7 +145,14 @@ function Nav() {
                   active ? "nav-link-active" : "nav-link-inactive"
                 }`}
               >
-                <Icon className={`w-4 h-4 flex-shrink-0 transition-colors ${active ? "text-sidebar-primary" : ""}`} />
+                <span className="relative flex-shrink-0">
+                  <Icon className={`w-4 h-4 transition-colors ${active ? "text-sidebar-primary" : ""}`} />
+                  {isAlerts && activeAlertsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-[8px] font-bold text-primary-foreground flex items-center justify-center leading-none animate-pulse">
+                      {activeAlertsCount > 9 ? "9+" : activeAlertsCount}
+                    </span>
+                  )}
+                </span>
                 {label}
               </Link>
             );
@@ -135,6 +163,13 @@ function Nav() {
 
         {/* Footer */}
         <div className="px-3 py-4 space-y-0.5">
+          <button
+            onClick={() => setShowCalc(true)}
+            className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
+          >
+            <Calculator className="w-4 h-4 flex-shrink-0" />
+            Taille de position
+          </button>
           <button
             onClick={() => { import("@/lib/sounds").then(({ playSound }) => playSound("toggle")); setShowApi(true); }}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"

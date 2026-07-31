@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { NotebookPen, Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { NotebookPen, Plus, Trash2, TrendingUp, TrendingDown, Download, Upload } from "lucide-react";
 import {
   loadJournal, addJournalEntry, removeJournalEntry, closeJournalEntry, computeJournalPnL,
+  exportJournalToCSV, importJournalFromCSV,
 } from "@/lib/journal";
 import type { JournalEntry, JournalDirection, JournalMode } from "@/lib/journal";
 
@@ -110,6 +111,8 @@ function EntryRow({ entry, currentPrice, onRemove, onClose }: {
 export default function TradingJournal({ symbol, currency, currentPrice, suggestedSignal }: Props) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => setEntries(loadJournal(symbol));
 
@@ -120,12 +123,56 @@ export default function TradingJournal({ symbol, currency, currentPrice, suggest
 
   const openCount = entries.filter((e) => !e.closed).length;
 
+  const handleExportCSV = () => {
+    const csv = exportJournalToCSV();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `journal-soliris-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const count = importJournalFromCSV(text);
+      refresh();
+      setImportMsg(`${count} entrée${count > 1 ? "s" : ""} importée${count > 1 ? "s" : ""} ✓`);
+      setTimeout(() => setImportMsg(null), 3000);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   return (
     <div className="bg-card border border-card-border rounded-xl p-4">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
         <NotebookPen className="w-4 h-4 text-primary" />
         <span className="text-sm font-semibold">Journal de trading &amp; simulateur — {symbol}</span>
-        {openCount > 0 && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded ml-auto">{openCount} position{openCount > 1 ? "s" : ""} ouverte{openCount > 1 ? "s" : ""}</span>}
+        {openCount > 0 && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{openCount} position{openCount > 1 ? "s" : ""} ouverte{openCount > 1 ? "s" : ""}</span>}
+        <div className="ml-auto flex items-center gap-1">
+          {importMsg && <span className="text-xs text-emerald-500">{importMsg}</span>}
+          <button
+            onClick={handleExportCSV}
+            title="Exporter en CSV"
+            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Importer un CSV"
+            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5" />
+          </button>
+          <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportCSV} />
+        </div>
       </div>
       <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
         Note tes décisions (réelles ou simulées) pour suivre ta progression. Tout est stocké seulement dans ton navigateur — aucune donnée envoyée à un serveur.

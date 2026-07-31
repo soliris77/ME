@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import LiveTicker from "@/components/LiveTicker";
 import TradeModal from "@/components/TradeModal";
 import type { Quote } from "@workspace/api-client-react";
+import SectorHeatmap from "@/components/SectorHeatmap";
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -971,6 +972,9 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Heatmap de performance par secteur */}
+        <SectorHeatmap />
 
         {/* Popular stocks — 11 categories, all with quick-actions */}
         <div className="mb-7">

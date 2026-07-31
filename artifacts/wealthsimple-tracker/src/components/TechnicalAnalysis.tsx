@@ -9,7 +9,7 @@ import {
   getVolatilityInfo, detectMarketStructure, computeFibonacciLevels, detectDivergences, backtestPatterns, predictNextMove,
 } from "@/lib/indicators";
 import type {
-  IndicatorPoint, OHLCPoint, CandlePattern, PriceGap, SRLevel, VolatilityInfo, MarketStructure, FibonacciResult, Divergence, PatternBacktestStat, CandlePrediction,
+  IndicatorPoint, OHLCPoint, CandlePattern, PriceGap, SRLevel, VolatilityInfo, MarketStructure, FibonacciResult, Divergence, PatternBacktestStat, CandlePrediction, SignalStrength,
 } from "@/lib/indicators";
 import {
   TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart,

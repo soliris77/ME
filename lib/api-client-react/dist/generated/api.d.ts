@@ -1,10 +1,8 @@
 import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import type { Alert, AlertInput, GetMarketNewsParams, GetQuotesParams, HealthStatus, HistoricalPoint, MarketOverview, NewsItem, Quote, SearchResult, SearchSymbolsParams, WatchlistInput, WatchlistItem } from './api.schemas';
-import { customFetch } from '../custom-fetch';
+import type { Alert, AlertInput, ChartNote, ChartNoteInput, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarketOverview, NewsItem, Quote, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem } from './api.schemas';
 import type { ErrorType, BodyType } from '../custom-fetch';
 type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
-type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 export declare const getHealthCheckUrl: () => string;
 /**
  * @summary Health check
@@ -13,7 +11,6 @@ export declare const healthCheck: (options?: RequestInit) => Promise<HealthStatu
 export declare const getHealthCheckQueryKey: () => readonly ["/api/healthz"];
 export declare const getHealthCheckQueryOptions: <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -24,7 +21,6 @@ export type HealthCheckQueryError = ErrorType<unknown>;
  */
 export declare function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -36,7 +32,6 @@ export declare const getQuotes: (params: GetQuotesParams, options?: RequestInit)
 export declare const getGetQuotesQueryKey: (params?: GetQuotesParams) => readonly ["/api/quotes", ...GetQuotesParams[]];
 export declare const getGetQuotesQueryOptions: <TData = Awaited<ReturnType<typeof getQuotes>>, TError = ErrorType<unknown>>(params: GetQuotesParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuotes>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getQuotes>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -47,7 +42,6 @@ export type GetQuotesQueryError = ErrorType<unknown>;
  */
 export declare function useGetQuotes<TData = Awaited<ReturnType<typeof getQuotes>>, TError = ErrorType<unknown>>(params: GetQuotesParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuotes>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -59,7 +53,6 @@ export declare const getQuote: (symbol: string, options?: RequestInit) => Promis
 export declare const getGetQuoteQueryKey: (symbol: string) => readonly [`/api/quotes/${string}`];
 export declare const getGetQuoteQueryOptions: <TData = Awaited<ReturnType<typeof getQuote>>, TError = ErrorType<void>>(symbol: string, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuote>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getQuote>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -70,7 +63,6 @@ export type GetQuoteQueryError = ErrorType<void>;
  */
 export declare function useGetQuote<TData = Awaited<ReturnType<typeof getQuote>>, TError = ErrorType<void>>(symbol: string, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuote>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -82,7 +74,6 @@ export declare const getQuoteHistory: (symbol: string, range: "1d" | "5d" | "1mo
 export declare const getGetQuoteHistoryQueryKey: (symbol: string, range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y") => readonly [`/api/quotes/${string}/history/1d` | `/api/quotes/${string}/history/5d` | `/api/quotes/${string}/history/1mo` | `/api/quotes/${string}/history/3mo` | `/api/quotes/${string}/history/6mo` | `/api/quotes/${string}/history/1y`];
 export declare const getGetQuoteHistoryQueryOptions: <TData = Awaited<ReturnType<typeof getQuoteHistory>>, TError = ErrorType<unknown>>(symbol: string, range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y", options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuoteHistory>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getQuoteHistory>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -93,7 +84,6 @@ export type GetQuoteHistoryQueryError = ErrorType<unknown>;
  */
 export declare function useGetQuoteHistory<TData = Awaited<ReturnType<typeof getQuoteHistory>>, TError = ErrorType<unknown>>(symbol: string, range: '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y', options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuoteHistory>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -105,7 +95,6 @@ export declare const getMarketOverview: (options?: RequestInit) => Promise<Marke
 export declare const getGetMarketOverviewQueryKey: () => readonly ["/api/market/overview"];
 export declare const getGetMarketOverviewQueryOptions: <TData = Awaited<ReturnType<typeof getMarketOverview>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getMarketOverview>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getMarketOverview>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -116,7 +105,6 @@ export type GetMarketOverviewQueryError = ErrorType<unknown>;
  */
 export declare function useGetMarketOverview<TData = Awaited<ReturnType<typeof getMarketOverview>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getMarketOverview>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -128,7 +116,6 @@ export declare const searchSymbols: (params: SearchSymbolsParams, options?: Requ
 export declare const getSearchSymbolsQueryKey: (params?: SearchSymbolsParams) => readonly ["/api/market/search", ...SearchSymbolsParams[]];
 export declare const getSearchSymbolsQueryOptions: <TData = Awaited<ReturnType<typeof searchSymbols>>, TError = ErrorType<unknown>>(params: SearchSymbolsParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof searchSymbols>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof searchSymbols>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -139,7 +126,6 @@ export type SearchSymbolsQueryError = ErrorType<unknown>;
  */
 export declare function useSearchSymbols<TData = Awaited<ReturnType<typeof searchSymbols>>, TError = ErrorType<unknown>>(params: SearchSymbolsParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof searchSymbols>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -151,7 +137,6 @@ export declare const getMarketNews: (params?: GetMarketNewsParams, options?: Req
 export declare const getGetMarketNewsQueryKey: (params?: GetMarketNewsParams) => readonly ["/api/market/news", ...GetMarketNewsParams[]];
 export declare const getGetMarketNewsQueryOptions: <TData = Awaited<ReturnType<typeof getMarketNews>>, TError = ErrorType<unknown>>(params?: GetMarketNewsParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getMarketNews>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getMarketNews>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -162,7 +147,6 @@ export type GetMarketNewsQueryError = ErrorType<unknown>;
  */
 export declare function useGetMarketNews<TData = Awaited<ReturnType<typeof getMarketNews>>, TError = ErrorType<unknown>>(params?: GetMarketNewsParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getMarketNews>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -174,7 +158,6 @@ export declare const getWatchlist: (options?: RequestInit) => Promise<WatchlistI
 export declare const getGetWatchlistQueryKey: () => readonly ["/api/watchlist"];
 export declare const getGetWatchlistQueryOptions: <TData = Awaited<ReturnType<typeof getWatchlist>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getWatchlist>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getWatchlist>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -185,7 +168,6 @@ export type GetWatchlistQueryError = ErrorType<unknown>;
  */
 export declare function useGetWatchlist<TData = Awaited<ReturnType<typeof getWatchlist>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getWatchlist>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -198,7 +180,6 @@ export declare const getAddToWatchlistMutationOptions: <TError = ErrorType<unkno
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof addToWatchlist>>, TError, {
         data: BodyType<WatchlistInput>;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationOptions<Awaited<ReturnType<typeof addToWatchlist>>, TError, {
     data: BodyType<WatchlistInput>;
 }, TContext>;
@@ -212,9 +193,37 @@ export declare const useAddToWatchlist: <TError = ErrorType<unknown>, TContext =
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof addToWatchlist>>, TError, {
         data: BodyType<WatchlistInput>;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationResult<Awaited<ReturnType<typeof addToWatchlist>>, TError, {
     data: BodyType<WatchlistInput>;
+}, TContext>;
+export declare const getUpdateWatchlistItemUrl: (id: number) => string;
+/**
+ * @summary Move a watchlist item to another custom list
+ */
+export declare const updateWatchlistItem: (id: number, updateWatchlistItemBody: UpdateWatchlistItemBody, options?: RequestInit) => Promise<WatchlistItem>;
+export declare const getUpdateWatchlistItemMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateWatchlistItem>>, TError, {
+        id: number;
+        data: BodyType<UpdateWatchlistItemBody>;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateWatchlistItem>>, TError, {
+    id: number;
+    data: BodyType<UpdateWatchlistItemBody>;
+}, TContext>;
+export type UpdateWatchlistItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateWatchlistItem>>>;
+export type UpdateWatchlistItemMutationBody = BodyType<UpdateWatchlistItemBody>;
+export type UpdateWatchlistItemMutationError = ErrorType<unknown>;
+/**
+* @summary Move a watchlist item to another custom list
+*/
+export declare const useUpdateWatchlistItem: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateWatchlistItem>>, TError, {
+        id: number;
+        data: BodyType<UpdateWatchlistItemBody>;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateWatchlistItem>>, TError, {
+    id: number;
+    data: BodyType<UpdateWatchlistItemBody>;
 }, TContext>;
 export declare const getRemoveFromWatchlistUrl: (id: number) => string;
 /**
@@ -225,7 +234,6 @@ export declare const getRemoveFromWatchlistMutationOptions: <TError = ErrorType<
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof removeFromWatchlist>>, TError, {
         id: number;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationOptions<Awaited<ReturnType<typeof removeFromWatchlist>>, TError, {
     id: number;
 }, TContext>;
@@ -238,9 +246,128 @@ export declare const useRemoveFromWatchlist: <TError = ErrorType<unknown>, TCont
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof removeFromWatchlist>>, TError, {
         id: number;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationResult<Awaited<ReturnType<typeof removeFromWatchlist>>, TError, {
     id: number;
+}, TContext>;
+export declare const getGetNotesUrl: (params: GetNotesParams) => string;
+/**
+ * @summary Get chart notes for a symbol
+ */
+export declare const getNotes: (params: GetNotesParams, options?: RequestInit) => Promise<ChartNote[]>;
+export declare const getGetNotesQueryKey: (params?: GetNotesParams) => readonly ["/api/notes", ...GetNotesParams[]];
+export declare const getGetNotesQueryOptions: <TData = Awaited<ReturnType<typeof getNotes>>, TError = ErrorType<unknown>>(params: GetNotesParams, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getNotes>>, TError, TData>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getNotes>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetNotesQueryResult = NonNullable<Awaited<ReturnType<typeof getNotes>>>;
+export type GetNotesQueryError = ErrorType<unknown>;
+/**
+ * @summary Get chart notes for a symbol
+ */
+export declare function useGetNotes<TData = Awaited<ReturnType<typeof getNotes>>, TError = ErrorType<unknown>>(params: GetNotesParams, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getNotes>>, TError, TData>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getAddNoteUrl: () => string;
+/**
+ * @summary Add a note to a candle
+ */
+export declare const addNote: (chartNoteInput: ChartNoteInput, options?: RequestInit) => Promise<ChartNote>;
+export declare const getAddNoteMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof addNote>>, TError, {
+        data: BodyType<ChartNoteInput>;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof addNote>>, TError, {
+    data: BodyType<ChartNoteInput>;
+}, TContext>;
+export type AddNoteMutationResult = NonNullable<Awaited<ReturnType<typeof addNote>>>;
+export type AddNoteMutationBody = BodyType<ChartNoteInput>;
+export type AddNoteMutationError = ErrorType<unknown>;
+/**
+* @summary Add a note to a candle
+*/
+export declare const useAddNote: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof addNote>>, TError, {
+        data: BodyType<ChartNoteInput>;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof addNote>>, TError, {
+    data: BodyType<ChartNoteInput>;
+}, TContext>;
+export declare const getDeleteNoteUrl: (id: number) => string;
+/**
+ * @summary Delete a chart note
+ */
+export declare const deleteNote: (id: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteNoteMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteNote>>, TError, {
+        id: number;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteNote>>, TError, {
+    id: number;
+}, TContext>;
+export type DeleteNoteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteNote>>>;
+export type DeleteNoteMutationError = ErrorType<unknown>;
+/**
+* @summary Delete a chart note
+*/
+export declare const useDeleteNote: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteNote>>, TError, {
+        id: number;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteNote>>, TError, {
+    id: number;
+}, TContext>;
+export declare const getGetLearnProgressUrl: () => string;
+/**
+ * @summary Get progress for all "Apprendre à trader" sections
+ */
+export declare const getLearnProgress: (options?: RequestInit) => Promise<LearnProgress[]>;
+export declare const getGetLearnProgressQueryKey: () => readonly ["/api/learn-progress"];
+export declare const getGetLearnProgressQueryOptions: <TData = Awaited<ReturnType<typeof getLearnProgress>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getLearnProgress>>, TError, TData>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getLearnProgress>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetLearnProgressQueryResult = NonNullable<Awaited<ReturnType<typeof getLearnProgress>>>;
+export type GetLearnProgressQueryError = ErrorType<unknown>;
+/**
+ * @summary Get progress for all "Apprendre à trader" sections
+ */
+export declare function useGetLearnProgress<TData = Awaited<ReturnType<typeof getLearnProgress>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getLearnProgress>>, TError, TData>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getUpdateLearnProgressUrl: (sectionId: string) => string;
+/**
+ * @summary Mark a "Apprendre à trader" section (and optional quiz result) as completed or not
+ */
+export declare const updateLearnProgress: (sectionId: string, learnProgressInput: LearnProgressInput, options?: RequestInit) => Promise<LearnProgress>;
+export declare const getUpdateLearnProgressMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateLearnProgress>>, TError, {
+        sectionId: string;
+        data: BodyType<LearnProgressInput>;
+    }, TContext>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateLearnProgress>>, TError, {
+    sectionId: string;
+    data: BodyType<LearnProgressInput>;
+}, TContext>;
+export type UpdateLearnProgressMutationResult = NonNullable<Awaited<ReturnType<typeof updateLearnProgress>>>;
+export type UpdateLearnProgressMutationBody = BodyType<LearnProgressInput>;
+export type UpdateLearnProgressMutationError = ErrorType<unknown>;
+/**
+* @summary Mark a "Apprendre à trader" section (and optional quiz result) as completed or not
+*/
+export declare const useUpdateLearnProgress: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateLearnProgress>>, TError, {
+        sectionId: string;
+        data: BodyType<LearnProgressInput>;
+    }, TContext>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateLearnProgress>>, TError, {
+    sectionId: string;
+    data: BodyType<LearnProgressInput>;
 }, TContext>;
 export declare const getGetAlertsUrl: () => string;
 /**
@@ -250,7 +377,6 @@ export declare const getAlerts: (options?: RequestInit) => Promise<Alert[]>;
 export declare const getGetAlertsQueryKey: () => readonly ["/api/alerts"];
 export declare const getGetAlertsQueryOptions: <TData = Awaited<ReturnType<typeof getAlerts>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -261,7 +387,6 @@ export type GetAlertsQueryError = ErrorType<unknown>;
  */
 export declare function useGetAlerts<TData = Awaited<ReturnType<typeof getAlerts>>, TError = ErrorType<unknown>>(options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
@@ -274,7 +399,6 @@ export declare const getCreateAlertMutationOptions: <TError = ErrorType<unknown>
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof createAlert>>, TError, {
         data: BodyType<AlertInput>;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationOptions<Awaited<ReturnType<typeof createAlert>>, TError, {
     data: BodyType<AlertInput>;
 }, TContext>;
@@ -288,7 +412,6 @@ export declare const useCreateAlert: <TError = ErrorType<unknown>, TContext = un
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof createAlert>>, TError, {
         data: BodyType<AlertInput>;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationResult<Awaited<ReturnType<typeof createAlert>>, TError, {
     data: BodyType<AlertInput>;
 }, TContext>;
@@ -301,7 +424,6 @@ export declare const getDeleteAlertMutationOptions: <TError = ErrorType<unknown>
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteAlert>>, TError, {
         id: number;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationOptions<Awaited<ReturnType<typeof deleteAlert>>, TError, {
     id: number;
 }, TContext>;
@@ -314,7 +436,6 @@ export declare const useDeleteAlert: <TError = ErrorType<unknown>, TContext = un
     mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteAlert>>, TError, {
         id: number;
     }, TContext>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseMutationResult<Awaited<ReturnType<typeof deleteAlert>>, TError, {
     id: number;
 }, TContext>;
@@ -326,7 +447,6 @@ export declare const getTriggeredAlerts: (id: number, options?: RequestInit) => 
 export declare const getGetTriggeredAlertsQueryKey: (id: number) => readonly [`/api/alerts/${number}/triggered`];
 export declare const getGetTriggeredAlertsQueryOptions: <TData = Awaited<ReturnType<typeof getTriggeredAlerts>>, TError = ErrorType<unknown>>(id: number, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getTriggeredAlerts>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getTriggeredAlerts>>, TError, TData> & {
     queryKey: QueryKey;
 };
@@ -337,7 +457,6 @@ export type GetTriggeredAlertsQueryError = ErrorType<unknown>;
  */
 export declare function useGetTriggeredAlerts<TData = Awaited<ReturnType<typeof getTriggeredAlerts>>, TError = ErrorType<unknown>>(id: number, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getTriggeredAlerts>>, TError, TData>;
-    request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
