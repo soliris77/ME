@@ -367,7 +367,16 @@ export async function getCurrentExposureByCurrency(
   for (const symbol of symbols) {
     const units = netUnitsBySymbol.get(symbol) ?? 0;
     const quote = priceBySymbol.get(symbol.toUpperCase());
-    if (!quote) continue;
+    if (!quote) {
+      // getQuotes() intercepte les erreurs Yahoo et renvoie simplement moins de
+      // cotations : une position sans prix ignorée sous-estimerait l'exposition
+      // et laisserait passer un BUY dangereux. Refus ferme (fail closed).
+      logger.error({ symbol }, "risk: missing quote for open position during exposure calculation");
+      throw new Error(
+        `Impossible de calculer l'exposition du portefeuille (prix indisponible pour ${symbol}). ` +
+          "Ordre refusé par prudence.",
+      );
+    }
     const value = Math.abs(units) * quote.price;
     exposureByCurrency[quote.currency] = (exposureByCurrency[quote.currency] ?? 0) + value;
   }

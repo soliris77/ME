@@ -13,6 +13,7 @@
 - [Agent Task Continuity System](agent-task-continuity.md) — DB table agent_tasks + API /api/agent-tasks + page /agent-tasks; auto-writes in-progress.md on every save/pause.
 - [Motion system frontend](motion-system.md) — variants partagés src/lib/motion.ts; reduced-motion via MotionConfig racine + useReducedMotion (pas automatique); easings `as const`.
 - [Alertes en arrière-plan](background-alerts.md) — poll fiable = page (≥60 s survit au throttling) ; timers SW non fiables ; periodicsync = bonus ; navigateur fermé → Web Push.
+- [getQuotes ne rejette jamais](quotes-fail-closed.md) — erreurs Yahoo avalées, liste partielle/vide renvoyée ; les calculs de risque doivent fail closed sur cotation manquante.
 - [Confirmation des ventes protectrices](api-server-tests.md) — "accepted" de submitOrder peut cacher un ordre en erreur ; ne jamais effacer une position sans vérifier order.status.
 - [Suggestion de stop-loss](stop-suggestion.md) — un « plus bas 20 jours » exige un historique quotidien dédié (range=1mo), jamais la plage visible du graphique (bougies hebdo/mensuelles en 6m/1a).
 - [db:push silencieusement cassé](db-push-non-interactive.md) — drizzle-kit push exige un TTY ; au démarrage le schéma n'est PAS appliqué — faire le DDL via psql + rebuild tsc -b dans lib/db.
