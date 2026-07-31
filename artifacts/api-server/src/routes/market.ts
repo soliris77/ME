@@ -272,6 +272,97 @@ router.get("/market/closures", (req, res) => {
   });
 });
 
+// ─── GET /api/market/closure-warnings/:symbol ───────────────────────────────
+// Avertissements contextuels pour le modal d'ordre : la bourse du symbole
+// ferme-t-elle à 13h00 ET aujourd'hui (demi-journée), ou est-elle fermée le
+// prochain jour ouvrable (férié) ? Non bloquant — purement informatif.
+
+export interface ClosureWarning {
+  kind: "early_close_today" | "holiday_next_business_day";
+  exchange: "TSX" | "NASDAQ_NYSE";
+  exchangeLabel: string;
+  /** "YYYY-MM-DD" (heure de l'Est) du jour concerné. */
+  date: string;
+  /** Pour les demi-journées : heure de fermeture anticipée, ET. */
+  closesAt?: "13:00";
+}
+
+export function computeClosureWarnings(symbol: string, now: Date = new Date()): ClosureWarning[] {
+  const exchange = getExchangeForSymbol(symbol);
+  // Crypto / forex / indices : pas d'horaire de bourse → aucun avertissement.
+  if (exchange === "UNSUPPORTED") return [];
+
+  const exchangeLabel = exchange === "TSX" ? "TSX (Toronto)" : "NASDAQ/NYSE";
+
+  // Décomposer "maintenant" en heure de l'Est (les clés de risk.ts sont en ET)
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const year = Number(get("year"));
+  const month = Number(get("month"));
+  const day = Number(get("day"));
+  // Intl avec hour12:false peut renvoyer "24" à minuit — normaliser.
+  const hour = Number(get("hour")) % 24;
+  const minute = Number(get("minute"));
+  const todayKey = `${get("year")}-${get("month")}-${get("day")}`;
+
+  // Calendriers sur deux ans pour couvrir le passage 31 déc → 1er janv.
+  const holidays = new Set([
+    ...getMarketHolidays(year, exchange),
+    ...getMarketHolidays(year + 1, exchange),
+  ]);
+  const earlyCloseDays = new Set([
+    ...getEarlyCloseDays(year, exchange),
+    ...getEarlyCloseDays(year + 1, exchange),
+  ]);
+
+  const warnings: ClosureWarning[] = [];
+
+  // 1. Demi-journée aujourd'hui — pertinent seulement avant 13h00 ET.
+  const minutesSinceMidnight = hour * 60 + minute;
+  if (earlyCloseDays.has(todayKey) && minutesSinceMidnight < 13 * 60) {
+    warnings.push({
+      kind: "early_close_today",
+      exchange,
+      exchangeLabel,
+      date: todayKey,
+      closesAt: "13:00",
+    });
+  }
+
+  // 2. Férié le prochain jour ouvrable (lun–ven, week-ends sautés).
+  //    Arithmétique en UTC sur la date-calendrier ET — aucun décalage de fuseau.
+  const cursor = new Date(Date.UTC(year, month - 1, day));
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while (cursor.getUTCDay() === 0 || cursor.getUTCDay() === 6) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  const nextKey = cursor.toISOString().slice(0, 10);
+  if (holidays.has(nextKey)) {
+    warnings.push({
+      kind: "holiday_next_business_day",
+      exchange,
+      exchangeLabel,
+      date: nextKey,
+    });
+  }
+
+  return warnings;
+}
+
+router.get("/market/closure-warnings/:symbol", (req, res) => {
+  const symbol = decodeURIComponent(req.params.symbol ?? "").toUpperCase();
+  if (!symbol) return res.status(400).json({ error: "symbol requis" });
+  return res.json({ symbol, warnings: computeClosureWarnings(symbol) });
+});
+
 router.get("/market/overview", async (req, res) => {
   try {
     const allSymbols = [...INDICES, ...WEALTHSIMPLE_POPULAR];

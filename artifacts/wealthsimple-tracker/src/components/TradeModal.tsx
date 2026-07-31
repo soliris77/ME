@@ -12,7 +12,7 @@ import { useState, useEffect, useId } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getGetAlertsQueryKey } from "@workspace/api-client-react";
 import {
-  X, Loader2, CheckCircle2,
+  X, Loader2, CheckCircle2, CalendarClock,
   TrendingUp, TrendingDown, Building2, ChevronDown, ShieldAlert, LinkIcon, ExternalLink,
 } from "lucide-react";
 
@@ -141,6 +141,38 @@ function useAccountBalance(accountId: string, enabled: boolean) {
   });
 }
 
+
+/* Avertissements de fermeture de bourse — demi-journée aujourd'hui (13h00 ET)
+   ou férié le prochain jour ouvrable. Non bloquant : purement informatif, pour
+   planifier les entrées/sorties sans consulter la page Calendrier. */
+interface ClosureWarning {
+  kind: "early_close_today" | "holiday_next_business_day";
+  exchange: "TSX" | "NASDAQ_NYSE";
+  exchangeLabel: string;
+  date: string; // "YYYY-MM-DD" (heure de l'Est)
+  closesAt?: "13:00";
+}
+
+function useClosureWarnings(symbol: string, enabled: boolean) {
+  return useQuery<ClosureWarning[]>({
+    queryKey: ["market-closure-warnings", symbol],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/market/closure-warnings/${encodeURIComponent(symbol)}`);
+      if (!r.ok) return [];
+      const data = await r.json();
+      return Array.isArray(data?.warnings) ? data.warnings : [];
+    },
+    enabled: enabled && !!symbol,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** "2026-12-25" → "vendredi 25 décembre" (midi UTC pour éviter tout décalage). */
+function fmtClosureDate(isoDate: string): string {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return d.toLocaleDateString("fr-CA", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+}
 
 /* Stop de protection déjà actif pour un symbole — interroge la même source que
    la page Courtier. Sert à avertir AVANT de soumettre un second stop (le
@@ -368,6 +400,10 @@ export default function TradeModal({
       }
     },
   });
+
+  /* Avertissements de fermeture de bourse pour le symbole (non bloquants) */
+  const closureWarningsQ = useClosureWarnings(symbol, open);
+  const closureWarnings = closureWarningsQ.data ?? [];
 
   /* Stop actif existant pour ce symbole — avertir avant d'en empiler un second */
   const activeStopQ = useActiveStop(symbol, accountId, open);
@@ -651,6 +687,37 @@ export default function TradeModal({
                   Voir la page Courtier →
                 </a>
               </div>
+            </div>
+          )}
+
+          {/* Fermeture de bourse imminente — avertissement non bloquant :
+              demi-journée (13h00 ET) aujourd'hui ou férié le prochain jour
+              ouvrable. L'ordre reste soumissible. */}
+          {closureWarnings.length > 0 && !result && (
+            <div
+              className="rounded-lg px-3 py-2.5 space-y-1.5"
+              style={{ background: "rgba(212,167,44,0.08)", border: "1px solid rgba(212,167,44,0.28)" }}
+              role="note"
+            >
+              {closureWarnings.map((w) => (
+                <div key={w.kind} className="flex items-start gap-2 text-[12px]" style={{ color: ACCENT }}>
+                  <CalendarClock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">
+                    {w.kind === "early_close_today" ? (
+                      <>
+                        <strong>{w.exchangeLabel}</strong> ferme à{" "}
+                        <strong style={MONO}>{w.closesAt ?? "13:00"}</strong> (heure de l'Est) aujourd'hui —
+                        demi-journée de bourse.
+                      </>
+                    ) : (
+                      <>
+                        <strong>{w.exchangeLabel}</strong> sera fermé {fmtClosureDate(w.date)} (prochain
+                        jour ouvrable) — férié boursier.
+                      </>
+                    )}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
 
