@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { useGetQuoteHistory } from "@workspace/api-client-react";
 import {
   ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine, Area, AreaChart, Brush,
@@ -13,7 +14,7 @@ import type {
 import {
   TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart,
   Radio, ArrowUpRight, ArrowDownRight, Gauge, GitCompareArrows, History, Sparkles, Target,
-  ShoppingCart, ArrowDownToLine,
+  ShoppingCart, ArrowDownToLine, Layers,
 } from "lucide-react";
 import TradingJournal from "@/components/TradingJournal";
 
@@ -757,6 +758,114 @@ function PatternRadar({
   );
 }
 
+// ─── Multi-Timeframe Panel ────────────────────────────────────────────────────
+
+interface TfSlot {
+  label: string;
+  shortLabel: string;
+  signal: { overall: SignalStrength; score: number } | null;
+  loading: boolean;
+}
+
+function MultiTimeframePanel({ frames }: { frames: TfSlot[] }) {
+  const filled = frames.filter((f) => f.signal !== null);
+  if (filled.length === 0 && frames.every((f) => f.loading)) {
+    // Skeleton pendant le chargement initial
+    return (
+      <div className="bg-card border border-card-border rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 mb-3">
+          <Layers className="w-3.5 h-3.5 text-primary" />
+          <span className="text-sm font-semibold">Analyse multi-timeframe</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {frames.map((f) => (
+            <div key={f.shortLabel} className="rounded-lg border border-dashed border-border p-3 h-20 animate-pulse bg-muted/30" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const bullCount = filled.filter((f) => f.signal!.score > 10).length;
+  const bearCount = filled.filter((f) => f.signal!.score < -10).length;
+  const total = filled.length;
+
+  let confluenceText: string;
+  let confluenceColor: string;
+  if (total === 0) return null;
+  if (bullCount === total) {
+    confluenceText = "✅ Confluence haussière — tous les horizons s'accordent. Signal de forte conviction.";
+    confluenceColor = "text-emerald-600 dark:text-emerald-400";
+  } else if (bearCount === total) {
+    confluenceText = "🔴 Confluence baissière — tous les horizons s'accordent. Signal de forte conviction.";
+    confluenceColor = "text-red-500";
+  } else if (bullCount >= 2) {
+    confluenceText = "⚡ Majorité haussière — signal court terme dans le sens de la tendance de fond.";
+    confluenceColor = "text-emerald-600 dark:text-emerald-400";
+  } else if (bearCount >= 2) {
+    confluenceText = "⚡ Majorité baissière — le rebond éventuel va à contre-courant de la tendance de fond.";
+    confluenceColor = "text-red-500";
+  } else {
+    confluenceText = "⚠️ Signaux contradictoires — pas de direction claire sur tous les horizons. Prudence.";
+    confluenceColor = "text-amber-500";
+  }
+
+  return (
+    <div className="bg-card border border-card-border rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2 mb-3">
+        <Layers className="w-3.5 h-3.5 text-primary" />
+        <span className="text-sm font-semibold">Analyse multi-timeframe</span>
+        <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">
+          1M · 3M · 6M — bougies journalières
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {frames.map(({ label, shortLabel, signal, loading }) => {
+          if (loading && !signal) {
+            return (
+              <div key={shortLabel} className="rounded-lg border border-dashed border-border p-3 h-20 animate-pulse bg-muted/30" />
+            );
+          }
+          if (!signal) {
+            return (
+              <div key={shortLabel} className="rounded-lg border border-dashed border-border p-3 flex flex-col items-center justify-center gap-1 opacity-40">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{shortLabel}</span>
+                <span className="text-[10px] text-muted-foreground">Données insuffisantes</span>
+              </div>
+            );
+          }
+          const colors = SIGNAL_COLORS[signal.overall] ?? SIGNAL_COLORS["NEUTRE"];
+          const icon =
+            signal.overall.includes("ACHAT") ? <TrendingUp className="w-3.5 h-3.5" /> :
+            signal.overall.includes("VENTE") ? <TrendingDown className="w-3.5 h-3.5" /> :
+            <Minus className="w-3.5 h-3.5" />;
+          return (
+            <div key={shortLabel} className={`rounded-lg border p-3 flex flex-col gap-1.5 ${colors.bg} ${colors.border}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{shortLabel}</span>
+                <span className={`text-[11px] font-mono font-bold ${colors.text}`}>
+                  {signal.score > 0 ? "+" : ""}{signal.score}
+                </span>
+              </div>
+              <div className={`flex items-center gap-1 text-[11px] font-semibold leading-tight ${colors.text}`}>
+                {icon}
+                <span>{signal.overall}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground leading-tight">{label}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className={`text-xs font-medium ${confluenceColor}`}>{confluenceText}</p>
+      <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">
+        Un signal court terme qui contredit le long terme est souvent un rebond dans la tendance principale — pas un retournement. La confluence entre horizons renforce la conviction.
+      </p>
+    </div>
+  );
+}
+
 export default function TechnicalAnalysis({ history, currentPrice, currency, symbol, onTrade }: Props) {
   const [overlays, setOverlays] = useState<Set<ActiveOverlay>>(new Set(["sma"]));
   const [showDetails, setShowDetails] = useState(false);
@@ -766,6 +875,37 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
 
   const data: IndicatorPoint[] = useMemo(() => computeIndicators(history), [history]);
   const analysis = useMemo(() => analyzeTradingSignals(data, currentPrice, history), [data, currentPrice, history]);
+
+  // ── Multi-timeframe : fetch 3 horizons fixes (toujours journaliers) ────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: raw1mo, isLoading: loading1mo } = useGetQuoteHistory(symbol ?? "", "1mo", { query: { enabled: !!symbol, staleTime: 5 * 60_000 } as any });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: raw3mo, isLoading: loading3mo } = useGetQuoteHistory(symbol ?? "", "3mo", { query: { enabled: !!symbol, staleTime: 5 * 60_000 } as any });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: raw6mo, isLoading: loading6mo } = useGetQuoteHistory(symbol ?? "", "6mo", { query: { enabled: !!symbol, staleTime: 5 * 60_000 } as any });
+
+  const multiTfSignals: TfSlot[] = useMemo(() => {
+    const toOHLC = (raw: unknown): OHLCPoint[] => {
+      if (!Array.isArray(raw)) return [];
+      return (raw as OHLCPoint[]).map((p) => ({
+        date: p.date, open: p.open ?? null, high: p.high ?? null,
+        low: p.low ?? null, close: p.close, volume: p.volume ?? null,
+      }));
+    };
+    const computeForHistory = (raw: unknown): { overall: SignalStrength; score: number } | null => {
+      const h = toOHLC(raw);
+      if (h.length < 30) return null;
+      const d = computeIndicators(h);
+      const last = h[h.length - 1];
+      const sig = analyzeTradingSignals(d, last.close, h);
+      return { overall: sig.overall, score: sig.score };
+    };
+    return [
+      { label: "Court terme",  shortLabel: "1M", signal: computeForHistory(raw1mo), loading: loading1mo },
+      { label: "Moyen terme",  shortLabel: "3M", signal: computeForHistory(raw3mo), loading: loading3mo },
+      { label: "Long terme",   shortLabel: "6M", signal: computeForHistory(raw6mo), loading: loading6mo },
+    ];
+  }, [raw1mo, raw3mo, raw6mo, loading1mo, loading3mo, loading6mo]);
   const allPatterns = useMemo(() => detectCandlePatterns(history), [history]);
   // Show only patterns from the last 30 candles, most recent first, deduplicate by same idx+name
   const recentPatterns = useMemo(() => {
@@ -943,6 +1083,9 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
         <MarketStructureBanner structure={structure} />
         {volatility && <VolatilityCard vol={volatility} currency={currency} />}
       </div>
+
+      {/* Multi-timeframe */}
+      {symbol && <MultiTimeframePanel frames={multiTfSignals} />}
 
       {/* Signal global */}
       <div className={`rounded-xl border p-5 ${colors.bg} ${colors.border}`}>
