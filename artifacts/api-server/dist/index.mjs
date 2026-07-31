@@ -136058,18 +136058,21 @@ function runBacktest(params) {
   const cooldownBars = params.cooldownBars ?? 1;
   const trades = [];
   let inPosition = false;
+  let posSide = "long";
   let entryPrice = 0;
   let entryDate = "";
   let entryScore = 0;
-  let hwm = 0;
+  let mark = 0;
   let lastExitBar = -Infinity;
   const closeTrade = (exitPrice, exitDate, reason) => {
+    const rawPct = (exitPrice - entryPrice) / entryPrice * 100;
     trades.push({
+      side: posSide,
       entryDate,
       exitDate,
       entryPrice,
       exitPrice,
-      pnlPct: (exitPrice - entryPrice) / entryPrice * 100,
+      pnlPct: posSide === "long" ? rawPct : -rawPct,
       exitReason: reason,
       score: entryScore
     });
@@ -136082,33 +136085,55 @@ function runBacktest(params) {
     if (inPosition) {
       const low = bar.low ?? close;
       const high = bar.high ?? close;
-      const stopPrice = slPct ? entryPrice * (1 - slPct / 100) : null;
-      const trailPrice = trailPct && hwm > entryPrice ? hwm * (1 - trailPct / 100) : null;
-      const tpPrice = tpPct ? entryPrice * (1 + tpPct / 100) : null;
-      if (stopPrice !== null && low <= stopPrice) {
-        closeTrade(stopPrice, bar.date, "stop_loss");
-        lastExitBar = i;
-        continue;
+      if (posSide === "long") {
+        const stopPrice = slPct ? entryPrice * (1 - slPct / 100) : null;
+        const trailPrice = trailPct && mark > entryPrice ? mark * (1 - trailPct / 100) : null;
+        const tpPrice = tpPct ? entryPrice * (1 + tpPct / 100) : null;
+        if (stopPrice !== null && low <= stopPrice) {
+          closeTrade(stopPrice, bar.date, "stop_loss");
+          lastExitBar = i;
+          continue;
+        }
+        if (trailPrice !== null && low <= trailPrice) {
+          closeTrade(trailPrice, bar.date, "trailing_stop");
+          lastExitBar = i;
+          continue;
+        }
+        if (tpPrice !== null && high >= tpPrice) {
+          closeTrade(tpPrice, bar.date, "take_profit");
+          lastExitBar = i;
+          continue;
+        }
+        if (trailPct) mark = Math.max(mark, high);
+      } else {
+        const stopPrice = slPct ? entryPrice * (1 + slPct / 100) : null;
+        const trailPrice = trailPct && mark < entryPrice ? mark * (1 + trailPct / 100) : null;
+        const tpPrice = tpPct ? entryPrice * (1 - tpPct / 100) : null;
+        if (stopPrice !== null && high >= stopPrice) {
+          closeTrade(stopPrice, bar.date, "stop_loss");
+          lastExitBar = i;
+          continue;
+        }
+        if (trailPrice !== null && high >= trailPrice) {
+          closeTrade(trailPrice, bar.date, "trailing_stop");
+          lastExitBar = i;
+          continue;
+        }
+        if (tpPrice !== null && low <= tpPrice) {
+          closeTrade(tpPrice, bar.date, "take_profit");
+          lastExitBar = i;
+          continue;
+        }
+        if (trailPct) mark = Math.min(mark, low);
       }
-      if (trailPrice !== null && low <= trailPrice) {
-        closeTrade(trailPrice, bar.date, "trailing_stop");
-        lastExitBar = i;
-        continue;
-      }
-      if (tpPrice !== null && high >= tpPrice) {
-        closeTrade(tpPrice, bar.date, "take_profit");
-        lastExitBar = i;
-        continue;
-      }
-      if (trailPct) hwm = Math.max(hwm, high);
     }
     const window2 = history.slice(0, i + 1);
     const data = computeIndicators(window2);
     const analysis = analyzeTradingSignals(data, close);
     const score = analysis.score;
     if (inPosition) {
-      const sellSignal = score <= -minScore;
-      if (sellSignal) {
+      const exitSignal = posSide === "long" ? score <= -minScore : score >= minScore;
+      if (exitSignal) {
         closeTrade(close, bar.date, "signal");
         lastExitBar = i;
       }
@@ -136116,12 +136141,21 @@ function runBacktest(params) {
     }
     if (i - lastExitBar < cooldownBars) continue;
     const buyAllowed = sideMode === "buy" || sideMode === "both";
+    const sellAllowed = sideMode === "sell" || sideMode === "both";
     if (buyAllowed && score >= minScore) {
       inPosition = true;
+      posSide = "long";
       entryPrice = close;
       entryDate = bar.date;
       entryScore = score;
-      hwm = close;
+      mark = close;
+    } else if (sellAllowed && score <= -minScore) {
+      inPosition = true;
+      posSide = "short";
+      entryPrice = close;
+      entryDate = bar.date;
+      entryScore = score;
+      mark = close;
     }
   }
   if (inPosition && history.length > 0) {
@@ -136143,6 +136177,8 @@ function runBacktest(params) {
   return {
     trades,
     totalTrades: trades.length,
+    longTrades: trades.filter((t) => t.side === "long").length,
+    shortTrades: trades.filter((t) => t.side === "short").length,
     wins: wins.length,
     losses: losses.length,
     winRate: trades.length > 0 ? wins.length / trades.length : null,
@@ -136341,9 +136377,6 @@ router23.post("/auto-trader/backtest", async (req, res) => {
     } = req.body;
     if (!symbol2 || typeof symbol2 !== "string") {
       return res.status(400).json({ error: "symbol requis" });
-    }
-    if (sideMode === "sell") {
-      return res.status(400).json({ error: 'Le backtest ne mod\xE9lise que les strat\xE9gies acheteuses (long) \u2014 mode "sell" non support\xE9' });
     }
     const vErr = validateRuleNumbers(req.body);
     if (vErr) return res.status(400).json({ error: vErr });

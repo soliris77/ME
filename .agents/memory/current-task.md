@@ -1,8 +1,8 @@
 ---
 name: Current task checkpoint
-description: Aucune tâche en cours — dernière session : gestion avancée des listes Watchlist (terminée)
+description: Aucune tâche en cours — dernière session : backtest short (terminée)
 ---
 
 # Aucune tâche en cours
 
-Dernière session terminée : Task #4 — réorganisation (drag-and-drop), renommage (double-clic) et suppression des listes vides de la Watchlist. Table `watchlist_lists`, routes /api/watchlist/lists*, onglets réécrits dans Watchlist.tsx.
+Dernière session terminée : Task #7 — le backtest simule maintenant les stratégies short (entrée score <= -minScore, SL/TP/trailing inversés, pnl inversé), la route accepte sideMode "sell", et l'UI affiche la répartition achat/vente des trades.

@@ -4,6 +4,8 @@
  * Rejoue la stratégie (score minimum, direction, SL/TP/trailing, cooldown)
  * sur les données quotidiennes passées et calcule les statistiques.
  * Une seule position à la fois (comme le worker : openEntryPrice unique).
+ * Modélise les positions longues (score >= minScore) ET short
+ * (score <= -minScore) avec SL/TP/trailing inversés pour le short.
  */
 import { computeIndicators, analyzeTradingSignals } from "./signals";
 import type { OHLCPoint } from "./patternDetect";
@@ -19,6 +21,7 @@ export interface BacktestParams {
 }
 
 export interface BacktestTrade {
+  side: "long" | "short";
   entryDate: string;
   exitDate: string;
   entryPrice: number;
@@ -31,6 +34,8 @@ export interface BacktestTrade {
 export interface BacktestResult {
   trades: BacktestTrade[];
   totalTrades: number;
+  longTrades: number;
+  shortTrades: number;
   wins: number;
   losses: number;
   winRate: number | null;
@@ -54,16 +59,19 @@ export function runBacktest(params: BacktestParams): BacktestResult {
   const trades: BacktestTrade[] = [];
 
   let inPosition = false;
+  let posSide: "long" | "short" = "long";
   let entryPrice = 0;
   let entryDate  = "";
   let entryScore = 0;
-  let hwm = 0;
+  let mark = 0; // plus-haut (long) ou plus-bas (short) pour le trailing
   let lastExitBar = -Infinity;
 
   const closeTrade = (exitPrice: number, exitDate: string, reason: BacktestTrade["exitReason"]) => {
+    const rawPct = ((exitPrice - entryPrice) / entryPrice) * 100;
     trades.push({
+      side: posSide,
       entryDate, exitDate, entryPrice, exitPrice,
-      pnlPct: ((exitPrice - entryPrice) / entryPrice) * 100,
+      pnlPct: posSide === "long" ? rawPct : -rawPct,
       exitReason: reason,
       score: entryScore,
     });
@@ -80,32 +88,61 @@ export function runBacktest(params: BacktestParams): BacktestResult {
       const low  = bar.low  ?? close;
       const high = bar.high ?? close;
 
-      const stopPrice  = slPct    ? entryPrice * (1 - slPct / 100)  : null;
-      // Convention conservatrice sans lookahead intrabar : le trailing est évalué
-      // avec le plus-haut des barres PRÉCÉDENTES (on ne sait pas si le high du
-      // jour est survenu avant ou après le low du jour).
-      const trailPrice = trailPct && hwm > entryPrice ? hwm * (1 - trailPct / 100) : null;
-      const tpPrice    = tpPct    ? entryPrice * (1 + tpPct / 100)  : null;
+      if (posSide === "long") {
+        const stopPrice  = slPct    ? entryPrice * (1 - slPct / 100)  : null;
+        // Convention conservatrice sans lookahead intrabar : le trailing est évalué
+        // avec le plus-haut des barres PRÉCÉDENTES (on ne sait pas si le high du
+        // jour est survenu avant ou après le low du jour).
+        const trailPrice = trailPct && mark > entryPrice ? mark * (1 - trailPct / 100) : null;
+        const tpPrice    = tpPct    ? entryPrice * (1 + tpPct / 100)  : null;
 
-      // Priorité pessimiste : stop d'abord (le pire cas), puis trailing, puis TP
-      if (stopPrice !== null && low <= stopPrice) {
-        closeTrade(stopPrice, bar.date, "stop_loss");
-        lastExitBar = i;
-        continue;
-      }
-      if (trailPrice !== null && low <= trailPrice) {
-        closeTrade(trailPrice, bar.date, "trailing_stop");
-        lastExitBar = i;
-        continue;
-      }
-      if (tpPrice !== null && high >= tpPrice) {
-        closeTrade(tpPrice, bar.date, "take_profit");
-        lastExitBar = i;
-        continue;
-      }
+        // Priorité pessimiste : stop d'abord (le pire cas), puis trailing, puis TP
+        if (stopPrice !== null && low <= stopPrice) {
+          closeTrade(stopPrice, bar.date, "stop_loss");
+          lastExitBar = i;
+          continue;
+        }
+        if (trailPrice !== null && low <= trailPrice) {
+          closeTrade(trailPrice, bar.date, "trailing_stop");
+          lastExitBar = i;
+          continue;
+        }
+        if (tpPrice !== null && high >= tpPrice) {
+          closeTrade(tpPrice, bar.date, "take_profit");
+          lastExitBar = i;
+          continue;
+        }
 
-      // Mettre à jour le plus-haut APRÈS l'évaluation des sorties du jour
-      if (trailPct) hwm = Math.max(hwm, high);
+        // Mettre à jour le plus-haut APRÈS l'évaluation des sorties du jour
+        if (trailPct) mark = Math.max(mark, high);
+      } else {
+        // Short : le stop est AU-DESSUS de l'entrée, le TP EN DESSOUS ;
+        // le trailing suit le plus-bas des barres précédentes (même convention
+        // conservatrice sans lookahead intrabar).
+        const stopPrice  = slPct    ? entryPrice * (1 + slPct / 100)  : null;
+        const trailPrice = trailPct && mark < entryPrice ? mark * (1 + trailPct / 100) : null;
+        const tpPrice    = tpPct    ? entryPrice * (1 - tpPct / 100)  : null;
+
+        // Priorité pessimiste : stop d'abord (le pire cas), puis trailing, puis TP
+        if (stopPrice !== null && high >= stopPrice) {
+          closeTrade(stopPrice, bar.date, "stop_loss");
+          lastExitBar = i;
+          continue;
+        }
+        if (trailPrice !== null && high >= trailPrice) {
+          closeTrade(trailPrice, bar.date, "trailing_stop");
+          lastExitBar = i;
+          continue;
+        }
+        if (tpPrice !== null && low <= tpPrice) {
+          closeTrade(tpPrice, bar.date, "take_profit");
+          lastExitBar = i;
+          continue;
+        }
+
+        // Mettre à jour le plus-bas APRÈS l'évaluation des sorties du jour
+        if (trailPct) mark = Math.min(mark, low);
+      }
     }
 
     // ── Signal du jour (fenêtre progressive, sans lookahead) ──────────────────
@@ -116,8 +153,8 @@ export function runBacktest(params: BacktestParams): BacktestResult {
 
     if (inPosition) {
       // Sortie sur signal inverse fort (si aucune sortie protectrice)
-      const sellSignal = score <= -minScore;
-      if (sellSignal) {
+      const exitSignal = posSide === "long" ? score <= -minScore : score >= minScore;
+      if (exitSignal) {
         closeTrade(close, bar.date, "signal");
         lastExitBar = i;
       }
@@ -126,13 +163,22 @@ export function runBacktest(params: BacktestParams): BacktestResult {
 
     // ── Entrée ────────────────────────────────────────────────────────────────
     if (i - lastExitBar < cooldownBars) continue;
-    const buyAllowed = sideMode === "buy" || sideMode === "both";
+    const buyAllowed  = sideMode === "buy"  || sideMode === "both";
+    const sellAllowed = sideMode === "sell" || sideMode === "both";
     if (buyAllowed && score >= minScore) {
       inPosition = true;
+      posSide    = "long";
       entryPrice = close;
       entryDate  = bar.date;
       entryScore = score;
-      hwm = close;
+      mark = close;
+    } else if (sellAllowed && score <= -minScore) {
+      inPosition = true;
+      posSide    = "short";
+      entryPrice = close;
+      entryDate  = bar.date;
+      entryScore = score;
+      mark = close;
     }
   }
 
@@ -162,6 +208,8 @@ export function runBacktest(params: BacktestParams): BacktestResult {
   return {
     trades,
     totalTrades: trades.length,
+    longTrades: trades.filter(t => t.side === "long").length,
+    shortTrades: trades.filter(t => t.side === "short").length,
     wins: wins.length,
     losses: losses.length,
     winRate: trades.length > 0 ? wins.length / trades.length : null,

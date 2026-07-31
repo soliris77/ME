@@ -211,9 +211,6 @@ router.post("/auto-trader/backtest", async (req, res) => {
     if (!symbol || typeof symbol !== "string") {
       return res.status(400).json({ error: "symbol requis" });
     }
-    if (sideMode === "sell") {
-      return res.status(400).json({ error: "Le backtest ne modélise que les stratégies acheteuses (long) — mode \"sell\" non supporté" });
-    }
     const vErr = validateRuleNumbers(req.body as Record<string, unknown>);
     if (vErr) return res.status(400).json({ error: vErr });
 

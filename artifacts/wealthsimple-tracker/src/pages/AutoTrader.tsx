@@ -51,6 +51,8 @@ interface BacktestResult {
   symbol: string;
   years: number;
   totalTrades: number;
+  longTrades: number;
+  shortTrades: number;
   wins: number;
   losses: number;
   winRate: number | null;
@@ -59,7 +61,7 @@ interface BacktestResult {
   avgLossPct: number | null;
   maxDrawdownPct: number;
   buyHoldReturnPct: number;
-  trades: { entryDate: string; exitDate: string; entryPrice: number; exitPrice: number; pnlPct: number; exitReason: string; score: number }[];
+  trades: { side: "long" | "short"; entryDate: string; exitDate: string; entryPrice: number; exitPrice: number; pnlPct: number; exitReason: string; score: number }[];
 }
 
 interface AutoTradeLog {
@@ -503,7 +505,10 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
               <div className="space-y-2">
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "Trades", value: String(btResult.totalTrades), color: "text-foreground" },
+                    { label: "Trades", value: String(btResult.totalTrades), color: "text-foreground",
+                      sub: (btResult.shortTrades ?? 0) > 0 || sideMode !== "buy"
+                        ? `${btResult.longTrades ?? btResult.totalTrades} achat · ${btResult.shortTrades ?? 0} vente`
+                        : null },
                     { label: "Taux de réussite", value: btResult.winRate !== null ? `${(btResult.winRate * 100).toFixed(0)}%` : "—",
                       color: (btResult.winRate ?? 0) >= 0.5 ? "text-green-400" : "text-red-400" },
                     { label: "Rendement", value: `${btResult.totalReturnPct >= 0 ? "+" : ""}${btResult.totalReturnPct.toFixed(1)}%`,
@@ -511,10 +516,11 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
                     { label: "Gain moyen", value: btResult.avgWinPct !== null ? `+${btResult.avgWinPct.toFixed(1)}%` : "—", color: "text-green-400/80" },
                     { label: "Perte moyenne", value: btResult.avgLossPct !== null ? `${btResult.avgLossPct.toFixed(1)}%` : "—", color: "text-red-400/80" },
                     { label: "Drawdown max", value: `-${btResult.maxDrawdownPct.toFixed(1)}%`, color: "text-yellow-400/80" },
-                  ].map(({ label, value, color }) => (
+                  ].map(({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string | null }) => (
                     <div key={label} className="bg-background/50 rounded-lg px-2 py-1.5">
                       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
                       <div className={`text-[13px] font-mono font-bold ${color}`}>{value}</div>
+                      {sub && <div className="text-[9px] text-muted-foreground">{sub}</div>}
                     </div>
                   ))}
                 </div>
