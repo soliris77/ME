@@ -5,7 +5,7 @@
  * ne doit être effacé QUE si la vente est confirmée (accepted ou duplicate).
  * Rejeté ou exception → la position reste suivie, nouvelle tentative au cycle suivant.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // ── Mocks hissés ──────────────────────────────────────────────────────────────
 const h = vi.hoisted(() => {
@@ -439,16 +439,27 @@ describe("checkProtectiveExits — déclencheurs SL / TP / trailing", () => {
   });
 });
 
+// Instant "bourse ouverte" : mercredi 12 août 2026, 11h00 ET (15h00 UTC).
+// processRule vérifie désormais le calendrier boursier (getClosureContext) :
+// les tests qui attendent un ordre doivent s'exécuter à un instant d'ouverture.
+const MARKET_OPEN_INSTANT = new Date("2026-08-12T15:00:00Z");
+
+function mockChart(bars = 60, close = 100) {
+  h.chart.mockResolvedValue({
+    quotes: Array.from({ length: bars }, (_, i) => ({
+      date: new Date(Date.UTC(2026, 0, 1) + i * 86_400_000),
+      open: close, high: close, low: close, close, volume: 1000,
+    })),
+  });
+}
+
 // ── processRule — initialisation du plus-haut à l'entrée ─────────────────────
 describe("processRule — trailing stop initialisé à l'entrée", () => {
-  function mockChart(bars = 60, close = 100) {
-    h.chart.mockResolvedValue({
-      quotes: Array.from({ length: bars }, (_, i) => ({
-        date: new Date(Date.UTC(2026, 0, 1) + i * 86_400_000),
-        open: close, high: close, low: close, close, volume: 1000,
-      })),
-    });
-  }
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(MARKET_OPEN_INSTANT);
+  });
+  afterEach(() => vi.useRealTimers());
 
   it("nouvel achat → highWaterMark initialisé au prix d'entrée", async () => {
     const rule = makeRule({ openEntryPrice: null, openQuantity: null, openSince: null, trailingStopPct: "4" });
@@ -494,6 +505,83 @@ describe("processRule — trailing stop initialisé à l'entrée", () => {
     expect(posUpdate!.set).toMatchObject({
       openQuantity: null, openEntryPrice: null, openSince: null, highWaterMark: null,
     });
+  });
+});
+
+// ── processRule — calendrier boursier (fermeture / fermeture imminente) ──────
+describe("processRule — calendrier boursier", () => {
+  afterEach(() => vi.useRealTimers());
+
+  function armStrongBuy() {
+    h.state.rules.push(makeRule({ openEntryPrice: null, openQuantity: null, openSince: null }));
+    mockChart(60, 100);
+    h.analyzeTradingSignals.mockReturnValue({ score: 80, overall: "FORT ACHAT", signals: [] });
+    h.submitOrder.mockResolvedValue({ status: "accepted", order: { id: 20, mode: "paper" } });
+    return h.state.rules[0];
+  }
+
+  it("bourse fermée (soirée) → signal différé : aucun ordre, aucun SMS, log explicite", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-12T23:30:00Z")); // 19h30 ET — fermé
+    const rule = armStrongBuy();
+
+    await processRule(rule as never, null);
+
+    expect(h.submitOrder).not.toHaveBeenCalled();
+    const log = h.state.inserts.find(i => i.table === h.logsTable);
+    expect(log).toBeDefined();
+    expect(log!.values).toMatchObject({ triggerType: "notification_only", notificationSent: false });
+    expect(String(log!.values.notes)).toContain("Signal différé : bourse fermée");
+    // Cooldown/quota non consommés : pas de mise à jour lastTriggeredAt
+    expect(h.state.updates.some(u => u.table === h.rulesTable && "lastTriggeredAt" in u.set)).toBe(false);
+  });
+
+  it("demi-journée après 13h00 ET (24 déc) → bourse fermée, signal différé", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-24T19:00:00Z")); // 14h00 ET un jour de demi-séance
+    const rule = armStrongBuy();
+
+    await processRule(rule as never, null);
+
+    expect(h.submitOrder).not.toHaveBeenCalled();
+    const log = h.state.inserts.find(i => i.table === h.logsTable);
+    expect(String(log!.values.notes)).toContain("Signal différé : bourse fermée");
+  });
+
+  it("demi-journée avant 13h00 ET → ordre passé, log annoté de la fermeture imminente", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-24T15:00:00Z")); // 10h00 ET, veille de Noël
+    const rule = armStrongBuy();
+
+    await processRule(rule as never, null);
+
+    expect(h.submitOrder).toHaveBeenCalledTimes(1);
+    const log = h.state.inserts.find(i => i.table === h.logsTable);
+    expect(String(log!.values.notes)).toContain("Demi-journée aujourd'hui");
+  });
+
+  it("veille de Thanksgiving US (25 nov 2026) → note férié le prochain jour ouvrable", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-25T15:00:00Z")); // mercredi 10h00 ET, Thanksgiving US le 26
+    const rule = armStrongBuy();
+
+    await processRule(rule as never, null);
+
+    expect(h.submitOrder).toHaveBeenCalledTimes(1);
+    const log = h.state.inserts.find(i => i.table === h.logsTable);
+    expect(String(log!.values.notes)).toContain("Férié le 2026-11-26");
+  });
+
+  it("jour normal en pleine séance → aucune note de fermeture dans le log", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(MARKET_OPEN_INSTANT);
+    const rule = armStrongBuy();
+
+    await processRule(rule as never, null);
+
+    expect(h.submitOrder).toHaveBeenCalledTimes(1);
+    const log = h.state.inserts.find(i => i.table === h.logsTable);
+    expect(String(log!.values.notes)).not.toContain("⏰");
   });
 });
 

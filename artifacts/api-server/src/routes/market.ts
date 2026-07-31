@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
-import { isMarketOpen, getExchangeForSymbol, getMarketHolidays, getEarlyCloseDays, getMarketHolidaysWithNames, getEarlyCloseDaysWithNames } from "../lib/risk";
+import { isMarketOpen, getExchangeForSymbol, getMarketHolidays, getMarketHolidaysWithNames, getEarlyCloseDays, getEarlyCloseDaysWithNames } from "../lib/risk";
 
 const router = Router();
 

@@ -19,8 +19,19 @@ import { logger } from "../lib/logger";
 import { getTradingMode } from "../lib/tradingMode";
 import { notifyKillSwitchActivated, notifyDailyLossWarning } from "../lib/notifications";
 import { getAiSecondOpinion, type AiReviewResult } from "../lib/aiReview";
+import { isMarketOpen } from "../lib/risk";
+import { computeClosureWarnings } from "../routes/market";
 
 const WORKER_INTERVAL_MS = 60_000;
+
+export interface ClosureContext {
+  /** La bourse du symbole est-elle ouverte en ce moment ? */
+  open: boolean;
+  /** Message d'isMarketOpen (raison de la fermeture) quand open === false. */
+  closedMessage: string | null;
+  /** Note lisible sur une fermeture imminente (demi-journée / férié), sinon null. */
+  closureNote: string | null;
+}
 const OHLC_DAYS = 90;
 
 async function fetchOHLC(symbol: string, interval: "1d" | "1wk" = "1d", days = OHLC_DAYS): Promise<OHLCPoint[]> {
@@ -60,8 +71,10 @@ async function sendAutoTradeNotification(params: {
   quantity: number;
   triggerType: "order" | "notification_only" | "stop_loss" | "take_profit" | "trailing_stop";
   orderMode?: "paper" | "live";
+  /** Note de fermeture imminente (demi-journée / férié) à inclure dans le message. */
+  closureNote?: string | null;
 }) {
-  const { symbol, side, verdict, score, price, quantity, triggerType, orderMode } = params;
+  const { symbol, side, verdict, score, price, quantity, triggerType, orderMode, closureNote } = params;
 
   const sideEmoji = side === "BUY" ? "🟢" : "🔴";
   const action = side === "BUY" ? "ACHAT" : "VENTE";
@@ -76,6 +89,7 @@ async function sendAutoTradeNotification(params: {
     `${typeLabel} — ${symbol}`,
     `Signal : ${verdict} (score ${score > 0 ? "+" : ""}${score})`,
     `${action} ${quantity} action${Number(quantity) > 1 ? "s" : ""} @ ${price.toFixed(2)} $`,
+    ...(closureNote ? [`⏰ ${closureNote}`] : []),
     `⚠️ Pas un conseil financier.`,
   ].join("\n");
 
@@ -107,6 +121,7 @@ async function sendAutoTradeNotification(params: {
             <strong>${quantity} action${Number(quantity) > 1 ? "s" : ""}</strong>
             à <strong>${price.toFixed(2)} $</strong>
           </p>
+          ${closureNote ? `<p style="font-size:14px;color:#b45309;">⏰ ${closureNote}</p>` : ""}
           <p style="font-size:12px;color:#999;margin-top:20px;">
             Envoyé par Soliris Market. ⚠️ Pas un conseil financier.
           </p>
@@ -305,6 +320,7 @@ export async function checkProtectiveExits(
         quantity: openQty,
         triggerType,
         orderMode,
+        closureNote: getClosureContext(rule.symbol).closureNote,
       }).catch((e) => logger.error({ e }, "autoTradeWorker: notification sortie protectrice échouée"));
     }
   }
@@ -827,6 +843,34 @@ export async function processRule(
 
   const side: "BUY" | "SELL" = shouldBuy ? "BUY" : "SELL";
 
+  // ── Calendrier boursier : différer si la bourse du symbole est fermée ──────
+  // Un SMS « agir maintenant » quand la bourse est fermée (soirée, week-end,
+  // férié, après 13h00 un jour de demi-séance) est trompeur : aucune action
+  // n'est possible. On journalise le signal comme DIFFÉRÉ, sans ordre ni SMS ;
+  // le cooldown/quota ne sont pas consommés — le signal sera réévalué à la
+  // réouverture s'il tient toujours.
+  const closure = getClosureContext(rule.symbol, now);
+  if (!closure.open) {
+    logger.info(
+      { ruleId: rule.id, symbol: rule.symbol, side, score: analysis.score, closedMessage: closure.closedMessage },
+      "autoTradeWorker: signal différé — bourse fermée",
+    );
+    await db.insert(autoTradeLogsTable).values({
+      ruleId: rule.id,
+      symbol: rule.symbol,
+      side,
+      triggerType: "notification_only",
+      signalScore: analysis.score,
+      signalVerdict: analysis.overall,
+      price: String(currentPrice),
+      quantity: null,
+      orderId: null,
+      notificationSent: false,
+      notes: `Signal différé : bourse fermée — ${closure.closedMessage ?? "marché fermé"}`,
+    }).catch((err) => logger.error({ err, ruleId: rule.id }, "autoTradeWorker: insertion du log (signal différé) échouée"));
+    return;
+  }
+
   // ── Confirmation multi-timeframe (hebdomadaire) ────────────────────────────
   // Exige que le signal 1wk pointe dans la même direction avant d'agir.
   if (rule.confirmWeekly) {
@@ -997,7 +1041,7 @@ export async function processRule(
 
   // ── Notification ─────────────────────────────────────────────────────────────
   if (rule.notifyOnSignal) {
-    await sendAutoTradeNotification({ symbol: rule.symbol, side, verdict: analysis.overall, score: analysis.score, price: currentPrice, quantity, triggerType, orderMode });
+    await sendAutoTradeNotification({ symbol: rule.symbol, side, verdict: analysis.overall, score: analysis.score, price: currentPrice, quantity, triggerType, orderMode, closureNote: closure.closureNote });
     notificationSent = true;
   }
 
@@ -1014,7 +1058,10 @@ export async function processRule(
     quantity: String(quantity),
     orderId: orderId ?? null,
     notificationSent,
-    notes: baseNotes,
+    notes: [
+      baseNotes,
+      closure.closureNote ? `⏰ ${closure.closureNote}` : "",
+    ].filter(Boolean).join(" | "),
     aiVerdict,
     aiReason,
   });
@@ -1422,4 +1469,25 @@ export function stopAutoTradeWorker(): void {
     clearInterval(intervalHandle);
     intervalHandle = null;
   }
+}
+
+export function getClosureContext(symbol: string, now: Date = new Date()): ClosureContext {
+  const hours = isMarketOpen(symbol, now);
+  const notes: string[] = [];
+  try {
+    for (const w of computeClosureWarnings(symbol, now)) {
+      if (w.kind === "early_close_today") {
+        notes.push(`Demi-journée aujourd'hui : ${w.exchangeLabel} ferme à ${w.closesAt ?? "13:00"} ET`);
+      } else {
+        notes.push(`Férié le ${w.date} : ${w.exchangeLabel} fermée le prochain jour ouvrable`);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err, symbol }, "autoTradeWorker: computeClosureWarnings échoué — note de fermeture omise");
+  }
+  return {
+    open: hours.open,
+    closedMessage: hours.open ? null : hours.message,
+    closureNote: notes.length > 0 ? notes.join(" | ") : null,
+  };
 }
