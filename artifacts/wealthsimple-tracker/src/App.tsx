@@ -31,6 +31,7 @@ import CopyTradingDiscoverPage from "@/pages/CopyTradingDiscover";
 import CopyTradingSettingsPage from "@/pages/CopyTradingSettings";
 import AgentTasksPage from "@/pages/AgentTasks";
 import AutoTraderPage from "@/pages/AutoTrader";
+import DebriefPage from "@/pages/Debrief";
 import ApiStatusModal from "@/components/ApiStatusModal";
 import { SpotifyWidget } from "@/components/SpotifyWidget";
 import GoldParticles from "@/components/GoldParticles";
@@ -39,7 +40,7 @@ import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff } from "lucide-react";
+import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 import { PositionCalculator } from "@/components/PositionCalculator";
@@ -124,6 +125,7 @@ function Nav() {
     { href: "/correlation", label: "Corrélation", icon: Grid3x3 },
     { href: "/calendrier", label: "Calendrier économique", icon: CalendarDays },
     { href: "/ordres", label: "Journal des ordres", icon: Receipt },
+    { href: "/debrief", label: "Débriefing quotidien", icon: CalendarCheck },
     { href: "/reconciliation", label: "Réconciliation", icon: Scale },
     { href: "/audit", label: "Journal d'audit", icon: ScrollText },
     { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
@@ -342,6 +344,7 @@ function App() {
               <Route path="/correlation" component={wrap("Corrélation", CorrelationPage)} />
               <Route path="/calendrier" component={wrap("Calendrier économique", CalendarPage)} />
               <Route path="/ordres" component={wrap("Journal des ordres", OrdersPage)} />
+              <Route path="/debrief" component={wrap("Débriefing quotidien", DebriefPage)} />
               <Route path="/reconciliation" component={wrap("Réconciliation", ReconciliationPage)} />
               <Route path="/audit" component={wrap("Journal d'audit", AuditLogPage)} />
               <Route path="/agent-tasks" component={wrap("Tâches d'agent", AgentTasksPage)} />

@@ -23,6 +23,7 @@ import symbolsRouter from "./symbols";
 import agentTasksRouter from "./agentTasks";
 import autoTraderRouter from "./autoTrader";
 import dailySummaryRouter from "./dailySummary";
+import debriefRouter from "./debrief";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -55,5 +56,6 @@ router.use(symbolsRouter);
 router.use(agentTasksRouter);
 router.use(autoTraderRouter);
 router.use(dailySummaryRouter);
+router.use(debriefRouter);
 
 export default router;
