@@ -53,7 +53,7 @@ function decimalLte(a: string, b: string): boolean {
 
 // Crée ou met à jour (une seule thèse par symbole).
 router.put("/theses/:symbol", async (req, res) => {
-  const symbol = req.params.symbol.toUpperCase();
+    const symbol = req.params.symbol.toUpperCase();
   const { reason, targetPrice, invalidationPrice } = req.body as {
     reason?: string; targetPrice?: unknown; invalidationPrice?: unknown;
   };

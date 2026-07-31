@@ -8,8 +8,19 @@
  */
 import { Router } from "express";
 import { getPerformanceReport } from "../lib/performance";
+import { getDisciplineReport } from "../lib/discipline";
 
 const router = Router();
+
+// Score de discipline — trades clôturés vs plan de risque (stop, risque %, taille, R réalisé)
+router.get("/performance/discipline", async (_req, res) => {
+  try {
+    const report = await getDisciplineReport();
+    return res.json(report);
+  } catch (err) {
+    return res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
 
 router.get("/performance", async (_req, res) => {
   try {

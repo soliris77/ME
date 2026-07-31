@@ -10,6 +10,7 @@ import {
 import {
   LineChart as LineChartIcon, TrendingUp, TrendingDown, Loader2, RefreshCw,
   Layers, Target, BarChart2, BookOpen, Trophy, AlertCircle,
+  ShieldCheck, ShieldAlert, ShieldOff,
 } from "lucide-react";
 import { useCountUp } from "@/hooks/use-count-up";
 
@@ -37,12 +38,57 @@ interface PerformanceReport {
   combined: PerformanceMetrics;
 }
 
+interface DisciplineTrade {
+  symbol: string;
+  mode: "paper" | "live";
+  quantity: number;
+  entryPrice: number;
+  exitPrice: number;
+  pnl: number;
+  entryAt: string;
+  closedAt: string;
+  stopPrice: number | null;
+  stopSource: "stop_order" | "auto_trader" | null;
+  initialRisk: number | null;
+  riskPct: number | null;
+  realizedR: number | null;
+  positionPct: number;
+  score: number;
+  reasons: string[];
+}
+
+interface DisciplineComponent {
+  key: "stop" | "risk" | "size" | "rr";
+  label: string;
+  score: number | null;
+  weight: number;
+}
+
+interface DisciplineReport {
+  generatedAt: string;
+  capitalBase: number;
+  totalTrades: number;
+  score: number | null;
+  components: DisciplineComponent[];
+  disciplinedTrades: number;
+  undisciplinedTrades: number;
+  trades: DisciplineTrade[];
+}
+
 // ─── API hook ─────────────────────────────────────────────────────────────────
 
 function usePerformance() {
   return useQuery<PerformanceReport>({
     queryKey: ["performance-report"],
     queryFn: () => fetch(`${BASE}/api/performance`).then((r) => r.json()),
+    refetchInterval: 60_000,
+  });
+}
+
+function useDiscipline() {
+  return useQuery<DisciplineReport>({
+    queryKey: ["discipline-report"],
+    queryFn: () => fetch(`${BASE}/api/performance/discipline`).then((r) => r.json()),
     refetchInterval: 60_000,
   });
 }
@@ -164,6 +210,159 @@ function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: t
         <span className="font-mono loss sensitive">-{formatPrice(metrics.maxDrawdown)}</span>
         <span className="opacity-60">(plus grande baisse depuis un sommet de P&L cumulé)</span>
       </div>
+    </div>
+  );
+}
+
+// ─── Score de discipline ──────────────────────────────────────────────────────
+
+function DisciplineGauge({ score }: { score: number | null }) {
+  const pctVal = score === null ? 0 : Math.min(Math.max(score, 0), 100);
+  const animated = useCountUp(pctVal, 1200);
+  const R = 40, CX = 50, CY = 52;
+  const circumference = Math.PI * R;
+  const offset = circumference * (1 - animated / 100);
+  const color = pctVal >= 75 ? "#16a34a" : pctVal >= 50 ? "#d4a72c" : "#dc2626";
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg width={110} height={64} viewBox="0 0 100 60">
+        <path d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+          fill="none" stroke="hsl(var(--border))" strokeWidth={8} strokeLinecap="round" />
+        <path d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+          fill="none" stroke={color} strokeWidth={8} strokeLinecap="round"
+          strokeDasharray={`${circumference}`} strokeDashoffset={`${offset}`}
+          style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.22,1,0.36,1)" }} />
+        <text x={CX} y={CY - 4} textAnchor="middle" fontSize={17} fontWeight="bold" fill={color} fontFamily="JetBrains Mono, monospace">
+          {score === null ? "—" : Math.round(animated)}
+        </text>
+      </svg>
+      <span className="text-xs text-muted-foreground -mt-1">Score de discipline / 100</span>
+    </div>
+  );
+}
+
+function stopSourceLabel(t: DisciplineTrade): string {
+  if (t.stopSource === "stop_order") return "ordre stop";
+  if (t.stopSource === "auto_trader") return "règle auto-trader";
+  return "aucun";
+}
+
+function DisciplineSection() {
+  const q = useDiscipline();
+  const data = q.data;
+
+  if (q.isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin" /> Chargement du score de discipline…
+      </div>
+    );
+  }
+  if (!data || !Array.isArray(data.trades)) {
+    return <div className="text-sm text-destructive">Impossible de charger le score de discipline.</div>;
+  }
+  if (data.totalTrades === 0) {
+    return (
+      <div className="bg-card border border-card-border rounded-2xl p-8 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-3">
+          <ShieldCheck className="w-6 h-6 text-primary/40" />
+        </div>
+        <p className="font-semibold mb-1">Aucun trade clôturé à évaluer</p>
+        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+          Le score mesure, pour chaque aller-retour (achat + vente), si le stop, le risque
+          initial et la taille de position respectaient votre plan de risque.
+        </p>
+      </div>
+    );
+  }
+
+  const undisciplined = data.trades.filter((t) => t.reasons.length > 0);
+
+  return (
+    <div className="space-y-5">
+      {/* Score global + décomposition */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-card border border-card-border rounded-xl p-4 flex flex-col items-center justify-center py-5">
+          <DisciplineGauge score={data.score} />
+          <p className="text-[11px] text-muted-foreground mt-2 text-center">
+            {data.disciplinedTrades}/{data.totalTrades} trade{data.totalTrades > 1 ? "s" : ""} discipliné{data.disciplinedTrades > 1 ? "s" : ""}
+          </p>
+        </div>
+        <div className="bg-card border border-card-border rounded-xl p-4 sm:col-span-2">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Décomposition du score</div>
+          <div className="space-y-2.5">
+            {data.components.map((c) => {
+              const val = c.score ?? 0;
+              const color = val >= 75 ? "#16a34a" : val >= 50 ? "#d4a72c" : "#dc2626";
+              return (
+                <div key={c.key}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span>{c.label} <span className="text-muted-foreground">· poids {c.weight} %</span></span>
+                    <span className="font-mono font-bold" style={{ color }}>{c.score === null ? "—" : `${Math.round(val)}/100`}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, background: color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3">
+            Capital de référence : {formatPrice(data.capitalBase)} (exposition max des paramètres de risque).
+          </p>
+        </div>
+      </div>
+
+      {/* Trades indisciplinés */}
+      {undisciplined.length > 0 ? (
+        <div className="bg-card border border-card-border rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldAlert className="w-4 h-4 text-red-500" />
+            <h3 className="text-sm font-semibold uppercase tracking-wide">Trades indisciplinés</h3>
+            <span className="text-xs text-muted-foreground ml-1">{undisciplined.length} sur {data.totalTrades}</span>
+          </div>
+          <div className="space-y-3">
+            {undisciplined.slice(0, 10).map((t, i) => (
+              <div key={i} className="border border-red-500/20 bg-red-500/4 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="font-mono font-bold text-sm">{t.symbol}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase text-[10px]">{t.mode}</span>
+                  <span className="text-muted-foreground">
+                    {new Date(t.closedAt).toLocaleDateString("fr-CA", { day: "numeric", month: "short" })} ·{" "}
+                    {t.quantity} × {formatPrice(t.entryPrice)} → {formatPrice(t.exitPrice)}
+                  </span>
+                  <span className={`ml-auto font-mono font-bold sensitive ${t.pnl >= 0 ? "gain" : "loss"}`}>
+                    {t.pnl >= 0 ? "+" : "-"}{formatPrice(Math.abs(t.pnl))}
+                  </span>
+                  <span className="font-mono text-muted-foreground">score {Math.round(t.score)}</span>
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {t.reasons.map((r, j) => (
+                    <li key={j} className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
+                      <ShieldOff className="w-3.5 h-3.5 shrink-0 mt-[1px]" /> {r}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-1.5 text-[11px] text-muted-foreground">
+                  Stop : {stopSourceLabel(t)}{t.stopPrice !== null ? ` @ ${formatPrice(t.stopPrice)}` : ""}
+                  {t.riskPct !== null && ` · risque initial ${(t.riskPct * 100).toFixed(1)} % du capital`}
+                  {t.realizedR !== null && ` · R réalisé ${t.realizedR.toFixed(2)}`}
+                  {` · position ${(t.positionPct * 100).toFixed(1)} % du capital`}
+                </div>
+              </div>
+            ))}
+            {undisciplined.length > 10 && (
+              <p className="text-xs text-muted-foreground">… et {undisciplined.length - 10} autre{undisciplined.length - 10 > 1 ? "s" : ""}.</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-emerald-500/6 border border-emerald-500/20 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
+          <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
+          Tous les trades clôturés respectent votre plan de risque. Continuez comme ça.
+        </div>
+      )}
     </div>
   );
 }
@@ -585,7 +784,17 @@ export default function Performance() {
         )}
       </div>
 
-      {/* ── Section 2 : analyse du journal local ── */}
+      {/* ── Section 2 : score de discipline ── */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-1 h-5 bg-red-500 rounded-full" />
+          <h2 className="text-base font-semibold">Score de discipline</h2>
+          <span className="text-xs text-muted-foreground ml-1">— vos trades respectent-ils votre plan de risque ?</span>
+        </div>
+        <DisciplineSection />
+      </div>
+
+      {/* ── Section 3 : analyse du journal local ── */}
       <div>
         <div className="flex items-center gap-2 mb-5">
           <div className="w-1 h-5 bg-emerald-500 rounded-full" />

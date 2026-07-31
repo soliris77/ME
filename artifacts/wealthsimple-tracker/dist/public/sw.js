@@ -169,6 +169,31 @@ self.addEventListener("message", (event) => {
   if (type === "check-alerts-now") checkAlerts();
 });
 
+// ---------------------------------------------------------------------------
+// Web Push — le serveur pousse la notification via le service push du
+// navigateur : fonctionne même navigateur complètement fermé (Chrome/Edge
+// desktop, Android). Le tag est partagé avec la page et le poll du SW pour
+// ne jamais afficher deux fois la même alerte.
+// ---------------------------------------------------------------------------
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : "" };
+  }
+  const title = payload.title || "🔔 Alerte Soliris";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || "",
+      icon: "/icon-192.png",
+      badge: "/favicon-32.png",
+      tag: payload.tag || undefined,
+      data: { url: payload.url || "/alerts" },
+    })
+  );
+});
+
 // Clic sur une notification → focus (ou ouverture) de la page Alertes
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

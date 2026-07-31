@@ -404,7 +404,7 @@ export function syncWindowDays(oldestCreatedAt: Date | null, now: Date): number 
   return Math.min(90, Math.max(7, age));
 }
 
-async function syncLiveOrderFills(
+export async function syncLiveOrderFills(
   conn: typeof brokerConnectionsTable.$inferSelect,
 ): Promise<void> {
   if (!conn.snaptradeUserId || !conn.snaptradeUserSecret) return;
