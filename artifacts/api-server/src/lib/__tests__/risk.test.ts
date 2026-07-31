@@ -57,6 +57,7 @@ vi.mock("../logger", () => ({
 
 import {
   checkOrderRisk,
+  getEarlyCloseDays,
   getExchangeForSymbol,
   isMarketOpen,
   type BrokerPosition,
@@ -159,6 +160,66 @@ describe("checkOrderRisk — marché fermé", () => {
       expect(res.reason).toBe("market_closed");
       expect(res.message).toContain("férié");
     }
+  });
+
+  it("demi-journée (veille de Noël 2026, jeudi) : refus après 13h ET avec message clair", async () => {
+    // Jeudi 24 décembre 2026, 19:00 UTC = 14:00 ET (EST) → après la fermeture anticipée.
+    vi.setSystemTime(new Date("2026-12-24T19:00:00Z"));
+
+    const res = await checkOrderRisk(baseInput);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.reason).toBe("market_closed");
+      expect(res.message).toContain("13h00");
+      expect(res.message).toContain("fermeture anticipée");
+    }
+    expect(h.getQuotes).not.toHaveBeenCalled();
+  });
+
+  it("demi-journée (veille de Noël) : encore ouvert AVANT 13h ET", () => {
+    // Jeudi 24 décembre 2026, 16:00 UTC = 11:00 ET (EST).
+    const morning = new Date("2026-12-24T16:00:00Z");
+    expect(isMarketOpen("AAPL", morning).open).toBe(true);
+    expect(isMarketOpen("SHOP.TO", morning).open).toBe(true);
+    // 14:00 ET → fermé pour les deux bourses (24 déc. = demi-journée TSX aussi).
+    const afternoon = new Date("2026-12-24T19:00:00Z");
+    expect(isMarketOpen("AAPL", afternoon).open).toBe(false);
+    expect(isMarketOpen("SHOP.TO", afternoon).open).toBe(false);
+  });
+
+  it("lendemain de Thanksgiving US (27 nov. 2026) : NASDAQ/NYSE ferme à 13h, TSX reste ouvert jusqu'à 16h", () => {
+    // Vendredi 27 novembre 2026, 19:00 UTC = 14:00 ET (EST).
+    const afternoon = new Date("2026-11-27T19:00:00Z");
+    const us = isMarketOpen("AAPL", afternoon);
+    expect(us.open).toBe(false);
+    expect(us.message).toContain("fermeture anticipée");
+    expect(isMarketOpen("SHOP.TO", afternoon).open).toBe(true);
+  });
+
+  it("veille de l'Independence Day (3 juillet 2025, jeudi) : NASDAQ/NYSE ferme à 13h ET", () => {
+    // Jeudi 3 juillet 2025, 18:00 UTC = 14:00 ET (EDT).
+    const afternoon = new Date("2025-07-03T18:00:00Z");
+    expect(isMarketOpen("AAPL", afternoon).open).toBe(false);
+    // 12:00 ET → encore ouvert.
+    expect(isMarketOpen("AAPL", new Date("2025-07-03T16:00:00Z")).open).toBe(true);
+  });
+
+  it("getEarlyCloseDays : exclut les candidats déjà fériés ou tombant un week-end", () => {
+    // 2026 : le 4 juillet tombe un samedi → le 3 juillet est un férié observé
+    // (pas une demi-journée).
+    expect(getEarlyCloseDays(2026, "NASDAQ_NYSE").has("2026-07-03")).toBe(false);
+    // 2021 : Noël tombe un samedi → le 24 décembre est un férié observé.
+    expect(getEarlyCloseDays(2021, "NASDAQ_NYSE").has("2021-12-24")).toBe(false);
+    expect(getEarlyCloseDays(2021, "TSX").has("2021-12-24")).toBe(false);
+    // 2022 : le 24 décembre tombe un samedi → aucune séance, pas de demi-journée.
+    expect(getEarlyCloseDays(2022, "NASDAQ_NYSE").has("2022-12-24")).toBe(false);
+    // Cas normaux présents : 24 déc. 2026 (jeudi) et lendemain de Thanksgiving 2026.
+    expect(getEarlyCloseDays(2026, "NASDAQ_NYSE").has("2026-12-24")).toBe(true);
+    expect(getEarlyCloseDays(2026, "TSX").has("2026-12-24")).toBe(true);
+    expect(getEarlyCloseDays(2026, "NASDAQ_NYSE").has("2026-11-27")).toBe(true);
+    // Le TSX n'observe pas le lendemain de Thanksgiving US.
+    expect(getEarlyCloseDays(2026, "TSX").has("2026-11-27")).toBe(false);
   });
 
   it("Fête du Canada (1er juillet) : TSX fermé mais NASDAQ/NYSE ouvert", () => {

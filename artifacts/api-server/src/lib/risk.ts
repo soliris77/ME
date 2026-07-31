@@ -216,6 +216,42 @@ export function getMarketHolidays(year: number, exchange: "TSX" | "NASDAQ_NYSE")
   return holidays;
 }
 
+/**
+ * Demi-journées de bourse (fermeture anticipée à 13h00 ET).
+ * Chaque entrée est au format "YYYY-MM-DD" en heure locale (ET).
+ *
+ * NASDAQ/NYSE : veille de l'Independence Day (3 juillet), lendemain de
+ * Thanksgiving US, veille de Noël (24 décembre).
+ * TSX : veille de Noël (24 décembre).
+ *
+ * Un candidat n'est une demi-journée que s'il tombe un jour de semaine ET
+ * n'est pas déjà un jour férié complet (ex. 24 décembre observé comme férié
+ * quand Noël tombe un samedi).
+ */
+export function getEarlyCloseDays(year: number, exchange: "TSX" | "NASDAQ_NYSE"): Set<string> {
+  const holidays = getMarketHolidays(year, exchange);
+  const earlyClose = new Set<string>();
+  const addIfEligible = (d: Date) => {
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) return; // week-end → pas de séance du tout
+    const key = toKey(d);
+    if (holidays.has(key)) return; // déjà férié complet
+    earlyClose.add(key);
+  };
+
+  if (exchange === "NASDAQ_NYSE") {
+    // Veille de l'Independence Day
+    addIfEligible(new Date(year, 6, 3));
+    // Lendemain de Thanksgiving US (vendredi après le 4e jeudi de novembre)
+    addIfEligible(addDays(nthWeekday(year, 11, 4, 4), 1));
+  }
+
+  // Veille de Noël — commun aux deux bourses
+  addIfEligible(new Date(year, 11, 24));
+
+  return earlyClose;
+}
+
 export interface MarketHoursResult {
   open: boolean;
   exchange: Exchange;
@@ -225,8 +261,8 @@ export interface MarketHoursResult {
 
 /**
  * Vérifie si le marché est ouvert pour un symbole donné, à un instant donné.
- * Gère : week-ends, heures d'ouverture (9h30–16h00 ET), jours fériés.
- * Ne gère pas les demi-journées de marché (early-close).
+ * Gère : week-ends, heures d'ouverture (9h30–16h00 ET), jours fériés et
+ * demi-journées de marché (fermeture anticipée à 13h00 ET).
  */
 export function isMarketOpen(symbol: string, now: Date = new Date()): MarketHoursResult {
   const exchange = getExchangeForSymbol(symbol);
@@ -272,10 +308,15 @@ export function isMarketOpen(symbol: string, now: Date = new Date()): MarketHour
   const holidays = getMarketHolidays(year, exchange);
   const isHoliday = holidays.has(dateKey);
 
-  // Heures de marché : 9h30–16h00 ET (identiques pour TSX et NASDAQ/NYSE)
+  // Demi-journée de marché (fermeture anticipée à 13h00 ET)
+  const earlyCloseDays = getEarlyCloseDays(year, exchange);
+  const isEarlyCloseDay = earlyCloseDays.has(dateKey);
+
+  // Heures de marché : 9h30–16h00 ET (identiques pour TSX et NASDAQ/NYSE) ;
+  // les demi-journées ferment à 13h00 ET.
   const minutesSinceMidnight = hour * 60 + minute;
   const openAt = 9 * 60 + 30;
-  const closeAt = 16 * 60;
+  const closeAt = isEarlyCloseDay ? 13 * 60 : 16 * 60;
   const withinHours = minutesSinceMidnight >= openAt && minutesSinceMidnight < closeAt;
 
   const open = isWeekday && !isHoliday && withinHours;
@@ -285,6 +326,8 @@ export function isMarketOpen(symbol: string, now: Date = new Date()): MarketHour
     message = `${exchangeLabel} est fermé le week-end. Réessayez du lundi au vendredi pendant les heures d'ouverture (9h30–16h00, heure de l'Est).`;
   } else if (isHoliday) {
     message = `${exchangeLabel} est fermé aujourd'hui (jour férié boursier). Réessayez le prochain jour ouvrable.`;
+  } else if (isEarlyCloseDay && !withinHours) {
+    message = `${exchangeLabel} ferme à 13h00 (heure de l'Est) aujourd'hui — demi-journée de bourse (fermeture anticipée). Réessayez le prochain jour ouvrable, ou avant 13h00 les jours de fermeture anticipée.`;
   } else if (!withinHours) {
     message = `${exchangeLabel} est fermé en ce moment. Heures d'ouverture : 9h30–16h00, heure de l'Est, du lundi au vendredi.`;
   } else {
