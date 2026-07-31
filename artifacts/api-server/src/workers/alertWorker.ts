@@ -1,5 +1,5 @@
 import { db, alertsTable, notificationsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, lt, isNotNull, sql, inArray } from "drizzle-orm";
 import { getQuotes, yahooFinance } from "../lib/yahoo";
 import { sendEmail, alertEmailHtml, patternAlertEmailHtml, signalAlertEmailHtml } from "../lib/emailClient";
 import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
@@ -11,6 +11,77 @@ import { sendPushToAll } from "../lib/webPush";
 
 const DEFAULT_INTERVAL_MS = 90_000; // 90s — comfortably under Yahoo's informal rate limits
 const SIGNAL_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h entre deux notifications pour une même alerte signal
+
+// --- Rétention de l'historique des notifications ---
+// Les alertes de pattern sont récurrentes (re-déclenchées toutes les 4 h), donc
+// la table `notifications` grossirait indéfiniment sans purge. Politique :
+//   1. Les entrées LUES de plus de NOTIFICATION_RETENTION_DAYS jours sont supprimées.
+//   2. Au-delà de NOTIFICATION_MAX_ROWS entrées au total, les plus anciennes
+//      entrées LUES sont supprimées (les non-lues ne sont jamais purgées, pour
+//      ne pas faire disparaître une notification jamais consultée).
+// La purge tourne au plus une fois par NOTIFICATION_PURGE_INTERVAL_MS, greffée
+// sur le cycle du worker d'alertes.
+const NOTIFICATION_RETENTION_DAYS = 90;
+const NOTIFICATION_MAX_ROWS = 1000;
+const NOTIFICATION_PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1×/jour suffit
+
+let lastNotificationPurgeAt = 0;
+
+/**
+ * Purge l'historique des notifications selon la politique de rétention
+ * ci-dessus. N'échoue jamais le cycle d'alertes : erreurs avalées et loguées.
+ * Exportée pour les tests.
+ */
+export async function purgeOldNotifications(): Promise<void> {
+  try {
+    const cutoff = new Date(Date.now() - NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+    // 1. Entrées lues trop vieilles
+    const oldDeleted = await db
+      .delete(notificationsTable)
+      .where(and(isNotNull(notificationsTable.readAt), lt(notificationsTable.sentAt, cutoff)))
+      .returning({ id: notificationsTable.id });
+
+    // 2. Plafond global : si la table dépasse NOTIFICATION_MAX_ROWS, supprimer
+    // les plus anciennes entrées LUES en excès.
+    let capDeleted = 0;
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(notificationsTable);
+    if (count > NOTIFICATION_MAX_ROWS) {
+      const excess = count - NOTIFICATION_MAX_ROWS;
+      const victims = await db
+        .select({ id: notificationsTable.id })
+        .from(notificationsTable)
+        .where(isNotNull(notificationsTable.readAt))
+        .orderBy(notificationsTable.sentAt)
+        .limit(excess);
+      if (victims.length > 0) {
+        const deleted = await db
+          .delete(notificationsTable)
+          .where(inArray(notificationsTable.id, victims.map((v) => v.id)))
+          .returning({ id: notificationsTable.id });
+        capDeleted = deleted.length;
+      }
+    }
+
+    if (oldDeleted.length > 0 || capDeleted > 0) {
+      logger.info(
+        { byAge: oldDeleted.length, byCap: capDeleted, retentionDays: NOTIFICATION_RETENTION_DAYS, maxRows: NOTIFICATION_MAX_ROWS },
+        "Purged old notification history entries",
+      );
+    }
+  } catch (err) {
+    logger.error({ err }, "Failed to purge notification history");
+  }
+}
+
+/** Lance la purge si la dernière remonte à plus de NOTIFICATION_PURGE_INTERVAL_MS. */
+async function maybePurgeNotifications(): Promise<void> {
+  if (Date.now() - lastNotificationPurgeAt < NOTIFICATION_PURGE_INTERVAL_MS) return;
+  lastNotificationPurgeAt = Date.now();
+  await purgeOldNotifications();
+}
 
 function isTriggered(condition: string, target: number, current: number): boolean {
   if (condition === "above") return current >= target;
@@ -120,6 +191,8 @@ async function fetchRecentOHLC(symbol: string): Promise<OHLCPoint[]> {
  * to false in the same query that reads the trigger condition.
  */
 export async function checkAlerts(): Promise<void> {
+  await maybePurgeNotifications();
+
   const active = await db.select().from(alertsTable).where(eq(alertsTable.active, true));
   if (active.length === 0) return;
 
