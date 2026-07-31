@@ -25,6 +25,7 @@ import autoTraderRouter from "./autoTrader";
 import dailySummaryRouter from "./dailySummary";
 import debriefRouter from "./debrief";
 import { requireAuth } from "../lib/auth";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
@@ -57,5 +58,6 @@ router.use(agentTasksRouter);
 router.use(autoTraderRouter);
 router.use(dailySummaryRouter);
 router.use(debriefRouter);
+router.use(pushRouter);
 
 export default router;

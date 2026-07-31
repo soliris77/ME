@@ -7,6 +7,7 @@ import { sendSms } from "../lib/smsClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { detectCandlePatterns, type OHLCPoint, type CandlePattern } from "../lib/patternDetect";
 import { logger } from "../lib/logger";
+import { sendPushToAll } from "../lib/webPush";
 
 const DEFAULT_INTERVAL_MS = 90_000; // 90s — comfortably under Yahoo's informal rate limits
 const SIGNAL_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h entre deux notifications pour une même alerte signal
@@ -106,6 +107,16 @@ export async function checkAlerts(): Promise<void> {
         try {
           await db.update(alertsTable).set({ active: false, triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
 
+          // Web Push — notifie tous les navigateurs abonnés, même fermés.
+          // Tag identique à celui du SW/de la page pour dédupliquer.
+          const conditionLabel = alert.condition === "above" ? "au-dessus" : "en dessous";
+          await sendPushToAll({
+            title: `🔔 Alerte ${alert.symbol}`,
+            body: `${alert.symbol} est passé ${conditionLabel} de ${target.toFixed(2)} $ (prix actuel : ${currentPrice.toFixed(2)} $)`,
+            tag: `soliris-alert-${alert.id}`,
+            url: "/alerts",
+          }).catch((err) => logger.error({ err, alertId: alert.id }, "Web Push failed for price alert"));
+
           const dest = await resolveAlertDestination(alert, "priceAlert");
           if (dest.sendEmail && dest.email) {
             await sendEmail({
@@ -148,6 +159,13 @@ export async function checkAlerts(): Promise<void> {
       if (!match) continue;
 
       await db.update(alertsTable).set({ triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
+
+      await sendPushToAll({
+        title: `📊 ${alert.symbol} — ${match.name}`,
+        body: `Pattern ${match.name} détecté sur ${alert.symbol} (signal ${match.signal}, force ${match.strength})`,
+        tag: `soliris-alert-${alert.id}-${Date.now()}`, // pattern = récurrent, pas de dédup par id seul
+        url: "/alerts",
+      }).catch((err) => logger.error({ err, alertId: alert.id }, "Web Push failed for pattern alert"));
 
       const dest = await resolveAlertDestination(alert, "patternAlert");
       if (dest.sendEmail && dest.email) {
@@ -203,6 +221,13 @@ export async function checkAlerts(): Promise<void> {
       if (!directionMatches || !strengthMatches) continue;
 
       await db.update(alertsTable).set({ active: false, triggeredAt: new Date() }).where(eq(alertsTable.id, alert.id));
+
+      await sendPushToAll({
+        title: `📈 ${alert.symbol} — signal ${analysis.overall}`,
+        body: `Signal technique ${analysis.overall} sur ${alert.symbol} (score ${analysis.score})`,
+        tag: `soliris-alert-${alert.id}`,
+        url: "/alerts",
+      }).catch((err) => logger.error({ err, alertId: alert.id }, "Web Push failed for signal alert"));
 
       const dest = await resolveAlertDestination(alert, "signalAlert");
       const topSignals = analysis.signals.filter((s) => s.verdict !== "neutral").slice(0, 3).map((s) => `${s.name}: ${s.value}`);

@@ -33,6 +33,11 @@ export const appSettingsTable = pgTable("app_settings", {
   twilioAccountSid:   text("twilio_account_sid"),
   twilioAuthToken:    text("twilio_auth_token"),
   twilioFromNumber:   text("twilio_from_number"),
+  // Clés VAPID pour Web Push — générées automatiquement au premier démarrage
+  // puis persistées ici : les abonnements push des navigateurs sont liés à la
+  // clé publique, donc elle doit survivre aux redémarrages et remixes.
+  vapidPublicKey:  text("vapid_public_key"),
+  vapidPrivateKey: text("vapid_private_key"),
   // Bilan SMS quotidien — date du dernier envoi au format "YYYY-MM-DD" (heure de l'Est).
   lastDailySummaryDate: text("last_daily_summary_date"),
   // Coupe-circuit de perte journalière agrégée — null = désactivé.

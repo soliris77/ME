@@ -503,6 +503,9 @@ export default function Alerts() {
                     reg.active?.postMessage({ type: "check-alerts-now" });
                   }).catch(() => {});
                 }
+                // Abonne ce navigateur au Web Push (notifications même
+                // navigateur complètement fermé) — géré dans main.tsx.
+                window.dispatchEvent(new Event("soliris:notifications-granted"));
               }
             }}
             className="shrink-0 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"

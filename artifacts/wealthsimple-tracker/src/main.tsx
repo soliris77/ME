@@ -36,6 +36,61 @@ window.addEventListener("unhandledrejection", (e) => {
 // alertes prix en arrière-plan). Non bloquant, échoue silencieusement si non
 // supporté. Enregistré aussi en dev pour que les alertes en arrière-plan
 // fonctionnent dans l'aperçu.
+// Convertit la clé publique VAPID (base64 URL-safe) au format attendu par
+// pushManager.subscribe (Uint8Array).
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+// Abonne ce navigateur au Web Push (notifications même navigateur fermé).
+// Silencieux : ne demande jamais la permission ici — elle est demandée depuis
+// la page Alertes ; on s'abonne seulement si elle est déjà accordée.
+async function subscribeToWebPush(reg: ServiceWorkerRegistration) {
+  try {
+    if (!("PushManager" in window) || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    const existing = await reg.pushManager.getSubscription();
+    const sub =
+      existing ??
+      (await (async () => {
+        const res = await fetch("/api/push/vapid-public-key", { credentials: "same-origin" });
+        if (!res.ok) return null; // non connecté — on réessaiera au prochain chargement
+        const { publicKey } = await res.json();
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+        });
+      })());
+    if (!sub) return;
+
+    // (Ré)envoie l'abonnement au serveur — idempotent (upsert par endpoint).
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(sub.toJSON()),
+    });
+  } catch {
+    /* push non supporté ou refusé — les autres canaux d'alerte restent actifs */
+  }
+}
+
+// Ré-essaie l'abonnement quand la permission vient d'être accordée depuis la
+// page Alertes (événement émis par le bouton d'activation des notifications).
+window.addEventListener("soliris:notifications-granted", async () => {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await subscribeToWebPush(reg);
+  } catch {
+    /* ignoré */
+  }
+});
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
@@ -53,6 +108,8 @@ if ("serviceWorker" in navigator) {
       if (anyReg.periodicSync) {
         anyReg.periodicSync.register("soliris-check-alerts", { minInterval: 60_000 }).catch(() => {});
       }
+      // Web Push — notifications même navigateur fermé (si permission déjà accordée)
+      navigator.serviceWorker.ready.then((r) => subscribeToWebPush(r));
     } catch {
       /* SW non supporté ou enregistrement refusé — l'app fonctionne sans */
     }

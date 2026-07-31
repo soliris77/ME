@@ -207,6 +207,40 @@ export declare const appSettingsTable: import("drizzle-orm/pg-core").PgTableWith
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        vapidPublicKey: import("drizzle-orm/pg-core").PgColumn<{
+            name: "vapid_public_key";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        vapidPrivateKey: import("drizzle-orm/pg-core").PgColumn<{
+            name: "vapid_private_key";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         lastDailySummaryDate: import("drizzle-orm/pg-core").PgColumn<{
             name: "last_daily_summary_date";
             tableName: "app_settings";
@@ -552,9 +586,9 @@ export declare const auditLogTable: import("drizzle-orm/pg-core").PgTableWithCol
     dialect: "pg";
 }>;
 export declare const insertAuditLogSchema: z.ZodObject<{
-    details: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
     action: z.ZodString;
     summary: z.ZodString;
+    details: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
 }, {
     out: {};
     in: {};
