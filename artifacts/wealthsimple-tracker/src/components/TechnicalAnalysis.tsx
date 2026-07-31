@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useGetQuoteHistory } from "@workspace/api-client-react";
 import {
   ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, ReferenceLine, Area, AreaChart, Brush,
+  ResponsiveContainer, CartesianGrid, ReferenceLine, ReferenceArea, Area, AreaChart, Brush,
 } from "recharts";
 import {
   computeIndicators, analyzeTradingSignals, detectCandlePatterns, detectPriceGaps, detectSupportResistance,
@@ -128,6 +128,38 @@ const BEGINNER_GUIDE = [
     color: "text-teal-500",
   },
 ];
+
+// Tooltip enrichi pour le graphique chandelier — affiche OHLCV complet
+function CandleTooltip({
+  active, payload, label,
+}: {
+  active?: boolean;
+  label?: string;
+  payload?: { payload?: { open: number; high: number; low: number; close: number; volume: number | null; isUp: boolean } }[];
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  return (
+    <div className="bg-card border border-card-border rounded-lg px-3 py-2 shadow-lg text-xs min-w-[130px]">
+      <p className="text-muted-foreground font-medium mb-1.5">{label}</p>
+      <div className="space-y-0.5 font-mono">
+        <div className="flex justify-between gap-4"><span className="text-muted-foreground">Ouv.</span><span>${d.open.toFixed(2)}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-muted-foreground">Haut</span><span className="text-emerald-500">${d.high.toFixed(2)}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-muted-foreground">Bas</span><span className="text-red-500">${d.low.toFixed(2)}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-muted-foreground">Clôt.</span>
+          <span className={d.isUp ? "text-emerald-500 font-bold" : "text-red-500 font-bold"}>${d.close.toFixed(2)}</span>
+        </div>
+        {d.volume != null && (
+          <div className="flex justify-between gap-4 border-t border-border/50 pt-0.5 mt-0.5">
+            <span className="text-muted-foreground">Vol.</span>
+            <span>{d.volume >= 1e9 ? `${(d.volume/1e9).toFixed(1)}G` : d.volume >= 1e6 ? `${(d.volume/1e6).toFixed(1)}M` : d.volume >= 1e3 ? `${(d.volume/1e3).toFixed(0)}K` : d.volume}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PriceTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
@@ -356,7 +388,7 @@ function PredictionCandleChart({
           <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: mutedFg }} axisLine={false} tickLine={false} width={38} />
-            <Tooltip content={<PriceTooltip />} />
+            <Tooltip content={<CandleTooltip />} />
             <Bar dataKey="wickRange" barSize={2} isAnimationActive={false}>
               {chartData.map((d, i) => (
                 <Cell key={`wick-${d.idx}-${i}`} fill={d.isUp ? "#22c55e" : "#ef4444"} />
@@ -693,10 +725,19 @@ function PatternRadar({
           aria-label="Radar de patterns en chandelier"
           style={{ display: "block", overflow: "visible" }}
         >
-          {/* Anneaux de grille */}
-          {RINGS.map((s, i) => (
-            <circle key={i} cx={CX} cy={CY} r={MAX_R * s}
-              fill="none" stroke={GRID_C} strokeWidth={1} />
+          {/* Anneaux de grille + labels de force */}
+          {([{ s: 0.35, label: "Faible" }, { s: 0.65, label: "Moyen" }, { s: 1.0, label: "Fort" }] as const).map(({ s, label }) => (
+            <g key={label}>
+              <circle cx={CX} cy={CY} r={MAX_R * s} fill="none" stroke={GRID_C} strokeWidth={1} />
+              <text
+                x={CX + MAX_R * s * 0.71 + 2}
+                y={CY - MAX_R * s * 0.71 - 2}
+                fontSize={6.5}
+                fill={MUTED_C}
+                textAnchor="start"
+                opacity={0.65}
+              >{label}</text>
+            </g>
           ))}
           {/* Axes */}
           <line x1={CX} y1={CY - MAX_R} x2={CX} y2={CY + MAX_R} stroke={GRID_C} strokeWidth={1} />
@@ -906,6 +947,36 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
       { label: "Long terme",   shortLabel: "6M", signal: computeForHistory(raw6mo), loading: loading6mo },
     ];
   }, [raw1mo, raw3mo, raw6mo, loading1mo, loading3mo, loading6mo]);
+  // ── Données enrichies pour les graphiques ──────────────────────────────────
+  // Volume avec moyenne glissante 20 périodes (pour la ligne sur le graphique volume)
+  const enrichedData = useMemo(
+    () =>
+      data.map((d, i) => {
+        const slice = data.slice(Math.max(0, i - 19), i + 1);
+        const vols = slice.map((p) => p.volume ?? 0).filter((v) => v > 0);
+        return {
+          ...d,
+          volumeAvg20: vols.length >= 5 ? vols.reduce((a, b) => a + b, 0) / vols.length : undefined,
+        };
+      }),
+    [data]
+  );
+
+  // 4 couleurs MACD : vert vif (hausse qui s'accélère), vert pâle (hausse qui ralentit),
+  // rouge vif (baisse qui s'accélère), rose pâle (baisse qui ralentit/retourne)
+  const macdColors = useMemo(
+    () =>
+      data.map((d, i) => {
+        const h = d.macdHist;
+        const prevH = i > 0 ? data[i - 1].macdHist : undefined;
+        if (h == null) return "hsl(var(--muted-foreground) / 0.3)";
+        const rising = prevH == null || h > prevH;
+        if (h >= 0) return rising ? "#16a34a" : "#4ade80";
+        return rising ? "#fca5a5" : "#dc2626";
+      }),
+    [data]
+  );
+
   const allPatterns = useMemo(() => detectCandlePatterns(history), [history]);
   // Show only patterns from the last 30 candles, most recent first, deduplicate by same idx+name
   const recentPatterns = useMemo(() => {
@@ -1294,13 +1365,22 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
         <span className="text-sm font-semibold block mb-1">Volume des échanges</span>
         <p className="text-xs text-muted-foreground mb-3">Nombre d'actions/unités échangées sur la période. Un volume élevé confirme la force d'un mouvement.</p>
         <ResponsiveContainer width="100%" height={80}>
-          <ComposedChart data={data} margin={{ top: 0, right: 8, bottom: 0, left: 4 }}>
+          <ComposedChart data={enrichedData} margin={{ top: 0, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={border} vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} width={52}
               tickFormatter={(v) => v >= 1e9 ? `${(v/1e9).toFixed(1)}G` : v >= 1e6 ? `${(v/1e6).toFixed(0)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
-            <Tooltip formatter={(v: number) => [v >= 1e9 ? `${(v/1e9).toFixed(2)}G` : v >= 1e6 ? `${(v/1e6).toFixed(2)}M` : v, "Volume"]} contentStyle={TOOLTIP_STYLE} />
-            <Bar dataKey="volume" fill="hsl(var(--primary) / 0.4)" radius={[2, 2, 0, 0]} name="Volume" />
+            <Tooltip formatter={(v: number, name: string) => [
+              name === "Moy. 20" ? (v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v.toFixed(0)) :
+              (v >= 1e9 ? `${(v/1e9).toFixed(2)}G` : v >= 1e6 ? `${(v/1e6).toFixed(2)}M` : v), name
+            ]} contentStyle={TOOLTIP_STYLE} />
+            <Bar dataKey="volume" radius={[2, 2, 0, 0]} name="Volume" isAnimationActive={false}>
+              {enrichedData.map((d, i) => (
+                <Cell key={`vol-${i}`} fill={d.close >= (d.open ?? d.close) ? "rgba(34,197,94,0.55)" : "rgba(239,68,68,0.55)"} />
+              ))}
+            </Bar>
+            <Line dataKey="volumeAvg20" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false}
+              strokeDasharray="4 2" name="Moy. 20" connectNulls isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -1327,6 +1407,9 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis domain={[0, 100]} tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} ticks={[0, 30, 50, 70, 100]} width={30} />
             <Tooltip content={<RSITooltip />} />
+            {/* Zones colorées de fond — survente (vert) et surachat (rouge) */}
+            <ReferenceArea y1={0} y2={30} fill="#22c55e" fillOpacity={0.07} stroke="none" />
+            <ReferenceArea y1={70} y2={100} fill="#ef4444" fillOpacity={0.07} stroke="none" />
             <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1} label={{ value: "Surachat", position: "right", fontSize: 9, fill: "#ef4444" }} />
             <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="4 2" strokeWidth={1} label={{ value: "Survente", position: "right", fontSize: 9, fill: "#22c55e" }} />
             <ReferenceLine y={50} stroke={border} strokeDasharray="2 2" strokeWidth={1} />
@@ -1365,7 +1448,12 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             <YAxis tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} width={48} tickFormatter={(v) => v.toFixed(2)} />
             <Tooltip content={<MACDTooltip />} />
             <ReferenceLine y={0} stroke={border} strokeWidth={1} />
-            <Bar dataKey="macdHist" name="Histogramme" fill="hsl(var(--muted-foreground) / 0.4)" radius={[1, 1, 0, 0]} />
+            {/* Histogramme 4 couleurs : vert vif / vert pâle / rose / rouge vif selon force + direction */}
+            <Bar dataKey="macdHist" name="Histogramme" radius={[1, 1, 0, 0]} isAnimationActive={false}>
+              {data.map((_, i) => (
+                <Cell key={`macd-${i}`} fill={macdColors[i]} />
+              ))}
+            </Bar>
             <Line dataKey="macdLine" stroke="#60a5fa" strokeWidth={1.5} dot={false} name="MACD" connectNulls />
             <Line dataKey="macdSignal" stroke="#f87171" strokeWidth={1.5} strokeDasharray="5 2" dot={false} name="Signal" connectNulls />
             <Brush

@@ -1,28 +1,34 @@
 ---
 name: Current task checkpoint
-description: Tâche en cours — corrections broker + dashboard + copy trading
+description: Améliorations visuelles de tous les graphiques — TERMINÉ
 ---
 
-# Tâche en cours
+# Tâche terminée
 
-**Instruction utilisateur :** Changer statut Wealthsimple dans section Courtier (en attente → connecté). Créer dans Tableau de bord une liste des actions ouvertes H24 / ouvertes / fermées. Vérifier copy trading.
-**Démarrée le :** 2026-07-30T04:05:00Z
+**Instruction utilisateur :** Améliorer tous les graphiques (bougies, radar des patterns, prix/indicateurs).
+**Terminée le :** 2026-07-31T02:52:00Z
 
 ## Plan d'exécution
 
-- ✅ FAIT — Étape 1 : Corriger le statut broker en DB (`UPDATE broker_connections SET status='connected'` pour id=2)
-- ✅ FAIT — Étape 2 : Créer `lib/marketHours.ts` côté client (getUSMarketStatus, getNextMarketEvent, getSymbolMarketStatus)
-- ✅ FAIT — Étape 3 : Ajouter composant `MarketStatusSection` dans Dashboard.tsx (3 panneaux : H24, NYSE/NASDAQ, TSX)
-- ✅ FAIT — Étape 4 : Insérer la section dans le rendu du Dashboard (juste avant les indices)
-- ✅ FAIT — Étape 5 : Vérifier copy trading — tables `followed_traders` et `copied_trades` sont vides, le système est opérationnel mais pas encore configuré (aucun trader suivi)
-- ✅ FAIT — Étape 6 : Vérifier logs — HMR propre, aucune erreur console
+- ✅ FAIT — Volume chart : barres bicolores (vert/rouge selon close vs open) + ligne de volume moyen 20 périodes
+- ✅ FAIT — RSI chart : ReferenceArea zones de fond (0–30 vert pâle, 70–100 rouge pâle)
+- ✅ FAIT — MACD histogram : 4 couleurs (vert vif / vert pâle / rose / rouge vif) selon direction + force
+- ✅ FAIT — PatternRadar : labels "Faible / Moyen / Fort" sur chaque anneau de grille SVG
+- ✅ FAIT — PredictionCandleChart : nouveau CandleTooltip avec OHLCV complet (O/H/L/C + Volume formaté)
+- ✅ FAIT — Vérification logs : HMR propre × 14, zéro erreur console
 
-## Résultat
+## Fichiers modifiés
+- `artifacts/wealthsimple-tracker/src/components/TechnicalAnalysis.tsx`
+  - Import ajouté : `ReferenceArea`
+  - Composant ajouté : `CandleTooltip` (avant PriceTooltip)
+  - useMemo ajoutés : `enrichedData` (volume + avg20), `macdColors` (4 couleurs)
+  - Volume : `data` → `enrichedData`, Bar avec Cell bicolor, Line moy.20
+  - RSI : ReferenceArea x2 (zones de fond)
+  - MACD : Bar avec Cell 4-couleurs via `macdColors`
+  - PatternRadar : rings remplacés par groupe avec label texte SVG
+  - PredictionCandleChart : PriceTooltip → CandleTooltip
 
-Tout terminé. Aucun problème détecté.
-
-## Contexte technique
-- Broker status : table `broker_connections` id=2, status était "pending" → maintenant "connected"
-- Fichier ajouté : `artifacts/wealthsimple-tracker/src/lib/marketHours.ts`
-- Fichier modifié : `artifacts/wealthsimple-tracker/src/pages/Dashboard.tsx` (imports + MarketStatusSection + insertion ligne ~656)
-- Copy trading : système prêt (routes OK, DB schema OK) mais aucun trader suivi n'est configuré → les tables sont vides, c'est normal
+## Contexte pour la prochaine session
+- Tous les graphiques dans TechnicalAnalysis.tsx sont maintenant plus informatifs visuellement
+- enrichedData et macdColors sont des useMemos globaux réutilisables pour de futures améliorations
+- La prochaine amélioration logique : backtester le score composite (voir MEMORY.md)
