@@ -601,7 +601,7 @@ export async function maybeNotifyDailyLossWarning(
 
 // ── I2 — Coupe-circuit de perte journalière agrégée ───────────────────────────
 // Si la perte réalisée du jour dépasse maxDailyLossAmount, le kill-switch s'active.
-async function checkDailyLossCircuitBreaker(
+export async function checkDailyLossCircuitBreaker(
   conn: typeof brokerConnectionsTable.$inferSelect | null,
 ): Promise<void> {
   if (!conn || conn.tradingHalted) return; // déjà arrêté

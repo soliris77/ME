@@ -15,6 +15,7 @@ const h = vi.hoisted(() => {
   const connectionsTable = { id: Symbol("conns.id"), $inferSelect: undefined };
   const ordersTable = { createdAt: Symbol(), status: Symbol(), $inferSelect: undefined };
   const settingsTable = { $inferSelect: undefined };
+  const auditLogTable = { id: Symbol(), action: Symbol(), createdAt: Symbol(), $inferSelect: undefined };
 
   const state = {
     rules: [] as Record<string, unknown>[],
@@ -33,6 +34,7 @@ const h = vi.hoisted(() => {
 
   const thenable = (rows: unknown[]) => ({
     where: () => thenable(rows),
+    orderBy: () => thenable(rows),
     limit: (n: number) => thenable(rows.slice(0, n)),
     then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
       Promise.resolve(rows).then(res, rej),
@@ -57,7 +59,9 @@ const h = vi.hoisted(() => {
   };
 
   return {
-    state, db, rulesTable, logsTable, connectionsTable, ordersTable, settingsTable,
+    state, db, rulesTable, logsTable, connectionsTable, ordersTable, settingsTable, auditLogTable,
+    notifyKillSwitchActivated: vi.fn().mockResolvedValue(undefined),
+    notifyDailyLossWarning: vi.fn().mockResolvedValue(true),
     submitOrder: vi.fn(),
     getQuotes: vi.fn(),
     chart: vi.fn(),
@@ -72,11 +76,13 @@ vi.mock("@workspace/db", () => ({
   brokerConnectionsTable: h.connectionsTable,
   ordersTable: h.ordersTable,
   appSettingsTable: h.settingsTable,
+  auditLogTable: h.auditLogTable,
 }));
 vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val }),
   and: (...args: unknown[]) => ({ and: args }),
   gte: (col: unknown, val: unknown) => ({ col, val }),
+  inArray: (col: unknown, vals: unknown) => ({ col, vals }),
   sql: () => ({}),
 }));
 vi.mock("../../lib/yahoo", () => ({
@@ -93,12 +99,15 @@ vi.mock("../../lib/emailClient", () => ({ sendEmail: vi.fn() }));
 vi.mock("../../lib/notificationPrefs", () => ({
   resolveDestinations: vi.fn().mockResolvedValue({ sendSms: false, sendEmail: false }),
 }));
-vi.mock("../../lib/notifications", () => ({ notifyKillSwitchActivated: vi.fn() }));
+vi.mock("../../lib/notifications", () => ({
+  notifyKillSwitchActivated: h.notifyKillSwitchActivated,
+  notifyDailyLossWarning: h.notifyDailyLossWarning,
+}));
 vi.mock("../../lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { checkProtectiveExits, processRule } from "../autoTradeWorker";
+import { checkProtectiveExits, processRule, checkDailyLossCircuitBreaker } from "../autoTradeWorker";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function makeRule(overrides: Record<string, unknown> = {}) {
@@ -409,5 +418,127 @@ describe("processRule — trailing stop initialisé à l'entrée", () => {
     expect(posUpdate!.set).toMatchObject({
       openQuantity: null, openEntryPrice: null, openSince: null, highWaterMark: null,
     });
+  });
+});
+
+// ── checkDailyLossCircuitBreaker — coupe-circuit de perte journalière ────────
+describe("checkDailyLossCircuitBreaker — coupe-circuit de perte journalière", () => {
+  const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const TODAY = new Date();
+
+  function makeConn(overrides: Record<string, unknown> = {}) {
+    return { id: 7, tradingHalted: false, haltedAt: null, ...overrides } as never;
+  }
+
+  /** Achat hier @buyPrice, vente aujourd'hui @sellPrice (qty 10) → P&L = (sell-buy)*10. */
+  function seedTrade(buyPrice: number, sellPrice: number) {
+    h.state.orders.push(
+      {
+        symbol: "AAPL", side: "BUY", status: "filled", mode: "paper",
+        quantity: "10", filledQuantity: "10", fillPrice: String(buyPrice),
+        expectedPrice: null, createdAt: YESTERDAY,
+      },
+      {
+        symbol: "AAPL", side: "SELL", status: "filled", mode: "paper",
+        quantity: "10", filledQuantity: "10", fillPrice: String(sellPrice),
+        expectedPrice: null, createdAt: TODAY,
+      },
+    );
+  }
+
+  const haltUpdates = () =>
+    h.state.updates.filter(u => u.table === h.connectionsTable && u.set.tradingHalted === true);
+
+  it("perte sous le seuil → aucun kill-switch, aucune notification", async () => {
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+    seedTrade(100, 95); // perte 50 $ (50 % de la limite, sous le seuil d'avertissement)
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    expect(haltUpdates()).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+    expect(h.notifyDailyLossWarning).not.toHaveBeenCalled();
+  });
+
+  it("perte exactement égale au seuil → pas de kill-switch (strictement au-dessus seulement)", async () => {
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+    seedTrade(100, 90); // perte 100 $ = limite exacte
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    expect(haltUpdates()).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+  });
+
+  it("perte au-dessus du seuil → tradingHalted=true + notification kill-switch", async () => {
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+    seedTrade(100, 89); // perte 110 $ > 100 $
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    const halts = haltUpdates();
+    expect(halts).toHaveLength(1);
+    expect(halts[0].set.haltedAt).toBeInstanceOf(Date);
+    expect(h.notifyKillSwitchActivated).toHaveBeenCalledTimes(1);
+    expect(String(h.notifyKillSwitchActivated.mock.calls[0][0])).toContain("110.00");
+  });
+
+  it("gain aujourd'hui → jamais de kill-switch", async () => {
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+    seedTrade(100, 150); // gain 500 $
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    expect(haltUpdates()).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+  });
+
+  it("seuil absent (pas de réglage) → coupe-circuit désactivé même en grosse perte", async () => {
+    // Aucune ligne app_settings
+    seedTrade(100, 10); // perte 900 $
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    expect(haltUpdates()).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+  });
+
+  it("seuil null → désactivé", async () => {
+    h.state.settings.push({ maxDailyLossAmount: null });
+    seedTrade(100, 10);
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    expect(haltUpdates()).toHaveLength(0);
+  });
+
+  it.each(["0", "-50", "abc"])("seuil invalide (%s) → désactivé", async (raw) => {
+    h.state.settings.push({ maxDailyLossAmount: raw });
+    seedTrade(100, 10);
+
+    await checkDailyLossCircuitBreaker(makeConn());
+
+    expect(haltUpdates()).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+  });
+
+  it("connexion déjà arrêtée (tradingHalted) → aucune action, aucune lecture de P&L", async () => {
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+    seedTrade(100, 10);
+
+    await checkDailyLossCircuitBreaker(makeConn({ tradingHalted: true }));
+
+    expect(h.state.updates).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+  });
+
+  it("connexion absente (null) → aucune action", async () => {
+    h.state.settings.push({ maxDailyLossAmount: "100" });
+    seedTrade(100, 10);
+
+    await checkDailyLossCircuitBreaker(null);
+
+    expect(h.state.updates).toHaveLength(0);
+    expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
   });
 });
