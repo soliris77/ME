@@ -14,7 +14,7 @@ import {
   TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
   Clock, Shield, Bell, BellOff, Play, ArrowUpRight, ArrowDownRight,
   FlaskConical, Briefcase, CalendarCheck, Scale, ShieldAlert, ShieldCheck,
-  Users, Link2,
+  Users, Link2, Lightbulb, Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
@@ -276,29 +276,49 @@ function SymbolAutocomplete({
 }
 
 /* ── Rule Form Modal ────────────────────────────────────── */
+// Prefill fourni par une « Suggestion de règle » (le formulaire s'ouvre pré-rempli,
+// l'utilisateur confirme via le flux de création habituel).
+interface RulePrefill {
+  symbol: string;
+  name: string;
+  sideMode: "buy" | "sell" | "both";
+  minScore: number;
+  quantity: number;
+  sizingMode: "fixed" | "risk";
+  stopLossPct?: number;
+  takeProfitPct?: number;
+  trailingStopPct?: number;
+  riskAmount?: number;
+  maxTradesPerDay: number;
+  cooldownMinutes: number;
+  notifyOnSignal: boolean;
+  aiReview: boolean;
+}
+
 interface RuleFormProps {
   rule?: AutoTradeRule | null;
+  prefill?: RulePrefill | null;
   onSave: (data: Record<string, unknown>) => void;
   onClose: () => void;
   saving: boolean;
 }
 
-function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
-  const [symbol, setSymbol] = useState(rule?.symbol ?? "");
-  const [name, setName] = useState(rule?.name ?? "");
-  const [sideMode, setSideMode] = useState<"buy" | "sell" | "both">(rule?.sideMode ?? "both");
-  const [minScore, setMinScore] = useState(rule?.minScore ?? 60);
-  const [quantity, setQuantity] = useState(parseFloat(rule?.quantity ?? "1"));
-  const [stopLoss, setStopLoss] = useState(rule?.stopLossPct ? parseFloat(rule.stopLossPct) : 0);
-  const [takeProfit, setTakeProfit] = useState(rule?.takeProfitPct ? parseFloat(rule.takeProfitPct) : 0);
-  const [trailingStop, setTrailingStop] = useState(rule?.trailingStopPct ? parseFloat(rule.trailingStopPct) : 0);
-  const [sizingMode, setSizingMode] = useState<"fixed" | "risk">(rule?.sizingMode ?? "fixed");
-  const [riskAmount, setRiskAmount] = useState(rule?.riskAmount ? parseFloat(rule.riskAmount) : 50);
+function RuleForm({ rule, prefill, onSave, onClose, saving }: RuleFormProps) {
+  const [symbol, setSymbol] = useState(rule?.symbol ?? prefill?.symbol ?? "");
+  const [name, setName] = useState(rule?.name ?? prefill?.name ?? "");
+  const [sideMode, setSideMode] = useState<"buy" | "sell" | "both">(rule?.sideMode ?? prefill?.sideMode ?? "both");
+  const [minScore, setMinScore] = useState(rule?.minScore ?? prefill?.minScore ?? 60);
+  const [quantity, setQuantity] = useState(rule?.quantity ? parseFloat(rule.quantity) : (prefill?.quantity ?? 1));
+  const [stopLoss, setStopLoss] = useState(rule?.stopLossPct ? parseFloat(rule.stopLossPct) : (prefill?.stopLossPct ?? 0));
+  const [takeProfit, setTakeProfit] = useState(rule?.takeProfitPct ? parseFloat(rule.takeProfitPct) : (prefill?.takeProfitPct ?? 0));
+  const [trailingStop, setTrailingStop] = useState(rule?.trailingStopPct ? parseFloat(rule.trailingStopPct) : (prefill?.trailingStopPct ?? 0));
+  const [sizingMode, setSizingMode] = useState<"fixed" | "risk">(rule?.sizingMode ?? prefill?.sizingMode ?? "fixed");
+  const [riskAmount, setRiskAmount] = useState(rule?.riskAmount ? parseFloat(rule.riskAmount) : (prefill?.riskAmount ?? 50));
   const [confirmWeekly, setConfirmWeekly] = useState(rule?.confirmWeekly ?? false);
-  const [maxTrades, setMaxTrades] = useState(rule?.maxTradesPerDay ?? 3);
-  const [notify, setNotify] = useState(rule?.notifyOnSignal ?? true);
-  const [cooldown, setCooldown] = useState(rule?.cooldownMinutes ?? 240);
-  const [aiReview, setAiReview] = useState(rule?.aiReview ?? false);
+  const [maxTrades, setMaxTrades] = useState(rule?.maxTradesPerDay ?? prefill?.maxTradesPerDay ?? 3);
+  const [notify, setNotify] = useState(rule?.notifyOnSignal ?? prefill?.notifyOnSignal ?? true);
+  const [cooldown, setCooldown] = useState(rule?.cooldownMinutes ?? prefill?.cooldownMinutes ?? 240);
+  const [aiReview, setAiReview] = useState(rule?.aiReview ?? prefill?.aiReview ?? false);
 
   // Backtest inline
   const [btResult, setBtResult] = useState<BacktestResult | null>(null);
@@ -1314,10 +1334,89 @@ function CopyBindingsCard({ rules }: { rules: AutoTradeRule[] }) {
   );
 }
 
+/* ── Suggestions de règles (moteur local gratuit) ───────── */
+interface RuleSuggestion {
+  id: string;
+  kind: "protect" | "entry" | "concentration";
+  title: string;
+  explanation: string;
+  prefill: RulePrefill;
+}
+
+const SUGGESTION_ICON: Record<RuleSuggestion["kind"], typeof Shield> = {
+  protect: Shield,
+  concentration: Scale,
+  entry: TrendingUp,
+};
+
+function SuggestionsPanel({ onCreate }: { onCreate: (prefill: RulePrefill) => void }) {
+  const suggestionsQ = useQuery<{ suggestions: RuleSuggestion[]; message: string | null }>({
+    queryKey: ["auto-trade-suggestions"],
+    queryFn: () => fetch(`${BASE}/api/auto-trader/suggestions`).then(r => r.json()),
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  });
+
+  const suggestions = Array.isArray(suggestionsQ.data?.suggestions) ? suggestionsQ.data!.suggestions : [];
+  const message = suggestionsQ.data?.message ?? null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Lightbulb className="w-4 h-4 text-primary" />
+        <h2 className="text-[13px] font-bold text-foreground tracking-wide">Suggestions de règles</h2>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono">gratuit</span>
+      </div>
+
+      {suggestionsQ.isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[1, 2].map(i => (
+            <div key={i} className="h-28 rounded-xl bg-card border border-border/40 animate-pulse" />
+          ))}
+        </div>
+      ) : suggestionsQ.isError ? (
+        <div className="bg-card border border-border/50 rounded-xl p-4 text-[12px] text-muted-foreground">
+          Impossible de charger les suggestions pour le moment.
+        </div>
+      ) : suggestions.length === 0 ? (
+        <div className="bg-card border border-border/50 rounded-xl p-4 flex items-start gap-2.5">
+          <Sparkles className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
+          <p className="text-[12px] text-muted-foreground leading-relaxed">
+            {message ?? "Aucune suggestion pour le moment."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {suggestions.map(s => {
+            const Icon = SUGGESTION_ICON[s.kind] ?? Lightbulb;
+            return (
+              <div key={s.id} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <h3 className="text-[13px] font-bold text-foreground leading-tight">{s.title}</h3>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed flex-1">{s.explanation}</p>
+                <button
+                  onClick={() => onCreate(s.prefill)}
+                  className="mt-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors self-start"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Créer cette règle
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AutoTrader() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editRule, setEditRule] = useState<AutoTradeRule | null>(null);
+  const [prefill, setPrefill] = useState<RulePrefill | null>(null);
   const [backtestRule, setBacktestRule] = useState<AutoTradeRule | null>(null);
 
   const rulesQ = useQuery<AutoTradeRule[]>({
@@ -1355,7 +1454,12 @@ export default function AutoTrader() {
   const createMut = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       fetch(`${BASE}/api/auto-trader/rules`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["auto-trade-rules"] }); setShowForm(false); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["auto-trade-rules"] });
+      qc.invalidateQueries({ queryKey: ["auto-trade-suggestions"] });
+      setShowForm(false);
+      setPrefill(null);
+    },
   });
 
   const updateMut = useMutation({
@@ -1418,7 +1522,7 @@ export default function AutoTrader() {
             Analyser maintenant
           </button>
           <button
-            onClick={() => { setEditRule(null); setShowForm(true); }}
+            onClick={() => { setEditRule(null); setPrefill(null); setShowForm(true); }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -1523,6 +1627,9 @@ export default function AutoTrader() {
       {/* Positions ouvertes */}
       <OpenPositionsPanel rules={rules} />
 
+      {/* Suggestions de règles (moteur local gratuit) */}
+      <SuggestionsPanel onCreate={(p) => { setEditRule(null); setPrefill(p); setShowForm(true); }} />
+
       {/* Rules list */}
       {rulesQ.isLoading ? (
         <div className="space-y-3">
@@ -1536,7 +1643,7 @@ export default function AutoTrader() {
           <div className="text-[14px] text-muted-foreground mb-1">Aucune règle d'auto-trading</div>
           <div className="text-[12px] text-muted-foreground/60 mb-4">Crée ta première règle pour commencer à trader automatiquement.</div>
           <button
-            onClick={() => { setEditRule(null); setShowForm(true); }}
+            onClick={() => { setEditRule(null); setPrefill(null); setShowForm(true); }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -1551,7 +1658,7 @@ export default function AutoTrader() {
               rule={rule}
               logs={logs}
               onToggle={() => toggleMut.mutate(rule.id)}
-              onEdit={() => { setEditRule(rule); setShowForm(true); }}
+              onEdit={() => { setEditRule(rule); setPrefill(null); setShowForm(true); }}
               onBacktest={() => setBacktestRule(rule)}
               onDelete={() => { if (confirm(`Supprimer la règle "${rule.name ?? rule.symbol}" ?`)) deleteMut.mutate(rule.id); }}
             />
@@ -1571,8 +1678,9 @@ export default function AutoTrader() {
       {showForm && (
         <RuleForm
           rule={editRule}
+          prefill={prefill}
           saving={createMut.isPending || updateMut.isPending}
-          onClose={() => { setShowForm(false); setEditRule(null); }}
+          onClose={() => { setShowForm(false); setEditRule(null); setPrefill(null); }}
           onSave={(data) => {
             if (editRule) updateMut.mutate({ id: editRule.id, data });
             else createMut.mutate(data);

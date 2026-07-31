@@ -100,6 +100,10 @@ vi.mock("../../lib/snaptrade", () => ({
   }),
 }));
 vi.mock("../../lib/aiReview", () => ({ getAiSecondOpinion: h.getAiSecondOpinion }));
+// Calendrier boursier (fonctionnalité fusionnée) : forcer « bourse ouverte » pour
+// que processRule atteigne le hook du second avis dans ces tests.
+vi.mock("../../lib/risk", () => ({ isMarketOpen: () => ({ open: true, message: null }) }));
+vi.mock("../../routes/market", () => ({ computeClosureWarnings: () => [] }));
 
 import { processRule, runAutoTradeCheck } from "../autoTradeWorker";
 

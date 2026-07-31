@@ -9,7 +9,7 @@
  * POST   /api/auto-trader/run           — forcer un cycle immédiat (debug)
  */
 import { Router } from "express";
-import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable, autoTradeCopyBindingsTable, followedTradersTable } from "@workspace/db";
+import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable, autoTradeCopyBindingsTable, followedTradersTable, watchlistTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runAutoTradeCheck, getDailyRealizedPnLStatus } from "../workers/autoTradeWorker";
@@ -19,6 +19,8 @@ import type { OHLCPoint } from "../lib/patternDetect";
 import { getRiskSettings } from "../lib/settings";
 import { getTradingMode } from "../lib/tradingMode";
 import { listPositions } from "../lib/snaptrade";
+import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
+import { buildSuggestions, type AdvisorPosition, type AdvisorSignal } from "../lib/ruleAdvisor";
 import {
   computeGlobalRisk, guessCurrency,
   type StopPositionInput, type ExposureInput,
@@ -369,6 +371,121 @@ router.get("/auto-trader/global-risk", async (_req, res) => {
   } catch (err) {
     logger.error({ err }, "auto-trader: GET global-risk error");
     return res.status(500).json({ error: "Erreur lors du calcul du risque global" });
+  }
+});
+
+// GET /api/auto-trader/suggestions — « Suggestions de règles » (moteur LOCAL gratuit)
+// Propose 2-3 règles à partir des données déjà disponibles (positions, watchlist,
+// règles existantes, réglages de risque, signaux techniques réutilisés). Ne crée
+// jamais de règle : chaque suggestion renvoie un prefill à confirmer dans le
+// formulaire habituel. Portefeuille et watchlist vides → [] + message amical.
+router.get("/auto-trader/suggestions", async (_req, res) => {
+  try {
+    const existingRules = await db.select().from(autoTradeRulesTable);
+
+    // 1) Positions détenues (source de vérité : courtier si connecté).
+    const positions: AdvisorPosition[] = [];
+    const [conn] = await db.select().from(brokerConnectionsTable)
+      .orderBy(desc(brokerConnectionsTable.id)).limit(1);
+    if (conn && conn.status === "connected") {
+      try {
+        const accounts = (conn.accounts as { id: string }[] | null) ?? [];
+        for (const acc of accounts) {
+          if (!acc?.id) continue;
+          const raw = await listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, acc.id);
+          for (const r of raw as unknown[]) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const p = r as any;
+            const symbol: string = (p?.symbol?.symbol?.ticker ?? p?.symbol?.ticker ?? p?.symbol ?? "").toUpperCase();
+            const units = Number(p?.units ?? p?.quantity ?? 0);
+            const price = Number(p?.price ?? p?.current_price ?? 0);
+            if (symbol && units > 0 && price > 0) {
+              positions.push({ symbol, value: units * price, price, currency: (p?.symbol?.currency?.code ?? p?.currency ?? "USD").toUpperCase() });
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn({ err }, "auto-trader: lecture des positions courtier échouée — suggestions sans positions");
+      }
+    }
+    // Repli : positions internes de l'auto-trader (règles avec position ouverte).
+    if (positions.length === 0) {
+      for (const r of existingRules) {
+        const qty = parseFloat(r.openQuantity as string);
+        const entry = parseFloat(r.openEntryPrice as string);
+        if (Number.isFinite(qty) && qty > 0 && Number.isFinite(entry) && entry > 0) {
+          positions.push({ symbol: r.symbol.toUpperCase(), value: qty * entry, price: entry, currency: guessCurrency(r.symbol) });
+        }
+      }
+    }
+
+    // 2) Watchlist (symboles uniques).
+    const watchRows = await db.select({ symbol: watchlistTable.symbol }).from(watchlistTable);
+    const watchlistSymbols = [...new Set(watchRows.map((w) => (w.symbol || "").toUpperCase()).filter(Boolean))];
+
+    // Portefeuille ET watchlist vides → rien à suggérer (message amical).
+    if (positions.length === 0 && watchlistSymbols.length === 0) {
+      return res.json({
+        suggestions: [],
+        message: "Ajoutez des symboles à votre watchlist ou connectez votre portefeuille pour recevoir des suggestions de règles.",
+      });
+    }
+
+    // 3) Signaux techniques — calculés UNIQUEMENT pour les symboles watchlist non
+    //    encore couverts par une règle d'achat (réutilise le calcul existant,
+    //    aucun fournisseur externe supplémentaire).
+    const signals = new Map<string, AdvisorSignal>();
+    const ruleBuySymbols = new Set(existingRules
+      .filter((r) => ["buy", "both"].includes((r.sideMode || "both").toLowerCase()))
+      .map((r) => r.symbol.toUpperCase()));
+    const symbolsToScore = watchlistSymbols.filter((s) => !ruleBuySymbols.has(s)).slice(0, 20);
+    const DAY = 24 * 60 * 60 * 1000;
+    await Promise.all(symbolsToScore.map(async (sym) => {
+      try {
+        const chart = await yahooFinance.chart(sym, { period1: new Date(Date.now() - 400 * DAY), interval: "1d" });
+        const history: OHLCPoint[] = (chart.quotes ?? []).map((p: { date: string | number | Date; open?: number; high?: number; low?: number; close?: number; volume?: number }) => ({
+          date: new Date(p.date).toISOString(),
+          open: p.open ?? null, high: p.high ?? null, low: p.low ?? null,
+          close: p.close ?? 0, volume: p.volume ?? null,
+        }));
+        if (history.length < 55) return;
+        const indicators = computeIndicators(history);
+        const currentPrice = history[history.length - 1].close;
+        // Prix courant transmis au conseiller : sans prix positif fiable, aucune
+        // suggestion d'achat ne sera émise (fail-closed côté moteur).
+        if (!Number.isFinite(currentPrice) || currentPrice <= 0) return;
+        const analysis = analyzeTradingSignals(indicators, currentPrice);
+        signals.set(sym, { score: analysis.score, overall: analysis.overall, price: currentPrice });
+      } catch (err) {
+        logger.debug({ err, sym }, "auto-trader: signal watchlist indisponible — symbole ignoré");
+      }
+    }));
+
+    const settings = await getRiskSettings();
+    const suggestions = buildSuggestions({
+      positions,
+      watchlistSymbols,
+      existingRules: existingRules.map((r) => ({
+        symbol: r.symbol,
+        sideMode: r.sideMode ?? "both",
+        enabled: r.enabled ?? undefined,
+        stopLossPct: r.stopLossPct,
+        trailingStopPct: r.trailingStopPct,
+        openQuantity: r.openQuantity,
+      })),
+      signals,
+      riskSettings: { maxOrderValue: settings.maxOrderValue, maxPortfolioExposure: settings.maxPortfolioExposure },
+    });
+
+    return res.json({
+      suggestions,
+      message: suggestions.length === 0
+        ? "Aucune suggestion pour le moment : vos positions sont déjà protégées et aucun signal fort n'est détecté."
+        : null,
+    });
+  } catch (err) {
+    logger.error({ err }, "auto-trader: GET suggestions error");
+    return res.status(500).json({ error: "Erreur lors du calcul des suggestions" });
   }
 });
 
