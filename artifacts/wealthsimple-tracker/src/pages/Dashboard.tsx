@@ -1,5 +1,6 @@
 import {
   useGetMarketOverview,
+  getGetMarketOverviewQueryKey,
   useAddToWatchlist,
   getGetWatchlistQueryKey,
 } from "@workspace/api-client-react";
@@ -29,6 +30,7 @@ import SectorHeatmap from "@/components/SectorHeatmap";
 import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, cardVariants, listItemVariants, hoverLift, EASE_PRECISION } from "@/lib/motion";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { Sparkline } from "@/components/Sparkline";
 import { PageTransition } from "@/components/PageTransition";
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
@@ -508,6 +510,7 @@ function FlashQuote({ q }: { q: Quote }) {
             flashColor={flashColor}
           />
         </div>
+        <div className="flex items-center justify-between gap-2">
         <motion.div
           className={`flex items-center gap-0.5 text-[12px] font-mono font-semibold ${
             up === null ? "text-muted-foreground" : up ? "gain" : "loss"
@@ -519,6 +522,10 @@ function FlashQuote({ q }: { q: Quote }) {
           {up === false && <ArrowDownRight className="w-3.5 h-3.5" />}
           <AnimatedCounter value={formatPercent(q.changePercent)} />
         </motion.div>
+        <div className="hidden sm:block">
+          <Sparkline symbol={q.symbol} />
+        </div>
+        </div>
       </motion.div>
     </Link>
   );
@@ -664,6 +671,21 @@ function StockRow({ q, onTrade }: StockRowProps) {
 
 // ─── Market section (indices cards) ──────────────────────────────────────────
 
+function MarketEmptyState() {
+  const queryClient = useQueryClient();
+  return (
+    <div className="text-xs text-muted-foreground py-3 pl-1 flex items-center gap-3">
+      <span>Données indisponibles pour le moment.</span>
+      <button
+        onClick={() => queryClient.invalidateQueries({ queryKey: getGetMarketOverviewQueryKey() })}
+        className="text-primary hover:underline font-medium"
+      >
+        Réessayer
+      </button>
+    </div>
+  );
+}
+
 function MarketSection({ title, symbols, allQuotes, loading }: {
   title: string; symbols: string[]; allQuotes: Quote[]; loading: boolean;
 }) {
@@ -685,7 +707,7 @@ function MarketSection({ title, symbols, allQuotes, loading }: {
           {filtered.map((q) => <FlashQuote key={q.symbol} q={q} />)}
         </motion.div>
       ) : (
-        <div className="text-xs text-muted-foreground py-3 pl-1">Données indisponibles</div>
+        <MarketEmptyState />
       )}
     </div>
   );
@@ -714,7 +736,9 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
                 </div>
               </div>
             ))
-          : filtered.map((q) => {
+          : filtered.length === 0 ? (
+              <div className="px-4 py-4 text-xs text-muted-foreground">Données indisponibles pour le moment.</div>
+            ) : filtered.map((q) => {
               const up = isUp(q.changePercent);
               return (
                 <Link key={q.symbol} href={`/quote/${encodeURIComponent(q.symbol)}`}>
@@ -725,7 +749,10 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
                       </div>
                       <div className="text-[10px] text-muted-foreground font-mono tracking-wider uppercase">{q.symbol}</div>
                     </div>
-                    <div className="text-right">
+                    <div className="hidden sm:block mx-3 shrink-0">
+                      <Sparkline symbol={q.symbol} />
+                    </div>
+                    <div className="text-right ml-auto">
                       <div className="text-[13px] font-mono font-semibold tabular-nums">{formatPrice(q.price, q.currency)}</div>
                       <div className={`text-[11px] font-mono font-semibold flex items-center justify-end gap-0.5 ${
                         up === null ? "text-muted-foreground" : up ? "gain" : "loss"
@@ -910,7 +937,10 @@ function GainLossSection({ title, quotes, loading, isGain, onTrade }: {
               </div>
             ))}
         {!loading && (quotes?.length ?? 0) === 0 && (
-          <div className="px-5 py-4 text-sm text-muted-foreground">{isGain ? "Aucune hausse" : "Aucune baisse"}</div>
+          <div className="px-5 py-4 text-sm text-muted-foreground">
+            {isGain ? "Aucune hausse pour l'instant" : "Aucune baisse pour l'instant"}
+            <span className="block text-xs mt-1 text-muted-foreground/70">Les mouvements apparaissent quand les marchés sont ouverts.</span>
+          </div>
         )}
       </div>
     </div>
