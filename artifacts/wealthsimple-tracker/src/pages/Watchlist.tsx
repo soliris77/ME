@@ -17,7 +17,7 @@ import { playSound } from "@/lib/sounds";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link, useLocation } from "wouter";
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus, CheckCircle2, XCircle, Search } from "lucide-react";
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus, CheckCircle2, XCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { WatchlistItem } from "@workspace/api-client-react";
 import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
@@ -368,6 +368,17 @@ export default function Watchlist() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Déplacement d'une liste d'un cran (boutons ‹ › tactiles, sans souris).
+  const moveList = useCallback((name: string, dir: -1 | 1) => {
+    const idx = lists.indexOf(name);
+    const target = idx + dir;
+    if (idx < 0 || target < 0 || target >= lists.length) return;
+    const next = [...lists];
+    next.splice(idx, 1);
+    next.splice(target, 0, name);
+    commitReorder(next);
+  }, [lists, commitReorder]);
+
   const startRename = useCallback((name: string) => {
     setRenaming(name);
     setRenameValue(name);
@@ -491,13 +502,33 @@ export default function Watchlist() {
                 } ${dragging === l ? "opacity-40" : ""} ${dragOver === l ? "ring-2 ring-primary/50" : ""}`}
                 title="Glisser pour réorganiser · double-clic pour renommer"
               >
+                {activeList === l && lists.indexOf(l) > 0 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); moveList(l, -1); }}
+                    className="ml-1.5 p-1 rounded-full hover:bg-primary-foreground/15 transition-colors"
+                    title="Déplacer vers la gauche"
+                    aria-label={`Déplacer la liste ${l} vers la gauche`}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveList(l)}
                   onDoubleClick={(e) => { e.preventDefault(); startRename(l); }}
-                  className={`px-3 py-1.5 text-xs font-medium ${count === 0 ? "pr-1" : ""}`}
+                  className={`py-1.5 text-xs font-medium ${activeList === l && lists.indexOf(l) > 0 ? "pl-1" : "pl-3"} ${count === 0 || (activeList === l && lists.indexOf(l) < lists.length - 1) ? "pr-1" : "pr-3"}`}
                 >
                   {l} ({count})
                 </button>
+                {activeList === l && lists.indexOf(l) < lists.length - 1 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); moveList(l, 1); }}
+                    className={`p-1 rounded-full hover:bg-primary-foreground/15 transition-colors ${count === 0 ? "" : "mr-1.5"}`}
+                    title="Déplacer vers la droite"
+                    aria-label={`Déplacer la liste ${l} vers la droite`}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {count === 0 && (
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteList.mutate({ name: l }); }}
