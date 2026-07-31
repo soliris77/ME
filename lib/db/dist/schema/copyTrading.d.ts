@@ -543,12 +543,12 @@ export declare const copiedTradesTable: import("drizzle-orm/pg-core").PgTableWit
 }>;
 export declare const insertCopiedTradeSchema: z.ZodObject<{
     symbol: z.ZodString;
+    status: z.ZodOptional<z.ZodString>;
     followedTraderId: z.ZodOptional<z.ZodInt>;
     externalTradeId: z.ZodString;
     direction: z.ZodString;
     originalAmount: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     copiedAmount: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    status: z.ZodOptional<z.ZodString>;
     openedAt: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
     closedAt: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
 }, {
