@@ -9,13 +9,20 @@
  * POST   /api/auto-trader/run           — forcer un cycle immédiat (debug)
  */
 import { Router } from "express";
-import { db, autoTradeRulesTable, autoTradeLogsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable } from "@workspace/db";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runAutoTradeCheck, getDailyRealizedPnLStatus } from "../workers/autoTradeWorker";
 import { runBacktest, WARMUP } from "../lib/backtest";
-import { yahooFinance } from "../lib/yahoo";
+import { yahooFinance, getQuotes } from "../lib/yahoo";
 import type { OHLCPoint } from "../lib/patternDetect";
+import { getRiskSettings } from "../lib/settings";
+import { getTradingMode } from "../lib/tradingMode";
+import { listPositions } from "../lib/snaptrade";
+import {
+  computeGlobalRisk, guessCurrency,
+  type StopPositionInput, type ExposureInput,
+} from "../lib/globalRisk";
 
 const router = Router();
 
@@ -212,6 +219,154 @@ router.get("/auto-trader/daily-pnl", async (_req, res) => {
   } catch (err) {
     logger.error({ err }, "auto-trader: GET daily-pnl error");
     res.status(500).json({ error: "Erreur lors du calcul du P&L du jour" });
+  }
+});
+
+// GET /api/auto-trader/global-risk — vue « risque global », lecture seule.
+// Agrège : perte totale si TOUS les stops actifs sont touchés (positions
+// suivies par l'auto-trader + ordres stop courtier en attente), exposition
+// par symbole et par devise, et comparaison aux limites configurées.
+router.get("/auto-trader/global-risk", async (_req, res) => {
+  try {
+    const mode = getTradingMode();
+
+    // 1) Positions suivies par l'auto-trader (stops logiciels : SL / trailing)
+    const allRules = await db.select().from(autoTradeRulesTable);
+    const openRules = allRules.filter(
+      (r) => r.openQuantity && parseFloat(r.openQuantity as string) > 0 && r.openEntryPrice,
+    );
+
+    // 2) Ordres stop de protection encore actifs chez le courtier
+    //    (expectedPrice = stopPrice pour un ordre stop — voir routes/broker.ts)
+    const stopOrders = await db.select().from(ordersTable).where(and(
+      eq(ordersTable.orderType, "stop"),
+      eq(ordersTable.mode, mode),
+      inArray(ordersTable.status, ["pending", "submitted"]),
+    ));
+
+    // 3) Cotations live pour tous les symboles concernés
+    const symbols = [...new Set([
+      ...openRules.map((r) => r.symbol),
+      ...stopOrders.map((o) => o.symbol),
+    ])];
+    const quoteMap = new Map<string, { price: number; currency: string }>();
+    if (symbols.length > 0) {
+      try {
+        const quotes = await getQuotes(symbols);
+        for (const q of quotes) {
+          if (q.symbol && Number.isFinite(q.price) && q.price > 0) {
+            quoteMap.set(q.symbol.toUpperCase(), { price: q.price, currency: q.currency || guessCurrency(q.symbol) });
+          }
+        }
+      } catch (err) {
+        logger.warn({ err }, "global-risk: getQuotes échoué — risques calculés sans cotations");
+      }
+    }
+
+    const stopPositions: StopPositionInput[] = [
+      ...openRules.map((r): StopPositionInput => ({
+        source: "auto_trader",
+        refId: r.id,
+        symbol: r.symbol,
+        quantity: parseFloat(r.openQuantity as string),
+        entryPrice: parseFloat(r.openEntryPrice as string),
+        currentPrice: quoteMap.get(r.symbol.toUpperCase())?.price ?? null,
+        // Les stops logiciels ne sont surveillés que si la règle est active :
+        // une règle désactivée avec position ouverte = position non protégée.
+        stopLossPct: r.enabled && r.stopLossPct ? parseFloat(r.stopLossPct as string) : null,
+        trailingStopPct: r.enabled && r.trailingStopPct ? parseFloat(r.trailingStopPct as string) : null,
+        highWaterMark: r.highWaterMark ? parseFloat(r.highWaterMark as string) : null,
+        stopPrice: null,
+      })),
+      ...stopOrders
+        .filter((o) => o.side.toUpperCase() === "SELL")
+        .map((o): StopPositionInput => ({
+          source: "stop_order",
+          refId: o.id,
+          symbol: o.symbol,
+          quantity: Number(o.quantity),
+          entryPrice: null,
+          currentPrice: quoteMap.get(o.symbol.toUpperCase())?.price ?? null,
+          stopLossPct: null,
+          trailingStopPct: null,
+          highWaterMark: null,
+          stopPrice: o.expectedPrice != null ? Number(o.expectedPrice) : null,
+        })),
+    ];
+
+    // 4) Exposition : positions courtier si connecté (source de vérité),
+    //    sinon positions internes de l'auto-trader valorisées aux cotations.
+    let exposureRows: ExposureInput[] = [];
+    let exposureSource: "broker" | "auto_trader" = "auto_trader";
+    let brokerFetchError: string | null = null;
+
+    const [conn] = await db.select().from(brokerConnectionsTable)
+      .orderBy(desc(brokerConnectionsTable.id)).limit(1);
+
+    if (conn && conn.status === "connected") {
+      try {
+        const accounts = (conn.accounts as { id: string }[] | null) ?? [];
+        const raw: unknown[] = [];
+        for (const acc of accounts) {
+          if (!acc?.id) continue;
+          const positions = await listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, acc.id);
+          raw.push(...(positions as unknown[]));
+        }
+        exposureRows = raw.map((r) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const p = r as any;
+          const symbol: string = (p?.symbol?.symbol?.ticker ?? p?.symbol?.ticker ?? p?.symbol ?? "").toUpperCase();
+          const units = Number(p?.units ?? p?.quantity ?? 0);
+          const price = Number(p?.price ?? p?.current_price ?? 0);
+          const currency = (p?.symbol?.currency?.code ?? p?.currency ?? "USD").toUpperCase();
+          return { symbol, value: units * price, currency };
+        }).filter((r) => r.symbol && r.value > 0);
+        // Courtier joignable mais aucune position (ex. comptes vides) :
+        // on retombe sur les positions internes pour ne pas afficher 0.
+        if (exposureRows.length > 0) exposureSource = "broker";
+      } catch (err) {
+        brokerFetchError = String(err);
+        logger.warn({ err }, "global-risk: lecture des positions courtier échouée — repli sur les positions internes");
+      }
+    }
+
+    if (exposureSource === "auto_trader") {
+      exposureRows = openRules.map((r) => {
+        const q = quoteMap.get(r.symbol.toUpperCase());
+        const qty = parseFloat(r.openQuantity as string);
+        const price = q?.price ?? parseFloat(r.openEntryPrice as string);
+        return {
+          symbol: r.symbol.toUpperCase(),
+          value: qty * price,
+          currency: q?.currency ?? guessCurrency(r.symbol),
+        };
+      });
+    }
+
+    // 5) Limites configurées
+    const settings = await getRiskSettings();
+    const result = computeGlobalRisk(stopPositions, exposureRows);
+
+    return res.json({
+      mode,
+      generatedAt: new Date().toISOString(),
+      ...result,
+      exposureSource,
+      brokerFetchError,
+      limits: {
+        maxDailyLossAmount: settings.maxDailyLossAmount,
+        maxPortfolioExposure: settings.maxPortfolioExposure,
+      },
+      riskExceedsDailyLimit:
+        settings.maxDailyLossAmount !== null &&
+        result.totalRiskIfAllStopsHit > settings.maxDailyLossAmount,
+      exposureExceedsLimit:
+        Number.isFinite(settings.maxPortfolioExposure) &&
+        result.exposure.total > settings.maxPortfolioExposure,
+    });
+  } catch (err) {
+    logger.error({ err }, "auto-trader: GET global-risk error");
+    return res.status(500).json({ error: "Erreur lors du calcul du risque global" });
   }
 });
 

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
+import GlobalRiskPanel from "@/components/GlobalRiskPanel";
 import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -1235,6 +1236,9 @@ export default function AutoTrader() {
           </div>
         );
       })()}
+
+      {/* Risque global — si tous les stops sautent */}
+      <GlobalRiskPanel />
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-6">
