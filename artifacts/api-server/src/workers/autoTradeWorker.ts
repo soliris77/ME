@@ -589,7 +589,14 @@ export async function maybeNotifyDailyLossWarning(
     // ÉTAPE 2 — Envoi (hors transaction). En cas d'échec total, on libère la
     // réclamation pour qu'un cycle ultérieur puisse re-tenter.
     logger.warn({ loss, maxLoss, pct }, "autoTradeWorker: perte du jour proche de la limite — notification d'avertissement");
-    const delivered = await notifyFn({ loss, maxLoss, pct });
+    // Un notifyFn qui LÈVE (panne réseau/fournisseur) est un échec d'envoi comme
+    // un autre : on libère la réclamation, sinon plus aucune re-tentative du jour.
+    let delivered = false;
+    try {
+      delivered = await notifyFn({ loss, maxLoss, pct });
+    } catch (sendErr) {
+      logger.warn({ err: sendErr }, "autoTradeWorker: exception lors de l'envoi de l'avertissement de perte");
+    }
     if (!delivered) {
       await db.delete(auditLogTable).where(eq(auditLogTable.id, claimedId));
       logger.warn({ claimedId }, "autoTradeWorker: envoi de l'avertissement échoué — réclamation libérée pour re-tentative");

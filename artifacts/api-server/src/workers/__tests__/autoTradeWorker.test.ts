@@ -22,18 +22,40 @@ const h = vi.hoisted(() => {
     connections: [] as Record<string, unknown>[],
     settings: [] as Record<string, unknown>[],
     orders: [] as Record<string, unknown>[],
+    auditRows: [] as Record<string, unknown>[],
     updates: [] as { table: unknown; set: Record<string, unknown> }[],
     inserts: [] as { table: unknown; values: Record<string, unknown> }[],
+    deletes: [] as { table: unknown; where: unknown }[],
+    txExecutes: [] as unknown[],
+    nextAuditId: 1,
   };
 
   const rowsFor = (table: unknown) =>
     table === rulesTable ? state.rules :
     table === connectionsTable ? state.connections :
     table === settingsTable ? state.settings :
-    table === ordersTable ? state.orders : [];
+    table === ordersTable ? state.orders :
+    table === auditLogTable ? state.auditRows : [];
+
+  // Filtrage minimal des prédicats eq/gte/and pour les colonnes d'audit_log
+  // (les autres tables ignorent le where, comme avant).
+  const auditColName = (col: unknown) =>
+    col === auditLogTable.action ? "action" :
+    col === auditLogTable.createdAt ? "createdAt" :
+    col === auditLogTable.id ? "id" : null;
+  const matches = (row: Record<string, unknown>, pred: unknown): boolean => {
+    const p = pred as { and?: unknown[]; op?: string; col?: unknown; val?: unknown } | undefined;
+    if (!p) return true;
+    if (p.and) return p.and.every(sub => matches(row, sub));
+    const name = auditColName(p.col);
+    if (name == null) return true; // colonne d'une autre table → pas de filtre
+    if (p.op === "eq") return row[name] === p.val;
+    if (p.op === "gte") return (row[name] as Date) >= (p.val as Date);
+    return true;
+  };
 
   const thenable = (rows: unknown[]) => ({
-    where: () => thenable(rows),
+    where: (pred?: unknown) => thenable(rows.filter(r => matches(r as Record<string, unknown>, pred))),
     orderBy: () => thenable(rows),
     limit: (n: number) => thenable(rows.slice(0, n)),
     then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
@@ -56,6 +78,35 @@ const h = vi.hoisted(() => {
         return Promise.resolve();
       },
     }),
+    delete: (table: unknown) => ({
+      where: (where: unknown) => {
+        state.deletes.push({ table, where });
+        return Promise.resolve();
+      },
+    }),
+    transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+      // Fake tx : mêmes lectures que db, mais insert(...).returning() renvoie
+      // la ligne créée avec un id, comme Postgres.
+      const tx = {
+        execute: (q: unknown) => {
+          state.txExecutes.push(q);
+          return Promise.resolve();
+        },
+        select: () => ({ from: (table: unknown) => thenable(rowsFor(table)) }),
+        insert: (table: unknown) => ({
+          values: (values: Record<string, unknown>) => ({
+            returning: () => {
+              const id = state.nextAuditId++;
+              const row = { ...values, id, createdAt: new Date() }; // défaut DB now()
+              state.inserts.push({ table, values: row });
+              if (table === auditLogTable) state.auditRows.push(row);
+              return Promise.resolve([{ id }]);
+            },
+          }),
+        }),
+      };
+      return fn(tx);
+    },
   };
 
   return {
@@ -79,9 +130,9 @@ vi.mock("@workspace/db", () => ({
   auditLogTable: h.auditLogTable,
 }));
 vi.mock("drizzle-orm", () => ({
-  eq: (col: unknown, val: unknown) => ({ col, val }),
+  eq: (col: unknown, val: unknown) => ({ op: "eq", col, val }),
   and: (...args: unknown[]) => ({ and: args }),
-  gte: (col: unknown, val: unknown) => ({ col, val }),
+  gte: (col: unknown, val: unknown) => ({ op: "gte", col, val }),
   inArray: (col: unknown, vals: unknown) => ({ col, vals }),
   sql: () => ({}),
 }));
@@ -107,7 +158,7 @@ vi.mock("../../lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { checkProtectiveExits, processRule, checkDailyLossCircuitBreaker } from "../autoTradeWorker";
+import { checkProtectiveExits, processRule, checkDailyLossCircuitBreaker, maybeNotifyDailyLossWarning } from "../autoTradeWorker";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function makeRule(overrides: Record<string, unknown> = {}) {
@@ -163,8 +214,12 @@ beforeEach(() => {
   h.state.connections.length = 0;
   h.state.settings.length = 0;
   h.state.orders.length = 0;
+  h.state.auditRows.length = 0;
   h.state.updates.length = 0;
   h.state.inserts.length = 0;
+  h.state.deletes.length = 0;
+  h.state.txExecutes.length = 0;
+  h.state.nextAuditId = 1;
 });
 
 // ── checkProtectiveExits — confirmation de la vente ───────────────────────────
@@ -540,5 +595,116 @@ describe("checkDailyLossCircuitBreaker — coupe-circuit de perte journalière",
 
     expect(h.state.updates).toHaveLength(0);
     expect(h.notifyKillSwitchActivated).not.toHaveBeenCalled();
+  });
+});
+
+// ── maybeNotifyDailyLossWarning — anti-doublon quotidien ─────────────────────
+describe("maybeNotifyDailyLossWarning — une seule notification par jour", () => {
+  const auditInserts = () => h.state.inserts.filter(i => i.table === h.auditLogTable);
+
+  it("premier appel du jour → notification envoyée + ligne audit_log (sous verrou)", async () => {
+    const notifyFn = vi.fn().mockResolvedValue(true);
+
+    await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+
+    expect(notifyFn).toHaveBeenCalledTimes(1);
+    expect(notifyFn).toHaveBeenCalledWith({ loss: 80, maxLoss: 100, pct: 80 });
+    expect(auditInserts()).toHaveLength(1);
+    expect(h.state.txExecutes).toHaveLength(1); // pg_advisory_xact_lock pris
+    expect(h.state.deletes).toHaveLength(0); // réclamation conservée
+  });
+
+  it("second appel le même jour → aucun envoi, aucune nouvelle ligne", async () => {
+    const notifyFn = vi.fn().mockResolvedValue(true);
+    await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+    expect(notifyFn).toHaveBeenCalledTimes(1);
+
+    await maybeNotifyDailyLossWarning(85, 100, notifyFn);
+
+    expect(notifyFn).toHaveBeenCalledTimes(1); // pas de second envoi
+    expect(auditInserts()).toHaveLength(1); // pas de seconde ligne
+    expect(h.state.deletes).toHaveLength(0);
+  });
+
+  it("ligne audit_log déjà présente AUJOURD'HUI (autre process / redémarrage) → aucun envoi", async () => {
+    h.state.auditRows.push({ id: 99, action: "daily_loss.warning", createdAt: new Date() });
+    const notifyFn = vi.fn().mockResolvedValue(true);
+
+    await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+
+    expect(notifyFn).not.toHaveBeenCalled();
+    expect(auditInserts()).toHaveLength(0);
+  });
+
+  it("ligne d'HIER → n'empêche pas l'envoi du jour (portée quotidienne)", async () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    h.state.auditRows.push({ id: 98, action: "daily_loss.warning", createdAt: yesterday });
+    const notifyFn = vi.fn().mockResolvedValue(true);
+
+    await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+
+    expect(notifyFn).toHaveBeenCalledTimes(1);
+    expect(auditInserts()).toHaveLength(1);
+  });
+
+  it("envoyé un jour → de nouveau envoyé le lendemain (horloge contrôlée)", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-07-30T15:00:00Z"));
+      const notifyFn = vi.fn().mockResolvedValue(true);
+
+      await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+      await maybeNotifyDailyLossWarning(85, 100, notifyFn);
+      expect(notifyFn).toHaveBeenCalledTimes(1); // supprimé le même jour
+
+      vi.setSystemTime(new Date("2026-07-31T15:00:00Z"));
+      await maybeNotifyDailyLossWarning(82, 100, notifyFn);
+
+      expect(notifyFn).toHaveBeenCalledTimes(2); // ré-envoyé le lendemain
+      expect(auditInserts()).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ligne d'une AUTRE action aujourd'hui → n'empêche pas l'envoi", async () => {
+    h.state.auditRows.push({ id: 97, action: "kill_switch.activated", createdAt: new Date() });
+    const notifyFn = vi.fn().mockResolvedValue(true);
+
+    await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+
+    expect(notifyFn).toHaveBeenCalledTimes(1);
+    expect(auditInserts()).toHaveLength(1);
+  });
+
+  it("envoi échoué (notifyFn retourne false) → réclamation supprimée pour re-tentative", async () => {
+    const notifyFn = vi.fn().mockResolvedValue(false);
+
+    await maybeNotifyDailyLossWarning(80, 100, notifyFn);
+
+    expect(notifyFn).toHaveBeenCalledTimes(1);
+    expect(auditInserts()).toHaveLength(1); // réclamée puis…
+    expect(h.state.deletes).toHaveLength(1); // …libérée
+    expect(h.state.deletes[0].table).toBe(h.auditLogTable);
+  });
+
+  it("exception de notifyFn → loggée sans propagation ET réclamation libérée pour re-tentative", async () => {
+    const notifyFn = vi.fn().mockRejectedValue(new Error("twilio down"));
+
+    await expect(maybeNotifyDailyLossWarning(80, 100, notifyFn)).resolves.toBeUndefined();
+
+    expect(h.state.deletes).toHaveLength(1); // un envoi qui lève = échec d'envoi → re-tentative possible
+    expect(h.state.deletes[0].table).toBe(h.auditLogTable);
+  });
+
+  it("exception de la transaction (DB down) → loggée sans propagation, aucun envoi", async () => {
+    const notifyFn = vi.fn().mockResolvedValue(true);
+    const origTx = h.db.transaction;
+    (h.db as { transaction: unknown }).transaction = vi.fn().mockRejectedValue(new Error("db down"));
+
+    await expect(maybeNotifyDailyLossWarning(80, 100, notifyFn)).resolves.toBeUndefined();
+
+    expect(notifyFn).not.toHaveBeenCalled();
+    (h.db as { transaction: unknown }).transaction = origTx;
   });
 });
