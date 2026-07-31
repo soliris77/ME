@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import StopOrdersSection from "@/components/StopOrdersSection";
+import AllocationSection from "@/components/AllocationSection";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -531,6 +532,9 @@ export default function BrokerPage() {
           </div>
         </div>
       )}
+
+      {/* ── Répartition du portefeuille ──────────────────────── */}
+      <AllocationSection />
 
       {/* ── Ordres stop de protection ────────────────────────── */}
       <StopOrdersSection />

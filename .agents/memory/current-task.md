@@ -5,5 +5,5 @@ description: Aucune tâche en cours
 
 # Aucune tâche en cours
 
-Voir [duplicate-stop-guard.md](duplicate-stop-guard.md) pour la règle durable
-issue de la dernière tâche (anti-empilement des stops de protection).
+Voir [portfolio-allocation-rules.md](portfolio-allocation-rules.md) pour les règles
+durables issues de la dernière tâche (devises SnapTrade, FX, secteurs).

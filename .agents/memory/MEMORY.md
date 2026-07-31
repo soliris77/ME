@@ -21,4 +21,5 @@
 - [Sémantique des statuts d'ordres](order-status-semantics.md) — en live, `submitted` ≠ exécuté ; les métriques de trades réels exigent `filled`+`fillPrice` (paper : `simulated`).
 - [Anti-empilement des stops](duplicate-stop-guard.md) — un seul stop actif par symbole+compte ; même politique de correspondance serveur (duplicate_stop) et UI ; fail closed si compte inconnu.
 - [Ordres stop de protection](stop-orders.md) — stop SELL strictement sous le prix live (validé serveur) ; orderType inconnu ⇒ 400, jamais de fallback market.
+- [Répartition du portefeuille](portfolio-allocation-rules.md) — devise = Position.currency (pas la cotation) ; cash_equivalent exclu de l'investi ; FX manquant ⇒ exclusion + fxWarning, jamais 1:1.
 - [Auto-Trader System](auto-trader-system.md) — tables auto_trade_rules + auto_trade_logs; worker 60s; routes /api/auto-trader/*; page /auto-trader; SMS Twilio sur signal.

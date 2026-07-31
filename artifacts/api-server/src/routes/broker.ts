@@ -28,6 +28,7 @@ import {
   cancelBrokerOrder,
 } from "../lib/snaptrade";
 import { getTradingMode, setTradingMode } from "../lib/tradingMode";
+import { getAssetProfiles, getQuotes } from "../lib/yahoo";
 import { submitOrder, OrderValidationError } from "../lib/orderEngine";
 import { getRiskSettings } from "../lib/settings";
 import { logAudit } from "../lib/audit";
@@ -488,6 +489,182 @@ router.post("/broker/resume", async (req, res) => {
     return res.json({ halted: false, message: "Trading réactivé. Les ordres live sont à nouveau acceptés." });
   } catch (err) {
     req.log.error({ err }, "broker: resume failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── GET /api/broker/allocation ───────────────────────────────────────────────
+// Répartition du portefeuille : secteurs, devises, espèces vs investi.
+// Agrège les positions + soldes de tous les comptes SnapTrade liés.
+// Le secteur vient de Yahoo Finance (assetProfile, cache serveur 24 h).
+// Les montants sont convertis en CAD via USDCAD=X pour les graphiques agrégés ;
+// si le taux est indisponible, on le signale explicitement (fxWarning) au lieu
+// de mélanger silencieusement des devises.
+router.get("/broker/allocation", async (req, res) => {
+  try {
+    const conn = await getConnection();
+    if (!conn) {
+      return res.json({ connected: false, reason: "not_setup", message: "Courtier non configuré. Configure la connexion SnapTrade ci-dessus." });
+    }
+    if (conn.status !== "connected") {
+      return res.json({ connected: false, reason: conn.status, message: "Connexion courtier pas encore active. Termine la liaison Wealthsimple puis synchronise." });
+    }
+
+    const accounts = ((conn.accounts as { id?: string; name?: string }[] | null) ?? []).filter((a) => a?.id);
+    if (accounts.length === 0) {
+      return res.json({ connected: true, empty: true, message: "Aucun compte synchronisé. Clique « Synchroniser maintenant » puis réessaie." });
+    }
+
+    // ── Récupérer positions + soldes de chaque compte ──
+    const accountErrors: { accountId: string; name: string | null; error: string }[] = [];
+    interface RawPos { symbol: string; description: string | null; units: number; price: number; currency: string }
+    const rawPositions: RawPos[] = [];
+    const cashByCurrency = new Map<string, number>();
+
+    await Promise.all(accounts.map(async (acc) => {
+      const accountId = acc.id as string;
+      try {
+        const [positions, balances] = await Promise.all([
+          listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, accountId),
+          listBalances(conn.snaptradeUserId, conn.snaptradeUserSecret, accountId),
+        ]);
+        for (const raw of positions as unknown[]) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const p = raw as any;
+          const symbol: string = (p?.symbol?.symbol?.symbol ?? p?.symbol?.symbol?.ticker ?? p?.symbol?.ticker ?? "").toUpperCase();
+          const units = Number(p?.units ?? p?.quantity ?? 0);
+          const price = Number(p?.price ?? p?.current_price ?? 0);
+          if (!symbol || !Number.isFinite(units) || units === 0) continue;
+          // Les équivalents de trésorerie (fonds monétaires) sont déjà comptés
+          // dans le solde cash SnapTrade — les inclure ici les compterait deux fois.
+          if (p?.cash_equivalent === true) continue;
+          // Devise de la POSITION (celle de `price`) — peut différer de la devise
+          // de cotation du titre (symbol.symbol.currency). SnapTrade la fournit
+          // en priorité au niveau Position.currency ; les autres champs ne sont
+          // que des replis de compatibilité.
+          const currency = String(
+            p?.currency?.code
+            ?? p?.symbol?.symbol?.currency?.code
+            ?? p?.symbol?.currency?.code
+            ?? "USD",
+          ).toUpperCase();
+          const description: string | null = p?.symbol?.symbol?.description ?? p?.symbol?.description ?? null;
+          rawPositions.push({ symbol, description, units, price, currency });
+        }
+        for (const raw of balances as unknown[]) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const b = raw as any;
+          const currency = String(b?.currency?.code ?? b?.currency ?? "").toUpperCase();
+          const cash = Number(b?.cash ?? 0);
+          if (!currency || !Number.isFinite(cash)) continue;
+          cashByCurrency.set(currency, (cashByCurrency.get(currency) ?? 0) + cash);
+        }
+      } catch (err) {
+        accountErrors.push({ accountId, name: acc.name ?? null, error: String(err) });
+      }
+    }));
+
+    if (rawPositions.length === 0 && cashByCurrency.size === 0 && accountErrors.length > 0) {
+      return res.status(502).json({
+        connected: true,
+        error: "Impossible de récupérer les positions depuis SnapTrade pour tous les comptes.",
+        accountErrors,
+      });
+    }
+
+    // ── Taux USD→CAD (et signalement explicite s'il manque) ──
+    const foreignCurrencies = new Set<string>();
+    for (const p of rawPositions) if (p.currency !== "CAD") foreignCurrencies.add(p.currency);
+    for (const c of cashByCurrency.keys()) if (c !== "CAD") foreignCurrencies.add(c);
+
+    const fxRates = new Map<string, number>([["CAD", 1]]);
+    let fxWarning: string | null = null;
+    if (foreignCurrencies.size > 0) {
+      const fxSymbols = [...foreignCurrencies].map((c) => `${c}CAD=X`);
+      const fxQuotes = await getQuotes(fxSymbols);
+      for (const q of fxQuotes) {
+        const cur = q.symbol.replace("CAD=X", "");
+        if (q.price > 0) fxRates.set(cur, q.price);
+      }
+      const missing = [...foreignCurrencies].filter((c) => !fxRates.has(c));
+      if (missing.length > 0) {
+        fxWarning = `Taux de change indisponible pour : ${missing.join(", ")}. Ces montants sont exclus des totaux en CAD.`;
+      }
+    }
+    const toCad = (amount: number, currency: string): number | null => {
+      const rate = fxRates.get(currency);
+      return rate == null ? null : amount * rate;
+    };
+
+    // ── Secteurs via Yahoo (cache 24 h) ──
+    const profiles = await getAssetProfiles(rawPositions.map((p) => p.symbol));
+    const sectorLabel = (symbol: string): string => {
+      const prof = profiles.get(symbol);
+      if (prof?.sector) return prof.sector;
+      const qt = (prof?.quoteType ?? "").toUpperCase();
+      if (qt === "ETF" || qt === "MUTUALFUND") return "FNB / Fonds";
+      if (qt === "CRYPTOCURRENCY") return "Crypto";
+      return "Secteur inconnu";
+    };
+
+    // ── Agrégations ──
+    interface PositionOut { symbol: string; description: string | null; units: number; price: number; currency: string; value: number; valueCad: number | null; sector: string }
+    const positionsOut: PositionOut[] = rawPositions.map((p) => {
+      const value = p.units * p.price;
+      return { ...p, value, valueCad: toCad(value, p.currency), sector: sectorLabel(p.symbol) };
+    });
+
+    const bySectorMap = new Map<string, { valueCad: number; symbols: Set<string> }>();
+    let investedCad = 0;
+    for (const p of positionsOut) {
+      if (p.valueCad == null) continue; // devise sans taux — signalée via fxWarning
+      investedCad += p.valueCad;
+      const entry = bySectorMap.get(p.sector) ?? { valueCad: 0, symbols: new Set<string>() };
+      entry.valueCad += p.valueCad;
+      entry.symbols.add(p.symbol);
+      bySectorMap.set(p.sector, entry);
+    }
+
+    let cashCad = 0;
+    for (const [cur, amount] of cashByCurrency) {
+      const v = toCad(amount, cur);
+      if (v != null) cashCad += v;
+    }
+    const totalCad = investedCad + cashCad;
+
+    const bySector = [...bySectorMap.entries()]
+      .map(([sector, e]) => ({
+        sector,
+        valueCad: e.valueCad,
+        weightPct: investedCad > 0 ? (e.valueCad / investedCad) * 100 : 0,
+        symbols: [...e.symbols].sort(),
+      }))
+      .sort((a, b) => b.valueCad - a.valueCad);
+
+    // Par devise : investi + espèces, en valeur native et en CAD
+    const currencySet = new Set<string>([...cashByCurrency.keys(), ...rawPositions.map((p) => p.currency)]);
+    const byCurrency = [...currencySet].map((cur) => {
+      const invested = positionsOut.filter((p) => p.currency === cur).reduce((s, p) => s + p.value, 0);
+      const cash = cashByCurrency.get(cur) ?? 0;
+      const total = invested + cash;
+      return { currency: cur, invested, cash, total, totalCad: toCad(total, cur) };
+    }).sort((a, b) => (b.totalCad ?? 0) - (a.totalCad ?? 0));
+
+    return res.json({
+      connected: true,
+      empty: positionsOut.length === 0 && cashByCurrency.size === 0,
+      asOf: new Date().toISOString(),
+      baseCurrency: "CAD",
+      fxRates: Object.fromEntries(fxRates),
+      fxWarning,
+      accountErrors,
+      totals: { investedCad, cashCad, totalCad, cashPct: totalCad > 0 ? (cashCad / totalCad) * 100 : 0 },
+      bySector,
+      byCurrency,
+      positions: positionsOut.sort((a, b) => (b.valueCad ?? 0) - (a.valueCad ?? 0)),
+    });
+  } catch (err) {
+    req.log.error({ err }, "broker: allocation failed");
     return res.status(500).json({ error: String(err) });
   }
 });

@@ -61,6 +61,71 @@ export function formatQuote(q: any): FormattedQuote {
   };
 }
 
+// ─── Asset profiles (secteur / type) — cache serveur 24 h ─────────────────────
+// Utilisé pour la répartition du portefeuille : le secteur vient du module
+// assetProfile de Yahoo (quoteSummary). Les FNB/cryptos n'ont pas de secteur —
+// on renvoie sector:null et le quoteType pour que l'appelant les classe
+// explicitement (jamais de secteur inventé par défaut).
+
+export interface AssetProfile {
+  sector: string | null;
+  quoteType: string | null;
+}
+
+const PROFILE_TTL_MS = 24 * 60 * 60 * 1000; // 24 h — le secteur d'un titre ne bouge pas
+const profileCache = new Map<string, { profile: AssetProfile; at: number }>();
+
+async function fetchProfile(symbol: string): Promise<AssetProfile> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s: any = await yahooFinance.quoteSummary(
+      symbol,
+      { modules: ["assetProfile", "quoteType"] },
+      { validateResult: false },
+    );
+    return {
+      sector: typeof s?.assetProfile?.sector === "string" && s.assetProfile.sector ? s.assetProfile.sector : null,
+      quoteType: typeof s?.quoteType?.quoteType === "string" ? s.quoteType.quoteType : null,
+    };
+  } catch {
+    return { sector: null, quoteType: null };
+  }
+}
+
+/**
+ * Profils (secteur + type) pour une liste de symboles, avec cache mémoire 24 h.
+ * Les symboles manquants dans la Map résultat n'existent pas — l'appelant doit
+ * les traiter comme « secteur inconnu », pas les ignorer silencieusement.
+ */
+export async function getAssetProfiles(symbols: string[]): Promise<Map<string, AssetProfile>> {
+  const unique = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
+  const out = new Map<string, AssetProfile>();
+  const toFetch: string[] = [];
+  const now = Date.now();
+
+  for (const sym of unique) {
+    const cached = profileCache.get(sym);
+    if (cached && now - cached.at < PROFILE_TTL_MS) {
+      out.set(sym, cached.profile);
+    } else {
+      toFetch.push(sym);
+    }
+  }
+
+  // Parallélisme limité — quoteSummary est un appel par symbole
+  const CONCURRENCY = 6;
+  for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
+    const chunk = toFetch.slice(i, i + CONCURRENCY);
+    const profiles = await Promise.all(chunk.map(fetchProfile));
+    chunk.forEach((sym, idx) => {
+      profileCache.set(sym, { profile: profiles[idx], at: Date.now() });
+      out.set(sym, profiles[idx]);
+    });
+  }
+
+  return out;
+}
+
 /**
  * Fetch a single symbol individually (used for retries and individual lookups).
  */
