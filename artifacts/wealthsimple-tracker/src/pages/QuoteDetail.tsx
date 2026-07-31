@@ -32,6 +32,7 @@ import type { CandlePattern } from "@/lib/patternDetect";
 import { useChartNotes, useAddChartNote, useDeleteChartNote } from "@/lib/useChartNotes";
 import type { ChartNoteItem } from "@/lib/useChartNotes";
 import NoteModal from "@/components/NoteModal";
+import { ThesisCard } from "@/components/ThesisCard";
 import { twentyDayLow, twentyDayHigh } from "@/lib/stopSuggestion";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -932,6 +933,11 @@ export default function QuoteDetail() {
             <StatCard label="Capitalisation"    value={formatMarketCap(quote.marketCap ?? null)} />
             <StatCard label="Devise"            value={quote.currency} />
             <StatCard label="Type"              value={TYPE_LABEL[quote.type] ?? quote.type} />
+          </div>
+
+          {/* Thèse d'investissement — raison d'achat, cible, invalidation */}
+          <div className="mt-6">
+            <ThesisCard symbol={quote.symbol} currentPrice={quote.price} currency={quote.currency} />
           </div>
 
           {/* News */}

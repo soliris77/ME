@@ -10,3 +10,4 @@ export * from "./agentTasks";
 export * from "./autoTrader";
 export * from "./push";
 export * from "./notifications";
+export * from "./theses";

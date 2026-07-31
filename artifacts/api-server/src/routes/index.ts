@@ -27,6 +27,7 @@ import debriefRouter from "./debrief";
 import { requireAuth } from "../lib/auth";
 import pushRouter from "./push";
 import notificationsRouter from "./notifications";
+import thesesRouter from "./theses";
 
 const router: IRouter = Router();
 
@@ -43,6 +44,7 @@ router.use(newsRouter);
 router.use(watchlistRouter);
 router.use(alertsRouter);
 router.use(notificationsRouter);
+router.use(thesesRouter);
 router.use(whopRouter);
 router.use(brokerRouter);
 router.use(settingsRouter);
