@@ -70,7 +70,7 @@ export default function CommandCenter() {
         className="bg-card border border-card-border rounded-xl p-4 flex flex-col justify-between hover:border-primary/30 transition-colors group"
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">P&L réalisé du jour</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">P&L réalisé du jour</span>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary/60 transition-colors" />
         </div>
         <div className={`flex items-center gap-2 text-2xl font-mono font-bold sensitive ${pnlUp ? "gain" : pnlDown ? "loss" : "text-foreground"}`}>
@@ -89,7 +89,7 @@ export default function CommandCenter() {
         }`}
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Coupe-circuit</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">Coupe-circuit</span>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:opacity-100 transition-colors" />
         </div>
         {!haltedKnown ? (
@@ -117,7 +117,7 @@ export default function CommandCenter() {
       {/* Limite de perte quotidienne */}
       <div className="bg-card border border-card-border rounded-xl p-4 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Limite de perte du jour</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">Limite de perte du jour</span>
           <Gauge className={`w-3.5 h-3.5 ${limitDanger ? "text-red-400" : nearLimit ? "text-amber-400" : "text-muted-foreground/40"}`} />
         </div>
         {hasLimit ? (

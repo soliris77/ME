@@ -304,7 +304,7 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
         <div className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-widest font-mono ${t.badge}`}>
           {cat.badge}
         </div>
-        <span className={`text-[12px] font-semibold uppercase tracking-wider font-mono ${t.label}`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] font-mono ${t.label}`}>
           {cat.label}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
@@ -377,7 +377,7 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
       <div className="flex items-center gap-2 mb-3">
         <span className="text-base leading-none select-none" aria-hidden>{ex.flag}</span>
         <div className="flex-1 min-w-0">
-          <div className={`text-[12px] font-semibold uppercase tracking-wider leading-tight font-mono ${
+          <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] leading-tight font-mono ${
             open ? "text-green-400" : "text-foreground/70"
           }`}>
             {ex.name}
@@ -500,7 +500,7 @@ function FlashQuote({ q }: { q: Quote }) {
         }`}
         style={hoverLift}
       >
-        <div className="text-[11px] text-muted-foreground font-medium mb-2 truncate uppercase tracking-wider">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70 mb-2 truncate">
           {MARKET_NAMES[q.symbol] ?? q.name}
         </div>
         <div className="font-mono text-[17px] font-bold text-foreground leading-tight mb-2">
@@ -1019,8 +1019,8 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2">
               <span
-                className="w-1.5 h-1.5 rounded-full live-dot inline-block"
-                style={{ background: "#D4A72C", boxShadow: "0 0 6px rgba(212,167,44,0.7)" }}
+                className="w-1.5 h-1.5 rounded-full live-dot inline-block bg-primary"
+                style={{ boxShadow: "0 0 6px hsl(var(--primary) / 0.7)" }}
               />
               <span className="text-[11px] text-muted-foreground tracking-wide">
                 En direct — mis à jour il y a {secondsSince < 10 ? "moins de 10s" : `${secondsSince}s`} · auto 10s
