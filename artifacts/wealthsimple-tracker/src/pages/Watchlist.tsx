@@ -11,9 +11,10 @@ import { playSound } from "@/lib/sounds";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link, useLocation } from "wouter";
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus } from "lucide-react";
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { WatchlistItem } from "@workspace/api-client-react";
+import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 
 const DEFAULT_LIST = "Général";
 
@@ -361,7 +362,23 @@ export default function Watchlist() {
               >
                 <Link href={`/quote/${encodeURIComponent(item.symbol)}`} className="flex-1 flex items-center justify-between cursor-pointer">
                   <div className="min-w-0">
-                    <div className="text-sm font-bold font-mono text-foreground">{item.symbol}</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-sm font-bold font-mono text-foreground">{item.symbol}</div>
+                      {/* Badge disponibilité Wealthsimple */}
+                      {isTradeableSymbol(item.symbol) ? (
+                        <span title="Disponible sur Wealthsimple"
+                          className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ background: "rgba(22,163,74,0.12)", color: "#16A34A", border: "1px solid rgba(22,163,74,0.25)" }}>
+                          <CheckCircle2 className="w-2.5 h-2.5" /> WS
+                        </span>
+                      ) : (
+                        <span title={nonTradeableReason(item.symbol)}
+                          className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 cursor-help"
+                          style={{ background: "rgba(139,146,165,0.10)", color: "hsl(var(--muted-foreground))", border: "1px solid rgba(139,146,165,0.22)" }}>
+                          <XCircle className="w-2.5 h-2.5" /> Non WS
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate max-w-52">{item.name}</div>
                     {item.note && <div className="text-xs text-muted-foreground/70 mt-0.5 italic truncate max-w-52">{item.note}</div>}
                   </div>

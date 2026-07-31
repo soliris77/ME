@@ -7,11 +7,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bot, Plus, Trash2, Power, PowerOff, ChevronDown, ChevronUp,
-  TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2,
+  TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
   Clock, Shield, Bell, BellOff, Play, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
+import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -442,13 +443,27 @@ function RuleCard({
 
         {/* Symbol + name */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link href={`/quote/${encodeURIComponent(rule.symbol)}`}
               className="text-[14px] font-bold font-mono text-foreground hover:text-primary transition-colors">
               {rule.symbol}
             </Link>
             {rule.name && <span className="text-[11px] text-muted-foreground truncate">{rule.name}</span>}
             {!rule.enabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground font-mono">PAUSE</span>}
+            {/* Badge disponibilité Wealthsimple */}
+            {isTradeableSymbol(rule.symbol) ? (
+              <span title="Disponible sur Wealthsimple"
+                className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(22,163,74,0.12)", color: "#16A34A", border: "1px solid rgba(22,163,74,0.25)" }}>
+                <CheckCircle2 className="w-2.5 h-2.5" /> WS
+              </span>
+            ) : (
+              <span title={nonTradeableReason(rule.symbol)}
+                className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full cursor-help"
+                style={{ background: "rgba(139,146,165,0.10)", color: "hsl(var(--muted-foreground))", border: "1px solid rgba(139,146,165,0.22)" }}>
+                <XCircle className="w-2.5 h-2.5" /> Non WS
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
             <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
