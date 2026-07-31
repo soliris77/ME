@@ -18,6 +18,7 @@ import Learn from "@/pages/Learn";
 import CandleDetail from "@/pages/learn/CandleDetail";
 import StrategyDetail from "@/pages/learn/StrategyDetail";
 import GlossaryDetail from "@/pages/learn/GlossaryDetail";
+import LessonDetail from "@/pages/learn/LessonDetail";
 import SettingsPage from "@/pages/Settings";
 import AuditLogPage from "@/pages/AuditLog";
 import ReconciliationPage from "@/pages/Reconciliation";
@@ -378,6 +379,7 @@ function App() {
               <Route path="/copy-trading/decouvrir" component={wrap("Découvrir des traders", CopyTradingDiscoverPage)} />
               <Route path="/copy-trading/parametres/:id" component={wrap("Paramètres trader", CopyTradingSettingsPage)} />
               <Route path="/copy-trading" component={wrap("Copy Trading", CopyTradingPage)} />
+              <Route path="/apprendre/parcours/:slug" component={wrap("Leçon", LessonDetail)} />
               <Route path="/apprendre/chandeliers/:slug" component={wrap("Chandeliers", CandleDetail)} />
               <Route path="/apprendre/strategies/:slug" component={wrap("Stratégies", StrategyDetail)} />
               <Route path="/apprendre/glossaire/:slug" component={wrap("Glossaire", GlossaryDetail)} />

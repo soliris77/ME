@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { BookOpen, TrendingUp, BarChart2, ShieldAlert, Lightbulb, ChevronDown, ChevronUp, Search, CheckCircle2, ArrowRight, RotateCcw } from "lucide-react";
-import { CANDLES, STRATEGIES, GLOSSAIRE, QUIZZES, type QuizQuestion } from "@/data/learnContent";
+import { BookOpen, TrendingUp, BarChart2, ShieldAlert, Lightbulb, ChevronDown, ChevronUp, Search, CheckCircle2, ArrowRight, Clock, GraduationCap } from "lucide-react";
+import { CANDLES, STRATEGIES, GLOSSAIRE, QUIZZES } from "@/data/learnContent";
+import { LESSONS, lessonSectionId } from "@/data/parcoursContent";
+import { LessonQuiz } from "@/components/LessonQuiz";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useGetLearnProgress, useUpdateLearnProgress, getGetLearnProgressQueryKey, type LearnProgress } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
-type Tab = "bases" | "chandeliers" | "strategies" | "risques" | "glossaire";
+type Tab = "parcours" | "bases" | "chandeliers" | "strategies" | "risques" | "glossaire";
 
 const TABS: { id: Tab; label: string; icon: typeof BookOpen; title: string; description: string }[] = [
+  {
+    id: "parcours",
+    label: "Parcours guidé",
+    icon: GraduationCap,
+    title: "Parcours guidé pour apprendre à trader | Soliris Market",
+    description: "Leçons courtes en français (plan de trade, taille de position, stop-loss, ratio risque/rendement, psychologie, journal, coupe-circuit), un quiz par leçon et un lien direct vers les vrais outils de l'app pour pratiquer.",
+  },
   {
     id: "bases",
     label: "Bases du trading",
@@ -65,143 +74,78 @@ function Accordion({ title, children, defaultOpen = false }: { title: string; ch
   );
 }
 
-// ── Quiz ─────────────────────────────────────────────────────────────────────
-function SectionQuiz({
-  questions,
-  previous,
-  onFinish,
-}: {
-  questions: QuizQuestion[];
-  previous?: LearnProgress;
-  onFinish: (score: number, total: number) => void;
-}) {
-  const [active, setActive] = useState(false);
-  const [idx, setIdx] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [score, setScore] = useState(0);
-  const [finished, setFinished] = useState(false);
-
-  function start() {
-    setActive(true);
-    setIdx(0);
-    setSelected(null);
-    setScore(0);
-    setFinished(false);
-  }
-
-  function choose(i: number) {
-    if (selected !== null) return;
-    setSelected(i);
-    if (i === questions[idx].correctIndex) setScore((s) => s + 1);
-  }
-
-  function next() {
-    if (idx + 1 < questions.length) {
-      setIdx((v) => v + 1);
-      setSelected(null);
-    } else {
-      setFinished(true);
-      onFinish(score, questions.length);
-    }
-  }
-
-  if (!active) {
-    return (
-      <div className="bg-card border border-card-border rounded-xl p-5 text-center">
-        {previous?.completed && (
-          <p className="text-xs gain font-medium mb-2 flex items-center justify-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Quiz complété — score : <span className="font-mono">{previous.quizScore}/{previous.quizTotal}</span>
-          </p>
-        )}
-        <p className="text-sm font-semibold mb-1">🧠 Testez vos connaissances</p>
-        <p className="text-xs text-muted-foreground mb-3">{questions.length} questions rapides sur cette section.</p>
-        <button
-          onClick={start}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          {previous?.completed ? <RotateCcw className="w-3.5 h-3.5" /> : null}
-          {previous?.completed ? "Refaire le quiz" : "Commencer le quiz"}
-        </button>
-      </div>
-    );
-  }
-
-  if (finished) {
-    const pct = Math.round((score / questions.length) * 100);
-    return (
-      <div className="bg-card border border-card-border rounded-xl p-5 text-center">
-        <p className={`text-2xl font-bold font-mono ${pct >= 70 ? "gain" : pct >= 40 ? "" : "loss"}`}>{score}/{questions.length}</p>
-        <p className="text-sm text-muted-foreground mt-1 mb-3">
-          {pct >= 70 ? "Excellent travail ! Vous maîtrisez cette section. 🎉" : pct >= 40 ? "Pas mal, mais relisez les points manqués avant de continuer." : "Reprenez le contenu ci-dessus puis retentez le quiz."}
-        </p>
-        <button
-          onClick={start}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
-        >
-          <RotateCcw className="w-3.5 h-3.5" /> Refaire le quiz
-        </button>
-      </div>
-    );
-  }
-
-  const q = questions[idx];
+// ── Quiz — composant partagé LessonQuiz (voir components/LessonQuiz.tsx)
+function SectionQuizBlock({ sectionId, progress, onMarkComplete }: { sectionId: Exclude<Tab, "glossaire" | "parcours">; progress?: LearnProgress; onMarkComplete: (sectionId: string, score: number, total: number) => void }) {
   return (
-    <div className="bg-card border border-card-border rounded-xl p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-muted-foreground">Question {idx + 1}/{questions.length}</span>
-        <div className="flex gap-1">
-          {questions.map((_, i) => (
-            <span key={i} className={`w-1.5 h-1.5 rounded-full ${i < idx ? "bg-primary" : i === idx ? "bg-primary/50" : "bg-muted"}`} />
-          ))}
-        </div>
-      </div>
-      <p className="text-sm font-semibold mb-3">{q.question}</p>
-      <div className="space-y-2 mb-3">
-        {q.options.map((opt, i) => {
-          const isCorrect = i === q.correctIndex;
-          const isSelected = i === selected;
-          let cls = "border-border hover:bg-muted/50";
-          if (selected !== null) {
-            if (isCorrect) cls = "border-[color:var(--gain,#16A34A)] bg-[rgba(22,163,74,0.08)]";
-            else if (isSelected) cls = "border-[color:var(--loss,#DC2626)] bg-[rgba(220,38,38,0.08)]";
-            else cls = "border-border opacity-60";
-          }
-          return (
-            <button
-              key={i}
-              onClick={() => choose(i)}
-              disabled={selected !== null}
-              className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${cls}`}
-            >
-              <span className={isCorrect && selected !== null ? "gain font-medium" : isSelected && !isCorrect ? "loss font-medium" : ""}>{opt}</span>
-            </button>
-          );
-        })}
-      </div>
-      {selected !== null && (
-        <div className="bg-muted/50 rounded-lg p-3 mb-3">
-          <p className="text-xs text-foreground/80 leading-relaxed">💡 {q.explanation}</p>
-        </div>
-      )}
-      {selected !== null && (
-        <button
-          onClick={next}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          {idx + 1 < questions.length ? "Question suivante" : "Voir mon résultat"} <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function SectionQuizBlock({ sectionId, progress, onMarkComplete }: { sectionId: Exclude<Tab, "glossaire">; progress?: LearnProgress; onMarkComplete: (sectionId: string, score: number, total: number) => void }) {
-  return (
-    <SectionQuiz
+    <LessonQuiz
       questions={QUIZZES[sectionId]}
       previous={progress}
       onFinish={(score, total) => onMarkComplete(sectionId, score, total)}
     />
+  );
+}
+
+
+// ── Parcours guidé ───────────────────────────────────────────────────────────
+function ParcoursTab({ progressBySection }: { progressBySection: Map<string, LearnProgress> }) {
+  const doneCount = LESSONS.filter((l) => progressBySection.get(lessonSectionId(l.slug))?.completed).length;
+  const nextLesson = LESSONS.find((l) => !progressBySection.get(lessonSectionId(l.slug))?.completed);
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+        <p className="text-sm font-semibold text-primary mb-1">🎓 Le parcours du trader discipliné</p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          {LESSONS.length} leçons courtes, dans l'ordre : chaque leçon se termine par un quiz et un exercice
+          pratique avec le <strong>vrai outil</strong> de l'app (calculateur, alertes, Auto-Trader…).
+          Votre progression est sauvegardée automatiquement.
+        </p>
+        <div className="flex items-center gap-2 mt-3">
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-xs">
+            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(doneCount / LESSONS.length) * 100}%` }} />
+          </div>
+          <span className="text-xs font-medium text-muted-foreground font-mono">{doneCount}/{LESSONS.length} leçons terminées</span>
+        </div>
+      </div>
+
+      {nextLesson && doneCount > 0 && (
+        <Link href={`/apprendre/parcours/${nextLesson.slug}`}>
+          <div className="flex items-center justify-between gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 cursor-pointer hover:bg-primary/10 transition-colors">
+            <p className="text-sm">👋 Reprendre : <strong>{nextLesson.emoji} {nextLesson.title}</strong></p>
+            <ArrowRight className="w-4 h-4 text-primary shrink-0" />
+          </div>
+        </Link>
+      )}
+
+      <div className="space-y-2">
+        {LESSONS.map((l, i) => {
+          const prog = progressBySection.get(lessonSectionId(l.slug));
+          const done = !!prog?.completed;
+          return (
+            <Link key={l.slug} href={`/apprendre/parcours/${l.slug}`}>
+              <div className={`flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition-colors ${done ? "border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-border bg-card hover:border-primary/40"}`}>
+                <span className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${done ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                  {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">{l.emoji} {l.title}</span>
+                    {done && prog?.quizTotal != null && (
+                      <span className="text-xs gain font-mono">{prog.quizScore}/{prog.quizTotal}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{l.summary}</p>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0 hidden sm:flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> {l.minutes} min
+                </span>
+                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -543,7 +487,7 @@ function GlossaireTab({ progress, onVisited }: { progress?: LearnProgress; onVis
 
 export default function Learn() {
   const [, params] = useRoute<{ tab?: string }>("/apprendre/:tab?");
-  const tab = (TABS.find((t) => t.id === params?.tab)?.id ?? "bases") as Tab;
+  const tab = (TABS.find((t) => t.id === params?.tab)?.id ?? "parcours") as Tab;
   const activeTab = TABS.find((t) => t.id === tab)!;
 
   usePageMeta(activeTab.title, activeTab.description);
@@ -610,6 +554,7 @@ export default function Learn() {
         ))}
       </div>
 
+      {tab === "parcours" && <ParcoursTab progressBySection={progressBySection} />}
       {tab === "bases" && (
         <div className="space-y-4">
           <BasesTab />

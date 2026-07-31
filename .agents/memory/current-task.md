@@ -5,5 +5,6 @@ description: Aucune tâche en cours
 
 # Aucune tâche en cours
 
-Voir [portfolio-allocation-rules.md](portfolio-allocation-rules.md) pour les règles
-durables issues de la dernière tâche (devises SnapTrade, FX, secteurs).
+Dernière tâche terminée : #43 Parcours guidé (leçons + quiz + outils réels).
+Détail durable : la progression du parcours réutilise learn_progress avec
+sectionId = `lecon-<slug>` — aucun changement de schéma requis.
