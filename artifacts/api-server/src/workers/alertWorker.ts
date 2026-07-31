@@ -1,4 +1,4 @@
-import { db, alertsTable } from "@workspace/db";
+import { db, alertsTable, notificationsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getQuotes, yahooFinance } from "../lib/yahoo";
 import { sendEmail, alertEmailHtml, patternAlertEmailHtml, signalAlertEmailHtml } from "../lib/emailClient";
@@ -19,6 +19,43 @@ function isTriggered(condition: string, target: number, current: number): boolea
 }
 
 const STRENGTH_RANK: Record<string, number> = { faible: 1, moyen: 2, fort: 3 };
+
+/**
+ * Journalise une notification envoyée dans la table `notifications` — c'est
+ * ce qui alimente le centre de notifications in-app (historique + badge non
+ * lu). Ne doit jamais faire échouer l'envoi lui-même : erreurs avalées et
+ * loguées.
+ */
+async function logNotification(entry: {
+  alertId: number;
+  symbol: string;
+  name: string | null;
+  alertType: string;
+  title: string;
+  body: string;
+  channels: string[];
+}): Promise<void> {
+  try {
+    await db.insert(notificationsTable).values({
+      alertId: entry.alertId,
+      symbol: entry.symbol,
+      name: entry.name,
+      alertType: entry.alertType,
+      title: entry.title,
+      body: entry.body,
+      channels: entry.channels.join(","),
+    });
+  } catch (err) {
+    logger.error({ err, alertId: entry.alertId }, "Failed to log notification history entry");
+  }
+}
+
+function sentChannels(dest: { email: string | null; phone: string | null; sendEmail: boolean; sendSms: boolean }): string[] {
+  const channels = ["push"];
+  if (dest.sendEmail && dest.email) channels.push("email");
+  if (dest.sendSms && dest.phone) channels.push("sms");
+  return channels;
+}
 
 /**
  * Résout les destinations effectives (email + téléphone) et les canaux à
@@ -118,6 +155,15 @@ export async function checkAlerts(): Promise<void> {
           }).catch((err) => logger.error({ err, alertId: alert.id }, "Web Push failed for price alert"));
 
           const dest = await resolveAlertDestination(alert, "priceAlert");
+          await logNotification({
+            alertId: alert.id,
+            symbol: alert.symbol,
+            name: alert.name,
+            alertType: "price",
+            title: `🔔 Alerte ${alert.symbol}`,
+            body: `${alert.symbol} est passé ${conditionLabel} de ${target.toFixed(2)} $ (prix actuel : ${currentPrice.toFixed(2)} $)`,
+            channels: sentChannels(dest),
+          });
           if (dest.sendEmail && dest.email) {
             await sendEmail({
               to: dest.email,
@@ -168,6 +214,15 @@ export async function checkAlerts(): Promise<void> {
       }).catch((err) => logger.error({ err, alertId: alert.id }, "Web Push failed for pattern alert"));
 
       const dest = await resolveAlertDestination(alert, "patternAlert");
+      await logNotification({
+        alertId: alert.id,
+        symbol: alert.symbol,
+        name: alert.name,
+        alertType: "pattern",
+        title: `📊 ${alert.symbol} — ${match.name}`,
+        body: `Pattern ${match.name} détecté sur ${alert.symbol} (signal ${match.signal}, force ${match.strength})`,
+        channels: sentChannels(dest),
+      });
       if (dest.sendEmail && dest.email) {
         await sendEmail({
           to: dest.email,
@@ -230,6 +285,15 @@ export async function checkAlerts(): Promise<void> {
       }).catch((err) => logger.error({ err, alertId: alert.id }, "Web Push failed for signal alert"));
 
       const dest = await resolveAlertDestination(alert, "signalAlert");
+      await logNotification({
+        alertId: alert.id,
+        symbol: alert.symbol,
+        name: alert.name,
+        alertType: "signal",
+        title: `📈 ${alert.symbol} — signal ${analysis.overall}`,
+        body: `Signal technique ${analysis.overall} sur ${alert.symbol} (score ${analysis.score})`,
+        channels: sentChannels(dest),
+      });
       const topSignals = analysis.signals.filter((s) => s.verdict !== "neutral").slice(0, 3).map((s) => `${s.name}: ${s.value}`);
 
       if (dest.sendEmail && dest.email) {

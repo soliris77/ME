@@ -5,7 +5,10 @@
  * Wealthsimple Market Tracker API
  * OpenAPI spec version: 0.1.0
  */
-export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition];
+/**
+ * @nullable
+ */
+export type AlertCondition = typeof AlertCondition[keyof typeof AlertCondition] | null;
 export declare const AlertCondition: {
     readonly above: "above";
     readonly below: "below";

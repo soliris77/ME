@@ -16,4 +16,5 @@
 - [Confirmation des ventes protectrices](api-server-tests.md) — "accepted" de submitOrder peut cacher un ordre en erreur ; ne jamais effacer une position sans vérifier order.status.
 - [Suggestion de stop-loss](stop-suggestion.md) — un « plus bas 20 jours » exige un historique quotidien dédié (range=1mo), jamais la plage visible du graphique (bougies hebdo/mensuelles en 6m/1a).
 - [db:push silencieusement cassé](db-push-non-interactive.md) — drizzle-kit push exige un TTY ; au démarrage le schéma n'est PAS appliqué — faire le DDL via psql + rebuild tsc -b dans lib/db.
+- [Typecheck racine fragile](root-typecheck.md) — `pnpm typecheck` exige tsconfig.json racine (références lib/*) ; s'il manque, tsc --build échoue partout — le restaurer, ne pas contourner.
 - [Auto-Trader System](auto-trader-system.md) — tables auto_trade_rules + auto_trade_logs; worker 60s; routes /api/auto-trader/*; page /auto-trader; SMS Twilio sur signal.

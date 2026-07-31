@@ -8,6 +8,7 @@
 export interface WatchlistInput {
     symbol: string;
     name: string;
+    listName?: string;
     note?: string;
 }
 //# sourceMappingURL=watchlistInput.d.ts.map

@@ -26,6 +26,7 @@ import dailySummaryRouter from "./dailySummary";
 import debriefRouter from "./debrief";
 import { requireAuth } from "../lib/auth";
 import pushRouter from "./push";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -41,6 +42,7 @@ router.use(marketRouter);
 router.use(newsRouter);
 router.use(watchlistRouter);
 router.use(alertsRouter);
+router.use(notificationsRouter);
 router.use(whopRouter);
 router.use(brokerRouter);
 router.use(settingsRouter);

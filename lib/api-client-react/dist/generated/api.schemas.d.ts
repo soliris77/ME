@@ -188,6 +188,30 @@ export interface Alert {
     triggeredAt?: string | null;
     createdAt: string;
 }
+export type NotificationEntryAlertType = typeof NotificationEntryAlertType[keyof typeof NotificationEntryAlertType];
+export declare const NotificationEntryAlertType: {
+    readonly price: "price";
+    readonly pattern: "pattern";
+    readonly signal: "signal";
+};
+export interface NotificationEntry {
+    id: number;
+    /** @nullable */
+    alertId?: number | null;
+    symbol: string;
+    /** @nullable */
+    name?: string | null;
+    alertType: NotificationEntryAlertType;
+    title: string;
+    body: string;
+    channels: string[];
+    sentAt: string;
+    /** @nullable */
+    readAt?: string | null;
+}
+export interface NotificationsUnreadCount {
+    count: number;
+}
 export type AlertInputAlertType = typeof AlertInputAlertType[keyof typeof AlertInputAlertType];
 export declare const AlertInputAlertType: {
     readonly price: "price";
@@ -252,5 +276,8 @@ export type RenameWatchlistList200 = {
 };
 export type GetNotesParams = {
     symbol: string;
+};
+export type MarkAllNotificationsRead200 = {
+    ok: boolean;
 };
 //# sourceMappingURL=api.schemas.d.ts.map

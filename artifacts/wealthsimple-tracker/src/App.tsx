@@ -76,6 +76,22 @@ function useActiveAlertsCount() {
 }
 
 /**
+ * Badge « non lu » du centre de notifications : compte les notifications
+ * envoyées pas encore consultées. S'éteint quand l'utilisateur consulte
+ * l'historique sur la page Alertes.
+ */
+function useUnreadNotificationsCount() {
+  const { data } = useQuery<{ count: number }>({
+    queryKey: ["nav-notifications-unread"],
+    queryFn: () => fetch(`${BASE_URL}/api/notifications/unread-count`).then((r) => r.json()),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+    retry: false,
+  });
+  return typeof data?.count === "number" ? data.count : 0;
+}
+
+/**
  * Surveille les alertes déclenchées et émet une notification navigateur —
  * fonctionne de façon fiable tant que l'onglet est ouvert, même en
  * arrière-plan (les timers ≥ 60 s ne sont pas supprimés par le throttling
@@ -99,6 +115,7 @@ function Nav() {
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [privacy, setPrivacy] = useState(() => localStorage.getItem("privacy") === "on");
   const activeAlertsCount = useActiveAlertsCount();
+  const unreadNotifsCount = useUnreadNotificationsCount();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -174,7 +191,15 @@ function Nav() {
                     </span>
                   )}
                 </span>
-                {label}
+                <span className="flex-1">{label}</span>
+                {isAlerts && unreadNotifsCount > 0 && (
+                  <span
+                    className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center leading-none"
+                    title={`${unreadNotifsCount} notification${unreadNotifsCount > 1 ? "s" : ""} non lue${unreadNotifsCount > 1 ? "s" : ""}`}
+                  >
+                    {unreadNotifsCount > 99 ? "99+" : unreadNotifsCount}
+                  </span>
+                )}
               </Link>
             );
           })}

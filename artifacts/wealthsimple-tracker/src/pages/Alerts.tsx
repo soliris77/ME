@@ -3,14 +3,18 @@ import {
   useCreateAlert,
   useDeleteAlert,
   getGetAlertsQueryKey,
+  useGetNotifications,
+  useMarkAllNotificationsRead,
+  getGetNotificationsQueryKey,
+  getGetNotificationsUnreadCountQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { playSound } from "@/lib/sounds";
 import { formatPrice } from "@/lib/format";
-import { Bell, BellOff, Plus, Trash2, X, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { Bell, BellOff, Plus, Trash2, X, TrendingUp, TrendingDown, Sparkles, History, Mail, MessageSquare, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Alert } from "@workspace/api-client-react";
+import type { Alert, NotificationEntry } from "@workspace/api-client-react";
 
 function requestNotificationPermission() {
   if ("Notification" in window) {
@@ -372,6 +376,128 @@ function CreateAlertModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+const CHANNEL_META: Record<string, { label: string; Icon: typeof Mail }> = {
+  push: { label: "Push", Icon: Smartphone },
+  email: { label: "Email", Icon: Mail },
+  sms: { label: "SMS", Icon: MessageSquare },
+};
+
+function formatSentAt(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" });
+  return `${date} à ${time}`;
+}
+
+function NotificationHistoryRow({ n }: { n: NotificationEntry }) {
+  const unread = !n.readAt;
+  const TypeIcon = n.alertType === "pattern" ? Sparkles : n.alertType === "signal" ? TrendingUp : Bell;
+  return (
+    <div className={`flex items-start gap-3 px-4 py-3 ${unread ? "bg-primary/5" : ""}`}>
+      <span className="relative shrink-0 mt-0.5">
+        <TypeIcon className={`w-4 h-4 ${unread ? "text-primary" : "text-muted-foreground"}`} />
+        {unread && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary" />}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-sm ${unread ? "font-semibold" : "font-medium"}`}>{n.title}</span>
+          {unread && (
+            <span className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold">
+              Non lu
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>
+        <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground/70">
+          <time dateTime={n.sentAt} className="font-mono">{formatSentAt(n.sentAt)}</time>
+          <span aria-hidden>·</span>
+          <span className="flex items-center gap-1.5">
+            {n.channels.map((c) => {
+              const meta = CHANNEL_META[c];
+              if (!meta) return null;
+              const { Icon, label } = meta;
+              return (
+                <span key={c} className="flex items-center gap-0.5" title={`Envoyé par ${label}`}>
+                  <Icon className="w-3 h-3" /> {label}
+                </span>
+              );
+            })}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Centre de notifications — historique chronologique de toutes les
+ * notifications envoyées (heure exacte + canaux). Le passage sur cette
+ * section marque tout comme lu après un court délai, ce qui éteint le badge
+ * « non lu » de la sidebar.
+ */
+function NotificationHistory() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: notifications = [], isLoading } = useGetNotifications({ query: { refetchInterval: 30_000 } as any });
+  const queryClient = useQueryClient();
+  const markAllRead = useMarkAllNotificationsRead({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetNotificationsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetNotificationsUnreadCountQueryKey() });
+      },
+    },
+  });
+
+  const unreadCount = notifications.filter((n) => !n.readAt).length;
+  const hasUnread = unreadCount > 0;
+  const markPending = markAllRead.isPending;
+  const mutateRef = useRef(markAllRead.mutate);
+  mutateRef.current = markAllRead.mutate;
+
+  // Consultation = lu : après 2,5 s passées avec l'historique à l'écran, on
+  // marque tout comme lu (le temps que l'utilisateur voie les badges « non lu »).
+  useEffect(() => {
+    if (!hasUnread || markPending) return;
+    const t = setTimeout(() => mutateRef.current(), 2_500);
+    return () => clearTimeout(t);
+  }, [hasUnread, markPending]);
+
+  if (isLoading || notifications.length === 0) return null;
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <History className="w-3.5 h-3.5" />
+          Historique des notifications
+          {hasUnread && (
+            <span className="normal-case tracking-normal text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
+              {unreadCount} non lu{unreadCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </h2>
+        {hasUnread && (
+          <button
+            onClick={() => markAllRead.mutate()}
+            disabled={markPending}
+            className="text-xs text-primary hover:underline disabled:opacity-50"
+          >
+            Tout marquer comme lu
+          </button>
+        )}
+      </div>
+      <div className="bg-card border border-card-border rounded-lg divide-y divide-border max-h-96 overflow-y-auto">
+        {notifications.map((n) => (
+          <NotificationHistoryRow key={n.id} n={n} />
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground/60 mt-1.5">
+        Chaque notification envoyée (push, email, SMS) est archivée ici avec son heure exacte — même si l'alerte d'origine a été supprimée.
+      </p>
+    </div>
+  );
+}
+
 function AlertRow({ alert, onDelete, muted = false }: { alert: Alert; onDelete: () => void; muted?: boolean }) {
   const isPattern = alert.alertType === "pattern";
   const isSignal = alert.alertType === "signal";
@@ -562,6 +688,8 @@ export default function Alerts() {
           )}
         </div>
       )}
+
+      <NotificationHistory />
     </div>
   );
 }

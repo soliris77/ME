@@ -11,6 +11,7 @@ export interface WatchlistItem {
     name: string;
     /** @nullable */
     note?: string | null;
+    listName: string;
     addedAt: string;
 }
 //# sourceMappingURL=watchlistItem.d.ts.map

@@ -17,7 +17,7 @@ let vapidReady: Promise<string> | null = null;
 /** Génère (si besoin), persiste et configure les clés VAPID. Retourne la clé publique. */
 export function ensureVapidKeys(): Promise<string> {
   if (!vapidReady) {
-    vapidReady = (async () => {
+    const pending = (async () => {
       let [row] = await db.select().from(appSettingsTable).limit(1);
       if (!row) {
         // Ligne créée normalement par lib/settings.ts au premier accès — on la
@@ -50,6 +50,8 @@ export function ensureVapidKeys(): Promise<string> {
       vapidReady = null; // permet de réessayer au prochain appel
       throw err;
     });
+    vapidReady = pending;
+    return pending;
   }
   return vapidReady;
 }

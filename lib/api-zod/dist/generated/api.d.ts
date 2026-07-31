@@ -622,6 +622,137 @@ export declare const SearchSymbolsResponse: zod.ZodArray<zod.ZodObject<{
     exchange: string;
 }>, "many">;
 /**
+ * @summary Get market-moving news (free — Yahoo Finance + Google News RSS, no API key)
+ */
+export declare const GetMarketNewsQueryParams: zod.ZodObject<{
+    tickers: zod.ZodOptional<zod.ZodString>;
+    limit: zod.ZodOptional<zod.ZodNumber>;
+}, "strip", zod.ZodTypeAny, {
+    tickers?: string | undefined;
+    limit?: number | undefined;
+}, {
+    tickers?: string | undefined;
+    limit?: number | undefined;
+}>;
+export declare const GetMarketNewsResponseItem: zod.ZodObject<{
+    id: zod.ZodString;
+    title: zod.ZodString;
+    summary: zod.ZodString;
+    source: zod.ZodString;
+    url: zod.ZodString;
+    publishedAt: zod.ZodString;
+    theme: zod.ZodString;
+    overallSentimentScore: zod.ZodNumber;
+    overallSentimentLabel: zod.ZodEnum<["haussier", "baissier", "neutre"]>;
+    tickers: zod.ZodArray<zod.ZodObject<{
+        ticker: zod.ZodString;
+        relevanceScore: zod.ZodNumber;
+        sentimentScore: zod.ZodNumber;
+        sentimentLabel: zod.ZodEnum<["haussier", "baissier", "neutre"]>;
+    }, "strip", zod.ZodTypeAny, {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }, {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }>, "many">;
+}, "strip", zod.ZodTypeAny, {
+    tickers: {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }[];
+    id: string;
+    title: string;
+    summary: string;
+    source: string;
+    url: string;
+    publishedAt: string;
+    theme: string;
+    overallSentimentScore: number;
+    overallSentimentLabel: "haussier" | "baissier" | "neutre";
+}, {
+    tickers: {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }[];
+    id: string;
+    title: string;
+    summary: string;
+    source: string;
+    url: string;
+    publishedAt: string;
+    theme: string;
+    overallSentimentScore: number;
+    overallSentimentLabel: "haussier" | "baissier" | "neutre";
+}>;
+export declare const GetMarketNewsResponse: zod.ZodArray<zod.ZodObject<{
+    id: zod.ZodString;
+    title: zod.ZodString;
+    summary: zod.ZodString;
+    source: zod.ZodString;
+    url: zod.ZodString;
+    publishedAt: zod.ZodString;
+    theme: zod.ZodString;
+    overallSentimentScore: zod.ZodNumber;
+    overallSentimentLabel: zod.ZodEnum<["haussier", "baissier", "neutre"]>;
+    tickers: zod.ZodArray<zod.ZodObject<{
+        ticker: zod.ZodString;
+        relevanceScore: zod.ZodNumber;
+        sentimentScore: zod.ZodNumber;
+        sentimentLabel: zod.ZodEnum<["haussier", "baissier", "neutre"]>;
+    }, "strip", zod.ZodTypeAny, {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }, {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }>, "many">;
+}, "strip", zod.ZodTypeAny, {
+    tickers: {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }[];
+    id: string;
+    title: string;
+    summary: string;
+    source: string;
+    url: string;
+    publishedAt: string;
+    theme: string;
+    overallSentimentScore: number;
+    overallSentimentLabel: "haussier" | "baissier" | "neutre";
+}, {
+    tickers: {
+        ticker: string;
+        relevanceScore: number;
+        sentimentScore: number;
+        sentimentLabel: "haussier" | "baissier" | "neutre";
+    }[];
+    id: string;
+    title: string;
+    summary: string;
+    source: string;
+    url: string;
+    publishedAt: string;
+    theme: string;
+    overallSentimentScore: number;
+    overallSentimentLabel: "haussier" | "baissier" | "neutre";
+}>, "many">;
+/**
  * @summary Get all watchlist items
  */
 export declare const GetWatchlistResponseItem: zod.ZodObject<{
@@ -629,17 +760,20 @@ export declare const GetWatchlistResponseItem: zod.ZodObject<{
     symbol: zod.ZodString;
     name: zod.ZodString;
     note: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    listName: zod.ZodString;
     addedAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     name: string;
     id: number;
+    listName: string;
     addedAt: string;
     note?: string | null | undefined;
 }, {
     symbol: string;
     name: string;
     id: number;
+    listName: string;
     addedAt: string;
     note?: string | null | undefined;
 }>;
@@ -648,17 +782,20 @@ export declare const GetWatchlistResponse: zod.ZodArray<zod.ZodObject<{
     symbol: zod.ZodString;
     name: zod.ZodString;
     note: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    listName: zod.ZodString;
     addedAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     name: string;
     id: number;
+    listName: string;
     addedAt: string;
     note?: string | null | undefined;
 }, {
     symbol: string;
     name: string;
     id: number;
+    listName: string;
     addedAt: string;
     note?: string | null | undefined;
 }>, "many">;
@@ -668,32 +805,77 @@ export declare const GetWatchlistResponse: zod.ZodArray<zod.ZodObject<{
 export declare const AddToWatchlistBody: zod.ZodObject<{
     symbol: zod.ZodString;
     name: zod.ZodString;
+    listName: zod.ZodOptional<zod.ZodString>;
     note: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     name: string;
     note?: string | undefined;
+    listName?: string | undefined;
 }, {
     symbol: string;
     name: string;
     note?: string | undefined;
+    listName?: string | undefined;
 }>;
 export declare const AddToWatchlistResponse: zod.ZodObject<{
     id: zod.ZodNumber;
     symbol: zod.ZodString;
     name: zod.ZodString;
     note: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    listName: zod.ZodString;
     addedAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     name: string;
     id: number;
+    listName: string;
     addedAt: string;
     note?: string | null | undefined;
 }, {
     symbol: string;
     name: string;
     id: number;
+    listName: string;
+    addedAt: string;
+    note?: string | null | undefined;
+}>;
+/**
+ * @summary Move a watchlist item to another custom list
+ */
+export declare const UpdateWatchlistItemParams: zod.ZodObject<{
+    id: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    id: number;
+}, {
+    id: number;
+}>;
+export declare const UpdateWatchlistItemBody: zod.ZodObject<{
+    listName: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    listName: string;
+}, {
+    listName: string;
+}>;
+export declare const UpdateWatchlistItemResponse: zod.ZodObject<{
+    id: zod.ZodNumber;
+    symbol: zod.ZodString;
+    name: zod.ZodString;
+    note: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    listName: zod.ZodString;
+    addedAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    name: string;
+    id: number;
+    listName: string;
+    addedAt: string;
+    note?: string | null | undefined;
+}, {
+    symbol: string;
+    name: string;
+    id: number;
+    listName: string;
     addedAt: string;
     note?: string | null | undefined;
 }>;
@@ -709,62 +891,362 @@ export declare const RemoveFromWatchlistParams: zod.ZodObject<{
 }>;
 export declare const RemoveFromWatchlistResponse: zod.ZodVoid;
 /**
+ * @summary Get all watchlist lists in display order
+ */
+export declare const GetWatchlistListsResponseItem: zod.ZodObject<{
+    name: zod.ZodString;
+    position: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    position: number;
+}, {
+    name: string;
+    position: number;
+}>;
+export declare const GetWatchlistListsResponse: zod.ZodArray<zod.ZodObject<{
+    name: zod.ZodString;
+    position: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    position: number;
+}, {
+    name: string;
+    position: number;
+}>, "many">;
+/**
+ * @summary Persist the display order of watchlist lists
+ */
+export declare const ReorderWatchlistListsBody: zod.ZodObject<{
+    names: zod.ZodArray<zod.ZodString, "many">;
+}, "strip", zod.ZodTypeAny, {
+    names: string[];
+}, {
+    names: string[];
+}>;
+export declare const ReorderWatchlistListsResponseItem: zod.ZodObject<{
+    name: zod.ZodString;
+    position: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    position: number;
+}, {
+    name: string;
+    position: number;
+}>;
+export declare const ReorderWatchlistListsResponse: zod.ZodArray<zod.ZodObject<{
+    name: zod.ZodString;
+    position: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    position: number;
+}, {
+    name: string;
+    position: number;
+}>, "many">;
+/**
+ * @summary Rename a watchlist list for all its items
+ */
+export declare const RenameWatchlistListBody: zod.ZodObject<{
+    oldName: zod.ZodString;
+    newName: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    oldName: string;
+    newName: string;
+}, {
+    oldName: string;
+    newName: string;
+}>;
+export declare const RenameWatchlistListResponse: zod.ZodObject<{
+    name: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+}, {
+    name: string;
+}>;
+/**
+ * @summary Delete an empty watchlist list
+ */
+export declare const DeleteWatchlistListParams: zod.ZodObject<{
+    name: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+}, {
+    name: string;
+}>;
+export declare const DeleteWatchlistListResponse: zod.ZodVoid;
+/**
+ * @summary Get chart notes for a symbol
+ */
+export declare const GetNotesQueryParams: zod.ZodObject<{
+    symbol: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+}, {
+    symbol: string;
+}>;
+export declare const GetNotesResponseItem: zod.ZodObject<{
+    id: zod.ZodNumber;
+    symbol: zod.ZodString;
+    candleDate: zod.ZodString;
+    text: zod.ZodString;
+    createdAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    id: number;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}, {
+    symbol: string;
+    id: number;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}>;
+export declare const GetNotesResponse: zod.ZodArray<zod.ZodObject<{
+    id: zod.ZodNumber;
+    symbol: zod.ZodString;
+    candleDate: zod.ZodString;
+    text: zod.ZodString;
+    createdAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    id: number;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}, {
+    symbol: string;
+    id: number;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}>, "many">;
+/**
+ * @summary Add a note to a candle
+ */
+export declare const AddNoteBody: zod.ZodObject<{
+    symbol: zod.ZodString;
+    candleDate: zod.ZodString;
+    text: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    candleDate: string;
+    text: string;
+}, {
+    symbol: string;
+    candleDate: string;
+    text: string;
+}>;
+export declare const AddNoteResponse: zod.ZodObject<{
+    id: zod.ZodNumber;
+    symbol: zod.ZodString;
+    candleDate: zod.ZodString;
+    text: zod.ZodString;
+    createdAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    id: number;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}, {
+    symbol: string;
+    id: number;
+    candleDate: string;
+    text: string;
+    createdAt: string;
+}>;
+/**
+ * @summary Delete a chart note
+ */
+export declare const DeleteNoteParams: zod.ZodObject<{
+    id: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    id: number;
+}, {
+    id: number;
+}>;
+export declare const DeleteNoteResponse: zod.ZodVoid;
+/**
+ * @summary Get progress for all "Apprendre à trader" sections
+ */
+export declare const GetLearnProgressResponseItem: zod.ZodObject<{
+    sectionId: zod.ZodString;
+    completed: zod.ZodBoolean;
+    quizScore: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    quizTotal: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    completedAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    updatedAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    sectionId: string;
+    completed: boolean;
+    updatedAt: string;
+    quizScore?: number | null | undefined;
+    quizTotal?: number | null | undefined;
+    completedAt?: string | null | undefined;
+}, {
+    sectionId: string;
+    completed: boolean;
+    updatedAt: string;
+    quizScore?: number | null | undefined;
+    quizTotal?: number | null | undefined;
+    completedAt?: string | null | undefined;
+}>;
+export declare const GetLearnProgressResponse: zod.ZodArray<zod.ZodObject<{
+    sectionId: zod.ZodString;
+    completed: zod.ZodBoolean;
+    quizScore: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    quizTotal: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    completedAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    updatedAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    sectionId: string;
+    completed: boolean;
+    updatedAt: string;
+    quizScore?: number | null | undefined;
+    quizTotal?: number | null | undefined;
+    completedAt?: string | null | undefined;
+}, {
+    sectionId: string;
+    completed: boolean;
+    updatedAt: string;
+    quizScore?: number | null | undefined;
+    quizTotal?: number | null | undefined;
+    completedAt?: string | null | undefined;
+}>, "many">;
+/**
+ * @summary Mark a "Apprendre à trader" section (and optional quiz result) as completed or not
+ */
+export declare const UpdateLearnProgressParams: zod.ZodObject<{
+    sectionId: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    sectionId: string;
+}, {
+    sectionId: string;
+}>;
+export declare const UpdateLearnProgressBody: zod.ZodObject<{
+    completed: zod.ZodBoolean;
+    quizScore: zod.ZodOptional<zod.ZodNumber>;
+    quizTotal: zod.ZodOptional<zod.ZodNumber>;
+}, "strip", zod.ZodTypeAny, {
+    completed: boolean;
+    quizScore?: number | undefined;
+    quizTotal?: number | undefined;
+}, {
+    completed: boolean;
+    quizScore?: number | undefined;
+    quizTotal?: number | undefined;
+}>;
+export declare const UpdateLearnProgressResponse: zod.ZodObject<{
+    sectionId: zod.ZodString;
+    completed: zod.ZodBoolean;
+    quizScore: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    quizTotal: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    completedAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    updatedAt: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    sectionId: string;
+    completed: boolean;
+    updatedAt: string;
+    quizScore?: number | null | undefined;
+    quizTotal?: number | null | undefined;
+    completedAt?: string | null | undefined;
+}, {
+    sectionId: string;
+    completed: boolean;
+    updatedAt: string;
+    quizScore?: number | null | undefined;
+    quizTotal?: number | null | undefined;
+    completedAt?: string | null | undefined;
+}>;
+/**
  * @summary Get all price alerts
  */
 export declare const GetAlertsResponseItem: zod.ZodObject<{
     id: zod.ZodNumber;
     symbol: zod.ZodString;
     name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    condition: zod.ZodEnum<["above", "below"]>;
-    targetPrice: zod.ZodNumber;
+    alertType: zod.ZodEnum<["price", "pattern", "signal"]>;
+    condition: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"above">, zod.ZodLiteral<"below">, zod.ZodLiteral<null>]>>>;
+    targetPrice: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    patternSignal: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"haussier">, zod.ZodLiteral<"baissier">, zod.ZodLiteral<null>]>>>;
+    minStrength: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"faible">, zod.ZodLiteral<"moyen">, zod.ZodLiteral<"fort">, zod.ZodLiteral<null>]>>>;
     active: zod.ZodBoolean;
+    notifyEmail: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    notifyPhone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     triggeredAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     createdAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }>;
 export declare const GetAlertsResponse: zod.ZodArray<zod.ZodObject<{
     id: zod.ZodNumber;
     symbol: zod.ZodString;
     name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    condition: zod.ZodEnum<["above", "below"]>;
-    targetPrice: zod.ZodNumber;
+    alertType: zod.ZodEnum<["price", "pattern", "signal"]>;
+    condition: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"above">, zod.ZodLiteral<"below">, zod.ZodLiteral<null>]>>>;
+    targetPrice: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    patternSignal: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"haussier">, zod.ZodLiteral<"baissier">, zod.ZodLiteral<null>]>>>;
+    minStrength: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"faible">, zod.ZodLiteral<"moyen">, zod.ZodLiteral<"fort">, zod.ZodLiteral<null>]>>>;
     active: zod.ZodBoolean;
+    notifyEmail: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    notifyPhone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     triggeredAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     createdAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }>, "many">;
 /**
@@ -773,45 +1255,75 @@ export declare const GetAlertsResponse: zod.ZodArray<zod.ZodObject<{
 export declare const CreateAlertBody: zod.ZodObject<{
     symbol: zod.ZodString;
     name: zod.ZodOptional<zod.ZodString>;
-    condition: zod.ZodEnum<["above", "below"]>;
-    targetPrice: zod.ZodNumber;
+    alertType: zod.ZodOptional<zod.ZodEnum<["price", "pattern", "signal"]>>;
+    condition: zod.ZodOptional<zod.ZodEnum<["above", "below"]>>;
+    targetPrice: zod.ZodOptional<zod.ZodNumber>;
+    patternSignal: zod.ZodOptional<zod.ZodEnum<["haussier", "baissier"]>>;
+    minStrength: zod.ZodOptional<zod.ZodEnum<["faible", "moyen", "fort"]>>;
+    notifyEmail: zod.ZodOptional<zod.ZodString>;
+    notifyPhone: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
-    condition: "above" | "below";
-    targetPrice: number;
     name?: string | undefined;
+    alertType?: "price" | "pattern" | "signal" | undefined;
+    condition?: "above" | "below" | undefined;
+    targetPrice?: number | undefined;
+    patternSignal?: "haussier" | "baissier" | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | undefined;
+    notifyEmail?: string | undefined;
+    notifyPhone?: string | undefined;
 }, {
     symbol: string;
-    condition: "above" | "below";
-    targetPrice: number;
     name?: string | undefined;
+    alertType?: "price" | "pattern" | "signal" | undefined;
+    condition?: "above" | "below" | undefined;
+    targetPrice?: number | undefined;
+    patternSignal?: "haussier" | "baissier" | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | undefined;
+    notifyEmail?: string | undefined;
+    notifyPhone?: string | undefined;
 }>;
 export declare const CreateAlertResponse: zod.ZodObject<{
     id: zod.ZodNumber;
     symbol: zod.ZodString;
     name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    condition: zod.ZodEnum<["above", "below"]>;
-    targetPrice: zod.ZodNumber;
+    alertType: zod.ZodEnum<["price", "pattern", "signal"]>;
+    condition: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"above">, zod.ZodLiteral<"below">, zod.ZodLiteral<null>]>>>;
+    targetPrice: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    patternSignal: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"haussier">, zod.ZodLiteral<"baissier">, zod.ZodLiteral<null>]>>>;
+    minStrength: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"faible">, zod.ZodLiteral<"moyen">, zod.ZodLiteral<"fort">, zod.ZodLiteral<null>]>>>;
     active: zod.ZodBoolean;
+    notifyEmail: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    notifyPhone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     triggeredAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     createdAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }>;
 /**
@@ -839,28 +1351,134 @@ export declare const GetTriggeredAlertsResponse: zod.ZodObject<{
     id: zod.ZodNumber;
     symbol: zod.ZodString;
     name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    condition: zod.ZodEnum<["above", "below"]>;
-    targetPrice: zod.ZodNumber;
+    alertType: zod.ZodEnum<["price", "pattern", "signal"]>;
+    condition: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"above">, zod.ZodLiteral<"below">, zod.ZodLiteral<null>]>>>;
+    targetPrice: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    patternSignal: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"haussier">, zod.ZodLiteral<"baissier">, zod.ZodLiteral<null>]>>>;
+    minStrength: zod.ZodOptional<zod.ZodNullable<zod.ZodUnion<[zod.ZodLiteral<"faible">, zod.ZodLiteral<"moyen">, zod.ZodLiteral<"fort">, zod.ZodLiteral<null>]>>>;
     active: zod.ZodBoolean;
+    notifyEmail: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    notifyPhone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     triggeredAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     createdAt: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
 }, {
     symbol: string;
     id: number;
-    condition: "above" | "below";
-    targetPrice: number;
-    active: boolean;
     createdAt: string;
+    alertType: "price" | "pattern" | "signal";
+    active: boolean;
     name?: string | null | undefined;
+    condition?: "above" | "below" | null | undefined;
+    targetPrice?: number | null | undefined;
+    patternSignal?: "haussier" | "baissier" | null | undefined;
+    minStrength?: "faible" | "moyen" | "fort" | null | undefined;
+    notifyEmail?: string | null | undefined;
+    notifyPhone?: string | null | undefined;
     triggeredAt?: string | null | undefined;
+}>;
+/**
+ * @summary Chronological history of sent notifications (most recent first)
+ */
+export declare const GetNotificationsResponseItem: zod.ZodObject<{
+    id: zod.ZodNumber;
+    alertId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    symbol: zod.ZodString;
+    name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    alertType: zod.ZodEnum<["price", "pattern", "signal"]>;
+    title: zod.ZodString;
+    body: zod.ZodString;
+    channels: zod.ZodArray<zod.ZodString, "many">;
+    sentAt: zod.ZodString;
+    readAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    id: number;
+    title: string;
+    alertType: "price" | "pattern" | "signal";
+    body: string;
+    channels: string[];
+    sentAt: string;
+    name?: string | null | undefined;
+    alertId?: number | null | undefined;
+    readAt?: string | null | undefined;
+}, {
+    symbol: string;
+    id: number;
+    title: string;
+    alertType: "price" | "pattern" | "signal";
+    body: string;
+    channels: string[];
+    sentAt: string;
+    name?: string | null | undefined;
+    alertId?: number | null | undefined;
+    readAt?: string | null | undefined;
+}>;
+export declare const GetNotificationsResponse: zod.ZodArray<zod.ZodObject<{
+    id: zod.ZodNumber;
+    alertId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    symbol: zod.ZodString;
+    name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    alertType: zod.ZodEnum<["price", "pattern", "signal"]>;
+    title: zod.ZodString;
+    body: zod.ZodString;
+    channels: zod.ZodArray<zod.ZodString, "many">;
+    sentAt: zod.ZodString;
+    readAt: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+}, "strip", zod.ZodTypeAny, {
+    symbol: string;
+    id: number;
+    title: string;
+    alertType: "price" | "pattern" | "signal";
+    body: string;
+    channels: string[];
+    sentAt: string;
+    name?: string | null | undefined;
+    alertId?: number | null | undefined;
+    readAt?: string | null | undefined;
+}, {
+    symbol: string;
+    id: number;
+    title: string;
+    alertType: "price" | "pattern" | "signal";
+    body: string;
+    channels: string[];
+    sentAt: string;
+    name?: string | null | undefined;
+    alertId?: number | null | undefined;
+    readAt?: string | null | undefined;
+}>, "many">;
+/**
+ * @summary Number of unread notifications (sidebar badge)
+ */
+export declare const GetNotificationsUnreadCountResponse: zod.ZodObject<{
+    count: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    count: number;
+}, {
+    count: number;
+}>;
+/**
+ * @summary Mark every notification as read
+ */
+export declare const MarkAllNotificationsReadResponse: zod.ZodObject<{
+    ok: zod.ZodBoolean;
+}, "strip", zod.ZodTypeAny, {
+    ok: boolean;
+}, {
+    ok: boolean;
 }>;
 //# sourceMappingURL=api.d.ts.map

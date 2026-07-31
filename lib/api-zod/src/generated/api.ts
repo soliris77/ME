@@ -488,3 +488,37 @@ export const GetTriggeredAlertsResponse = zod.object({
 })
 
 
+/**
+ * @summary Chronological history of sent notifications (most recent first)
+ */
+export const GetNotificationsResponseItem = zod.object({
+  "id": zod.number(),
+  "alertId": zod.number().nullish(),
+  "symbol": zod.string(),
+  "name": zod.string().nullish(),
+  "alertType": zod.enum(['price', 'pattern', 'signal']),
+  "title": zod.string(),
+  "body": zod.string(),
+  "channels": zod.array(zod.string()),
+  "sentAt": zod.string(),
+  "readAt": zod.string().nullish()
+})
+export const GetNotificationsResponse = zod.array(GetNotificationsResponseItem)
+
+
+/**
+ * @summary Number of unread notifications (sidebar badge)
+ */
+export const GetNotificationsUnreadCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
+ * @summary Mark every notification as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
