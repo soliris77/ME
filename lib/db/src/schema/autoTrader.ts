@@ -30,6 +30,21 @@ export const autoTradeRulesTable = pgTable("auto_trade_rules", {
   // Take-profit en % au-dessus du prix d'entrée (null = désactivé)
   takeProfitPct: numeric("take_profit_pct", { precision: 6, scale: 2 }),
 
+  // Trailing stop en % sous le plus-haut atteint depuis l'entrée (null = désactivé)
+  trailingStopPct: numeric("trailing_stop_pct", { precision: 6, scale: 2 }),
+
+  // Plus-haut atteint depuis l'ouverture de la position (pour le trailing stop)
+  highWaterMark: numeric("high_water_mark", { precision: 18, scale: 6 }),
+
+  // Mode de dimensionnement : "fixed" (quantité fixe) | "risk" (montant risqué)
+  sizingMode: text("sizing_mode").default("fixed").notNull(),
+
+  // Montant en $ risqué par trade (utilisé si sizingMode = "risk" avec stopLossPct)
+  riskAmount: numeric("risk_amount", { precision: 18, scale: 2 }),
+
+  // Exiger que le signal hebdomadaire (1wk) confirme la même direction
+  confirmWeekly: boolean("confirm_weekly").default(false).notNull(),
+
   // Nombre max d'ordres automatiques par jour (reinitialisé à minuit UTC)
   maxTradesPerDay: integer("max_trades_per_day").default(3).notNull(),
 

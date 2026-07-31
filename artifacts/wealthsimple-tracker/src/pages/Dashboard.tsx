@@ -25,6 +25,10 @@ import LiveTicker from "@/components/LiveTicker";
 import TradeModal from "@/components/TradeModal";
 import type { Quote } from "@workspace/api-client-react";
 import SectorHeatmap from "@/components/SectorHeatmap";
+import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, cardVariants, listItemVariants, hoverLift, EASE_PRECISION } from "@/lib/motion";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { PageTransition } from "@/components/PageTransition";
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -479,30 +483,42 @@ function FlashQuote({ q }: { q: Quote }) {
   }, [q.price]);
 
   const up = isUp(q.changePercent);
+  const flashColor = up === true ? "gain" : up === false ? "loss" : "neutral";
 
   return (
     <Link href={`/quote/${encodeURIComponent(q.symbol)}`}>
-      <div
+      <motion.div
+        variants={cardVariants}
+        whileHover="hover"
+        initial="rest"
+        animate="rest"
         className={`market-card bg-card border border-card-border rounded-xl p-4 cursor-pointer ${
           flash ? "border-primary/50 bg-primary/5" : ""
         }`}
+        style={hoverLift}
       >
         <div className="text-[11px] text-muted-foreground font-medium mb-2 truncate uppercase tracking-wider">
           {MARKET_NAMES[q.symbol] ?? q.name}
         </div>
-        <div className="font-mono text-[17px] font-bold text-foreground leading-tight mb-2 tabular-nums">
-          {formatPrice(q.price, q.currency)}
+        <div className="font-mono text-[17px] font-bold text-foreground leading-tight mb-2">
+          <AnimatedCounter 
+            value={formatPrice(q.price, q.currency)} 
+            flashOnChange={flash}
+            flashColor={flashColor}
+          />
         </div>
-        <div
+        <motion.div
           className={`flex items-center gap-0.5 text-[12px] font-mono font-semibold ${
             up === null ? "text-muted-foreground" : up ? "gain" : "loss"
           }`}
+          animate={flash ? { scale: [1, 1.08, 1] } : {}}
+          transition={{ duration: 0.4, ease: EASE_PRECISION }}
         >
           {up === true && <ArrowUpRight className="w-3.5 h-3.5" />}
           {up === false && <ArrowDownRight className="w-3.5 h-3.5" />}
-          {formatPercent(q.changePercent)}
-        </div>
-      </div>
+          <AnimatedCounter value={formatPercent(q.changePercent)} />
+        </motion.div>
+      </motion.div>
     </Link>
   );
 }
@@ -553,9 +569,11 @@ function StockRow({ q, onTrade }: StockRowProps) {
   }, [q.price]);
 
   const hasPrice = q.price != null && q.price > 0;
+  const flashColor = up === true ? "gain" : up === false ? "loss" : "neutral";
 
   return (
-    <div
+    <motion.div
+      variants={listItemVariants}
       className={`flex items-center group hover:bg-muted/40 transition-colors rounded-lg ${
         flash ? "bg-primary/5" : ""
       }`}
@@ -570,18 +588,29 @@ function StockRow({ q, onTrade }: StockRowProps) {
           <div className="text-[11px] text-muted-foreground truncate max-w-36">{q.name}</div>
         </div>
         <div className="text-right shrink-0 ml-2">
-          <div className="text-[13px] font-mono font-semibold tabular-nums">{formatPrice(q.price, q.currency)}</div>
-          <div className={`text-[11px] font-mono ${cls} flex items-center justify-end gap-0.5`}>
+          <div className="text-[13px] font-mono font-semibold">
+            <AnimatedCounter value={formatPrice(q.price, q.currency)} flashOnChange={flash} flashColor={flashColor} />
+          </div>
+          <motion.div 
+            className={`text-[11px] font-mono ${cls} flex items-center justify-end gap-0.5`}
+            animate={flash ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ duration: 0.35, ease: EASE_PRECISION }}
+          >
             {up === true && <ArrowUpRight className="w-3 h-3" />}
             {up === false && <ArrowDownRight className="w-3 h-3" />}
-            {formatPercent(q.changePercent)}
-          </div>
+            <AnimatedCounter value={formatPercent(q.changePercent)} />
+          </motion.div>
         </div>
       </Link>
 
       {/* Quick-action buttons — revealed on row hover */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 pr-2 shrink-0">
-        <button
+      <motion.div 
+        className="flex items-center gap-0.5 pr-2 shrink-0"
+        initial={{ opacity: 0, x: -8 }}
+        whileHover={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <motion.button
           title={`Suivre ${q.symbol}`}
           disabled={add.isPending}
           onClick={(e) => {
@@ -590,12 +619,14 @@ function StockRow({ q, onTrade }: StockRowProps) {
             add.mutate({ data: { symbol: q.symbol, name: q.name } });
           }}
           className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
         >
           <Bookmark className="w-3.5 h-3.5" />
-        </button>
+        </motion.button>
         {hasPrice && (
           <>
-            <button
+            <motion.button
               title={`Acheter ${q.symbol}`}
               onClick={(e) => {
                 e.preventDefault();
@@ -604,10 +635,12 @@ function StockRow({ q, onTrade }: StockRowProps) {
               }}
               className="p-1.5 rounded-md transition-colors hover:bg-emerald-500/10"
               style={{ color: "#16A34A" }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               <TrendingUp className="w-3.5 h-3.5" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               title={`Vendre ${q.symbol}`}
               onClick={(e) => {
                 e.preventDefault();
@@ -616,13 +649,15 @@ function StockRow({ q, onTrade }: StockRowProps) {
               }}
               className="p-1.5 rounded-md transition-colors hover:bg-red-500/10"
               style={{ color: "#DC2626" }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               <TrendingDown className="w-3.5 h-3.5" />
-            </button>
+            </motion.button>
           </>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -640,9 +675,14 @@ function MarketSection({ title, symbols, allQuotes, loading }: {
           {[...Array(4)].map((_, i) => <MarketCardSkeleton key={i} />)}
         </div>
       ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <motion.div 
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+          variants={staggerContainer}
+          initial="initial"
+          animate="enter"
+        >
           {filtered.map((q) => <FlashQuote key={q.symbol} q={q} />)}
-        </div>
+        </motion.div>
       ) : (
         <div className="text-xs text-muted-foreground py-3 pl-1">Données indisponibles</div>
       )}
@@ -763,7 +803,13 @@ function PopularStocksTabs({ allQuotes, loading, onTrade }: PopularStocksTabsPro
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
+          <motion.div 
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0"
+            variants={staggerContainer}
+            initial="initial"
+            animate="enter"
+            key={activeTab}
+          >
             {filtered.map((q) => (
               <StockRow key={q.symbol} q={q} onTrade={onTrade} />
             ))}
@@ -772,7 +818,7 @@ function PopularStocksTabs({ allQuotes, loading, onTrade }: PopularStocksTabsPro
                 Données en cours de chargement…
               </div>
             )}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>
@@ -928,9 +974,14 @@ export default function Dashboard() {
     <div className="flex flex-col min-h-screen">
       <LiveTicker />
 
-      <div className="p-7 max-w-7xl animate-fadeUp">
+      <PageTransition className="p-7 max-w-7xl">
         {/* Page header */}
-        <div className="flex items-center justify-between mb-7">
+        <motion.div 
+          className="flex items-center justify-between mb-7"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: EASE_PRECISION }}
+        >
           <div>
             <h1 className="text-[22px] font-light tracking-[0.04em] text-foreground brand-serif mb-1.5">
               Aperçu des marchés
@@ -945,15 +996,17 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
-          <button
+          <motion.button
             onClick={() => refetch()}
             disabled={isFetching}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-lg hover:bg-muted border border-transparent hover:border-border/60"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-primary" : ""}`} />
             Actualiser
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
 
         {/* Market status */}
         <MarketStatusSection />
@@ -1001,20 +1054,20 @@ export default function Dashboard() {
             />
           </div>
         </div>
-      </div>
 
-      {/* Trade modal — wired to broker API */}
-      {tradeModal && (
-        <TradeModal
-          open={true}
-          side={tradeModal.side}
-          symbol={tradeModal.q.symbol}
-          currentPrice={tradeModal.q.price ?? 0}
-          currency={tradeModal.q.currency ?? "USD"}
-          source="Tableau de bord"
-          onClose={() => setTradeModal(null)}
-        />
-      )}
+        {/* Trade modal — wired to broker API */}
+        {tradeModal && (
+          <TradeModal
+            open={true}
+            side={tradeModal.side}
+            symbol={tradeModal.q.symbol}
+            currentPrice={tradeModal.q.price ?? 0}
+            currency={tradeModal.q.currency ?? "USD"}
+            source="Tableau de bord"
+            onClose={() => setTradeModal(null)}
+          />
+        )}
+      </PageTransition>
     </div>
   );
 }

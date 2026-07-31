@@ -88,8 +88,59 @@ export declare const appSettingsTable: import("drizzle-orm/pg-core").PgTableWith
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        snaptradeClientId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "snaptrade_client_id";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         snaptradeConsumerKey: import("drizzle-orm/pg-core").PgColumn<{
             name: "snaptrade_consumer_key";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        snaptradeUserId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "snaptrade_user_id";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        snaptradeUserSecret: import("drizzle-orm/pg-core").PgColumn<{
+            name: "snaptrade_user_secret";
             tableName: "app_settings";
             dataType: "string";
             columnType: "PgText";
@@ -141,6 +192,40 @@ export declare const appSettingsTable: import("drizzle-orm/pg-core").PgTableWith
         }, {}, {}>;
         twilioFromNumber: import("drizzle-orm/pg-core").PgColumn<{
             name: "twilio_from_number";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        lastDailySummaryDate: import("drizzle-orm/pg-core").PgColumn<{
+            name: "last_daily_summary_date";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        maxDailyLossAmount: import("drizzle-orm/pg-core").PgColumn<{
+            name: "max_daily_loss_amount";
             tableName: "app_settings";
             dataType: "string";
             columnType: "PgText";
@@ -467,9 +552,9 @@ export declare const auditLogTable: import("drizzle-orm/pg-core").PgTableWithCol
     dialect: "pg";
 }>;
 export declare const insertAuditLogSchema: z.ZodObject<{
+    details: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
     action: z.ZodString;
     summary: z.ZodString;
-    details: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
 }, {
     out: {};
     in: {};

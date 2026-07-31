@@ -17,6 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import type { WatchlistItem } from "@workspace/api-client-react";
 import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, listItemVariants, modalBackdropVariants, modalContentVariants, hoverScale, EASE_PRECISION } from "@/lib/motion";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { PageTransition } from "@/components/PageTransition";
 
 // ─── Sparkline SVG inline ─────────────────────────────────────────────────────
 
@@ -78,8 +82,19 @@ function AddSymbolModal({ existingLists, onClose }: { existingLists: string[]; o
   const finalListName = creatingList ? (customList.trim() || DEFAULT_LIST) : listName;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-card border border-card-border rounded-xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <motion.div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" 
+      onClick={onClose}
+      variants={modalBackdropVariants}
+      initial="initial"
+      animate="enter"
+      exit="exit"
+    >
+      <motion.div 
+        className="bg-card border border-card-border rounded-xl p-6 w-full max-w-sm shadow-xl" 
+        onClick={(e) => e.stopPropagation()}
+        variants={modalContentVariants}
+      >
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-bold">Ajouter un actif</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
@@ -148,19 +163,26 @@ function AddSymbolModal({ existingLists, onClose }: { existingLists: string[]; o
           </div>
         </div>
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 px-4 py-2 text-sm border border-border rounded-md hover:bg-muted transition-colors">
+          <motion.button 
+            onClick={onClose} 
+            className="flex-1 px-4 py-2 text-sm border border-border rounded-md hover:bg-muted transition-colors"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
             Annuler
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={() => add.mutate({ data: { symbol, name: name || symbol, listName: finalListName } })}
             disabled={!symbol || add.isPending}
             className="flex-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             {add.isPending ? "Ajout..." : "Ajouter"}
-          </button>
+          </motion.button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -317,21 +339,30 @@ export default function Watchlist() {
   );
 
   return (
-    <div className="p-6 max-w-3xl">
-      {showAdd && <AddSymbolModal existingLists={lists} onClose={() => setShowAdd(false)} />}
-      <div className="flex items-center justify-between mb-6">
+    <PageTransition className="p-6 max-w-3xl">
+      <AnimatePresence>
+        {showAdd && <AddSymbolModal existingLists={lists} onClose={() => setShowAdd(false)} />}
+      </AnimatePresence>
+      <motion.div 
+        className="flex items-center justify-between mb-6"
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: EASE_PRECISION }}
+      >
         <div>
           <h1 className="text-xl font-bold">Portefeuille suivi</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{watchlist.length} actif{watchlist.length !== 1 ? "s" : ""} surveillé{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
-        <button
+        <motion.button
           onClick={() => setShowAdd(true)}
           className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
         >
           <Plus className="w-4 h-4" />
           Ajouter un actif
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {watchlist.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -408,19 +439,26 @@ export default function Watchlist() {
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-card-border rounded-lg overflow-hidden divide-y divide-border">
+        <motion.div 
+          className="bg-card border border-card-border rounded-lg overflow-hidden divide-y divide-border"
+          variants={staggerContainer}
+          initial="initial"
+          animate="enter"
+        >
           {filtered.map((item: WatchlistItem, idx: number) => {
             const q = quoteMap[item.symbol];
             const cls = q ? changeClass(q.changePercent) : "";
             const up = q ? isUp(q.changePercent) : false;
+            const flashColor = up === true ? "gain" : up === false ? "loss" : "neutral";
             return (
-              <div
+              <motion.div
                 key={item.id}
                 ref={(el) => { rowRefs.current[idx] = el; }}
                 tabIndex={0}
                 onKeyDown={onKeyNav}
                 onFocus={() => setFocusIdx(idx)}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 focus:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary/40 transition-colors group"
+                variants={listItemVariants}
               >
                 <Link href={`/quote/${encodeURIComponent(item.symbol)}`} className="flex-1 flex items-center justify-between cursor-pointer">
                   <div className="min-w-0">
@@ -451,11 +489,13 @@ export default function Watchlist() {
                         <WatchlistSparkline symbol={item.symbol} />
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-mono font-semibold">{formatPrice(q.price, q.currency)}</div>
+                        <div className="text-sm font-mono font-semibold">
+                          <AnimatedCounter value={formatPrice(q.price, q.currency)} flashColor={flashColor} />
+                        </div>
                         <div className={`text-xs font-mono ${cls} flex items-center justify-end gap-0.5`}>
                           {up === true && <ArrowUpRight className="w-3 h-3" />}
                           {up === false && <ArrowDownRight className="w-3 h-3" />}
-                          {formatPercent(q.changePercent)}
+                          <AnimatedCounter value={formatPercent(q.changePercent)} />
                         </div>
                       </div>
                     </div>
@@ -477,23 +517,30 @@ export default function Watchlist() {
                   onMove={(l) => move.mutate({ id: item.id, data: { listName: l } })}
                   onCreateNew={(l) => move.mutate({ id: item.id, data: { listName: l } })}
                 />
-                <button
+                <motion.button
                   onClick={() => remove.mutate({ id: item.id })}
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
                   title="Retirer de la liste"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                </motion.button>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
       {filtered.length > 0 && (
-        <p className="text-[11px] text-muted-foreground/50 mt-3">
+        <motion.p 
+          className="text-[11px] text-muted-foreground/50 mt-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.4 }}
+        >
           Astuce : cliquez une ligne puis utilisez ↑ ↓ pour naviguer et Entrée pour ouvrir.
-        </p>
+        </motion.p>
       )}
-    </div>
+    </PageTransition>
   );
 }

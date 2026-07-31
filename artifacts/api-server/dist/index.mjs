@@ -105481,6 +105481,16 @@ var autoTradeRulesTable = pgTable("auto_trade_rules", {
   stopLossPct: numeric("stop_loss_pct", { precision: 6, scale: 2 }),
   // Take-profit en % au-dessus du prix d'entrée (null = désactivé)
   takeProfitPct: numeric("take_profit_pct", { precision: 6, scale: 2 }),
+  // Trailing stop en % sous le plus-haut atteint depuis l'entrée (null = désactivé)
+  trailingStopPct: numeric("trailing_stop_pct", { precision: 6, scale: 2 }),
+  // Plus-haut atteint depuis l'ouverture de la position (pour le trailing stop)
+  highWaterMark: numeric("high_water_mark", { precision: 18, scale: 6 }),
+  // Mode de dimensionnement : "fixed" (quantité fixe) | "risk" (montant risqué)
+  sizingMode: text("sizing_mode").default("fixed").notNull(),
+  // Montant en $ risqué par trade (utilisé si sizingMode = "risk" avec stopLossPct)
+  riskAmount: numeric("risk_amount", { precision: 18, scale: 2 }),
+  // Exiger que le signal hebdomadaire (1wk) confirme la même direction
+  confirmWeekly: boolean3("confirm_weekly").default(false).notNull(),
   // Nombre max d'ordres automatiques par jour (reinitialisé à minuit UTC)
   maxTradesPerDay: integer("max_trades_per_day").default(3).notNull(),
   // Notifier même sans passer d'ordre (signal fort sans auto-trade)
@@ -135516,9 +135526,9 @@ function analyzeTradingSignals(data, currentPrice) {
 // src/workers/autoTradeWorker.ts
 var WORKER_INTERVAL_MS = 6e4;
 var OHLC_DAYS = 90;
-async function fetchOHLC(symbol2) {
-  const period1 = new Date(Date.now() - OHLC_DAYS * 24 * 60 * 60 * 1e3);
-  const result = await yahooFinance.chart(symbol2, { period1, interval: "1d" });
+async function fetchOHLC(symbol2, interval2 = "1d", days = OHLC_DAYS) {
+  const period1 = new Date(Date.now() - days * 24 * 60 * 60 * 1e3);
+  const result = await yahooFinance.chart(symbol2, { period1, interval: interval2 });
   return (result.quotes ?? []).map((p) => ({
     date: new Date(p.date).toISOString(),
     open: p.open ?? null,
@@ -135541,7 +135551,7 @@ async function sendAutoTradeNotification(params) {
   const { symbol: symbol2, side, verdict, score, price, quantity, triggerType, orderMode } = params;
   const sideEmoji = side === "BUY" ? "\u{1F7E2}" : "\u{1F534}";
   const action = side === "BUY" ? "ACHAT" : "VENTE";
-  const typeLabel = triggerType === "stop_loss" ? "\u26D4 Stop-Loss d\xE9clench\xE9" : triggerType === "take_profit" ? "\u2705 Take-Profit d\xE9clench\xE9" : triggerType === "order" ? `${sideEmoji} Ordre automatique ${orderMode === "live" ? "(LIVE)" : "(paper)"}` : `${sideEmoji} Signal fort d\xE9tect\xE9 (notification)`;
+  const typeLabel = triggerType === "stop_loss" ? "\u26D4 Stop-Loss d\xE9clench\xE9" : triggerType === "trailing_stop" ? "\u{1F503} Trailing-Stop d\xE9clench\xE9" : triggerType === "take_profit" ? "\u2705 Take-Profit d\xE9clench\xE9" : triggerType === "order" ? `${sideEmoji} Ordre automatique ${orderMode === "live" ? "(LIVE)" : "(paper)"}` : `${sideEmoji} Signal fort d\xE9tect\xE9 (notification)`;
   const smsBody = [
     `${typeLabel} \u2014 ${symbol2}`,
     `Signal : ${verdict} (score ${score > 0 ? "+" : ""}${score})`,
@@ -135556,7 +135566,7 @@ async function sendAutoTradeNotification(params) {
     if (prefs.sendEmail && prefs.email) {
       const sideEmoji2 = side === "BUY" ? "\u{1F7E2}" : "\u{1F534}";
       const tagColor = side === "BUY" ? "#10b981" : "#ef4444";
-      const typeLabel2 = triggerType === "stop_loss" ? "\u26D4 Stop-Loss d\xE9clench\xE9" : triggerType === "take_profit" ? "\u2705 Take-Profit d\xE9clench\xE9" : triggerType === "order" ? `${sideEmoji2} Ordre automatique${orderMode === "live" ? " (LIVE)" : " (paper)"}` : `${sideEmoji2} Signal fort d\xE9tect\xE9`;
+      const typeLabel2 = triggerType === "stop_loss" ? "\u26D4 Stop-Loss d\xE9clench\xE9" : triggerType === "trailing_stop" ? "\u{1F503} Trailing-Stop d\xE9clench\xE9" : triggerType === "take_profit" ? "\u2705 Take-Profit d\xE9clench\xE9" : triggerType === "order" ? `${sideEmoji2} Ordre automatique${orderMode === "live" ? " (LIVE)" : " (paper)"}` : `${sideEmoji2} Signal fort d\xE9tect\xE9`;
       const htmlBody = `
         <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;">
           <h2 style="color:#111;">${typeLabel2} \u2014 ${symbol2}</h2>
@@ -135586,7 +135596,7 @@ async function sendAutoTradeNotification(params) {
 async function checkProtectiveExits(conn) {
   const allRules = await db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true));
   const rulesWithPositions = allRules.filter(
-    (r) => r.openQuantity && parseFloat(r.openQuantity) > 0 && r.openEntryPrice && (r.stopLossPct || r.takeProfitPct)
+    (r) => r.openQuantity && parseFloat(r.openQuantity) > 0 && r.openEntryPrice && (r.stopLossPct || r.takeProfitPct || r.trailingStopPct)
   );
   if (rulesWithPositions.length === 0) return;
   const symbols = [...new Set(rulesWithPositions.map((r) => r.symbol))];
@@ -135611,7 +135621,16 @@ async function checkProtectiveExits(conn) {
     const entryPrice = parseFloat(rule.openEntryPrice);
     const openQty = parseFloat(rule.openQuantity);
     let triggerType = null;
-    if (rule.stopLossPct) {
+    let hwm = rule.highWaterMark ? parseFloat(rule.highWaterMark) : entryPrice;
+    if (rule.trailingStopPct) {
+      if (currentPrice > hwm) {
+        hwm = currentPrice;
+        await db.update(autoTradeRulesTable).set({ highWaterMark: String(hwm), updatedAt: /* @__PURE__ */ new Date() }).where(eq(autoTradeRulesTable.id, rule.id));
+      }
+      const trailPrice = hwm * (1 - parseFloat(rule.trailingStopPct) / 100);
+      if (currentPrice <= trailPrice && hwm > entryPrice) triggerType = "trailing_stop";
+    }
+    if (!triggerType && rule.stopLossPct) {
       const stopPrice = entryPrice * (1 - parseFloat(rule.stopLossPct) / 100);
       if (currentPrice <= stopPrice) triggerType = "stop_loss";
     }
@@ -135628,6 +135647,7 @@ async function checkProtectiveExits(conn) {
     const brokerConnection = conn?.status === "connected" ? { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret } : null;
     let orderId;
     let orderMode = "paper";
+    let sellConfirmed = false;
     try {
       const result = await submitOrder({
         signalId,
@@ -135643,34 +135663,45 @@ async function checkProtectiveExits(conn) {
       if (result.status === "accepted") {
         orderId = result.order.id;
         orderMode = result.order.mode === "live" ? "live" : "paper";
+        sellConfirmed = true;
+      } else if (result.status === "duplicate") {
+        sellConfirmed = true;
+      } else {
+        logger.warn(
+          { ruleId: rule.id, symbol: rule.symbol, status: result.status, reason: result.reason },
+          "autoTradeWorker: vente protectrice rejet\xE9e \u2014 position conserv\xE9e, nouvelle tentative au prochain cycle"
+        );
       }
     } catch (err) {
-      logger.error({ err, ruleId: rule.id }, "autoTradeWorker: submitOrder sortie protectrice \xE9chou\xE9");
+      logger.error({ err, ruleId: rule.id }, "autoTradeWorker: submitOrder sortie protectrice \xE9chou\xE9 \u2014 position conserv\xE9e");
     }
+    if (!sellConfirmed) continue;
     const slNote = rule.stopLossPct ? `Stop : ${(entryPrice * (1 - parseFloat(rule.stopLossPct) / 100)).toFixed(2)} $` : "";
     const tpNote = rule.takeProfitPct ? `Target : ${(entryPrice * (1 + parseFloat(rule.takeProfitPct) / 100)).toFixed(2)} $` : "";
+    const trailNote = rule.trailingStopPct ? `Trail : -${rule.trailingStopPct}% depuis ${hwm.toFixed(2)} $` : "";
+    const exitVerdict = triggerType === "stop_loss" ? "FORTE VENTE" : triggerType === "trailing_stop" ? "PROTECTION GAINS" : "PRISE DE PROFIT";
     await db.insert(autoTradeLogsTable).values({
       ruleId: rule.id,
       symbol: rule.symbol,
       side: "SELL",
       triggerType,
       signalScore: null,
-      signalVerdict: triggerType === "stop_loss" ? "FORTE VENTE" : "PRISE DE PROFIT",
+      signalVerdict: exitVerdict,
       price: String(currentPrice),
       quantity: String(openQty),
       orderId: orderId ?? null,
       notificationSent: false,
       notes: [
         `Entr\xE9e : ${entryPrice.toFixed(2)} $`,
-        triggerType === "stop_loss" ? slNote : tpNote
+        triggerType === "stop_loss" ? slNote : triggerType === "trailing_stop" ? trailNote : tpNote
       ].filter(Boolean).join(" | ")
     });
-    await db.update(autoTradeRulesTable).set({ openEntryPrice: null, openQuantity: null, openSince: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(autoTradeRulesTable.id, rule.id));
+    await db.update(autoTradeRulesTable).set({ openEntryPrice: null, openQuantity: null, openSince: null, highWaterMark: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(autoTradeRulesTable.id, rule.id));
     if (rule.notifyOnSignal) {
       await sendAutoTradeNotification({
         symbol: rule.symbol,
         side: "SELL",
-        verdict: triggerType === "stop_loss" ? "FORTE VENTE" : "PRISE DE PROFIT",
+        verdict: exitVerdict,
         score: 0,
         price: currentPrice,
         quantity: openQty,
@@ -135695,7 +135726,7 @@ async function checkDailyLossCircuitBreaker(conn) {
     ));
     let realizedPnL = 0;
     for (const o of todayOrders) {
-      const price = parseFloat(o.price ?? "0");
+      const price = parseFloat(o.fillPrice ?? o.expectedPrice ?? "0");
       const qty = parseFloat(o.quantity ?? "0");
       const value = price * qty;
       realizedPnL += o.side === "SELL" ? value : -value;
@@ -135705,7 +135736,7 @@ async function checkDailyLossCircuitBreaker(conn) {
         { realizedPnL, maxLoss },
         "autoTradeWorker: perte journali\xE8re max atteinte \u2014 kill-switch automatique"
       );
-      await db.update(brokerConnectionsTable).set({ tradingHalted: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(brokerConnectionsTable.id, conn.id));
+      await db.update(brokerConnectionsTable).set({ tradingHalted: true, haltedAt: /* @__PURE__ */ new Date() }).where(eq(brokerConnectionsTable.id, conn.id));
       notifyKillSwitchActivated(
         `Coupe-circuit automatique : perte journali\xE8re de ${Math.abs(realizedPnL).toFixed(2)} $ d\xE9passe le seuil de ${maxLoss.toFixed(2)} $.`
       ).catch((e) => logger.error({ e }, "autoTradeWorker: notification kill-switch circuit breaker \xE9chou\xE9e"));
@@ -135749,7 +135780,40 @@ async function processRule(rule, conn) {
   const shouldSell = isSellSignal && modeAllowsSell;
   if (!shouldBuy && !shouldSell) return;
   const side = shouldBuy ? "BUY" : "SELL";
-  const quantity = parseFloat(rule.quantity) || 1;
+  if (rule.confirmWeekly) {
+    try {
+      const weekly = await fetchOHLC(rule.symbol, "1wk", 730);
+      if (weekly.length < 55) {
+        logger.info(
+          { ruleId: rule.id, symbol: rule.symbol, weeklyBars: weekly.length },
+          "autoTradeWorker: donn\xE9es hebdo insuffisantes pour confirmation \u2014 skip"
+        );
+        return;
+      }
+      const wData = computeIndicators(weekly);
+      const wAnalysis = analyzeTradingSignals(wData, weekly[weekly.length - 1].close);
+      const confirms = side === "BUY" ? wAnalysis.score > 0 : wAnalysis.score < 0;
+      if (!confirms) {
+        logger.info(
+          { ruleId: rule.id, symbol: rule.symbol, dailyScore: analysis.score, weeklyScore: wAnalysis.score },
+          "autoTradeWorker: signal hebdo ne confirme pas \u2014 skip"
+        );
+        return;
+      }
+    } catch (err) {
+      logger.warn({ err, symbol: rule.symbol }, "autoTradeWorker: confirmation hebdo \xE9chou\xE9e \u2014 skip par prudence");
+      return;
+    }
+  }
+  let quantity = parseFloat(rule.quantity) || 1;
+  if (rule.sizingMode === "risk" && rule.riskAmount && rule.stopLossPct && side === "BUY") {
+    const riskAmount = parseFloat(rule.riskAmount);
+    const slPct = parseFloat(rule.stopLossPct) / 100;
+    if (riskAmount > 0 && slPct > 0 && currentPrice > 0) {
+      const riskPerShare = currentPrice * slPct;
+      quantity = Math.max(Math.floor(riskAmount / riskPerShare * 1e4) / 1e4, 1e-4);
+    }
+  }
   const signalId = `auto-${rule.id}-${Date.now()}`;
   let orderId;
   let notificationSent = false;
@@ -135783,6 +135847,8 @@ async function processRule(rule, conn) {
             openEntryPrice: String(newEntry),
             openQuantity: String(newQty),
             openSince: rule.openSince ?? now,
+            // Initialiser le plus-haut au prix d'entrée pour le trailing stop
+            highWaterMark: prevQty === 0 ? String(currentPrice) : rule.highWaterMark,
             updatedAt: now
           }).where(eq(autoTradeRulesTable.id, rule.id));
           rule.openQuantity = String(newQty);
@@ -135794,6 +135860,7 @@ async function processRule(rule, conn) {
             openQuantity: newQty > 0 ? String(newQty) : null,
             openEntryPrice: newQty > 0 ? rule.openEntryPrice : null,
             openSince: newQty > 0 ? rule.openSince : null,
+            highWaterMark: newQty > 0 ? rule.highWaterMark : null,
             updatedAt: now
           }).where(eq(autoTradeRulesTable.id, rule.id));
         }
@@ -135801,7 +135868,7 @@ async function processRule(rule, conn) {
         logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: ordre dupliqu\xE9, skip");
         return;
       } else {
-        logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: result.reason }, "autoTradeWorker: ordre rejet\xE9 par garde-fous");
+        logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: result.reason ?? "inconnu" }, "autoTradeWorker: ordre rejet\xE9 par garde-fous");
       }
     } catch (err) {
       logger.error({ err, ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: erreur lors de la soumission de l'ordre");
@@ -135866,8 +135933,144 @@ function startAutoTradeWorker(intervalMs = WORKER_INTERVAL_MS) {
   }, intervalMs);
 }
 
+// src/lib/backtest.ts
+var WARMUP = 55;
+function runBacktest(params) {
+  const { history, minScore, sideMode } = params;
+  const slPct = params.stopLossPct ?? null;
+  const tpPct = params.takeProfitPct ?? null;
+  const trailPct = params.trailingStopPct ?? null;
+  const cooldownBars = params.cooldownBars ?? 1;
+  const trades = [];
+  let inPosition = false;
+  let entryPrice = 0;
+  let entryDate = "";
+  let entryScore = 0;
+  let hwm = 0;
+  let lastExitBar = -Infinity;
+  const closeTrade = (exitPrice, exitDate, reason) => {
+    trades.push({
+      entryDate,
+      exitDate,
+      entryPrice,
+      exitPrice,
+      pnlPct: (exitPrice - entryPrice) / entryPrice * 100,
+      exitReason: reason,
+      score: entryScore
+    });
+    inPosition = false;
+  };
+  for (let i = WARMUP; i < history.length; i++) {
+    const bar = history[i];
+    const close = bar.close;
+    if (!close) continue;
+    if (inPosition) {
+      const low = bar.low ?? close;
+      const high = bar.high ?? close;
+      const stopPrice = slPct ? entryPrice * (1 - slPct / 100) : null;
+      const trailPrice = trailPct && hwm > entryPrice ? hwm * (1 - trailPct / 100) : null;
+      const tpPrice = tpPct ? entryPrice * (1 + tpPct / 100) : null;
+      if (stopPrice !== null && low <= stopPrice) {
+        closeTrade(stopPrice, bar.date, "stop_loss");
+        lastExitBar = i;
+        continue;
+      }
+      if (trailPrice !== null && low <= trailPrice) {
+        closeTrade(trailPrice, bar.date, "trailing_stop");
+        lastExitBar = i;
+        continue;
+      }
+      if (tpPrice !== null && high >= tpPrice) {
+        closeTrade(tpPrice, bar.date, "take_profit");
+        lastExitBar = i;
+        continue;
+      }
+      if (trailPct) hwm = Math.max(hwm, high);
+    }
+    const window2 = history.slice(0, i + 1);
+    const data = computeIndicators(window2);
+    const analysis = analyzeTradingSignals(data, close);
+    const score = analysis.score;
+    if (inPosition) {
+      const sellSignal = score <= -minScore;
+      if (sellSignal) {
+        closeTrade(close, bar.date, "signal");
+        lastExitBar = i;
+      }
+      continue;
+    }
+    if (i - lastExitBar < cooldownBars) continue;
+    const buyAllowed = sideMode === "buy" || sideMode === "both";
+    if (buyAllowed && score >= minScore) {
+      inPosition = true;
+      entryPrice = close;
+      entryDate = bar.date;
+      entryScore = score;
+      hwm = close;
+    }
+  }
+  if (inPosition && history.length > 0) {
+    const last = history[history.length - 1];
+    closeTrade(last.close, last.date, "end");
+  }
+  const wins = trades.filter((t) => t.pnlPct > 0);
+  const losses = trades.filter((t) => t.pnlPct <= 0);
+  const totalReturnPct = trades.reduce((s, t) => s + t.pnlPct, 0);
+  let cum = 0, peak = 0, maxDD = 0;
+  for (const t of trades) {
+    cum += t.pnlPct;
+    peak = Math.max(peak, cum);
+    maxDD = Math.max(maxDD, peak - cum);
+  }
+  const firstValid = history[WARMUP]?.close ?? history[0]?.close ?? 0;
+  const lastClose = history[history.length - 1]?.close ?? 0;
+  const buyHoldReturnPct = firstValid > 0 ? (lastClose - firstValid) / firstValid * 100 : 0;
+  return {
+    trades,
+    totalTrades: trades.length,
+    wins: wins.length,
+    losses: losses.length,
+    winRate: trades.length > 0 ? wins.length / trades.length : null,
+    totalReturnPct: Math.round(totalReturnPct * 100) / 100,
+    avgWinPct: wins.length > 0 ? Math.round(wins.reduce((s, t) => s + t.pnlPct, 0) / wins.length * 100) / 100 : null,
+    avgLossPct: losses.length > 0 ? Math.round(losses.reduce((s, t) => s + t.pnlPct, 0) / losses.length * 100) / 100 : null,
+    maxDrawdownPct: Math.round(maxDD * 100) / 100,
+    buyHoldReturnPct: Math.round(buyHoldReturnPct * 100) / 100,
+    bars: history.length
+  };
+}
+
 // src/routes/autoTrader.ts
 var router23 = (0, import_express23.Router)();
+function boundedNumber(v, min2, max2) {
+  return typeof v === "number" && Number.isFinite(v) && v >= min2 && v <= max2 ? v : void 0;
+}
+function validateRuleNumbers(b) {
+  const checks = [
+    [b.minScore, 10, 100, "minScore doit \xEAtre entre 10 et 100"],
+    [b.quantity, 1e-4, 1e6, "quantity doit \xEAtre entre 0.0001 et 1 000 000"],
+    [b.stopLossPct, 0.1, 50, "stopLossPct doit \xEAtre entre 0.1 et 50"],
+    [b.takeProfitPct, 0.1, 500, "takeProfitPct doit \xEAtre entre 0.1 et 500"],
+    [b.trailingStopPct, 0.1, 50, "trailingStopPct doit \xEAtre entre 0.1 et 50"],
+    [b.riskAmount, 1, 1e6, "riskAmount doit \xEAtre entre 1 et 1 000 000"],
+    [b.maxTradesPerDay, 1, 50, "maxTradesPerDay doit \xEAtre entre 1 et 50"],
+    [b.cooldownMinutes, 5, 10080, "cooldownMinutes doit \xEAtre entre 5 et 10080"]
+  ];
+  for (const [v, min2, max2, msg] of checks) {
+    if (v !== void 0 && v !== null && boundedNumber(v, min2, max2) === void 0) return msg;
+  }
+  if (b.sideMode !== void 0 && !["buy", "sell", "both"].includes(b.sideMode)) {
+    return 'sideMode doit \xEAtre "buy", "sell" ou "both"';
+  }
+  if (b.sizingMode === "risk") {
+    const risk = boundedNumber(b.riskAmount, 1, 1e6);
+    const sl = boundedNumber(b.stopLossPct, 0.1, 50);
+    if (risk === void 0 || sl === void 0) {
+      return 'le mode "risk" exige riskAmount (\u2265 1 $) et stopLossPct (> 0)';
+    }
+  }
+  return null;
+}
 router23.get("/auto-trader/rules", async (_req, res) => {
   try {
     const rules = await db.select().from(autoTradeRulesTable).orderBy(desc(autoTradeRulesTable.createdAt));
@@ -135888,6 +136091,10 @@ router23.post("/auto-trader/rules", async (req, res) => {
       accountId,
       stopLossPct,
       takeProfitPct,
+      trailingStopPct,
+      sizingMode,
+      riskAmount,
+      confirmWeekly,
       maxTradesPerDay,
       notifyOnSignal,
       cooldownMinutes
@@ -135895,6 +136102,8 @@ router23.post("/auto-trader/rules", async (req, res) => {
     if (!symbol2 || typeof symbol2 !== "string") {
       return res.status(400).json({ error: "symbol requis" });
     }
+    const vErr = validateRuleNumbers(req.body);
+    if (vErr) return res.status(400).json({ error: vErr });
     const [rule] = await db.insert(autoTradeRulesTable).values({
       symbol: symbol2.toUpperCase(),
       name: typeof name2 === "string" ? name2 : null,
@@ -135905,6 +136114,10 @@ router23.post("/auto-trader/rules", async (req, res) => {
       accountId: typeof accountId === "string" ? accountId : null,
       stopLossPct: typeof stopLossPct === "number" ? String(stopLossPct) : null,
       takeProfitPct: typeof takeProfitPct === "number" ? String(takeProfitPct) : null,
+      trailingStopPct: typeof trailingStopPct === "number" ? String(trailingStopPct) : null,
+      sizingMode: sizingMode === "risk" ? "risk" : "fixed",
+      riskAmount: typeof riskAmount === "number" && riskAmount > 0 ? String(riskAmount) : null,
+      confirmWeekly: typeof confirmWeekly === "boolean" ? confirmWeekly : false,
       maxTradesPerDay: typeof maxTradesPerDay === "number" ? maxTradesPerDay : 3,
       notifyOnSignal: typeof notifyOnSignal === "boolean" ? notifyOnSignal : true,
       cooldownMinutes: typeof cooldownMinutes === "number" ? cooldownMinutes : 240
@@ -135929,20 +136142,30 @@ router23.put("/auto-trader/rules/:id", async (req, res) => {
       accountId,
       stopLossPct,
       takeProfitPct,
+      trailingStopPct,
+      sizingMode,
+      riskAmount,
+      confirmWeekly,
       maxTradesPerDay,
       notifyOnSignal,
       cooldownMinutes,
       enabled
     } = req.body;
+    const vErr = validateRuleNumbers(req.body);
+    if (vErr) return res.status(400).json({ error: vErr });
     const [updated] = await db.update(autoTradeRulesTable).set({
-      ...symbol2 && { symbol: symbol2.toUpperCase() },
+      ...typeof symbol2 === "string" && symbol2 ? { symbol: symbol2.toUpperCase() } : {},
       ...name2 !== void 0 && { name: typeof name2 === "string" ? name2 : null },
-      ...sideMode && { sideMode },
+      ...typeof sideMode === "string" && sideMode ? { sideMode } : {},
       ...typeof minScore === "number" && { minScore },
       ...typeof quantity === "number" && { quantity: String(quantity) },
       ...accountId !== void 0 && { accountId: typeof accountId === "string" ? accountId : null },
       ...stopLossPct !== void 0 && { stopLossPct: typeof stopLossPct === "number" ? String(stopLossPct) : null },
       ...takeProfitPct !== void 0 && { takeProfitPct: typeof takeProfitPct === "number" ? String(takeProfitPct) : null },
+      ...trailingStopPct !== void 0 && { trailingStopPct: typeof trailingStopPct === "number" ? String(trailingStopPct) : null },
+      ...sizingMode !== void 0 && { sizingMode: sizingMode === "risk" ? "risk" : "fixed" },
+      ...riskAmount !== void 0 && { riskAmount: typeof riskAmount === "number" && riskAmount > 0 ? String(riskAmount) : null },
+      ...typeof confirmWeekly === "boolean" && { confirmWeekly },
       ...typeof maxTradesPerDay === "number" && { maxTradesPerDay },
       ...typeof notifyOnSignal === "boolean" && { notifyOnSignal },
       ...typeof cooldownMinutes === "number" && { cooldownMinutes },
@@ -135988,6 +136211,53 @@ router23.get("/auto-trader/logs", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "auto-trader: GET logs error");
     res.status(500).json({ error: "Erreur lors du chargement des logs" });
+  }
+});
+router23.post("/auto-trader/backtest", async (req, res) => {
+  try {
+    const {
+      symbol: symbol2,
+      minScore,
+      sideMode,
+      stopLossPct,
+      takeProfitPct,
+      trailingStopPct,
+      years
+    } = req.body;
+    if (!symbol2 || typeof symbol2 !== "string") {
+      return res.status(400).json({ error: "symbol requis" });
+    }
+    if (sideMode === "sell") {
+      return res.status(400).json({ error: 'Le backtest ne mod\xE9lise que les strat\xE9gies acheteuses (long) \u2014 mode "sell" non support\xE9' });
+    }
+    const vErr = validateRuleNumbers(req.body);
+    if (vErr) return res.status(400).json({ error: vErr });
+    const lookbackYears = typeof years === "number" && years >= 1 && years <= 5 ? years : 2;
+    const period1 = new Date(Date.now() - lookbackYears * 365 * 24 * 60 * 60 * 1e3);
+    const chart2 = await yahooFinance.chart(symbol2.toUpperCase(), { period1, interval: "1d" });
+    const history = (chart2.quotes ?? []).map((p) => ({
+      date: new Date(p.date).toISOString(),
+      open: p.open ?? null,
+      high: p.high ?? null,
+      low: p.low ?? null,
+      close: p.close ?? 0,
+      volume: p.volume ?? null
+    })).filter((p) => p.close > 0);
+    if (history.length < 120) {
+      return res.status(400).json({ error: "Historique insuffisant pour ce symbole (min ~6 mois)" });
+    }
+    const result = runBacktest({
+      history,
+      minScore: typeof minScore === "number" ? minScore : 60,
+      sideMode: sideMode === "buy" || sideMode === "sell" || sideMode === "both" ? sideMode : "both",
+      stopLossPct: typeof stopLossPct === "number" && stopLossPct > 0 ? stopLossPct : null,
+      takeProfitPct: typeof takeProfitPct === "number" && takeProfitPct > 0 ? takeProfitPct : null,
+      trailingStopPct: typeof trailingStopPct === "number" && trailingStopPct > 0 ? trailingStopPct : null
+    });
+    return res.json({ symbol: symbol2.toUpperCase(), years: lookbackYears, ...result });
+  } catch (err) {
+    logger.error({ err }, "auto-trader: POST backtest error");
+    return res.status(500).json({ error: "Erreur lors du backtest" });
   }
 });
 router23.post("/auto-trader/run", async (_req, res) => {
@@ -136050,7 +136320,7 @@ async function sendDailySummary() {
   ]);
   const killSwitchActive = conn?.tradingHalted ?? false;
   const totalOrders = todayOrders.length;
-  const autoOrders = todayOrders.filter((o) => o.source === "auto-signal").length;
+  const autoOrders = todayOrders.filter((o) => o.signalId.startsWith("auto-")).length;
   const manualOrders = totalOrders - autoOrders;
   const liveOrders = todayOrders.filter((o) => o.mode === "live").length;
   const totalTriggers = todayLogs.length;

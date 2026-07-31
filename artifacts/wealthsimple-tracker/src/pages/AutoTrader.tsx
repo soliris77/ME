@@ -9,6 +9,7 @@ import {
   Bot, Plus, Trash2, Power, PowerOff, ChevronDown, ChevronUp,
   TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
   Clock, Shield, Bell, BellOff, Play, ArrowUpRight, ArrowDownRight,
+  FlaskConical, Briefcase, CalendarCheck, Scale,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
@@ -28,6 +29,11 @@ interface AutoTradeRule {
   accountId: string | null;
   stopLossPct: string | null;
   takeProfitPct: string | null;
+  trailingStopPct: string | null;
+  highWaterMark: string | null;
+  sizingMode: "fixed" | "risk";
+  riskAmount: string | null;
+  confirmWeekly: boolean;
   maxTradesPerDay: number;
   notifyOnSignal: boolean;
   cooldownMinutes: number;
@@ -35,7 +41,25 @@ interface AutoTradeRule {
   lastTriggeredAt: string | null;
   lastSignalScore: number | null;
   lastSignalVerdict: string | null;
+  openEntryPrice: string | null;
+  openQuantity: string | null;
+  openSince: string | null;
   createdAt: string;
+}
+
+interface BacktestResult {
+  symbol: string;
+  years: number;
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  totalReturnPct: number;
+  avgWinPct: number | null;
+  avgLossPct: number | null;
+  maxDrawdownPct: number;
+  buyHoldReturnPct: number;
+  trades: { entryDate: string; exitDate: string; entryPrice: number; exitPrice: number; pnlPct: number; exitReason: string; score: number }[];
 }
 
 interface AutoTradeLog {
@@ -43,7 +67,7 @@ interface AutoTradeLog {
   ruleId: number;
   symbol: string;
   side: "BUY" | "SELL";
-  triggerType: "order" | "notification_only" | "stop_loss" | "take_profit";
+  triggerType: "order" | "notification_only" | "stop_loss" | "take_profit" | "trailing_stop";
   signalScore: number | null;
   signalVerdict: string | null;
   price: string | null;
@@ -235,9 +259,18 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
   const [quantity, setQuantity] = useState(parseFloat(rule?.quantity ?? "1"));
   const [stopLoss, setStopLoss] = useState(rule?.stopLossPct ? parseFloat(rule.stopLossPct) : 0);
   const [takeProfit, setTakeProfit] = useState(rule?.takeProfitPct ? parseFloat(rule.takeProfitPct) : 0);
+  const [trailingStop, setTrailingStop] = useState(rule?.trailingStopPct ? parseFloat(rule.trailingStopPct) : 0);
+  const [sizingMode, setSizingMode] = useState<"fixed" | "risk">(rule?.sizingMode ?? "fixed");
+  const [riskAmount, setRiskAmount] = useState(rule?.riskAmount ? parseFloat(rule.riskAmount) : 50);
+  const [confirmWeekly, setConfirmWeekly] = useState(rule?.confirmWeekly ?? false);
   const [maxTrades, setMaxTrades] = useState(rule?.maxTradesPerDay ?? 3);
   const [notify, setNotify] = useState(rule?.notifyOnSignal ?? true);
   const [cooldown, setCooldown] = useState(rule?.cooldownMinutes ?? 240);
+
+  // Backtest inline
+  const [btResult, setBtResult] = useState<BacktestResult | null>(null);
+  const [btLoading, setBtLoading] = useState(false);
+  const [btError, setBtError] = useState<string | null>(null);
 
   const isEdit = !!rule;
 
@@ -251,10 +284,43 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
       quantity,
       stopLossPct: stopLoss > 0 ? stopLoss : null,
       takeProfitPct: takeProfit > 0 ? takeProfit : null,
+      trailingStopPct: trailingStop > 0 ? trailingStop : null,
+      sizingMode,
+      riskAmount: sizingMode === "risk" && riskAmount > 0 ? riskAmount : null,
+      confirmWeekly,
       maxTradesPerDay: maxTrades,
       notifyOnSignal: notify,
       cooldownMinutes: cooldown,
     });
+  }
+
+  async function runBacktestNow() {
+    if (!symbol.trim()) return;
+    setBtLoading(true);
+    setBtError(null);
+    setBtResult(null);
+    try {
+      const r = await fetch(`${BASE}/api/auto-trader/backtest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: symbol.toUpperCase().trim(),
+          minScore,
+          sideMode,
+          stopLossPct: stopLoss > 0 ? stopLoss : null,
+          takeProfitPct: takeProfit > 0 ? takeProfit : null,
+          trailingStopPct: trailingStop > 0 ? trailingStop : null,
+          years: 2,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) { setBtError(data.error ?? "Erreur de backtest"); return; }
+      setBtResult(data as BacktestResult);
+    } catch {
+      setBtError("Le serveur ne répond pas");
+    } finally {
+      setBtLoading(false);
+    }
   }
 
   const inputCls = "w-full rounded-lg px-3 py-2 text-[13px] bg-background border border-border/60 text-foreground focus:outline-none focus:border-primary/60 font-mono";
@@ -328,22 +394,55 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
             </div>
           </div>
 
-          {/* Quantité + Cooldown */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Quantité (actions)</label>
-              <input type="number" min={0.001} step="any" className={inputCls} value={quantity}
-                onChange={e => setQuantity(parseFloat(e.target.value) || 1)} />
+          {/* Dimensionnement de position */}
+          <div>
+            <label className={labelCls}>Dimensionnement de la position</label>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button type="button" onClick={() => setSizingMode("fixed")}
+                className={`py-2 rounded-lg text-[11px] font-semibold border transition-colors ${
+                  sizingMode === "fixed" ? "bg-primary/10 border-primary/40 text-primary" : "border-border/40 text-muted-foreground hover:border-border"
+                }`}>
+                Quantité fixe
+              </button>
+              <button type="button" onClick={() => setSizingMode("risk")}
+                className={`py-2 rounded-lg text-[11px] font-semibold border transition-colors flex items-center justify-center gap-1 ${
+                  sizingMode === "risk" ? "bg-primary/10 border-primary/40 text-primary" : "border-border/40 text-muted-foreground hover:border-border"
+                }`}>
+                <Scale className="w-3 h-3" /> Par risque ($)
+              </button>
             </div>
-            <div>
-              <label className={labelCls}>Cooldown (minutes)</label>
-              <input type="number" min={30} step={30} className={inputCls} value={cooldown}
-                onChange={e => setCooldown(parseInt(e.target.value) || 240)} />
+            <div className="grid grid-cols-2 gap-3">
+              {sizingMode === "fixed" ? (
+                <div>
+                  <label className={labelCls}>Quantité (actions)</label>
+                  <input type="number" min={0.001} step="any" className={inputCls} value={quantity}
+                    onChange={e => setQuantity(parseFloat(e.target.value) || 1)} />
+                </div>
+              ) : (
+                <div>
+                  <label className={labelCls}>Montant risqué / trade ($)</label>
+                  <input type="number" min={1} step={5} className={inputCls} value={riskAmount}
+                    onChange={e => setRiskAmount(parseFloat(e.target.value) || 50)} />
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Quantité = risque ÷ (prix × SL%). Nécessite un Stop-Loss &gt; 0.
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Cooldown (minutes)</label>
+                <input type="number" min={30} step={30} className={inputCls} value={cooldown}
+                  onChange={e => setCooldown(parseInt(e.target.value) || 240)} />
+              </div>
             </div>
+            {sizingMode === "risk" && stopLoss <= 0 && (
+              <div className="text-[10px] text-yellow-400/90 mt-1.5 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> Le mode "Par risque" requiert un Stop-Loss — sinon la quantité fixe est utilisée.
+              </div>
+            )}
           </div>
 
-          {/* Stop-loss + Take-profit */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Stop-loss + Take-profit + Trailing */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Stop-Loss (%)</label>
               <input type="number" min={0} max={50} step={0.5} className={inputCls} value={stopLoss}
@@ -358,6 +457,79 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
                 placeholder="0 = désactivé" />
               <div className="text-[10px] text-muted-foreground mt-0.5">0 = désactivé</div>
             </div>
+            <div>
+              <label className={labelCls}>Trailing (%)</label>
+              <input type="number" min={0} max={50} step={0.5} className={inputCls} value={trailingStop}
+                onChange={e => setTrailingStop(parseFloat(e.target.value) || 0)}
+                placeholder="0 = désactivé" />
+              <div className="text-[10px] text-muted-foreground mt-0.5">suit le plus-haut</div>
+            </div>
+          </div>
+
+          {/* Confirmation hebdomadaire */}
+          <button
+            type="button"
+            onClick={() => setConfirmWeekly(v => !v)}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
+              confirmWeekly ? "bg-primary/10 border-primary/40 text-primary" : "border-border/40 text-muted-foreground hover:border-border"
+            }`}
+          >
+            <CalendarCheck className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-left flex-1">
+              Confirmation hebdomadaire {confirmWeekly ? "activée" : "désactivée"}
+              <span className="block text-[10px] opacity-70">Le signal 1 semaine doit pointer dans la même direction avant d'agir</span>
+            </span>
+          </button>
+
+          {/* Backtest */}
+          <div className="rounded-lg border border-border/40 p-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-1.5">
+                <FlaskConical className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] font-semibold text-foreground">Backtest — 2 ans de données</span>
+              </div>
+              <button
+                type="button"
+                onClick={runBacktestNow}
+                disabled={btLoading || !symbol.trim()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
+              >
+                {btLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                Tester la stratégie
+              </button>
+            </div>
+            {btError && <div className="text-[11px] text-red-400">{btError}</div>}
+            {btResult && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Trades", value: String(btResult.totalTrades), color: "text-foreground" },
+                    { label: "Taux de réussite", value: btResult.winRate !== null ? `${(btResult.winRate * 100).toFixed(0)}%` : "—",
+                      color: (btResult.winRate ?? 0) >= 0.5 ? "text-green-400" : "text-red-400" },
+                    { label: "Rendement", value: `${btResult.totalReturnPct >= 0 ? "+" : ""}${btResult.totalReturnPct.toFixed(1)}%`,
+                      color: btResult.totalReturnPct >= 0 ? "text-green-400" : "text-red-400" },
+                    { label: "Gain moyen", value: btResult.avgWinPct !== null ? `+${btResult.avgWinPct.toFixed(1)}%` : "—", color: "text-green-400/80" },
+                    { label: "Perte moyenne", value: btResult.avgLossPct !== null ? `${btResult.avgLossPct.toFixed(1)}%` : "—", color: "text-red-400/80" },
+                    { label: "Drawdown max", value: `-${btResult.maxDrawdownPct.toFixed(1)}%`, color: "text-yellow-400/80" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="bg-background/50 rounded-lg px-2 py-1.5">
+                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+                      <div className={`text-[13px] font-mono font-bold ${color}`}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Comparaison achat-conservation : {btResult.buyHoldReturnPct >= 0 ? "+" : ""}{btResult.buyHoldReturnPct.toFixed(1)}%
+                  {" · "}
+                  {btResult.totalReturnPct > btResult.buyHoldReturnPct
+                    ? <span className="text-green-400">la stratégie bat le marché ✓</span>
+                    : <span className="text-yellow-400/80">l'achat-conservation aurait fait mieux</span>}
+                </div>
+                <div className="text-[9px] text-muted-foreground/60">
+                  Performance passée ≠ résultats futurs. Simulation sans frais ni glissement.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Max trades + Notify */}
@@ -517,6 +689,21 @@ function RuleCard({
         {rule.takeProfitPct && (
           <span className="text-[10px] font-mono text-green-400/70">✅ TP {rule.takeProfitPct}%</span>
         )}
+        {rule.trailingStopPct && (
+          <span className="text-[10px] font-mono text-blue-400/70">🔃 Trail {rule.trailingStopPct}%</span>
+        )}
+        {rule.sizingMode === "risk" && rule.riskAmount && (
+          <span className="text-[10px] font-mono text-purple-400/70">
+            <Scale className="w-2.5 h-2.5 inline mr-0.5 opacity-70" />
+            Risque {parseFloat(rule.riskAmount).toFixed(0)} $/trade
+          </span>
+        )}
+        {rule.confirmWeekly && (
+          <span className="text-[10px] font-mono text-teal-400/70">
+            <CalendarCheck className="w-2.5 h-2.5 inline mr-0.5 opacity-70" />
+            Confirm. hebdo
+          </span>
+        )}
         <span className="text-[10px] font-mono text-muted-foreground">
           <Clock className="w-2.5 h-2.5 inline mr-1 opacity-50" />
           Cooldown {rule.cooldownMinutes}min
@@ -554,6 +741,7 @@ function RuleCard({
                   <span className="text-muted-foreground/60 font-mono text-[10px]">
                     {log.triggerType === "order" ? "✅ Ordre" :
                      log.triggerType === "stop_loss" ? "⛔ Stop-loss" :
+                     log.triggerType === "trailing_stop" ? "🔃 Trailing-stop" :
                      log.triggerType === "take_profit" ? "✅ Take-profit" : "📢 Notif."}
                   </span>
                   {log.signalScore !== null && (
@@ -575,6 +763,84 @@ function RuleCard({
 }
 
 /* ── Main Page ──────────────────────────────────────────── */
+/* ── Panneau des positions ouvertes avec P&L en direct ─────────────────────── */
+function OpenPositionsPanel({ rules }: { rules: AutoTradeRule[] }) {
+  const open = rules.filter(r => r.openQuantity && parseFloat(r.openQuantity) > 0 && r.openEntryPrice);
+  const symbols = [...new Set(open.map(r => r.symbol))];
+
+  const quotesQ = useQuery<{ symbol: string; price: number | null }[]>({
+    queryKey: ["auto-trade-open-quotes", symbols.join(",")],
+    queryFn: () => fetch(`${BASE}/api/quotes?symbols=${encodeURIComponent(symbols.join(","))}`).then(r => r.json()),
+    enabled: symbols.length > 0,
+    refetchInterval: 30_000,
+  });
+  const quotes: { symbol: string; price: number | null }[] = Array.isArray(quotesQ.data) ? quotesQ.data : [];
+
+  if (open.length === 0) return null;
+
+  const rows = open.map(r => {
+    const entry = parseFloat(r.openEntryPrice!);
+    const qty = parseFloat(r.openQuantity!);
+    const price = quotes.find(q => q.symbol === r.symbol)?.price ?? null;
+    const pnl = price !== null ? (price - entry) * qty : null;
+    const pnlPct = price !== null && entry > 0 ? ((price - entry) / entry) * 100 : null;
+    return { rule: r, entry, qty, price, pnl, pnlPct };
+  });
+  const totalPnl = rows.every(r => r.pnl === null) ? null : rows.reduce((s, r) => s + (r.pnl ?? 0), 0);
+
+  return (
+    <div className="mb-5 bg-card border border-border/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Briefcase className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Positions ouvertes ({open.length})
+          </span>
+        </div>
+        {totalPnl !== null && (
+          <span className={`text-[13px] font-mono font-bold ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {totalPnl >= 0 ? "+" : ""}{totalPnl.toFixed(2)} $
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {rows.map(({ rule, entry, qty, price, pnl, pnlPct }) => (
+          <div key={rule.id} className="flex items-center justify-between gap-3 rounded-lg bg-background/50 px-3 py-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-[13px] font-bold font-mono text-foreground">{rule.symbol}</span>
+              <span className="text-[11px] text-muted-foreground font-mono">
+                {qty} × {entry.toFixed(2)} $
+              </span>
+              {rule.openSince && (
+                <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
+                  depuis le {new Date(rule.openSince).toLocaleDateString("fr-CA")}
+                </span>
+              )}
+              {rule.trailingStopPct && rule.highWaterMark && (
+                <span className="text-[10px] text-muted-foreground/60 hidden md:inline font-mono">
+                  trail : {(parseFloat(rule.highWaterMark) * (1 - parseFloat(rule.trailingStopPct) / 100)).toFixed(2)} $
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-[12px] font-mono text-muted-foreground">
+                {price !== null ? `${price.toFixed(2)} $` : "…"}
+              </span>
+              {pnl !== null && pnlPct !== null ? (
+                <span className={`text-[12px] font-mono font-bold ${pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)} $ ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground/50">—</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AutoTrader() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -698,6 +964,9 @@ export default function AutoTrader() {
           avant de passer en Live. <strong>Ce système n'est pas un conseil financier.</strong>
         </div>
       </div>
+
+      {/* Positions ouvertes */}
+      <OpenPositionsPanel rules={rules} />
 
       {/* Rules list */}
       {rulesQ.isLoading ? (

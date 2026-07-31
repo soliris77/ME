@@ -21,9 +21,9 @@ import { notifyKillSwitchActivated } from "../lib/notifications";
 const WORKER_INTERVAL_MS = 60_000;
 const OHLC_DAYS = 90;
 
-async function fetchOHLC(symbol: string): Promise<OHLCPoint[]> {
-  const period1 = new Date(Date.now() - OHLC_DAYS * 24 * 60 * 60 * 1000);
-  const result = await yahooFinance.chart(symbol, { period1, interval: "1d" });
+async function fetchOHLC(symbol: string, interval: "1d" | "1wk" = "1d", days = OHLC_DAYS): Promise<OHLCPoint[]> {
+  const period1 = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const result = await yahooFinance.chart(symbol, { period1, interval });
   return (result.quotes ?? []).map((p: { date: string | number | Date; open?: number; high?: number; low?: number; close?: number; volume?: number }) => ({
     date: new Date(p.date).toISOString(),
     open: p.open ?? null,
@@ -56,7 +56,7 @@ async function sendAutoTradeNotification(params: {
   score: number;
   price: number;
   quantity: number;
-  triggerType: "order" | "notification_only" | "stop_loss" | "take_profit";
+  triggerType: "order" | "notification_only" | "stop_loss" | "take_profit" | "trailing_stop";
   orderMode?: "paper" | "live";
 }) {
   const { symbol, side, verdict, score, price, quantity, triggerType, orderMode } = params;
@@ -65,6 +65,7 @@ async function sendAutoTradeNotification(params: {
   const action = side === "BUY" ? "ACHAT" : "VENTE";
   const typeLabel =
     triggerType === "stop_loss"   ? "⛔ Stop-Loss déclenché" :
+    triggerType === "trailing_stop" ? "🔃 Trailing-Stop déclenché" :
     triggerType === "take_profit" ? "✅ Take-Profit déclenché" :
     triggerType === "order"       ? `${sideEmoji} Ordre automatique ${orderMode === "live" ? "(LIVE)" : "(paper)"}` :
     `${sideEmoji} Signal fort détecté (notification)`;
@@ -88,6 +89,7 @@ async function sendAutoTradeNotification(params: {
       const tagColor  = side === "BUY" ? "#10b981" : "#ef4444";
       const typeLabel =
         triggerType === "stop_loss"   ? "⛔ Stop-Loss déclenché" :
+        triggerType === "trailing_stop" ? "🔃 Trailing-Stop déclenché" :
         triggerType === "take_profit" ? "✅ Take-Profit déclenché" :
         triggerType === "order"       ? `${sideEmoji} Ordre automatique${orderMode === "live" ? " (LIVE)" : " (paper)"}` :
         `${sideEmoji} Signal fort détecté`;
@@ -130,7 +132,7 @@ async function checkProtectiveExits(
   const rulesWithPositions = allRules.filter(r =>
     r.openQuantity && parseFloat(r.openQuantity as string) > 0 &&
     r.openEntryPrice &&
-    (r.stopLossPct || r.takeProfitPct),
+    (r.stopLossPct || r.takeProfitPct || r.trailingStopPct),
   );
 
   if (rulesWithPositions.length === 0) return;
@@ -160,9 +162,24 @@ async function checkProtectiveExits(
     const entryPrice = parseFloat(rule.openEntryPrice as string);
     const openQty   = parseFloat(rule.openQuantity as string);
 
-    let triggerType: "stop_loss" | "take_profit" | null = null;
+    let triggerType: "stop_loss" | "take_profit" | "trailing_stop" | null = null;
 
-    if (rule.stopLossPct) {
+    // ── Trailing stop : mettre à jour le plus-haut, vendre si retracement ─────
+    let hwm = rule.highWaterMark ? parseFloat(rule.highWaterMark as string) : entryPrice;
+    if (rule.trailingStopPct) {
+      if (currentPrice > hwm) {
+        hwm = currentPrice;
+        await db.update(autoTradeRulesTable)
+          .set({ highWaterMark: String(hwm), updatedAt: new Date() })
+          .where(eq(autoTradeRulesTable.id, rule.id));
+      }
+      const trailPrice = hwm * (1 - parseFloat(rule.trailingStopPct as string) / 100);
+      // Le trailing ne se déclenche que si la position est au moins revenue au-dessus
+      // de l'entrée une fois (hwm > entry), sinon le stop-loss fixe fait le travail.
+      if (currentPrice <= trailPrice && hwm > entryPrice) triggerType = "trailing_stop";
+    }
+
+    if (!triggerType && rule.stopLossPct) {
       const stopPrice = entryPrice * (1 - parseFloat(rule.stopLossPct as string) / 100);
       if (currentPrice <= stopPrice) triggerType = "stop_loss";
     }
@@ -184,6 +201,7 @@ async function checkProtectiveExits(
 
     let orderId: number | undefined;
     let orderMode: "paper" | "live" = "paper";
+    let sellConfirmed = false;
     try {
       const result = await submitOrder({
         signalId,
@@ -198,34 +216,51 @@ async function checkProtectiveExits(
       if (result.status === "accepted") {
         orderId = (result.order as { id?: number }).id;
         orderMode = (result.order as { mode?: string }).mode === "live" ? "live" : "paper";
+        sellConfirmed = true;
+      } else if (result.status === "duplicate") {
+        // Ordre déjà soumis lors d'un cycle précédent : la sortie est en cours.
+        sellConfirmed = true;
+      } else {
+        logger.warn(
+          { ruleId: rule.id, symbol: rule.symbol, status: result.status, reason: (result as { reason?: string }).reason },
+          "autoTradeWorker: vente protectrice rejetée — position conservée, nouvelle tentative au prochain cycle",
+        );
       }
     } catch (err) {
-      logger.error({ err, ruleId: rule.id }, "autoTradeWorker: submitOrder sortie protectrice échoué");
+      logger.error({ err, ruleId: rule.id }, "autoTradeWorker: submitOrder sortie protectrice échoué — position conservée");
     }
+
+    // Ne JAMAIS effacer l'état de la position si la vente n'a pas été confirmée :
+    // sinon le suivi SL/TP/trailing s'arrête alors que la position réelle reste ouverte.
+    if (!sellConfirmed) continue;
 
     // Log en base
     const slNote  = rule.stopLossPct   ? `Stop : ${(entryPrice * (1 - parseFloat(rule.stopLossPct as string) / 100)).toFixed(2)} $` : "";
     const tpNote  = rule.takeProfitPct ? `Target : ${(entryPrice * (1 + parseFloat(rule.takeProfitPct as string) / 100)).toFixed(2)} $` : "";
+    const trailNote = rule.trailingStopPct ? `Trail : -${rule.trailingStopPct}% depuis ${hwm.toFixed(2)} $` : "";
+    const exitVerdict =
+      triggerType === "stop_loss"     ? "FORTE VENTE" :
+      triggerType === "trailing_stop" ? "PROTECTION GAINS" : "PRISE DE PROFIT";
     await db.insert(autoTradeLogsTable).values({
       ruleId: rule.id,
       symbol: rule.symbol,
       side: "SELL",
       triggerType,
       signalScore: null,
-      signalVerdict: triggerType === "stop_loss" ? "FORTE VENTE" : "PRISE DE PROFIT",
+      signalVerdict: exitVerdict,
       price: String(currentPrice),
       quantity: String(openQty),
       orderId: orderId ?? null,
       notificationSent: false,
       notes: [
         `Entrée : ${entryPrice.toFixed(2)} $`,
-        triggerType === "stop_loss" ? slNote : tpNote,
+        triggerType === "stop_loss" ? slNote : triggerType === "trailing_stop" ? trailNote : tpNote,
       ].filter(Boolean).join(" | "),
     });
 
-    // Effacer la position
+    // Effacer la position (et le plus-haut du trailing)
     await db.update(autoTradeRulesTable)
-      .set({ openEntryPrice: null, openQuantity: null, openSince: null, updatedAt: new Date() })
+      .set({ openEntryPrice: null, openQuantity: null, openSince: null, highWaterMark: null, updatedAt: new Date() })
       .where(eq(autoTradeRulesTable.id, rule.id));
 
     // Notification SMS
@@ -233,7 +268,7 @@ async function checkProtectiveExits(
       await sendAutoTradeNotification({
         symbol: rule.symbol,
         side: "SELL",
-        verdict: triggerType === "stop_loss" ? "FORTE VENTE" : "PRISE DE PROFIT",
+        verdict: exitVerdict,
         score: 0,
         price: currentPrice,
         quantity: openQty,
@@ -271,7 +306,7 @@ async function checkDailyLossCircuitBreaker(
 
     let realizedPnL = 0;
     for (const o of todayOrders) {
-      const price = parseFloat(o.price as string ?? "0");
+      const price = parseFloat((o.fillPrice ?? o.expectedPrice ?? "0") as string);
       const qty   = parseFloat(o.quantity as string ?? "0");
       const value = price * qty;
       realizedPnL += o.side === "SELL" ? value : -value;
@@ -285,7 +320,7 @@ async function checkDailyLossCircuitBreaker(
       );
 
       await db.update(brokerConnectionsTable)
-        .set({ tradingHalted: true, updatedAt: new Date() })
+        .set({ tradingHalted: true, haltedAt: new Date() })
         .where(eq(brokerConnectionsTable.id, conn.id));
 
       notifyKillSwitchActivated(
@@ -350,7 +385,48 @@ async function processRule(
   if (!shouldBuy && !shouldSell) return;
 
   const side: "BUY" | "SELL" = shouldBuy ? "BUY" : "SELL";
-  const quantity = parseFloat(rule.quantity as string) || 1;
+
+  // ── Confirmation multi-timeframe (hebdomadaire) ────────────────────────────
+  // Exige que le signal 1wk pointe dans la même direction avant d'agir.
+  if (rule.confirmWeekly) {
+    try {
+      const weekly = await fetchOHLC(rule.symbol, "1wk", 730);
+      if (weekly.length < 55) {
+        // Pas assez d'historique pour un signal hebdo fiable : une règle qui EXIGE
+        // la confirmation doit refuser le trade, pas le laisser passer.
+        logger.info(
+          { ruleId: rule.id, symbol: rule.symbol, weeklyBars: weekly.length },
+          "autoTradeWorker: données hebdo insuffisantes pour confirmation — skip",
+        );
+        return;
+      }
+      const wData = computeIndicators(weekly);
+      const wAnalysis = analyzeTradingSignals(wData, weekly[weekly.length - 1].close);
+      const confirms = side === "BUY" ? wAnalysis.score > 0 : wAnalysis.score < 0;
+      if (!confirms) {
+        logger.info(
+          { ruleId: rule.id, symbol: rule.symbol, dailyScore: analysis.score, weeklyScore: wAnalysis.score },
+          "autoTradeWorker: signal hebdo ne confirme pas — skip",
+        );
+        return;
+      }
+    } catch (err) {
+      logger.warn({ err, symbol: rule.symbol }, "autoTradeWorker: confirmation hebdo échouée — skip par prudence");
+      return;
+    }
+  }
+
+  // ── Dimensionnement de la position ─────────────────────────────────────────
+  // "fixed" : quantité fixe. "risk" : quantité = montant risqué ÷ (prix × SL%).
+  let quantity = parseFloat(rule.quantity as string) || 1;
+  if (rule.sizingMode === "risk" && rule.riskAmount && rule.stopLossPct && side === "BUY") {
+    const riskAmount = parseFloat(rule.riskAmount as string);
+    const slPct = parseFloat(rule.stopLossPct as string) / 100;
+    if (riskAmount > 0 && slPct > 0 && currentPrice > 0) {
+      const riskPerShare = currentPrice * slPct;
+      quantity = Math.max(Math.floor((riskAmount / riskPerShare) * 10000) / 10000, 0.0001);
+    }
+  }
 
   // ── Passer l'ordre ou juste notifier ───────────────────────────────────────
   const signalId = `auto-${rule.id}-${Date.now()}`;
@@ -398,6 +474,8 @@ async function processRule(
               openEntryPrice: String(newEntry),
               openQuantity:   String(newQty),
               openSince:      rule.openSince ?? now,
+              // Initialiser le plus-haut au prix d'entrée pour le trailing stop
+              highWaterMark:  prevQty === 0 ? String(currentPrice) : rule.highWaterMark,
               updatedAt:      now,
             })
             .where(eq(autoTradeRulesTable.id, rule.id));
@@ -412,6 +490,7 @@ async function processRule(
               openQuantity:   newQty > 0 ? String(newQty) : null,
               openEntryPrice: newQty > 0 ? rule.openEntryPrice : null,
               openSince:      newQty > 0 ? rule.openSince : null,
+              highWaterMark:  newQty > 0 ? rule.highWaterMark : null,
               updatedAt:      now,
             })
             .where(eq(autoTradeRulesTable.id, rule.id));
@@ -420,7 +499,7 @@ async function processRule(
         logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: ordre dupliqué, skip");
         return;
       } else {
-        logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: result.reason }, "autoTradeWorker: ordre rejeté par garde-fous");
+        logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: (result as { reason?: string }).reason ?? "inconnu" }, "autoTradeWorker: ordre rejeté par garde-fous");
       }
     } catch (err) {
       logger.error({ err, ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: erreur lors de la soumission de l'ordre");

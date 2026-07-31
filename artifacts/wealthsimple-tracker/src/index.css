@@ -121,6 +121,8 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  --ease-precision: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ─── DARK MODE — Soliris Market Design System ─── */
@@ -427,9 +429,6 @@
 /* ─── Rolex-inspired interaction language ───
    Slow, precise, deliberate easing; gold sheen sweep on primary actions;
    understated underline reveals on links; nothing bounces or snaps. */
-:root {
-  --ease-precision: cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 /* Gold sheen sweep — used on primary CTA buttons */
 .btn-sheen {
@@ -516,4 +515,133 @@
 .figure-glow:hover {
   color: hsl(var(--primary));
   text-shadow: 0 0 18px hsl(var(--primary) / 0.35);
+}
+
+/* ─── Premium micro-interactions ───────────────────────────────────────────── */
+
+/* Button press feedback */
+@keyframes buttonPress {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+}
+.btn-press:active {
+  animation: buttonPress 0.2s var(--ease-precision);
+}
+
+/* Success ripple (green) */
+@keyframes successRipple {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+.success-ripple {
+  animation: successRipple 0.6s var(--ease-precision);
+}
+
+/* Error shake */
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+.error-shake {
+  animation: errorShake 0.5s var(--ease-precision);
+}
+
+/* Value change pulse (prices going up/down) */
+@keyframes priceUp {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(22, 163, 74, 0.15); }
+  100% { background-color: transparent; }
+}
+@keyframes priceDown {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(220, 38, 38, 0.15); }
+  100% { background-color: transparent; }
+}
+.price-up-flash {
+  animation: priceUp 0.6s var(--ease-precision);
+}
+.price-down-flash {
+  animation: priceDown 0.6s var(--ease-precision);
+}
+
+/* Skeleton loading shimmer (enhanced) */
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted-foreground) / 0.08) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+/* Card hover depth */
+.card-hover-depth {
+  transition: transform 0.4s var(--ease-precision), box-shadow 0.4s var(--ease-precision);
+}
+.card-hover-depth:hover {
+  transform: translateY(-2px) scale(1.005);
+  box-shadow: 
+    0 0 0 1px hsl(var(--primary) / 0.1),
+    0 8px 24px -4px hsl(var(--primary) / 0.12),
+    0 16px 48px -8px rgba(0, 0, 0, 0.3);
+}
+
+/* Badge notification bounce */
+@keyframes badgeBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.badge-bounce {
+  animation: badgeBounce 0.5s var(--ease-precision);
+}
+
+/* Smooth height transition for collapsible */
+.collapse-smooth {
+  transition: height 0.4s var(--ease-precision), opacity 0.3s ease-out;
+  overflow: hidden;
+}
+
+/* Tab underline slide */
+.tab-underline {
+  position: relative;
+}
+.tab-underline::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: hsl(var(--primary));
+  transform: scaleX(0);
+  transition: transform 0.4s var(--ease-precision);
+}
+.tab-underline.active::after {
+  transform: scaleX(1);
+}
+
+/* Focus ring premium */
+.focus-ring-premium:focus-visible {
+  outline: none;
+  box-shadow: 
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--primary) / 0.4),
+    0 4px 12px hsl(var(--primary) / 0.2);
+}
+
+/* Pulse alert (for critical notifications) */
+@keyframes pulseAlert {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+.pulse-alert {
+  animation: pulseAlert 1.2s ease-in-out infinite;
 }

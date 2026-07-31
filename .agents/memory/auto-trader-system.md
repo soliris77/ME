@@ -49,6 +49,16 @@ Colonnes ajoutées: lastDailySummaryDate (YYYY-MM-DD), maxDailyLossAmount (text/
 - SMS contient: kill-switch, ordres du jour, déclenchements auto, positions ouvertes avec %PnL + distances SL/TP
 - Route test: POST /api/daily-summary/run
 
+## Ajouts "auto-trade max" (juillet 2026)
+- Trailing stop : cols `trailing_stop_pct` + `high_water_mark` — HWM initialisé à l'entrée, mis à jour chaque cycle, effacé à la sortie complète. Trailing ne s'arme que si HWM > prix d'entrée.
+- Sizing par risque : `sizing_mode` ("fixed"/"risk") + `risk_amount` — quantité = risque ÷ (prix × SL%). API refuse mode "risk" sans riskAmount + stopLossPct.
+- Confirmation hebdo : `confirm_weekly` — signal 1wk même direction requis ; données insuffisantes (<55 barres) ou erreur ⇒ refus du trade (fail-closed).
+- Backtest : `src/lib/backtest.ts` + POST /api/auto-trader/backtest (long-only, mode "sell" rejeté). Trailing évalué avec le HWM des barres précédentes (pas de lookahead intrabar) ; HWM mis à jour APRÈS les sorties du jour.
+- **Règle critique** : checkProtectiveExits ne vide l'état de position QUE si la vente est confirmée (accepted/duplicate) — sinon la position réelle resterait non surveillée.
+- Validation stricte des règles côté API (bornes sur tous les champs numériques) via validateRuleNumbers().
+- UI : OpenPositionsPanel (P&L live via /api/quotes), backtest inline dans RuleForm, badges Trail/Risque/Confirm hebdo.
+- Bugs préexistants corrigés : orders n'a pas de colonne price (→ fillPrice/expectedPrice) ni source (→ préfixe signalId "auto-") ; broker_connections n'a pas updatedAt (→ haltedAt).
+
 ## Points d'extension restants
 - Filtrage par force de signal (minStrength "moyen"/"fort") — pattern validé dans alertes, à reprendre sur auto_trade_rules
 - Email : emailClient.ts est un stub — SMS Twilio est le canal opérationnel

@@ -78,7 +78,7 @@ export async function sendDailySummary(): Promise<void> {
 
   // Ordres du jour
   const totalOrders  = todayOrders.length;
-  const autoOrders   = todayOrders.filter(o => o.source === "auto-signal").length;
+  const autoOrders   = todayOrders.filter(o => o.signalId.startsWith("auto-")).length;
   const manualOrders = totalOrders - autoOrders;
   const liveOrders   = todayOrders.filter(o => o.mode === "live").length;
 
