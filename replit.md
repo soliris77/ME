@@ -17,3 +17,5 @@ Application mono-utilisateur protégée par un seul mot de passe (secret `AUTH_P
 ## User preferences
 
 - Travailler la liste de fonctionnalités par palier de priorité (CRITIQUE → IMPORTANT → AGRÉABLE À AVOIR) : montrer le code d'un palier et attendre confirmation avant de passer au suivant, plutôt que tout construire d'un coup.
+
+- Préférence : solutions gratuites uniquement, pas d'API ou de services payants à long terme.

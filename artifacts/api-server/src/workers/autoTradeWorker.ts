@@ -695,6 +695,20 @@ export function computeRuleQuantity(
   return quantity;
 }
 
+// Classe un log d'auto-trade en résultat pour le réviseur local :
+// - "loss"    : stop-loss touché, OU ordre non passé (rejeté/bloqué/erreur/échec)
+// - "win"     : take-profit atteint
+// - "neutral" : autre (ordre passé sans issue connue, trailing-stop, notif…)
+export function classifyOutcome(l: typeof autoTradeLogsTable.$inferSelect): "win" | "loss" | "neutral" {
+  if (l.triggerType === "stop_loss") return "loss";
+  if (l.triggerType === "take_profit") return "win";
+  // Ordres non exécutés / bloqués : détectés via le verdict IA ou les notes.
+  if (l.aiVerdict === "block") return "loss";
+  const notes = (l.notes ?? "").toLowerCase();
+  if (/(rejet|bloqu|erreur|échec|echec)/.test(notes)) return "loss";
+  return "neutral";
+}
+
 // ── Second avis IA (hook partagé) ─────────────────────────────────────────────
 // Appelé juste avant submitOrder par les DEUX chemins de soumission (signaux
 // techniques et copy-trading). Auto-contenu et FAIL-OPEN : ne bloque JAMAIS un
@@ -715,6 +729,7 @@ export async function runAiSecondOpinion(params: {
   if (!rule.aiReview) return null;
 
   let recentOutcomes: string[] = [];
+  let recentTradeOutcomes: ("win" | "loss" | "neutral")[] = [];
   try {
     const recent = await db.select().from(autoTradeLogsTable)
       .where(eq(autoTradeLogsTable.ruleId, rule.id))
@@ -730,6 +745,10 @@ export async function runAiSecondOpinion(params: {
       ].filter(Boolean);
       return parts.join(" ");
     });
+    // Classification structurée (du plus récent au plus ancien) pour le réviseur
+    // local : perte = stop-loss touché OU ordre rejeté/bloqué/en erreur ;
+    // gain = take-profit ; sinon neutre.
+    recentTradeOutcomes = recent.map((l) => classifyOutcome(l));
   } catch (err) {
     // Contexte historique optionnel : une lecture échouée ne doit pas empêcher l'avis.
     logger.warn({ err, ruleId: rule.id }, "aiReview: lecture des logs récents échouée — avis sans historique");
@@ -748,6 +767,7 @@ export async function runAiSecondOpinion(params: {
       sideMode: rule.sideMode ?? null,
       minScore: rule.minScore ?? null,
       recentOutcomes,
+      recentTradeOutcomes,
       source,
     });
   } catch (err) {
@@ -860,16 +880,15 @@ export async function processRule(
       signalScore: analysis.score, signalVerdict: analysis.overall,
       source: "technical",
     });
+    // Le réviseur (local ou OpenAI) rend toujours un avis ; null n'arrive que
+    // sur exception totalement inattendue → fail-open (l'ordre passe, aiVerdict null).
     if (opinion) {
       aiVerdict = opinion.verdict;
       aiReason = opinion.reason;
       if (opinion.verdict === "block") {
         aiBlocked = true;
-        logger.info({ ruleId: rule.id, symbol: rule.symbol, side, reason: opinion.reason }, "autoTradeWorker: ordre bloqué par le second avis IA");
+        logger.info({ ruleId: rule.id, symbol: rule.symbol, side, reason: opinion.reason }, "autoTradeWorker: ordre bloqué par le second avis");
       }
-    } else {
-      // IA indisponible / non configurée / erreur → fail-open (l'ordre passe).
-      aiReason = "avis IA indisponible";
     }
   }
 
@@ -1189,11 +1208,11 @@ export async function processCopySignal(event: CopySignalEvent): Promise<void> {
         signalScore: null, signalVerdict: "COPY-TRADING",
         source: "copy",
       });
+      // Un avis est toujours rendu (local ou OpenAI) ; null = exception
+      // inattendue → fail-open (l'ordre passe, aiVerdict null).
       if (opinion) {
         aiVerdict = opinion.verdict;
         aiReason = opinion.reason;
-      } else {
-        aiReason = "avis IA indisponible";
       }
     }
 

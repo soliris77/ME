@@ -70,3 +70,5 @@ basé sur les signaux techniques existants (RSI, MACD, SMA, Bollinger).
 **Sources de signaux (juillet 2026)** : toute nouvelle source de signal (ex. copy trading) doit réutiliser `checkRuleEntryGuardrails` + `computeRuleQuantity` du worker — jamais réimplémenter quotas/cooldown/sizing, et fail closed sans cotation. Réclamation atomique des événements source (INSERT ... ON CONFLICT DO NOTHING) avant émission.
 
 **Second avis IA (juillet 2026)** : hook getAiSecondOpinion (lib/aiReview.ts, OpenAI, fail-open sans clé) avant submitOrder sur les deux chemins ; cycles du worker sérialisés par verrou in-flight (les attentes IA de 10 s peuvent faire chevaucher les ticks de 60 s → double ordre sinon) ; tout blocage IA doit être tracé avec try/catch dédié.
+
+**Correction (même jour)** : l'utilisateur refuse toute API payante — le second avis est désormais un examinateur LOCAL déterministe (localSecondOpinion dans lib/aiReview.ts, gratuit, sans clé) ; OpenAI n'est qu'un bonus optionnel avec repli local sur toute erreur. Préférence utilisateur : solutions gratuites, pas d'abonnements/API payantes.

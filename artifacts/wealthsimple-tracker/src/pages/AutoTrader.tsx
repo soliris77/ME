@@ -526,7 +526,7 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
             <Bot className="w-3.5 h-3.5 shrink-0" />
             <span className="text-left flex-1">
               Second avis IA {aiReview ? "activé" : "désactivé"}
-              <span className="block text-[10px] opacity-70">Une IA vérifie le contexte avant chaque ordre et peut bloquer un trade douteux (nécessite une clé OpenAI). Sans clé, les ordres passent normalement.</span>
+              <span className="block text-[10px] opacity-70">Une vérification intelligente intégrée (gratuite) analyse le contexte avant chaque ordre et peut bloquer un trade douteux.</span>
             </span>
           </button>
 

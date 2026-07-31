@@ -173,7 +173,7 @@ describe("processRule — second avis IA", () => {
     expect(log!.values.triggerType).toBe("order");
   });
 
-  it("IA indisponible (null) → ordre soumis (fail-open), ai_verdict null", async () => {
+  it("avis null (exception inattendue) → ordre soumis (fail-open), ai_verdict/ai_reason null", async () => {
     const rule = makeRule({ aiReview: true });
     h.getAiSecondOpinion.mockResolvedValue(null);
 
@@ -183,7 +183,7 @@ describe("processRule — second avis IA", () => {
     expect(h.submitOrder).toHaveBeenCalledTimes(1);
     const log = h.state.inserts.find(i => i.table === h.logsTable);
     expect(log!.values.aiVerdict).toBeNull();
-    expect(log!.values.aiReason).toBe("avis IA indisponible");
+    expect(log!.values.aiReason).toBeNull();
   });
 
   it("rule.aiReview = false → getAiSecondOpinion JAMAIS appelé, ordre soumis", async () => {
