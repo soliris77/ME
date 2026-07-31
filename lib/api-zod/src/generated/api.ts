@@ -415,6 +415,28 @@ export const UpdateLearnProgressResponse = zod.object({
 
 
 /**
+ * @summary Server-verified status of each guided-course practice exercise
+ */
+export const GetPracticeStatusesResponseItem = zod.object({
+  "slug": zod.string(),
+  "done": zod.boolean(),
+  "criteria": zod.string(),
+  "detail": zod.string()
+})
+export const GetPracticeStatusesResponse = zod.array(GetPracticeStatusesResponseItem)
+
+
+/**
+ * @summary Record real usage of a client-only tool (calculator, correlation)
+ */
+export const RecordPracticeEventBody = zod.object({
+  "tool": zod.enum(['calculator', 'calculator-rr', 'correlation'])
+})
+
+export const RecordPracticeEventResponse = zod.void()
+
+
+/**
  * @summary Get all price alerts
  */
 export const GetAlertsResponseItem = zod.object({

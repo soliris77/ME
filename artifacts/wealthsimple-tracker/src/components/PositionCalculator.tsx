@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { X, Calculator, AlertTriangle, CheckCircle2, Info, TrendingUp } from "lucide-react";
 import { suggestStopLoss, suggestTarget } from "@/lib/stopSuggestion";
+import { recordPracticeEvent } from "@workspace/api-client-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,22 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentL
 
     return { units, riskDollar: actualRiskDollar, totalPosition, leverage, rrRatio, rewardDollar, riskPerShare };
   }, [capital, riskPct, entryPrice, stopPrice, targetPrice]);
+
+  // Exercice pratique du parcours guidé : un calcul complet valide compte comme
+  // pratique réelle. On enregistre au plus un événement "calculator" (calcul de
+  // taille) et un "calculator-rr" (avec objectif → ratio R:R) par ouverture.
+  const sentCalcEvent = useRef(false);
+  const sentRrEvent = useRef(false);
+  useEffect(() => {
+    if (calc && !sentCalcEvent.current) {
+      sentCalcEvent.current = true;
+      recordPracticeEvent({ tool: "calculator" }).catch(() => {});
+    }
+    if (calc?.rrRatio != null && !sentRrEvent.current) {
+      sentRrEvent.current = true;
+      recordPracticeEvent({ tool: "calculator-rr" }).catch(() => {});
+    }
+  }, [calc]);
 
   const stopErr = stopPrice && entryPrice && parseFloat(stopPrice) >= parseFloat(entryPrice);
   const rrQuality = calc?.rrRatio == null ? null : calc.rrRatio >= 3 ? "excellent" : calc.rrRatio >= 2 ? "good" : calc.rrRatio >= 1 ? "ok" : "poor";

@@ -11,6 +11,7 @@ import { and, gte, lt, asc } from "drizzle-orm";
 import { computeRealizedDailyPnL } from "../workers/autoTradeWorker";
 import { analyzeDayTrades } from "../lib/tradeAnalysis";
 import { getRiskSettings } from "../lib/settings";
+import { recordPracticeEvent } from "../lib/practiceValidation";
 
 const router = Router();
 
@@ -29,6 +30,17 @@ router.get("/debrief", async (req, res) => {
       dayStart.setUTCHours(0, 0, 0, 0);
     }
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    // Exercice pratique du parcours : consulter le débriefing du jour compte
+    // comme pratique réelle (leçons psychologie / biais cognitifs). On
+    // n'enregistre que la consultation du jour courant, en tâche de fond.
+    {
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      if (dayStart.getTime() === todayStart.getTime()) {
+        recordPracticeEvent("debrief").catch((err) => req.log.warn({ err }, "practice event debrief failed"));
+      }
+    }
 
     const [ordersUpToDay, dayLogs, dayAudit] = await Promise.all([
       // Historique complet jusqu'à la fin du jour — nécessaire pour reconstituer

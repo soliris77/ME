@@ -5,7 +5,7 @@ import { LESSONS, lessonBySlug, lessonSectionId } from "@/data/parcoursContent";
 import { LessonQuiz } from "@/components/LessonQuiz";
 import { PositionCalculator } from "@/components/PositionCalculator";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { useGetLearnProgress, useUpdateLearnProgress, getGetLearnProgressQueryKey } from "@workspace/api-client-react";
+import { useGetLearnProgress, useUpdateLearnProgress, getGetLearnProgressQueryKey, useGetPracticeStatuses, getGetPracticeStatusesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import NotFound from "@/pages/not-found";
 
@@ -26,6 +26,11 @@ export default function LessonDetail() {
 
   const queryClient = useQueryClient();
   const { data: progress } = useGetLearnProgress();
+  // Statut d'exercice vérifié côté serveur — refetch au retour sur l'onglet,
+  // pour que le badge apparaisse après avoir utilisé le vrai outil.
+  const { data: practiceStatuses } = useGetPracticeStatuses({
+    query: { queryKey: getGetPracticeStatusesQueryKey(), refetchOnWindowFocus: true, refetchOnMount: "always" },
+  });
   const mark = useUpdateLearnProgress({
     mutation: {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetLearnProgressQueryKey() }),
@@ -44,13 +49,28 @@ export default function LessonDetail() {
   };
 
   const practice = lesson.practice;
+  const practiceStatus = (practiceStatuses ?? []).find((s) => s.slug === lesson.slug);
+  const practiceDone = !!practiceStatus?.done;
   const practiceCard = (
-    <div className="bg-primary/5 border border-primary/20 rounded-xl p-5">
+    <div className={`rounded-xl p-5 border ${practiceDone ? "bg-emerald-500/5 border-emerald-500/25" : "bg-primary/5 border-primary/20"}`}>
       <div className="flex items-start gap-3">
-        <Wrench className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+        <Wrench className={`w-5 h-5 shrink-0 mt-0.5 ${practiceDone ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`} />
         <div className="flex-1">
-          <p className="text-sm font-semibold mb-1">🛠️ Pratiquer avec le vrai outil</p>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <p className="text-sm font-semibold">🛠️ Pratiquer avec le vrai outil</p>
+            {practiceDone && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2 py-0.5">
+                <CheckCircle2 className="w-3 h-3" /> Exercice fait ✔
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{practice.description}</p>
+          {practiceStatus && (
+            <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+              <span className="font-medium">Validation :</span> {practiceStatus.criteria}{" "}
+              <span className={practiceDone ? "text-emerald-600 dark:text-emerald-400" : ""}>— {practiceStatus.detail}</span>
+            </p>
+          )}
           {practice.action === "calculator" ? (
             <button
               onClick={() => setShowCalc(true)}
@@ -73,7 +93,15 @@ export default function LessonDetail() {
 
   return (
     <div className="p-6 max-w-3xl">
-      {showCalc && <PositionCalculator onClose={() => setShowCalc(false)} />}
+      {showCalc && (
+        <PositionCalculator
+          onClose={() => {
+            setShowCalc(false);
+            // Le calcul a pu enregistrer un événement de pratique — rafraîchir le badge.
+            queryClient.invalidateQueries({ queryKey: getGetPracticeStatusesQueryKey() });
+          }}
+        />
+      )}
 
       <Link href="/apprendre/parcours" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
         <ArrowLeft className="w-4 h-4" /> Retour au parcours

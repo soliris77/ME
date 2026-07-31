@@ -445,6 +445,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/LearnProgress"
 
+  /learn-practice:
+    get:
+      operationId: getPracticeStatuses
+      tags: [learn]
+      summary: Server-verified status of each guided-course practice exercise
+      responses:
+        "200":
+          description: One status per lesson slug
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PracticeStatus"
+
+  /learn-practice/events:
+    post:
+      operationId: recordPracticeEvent
+      tags: [learn]
+      summary: Record real usage of a client-only tool (calculator, correlation)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PracticeEventInput"
+      responses:
+        "204":
+          description: Recorded
+
   /alerts:
     get:
       operationId: getAlerts
@@ -789,6 +819,27 @@ components:
           type: integer
         quizTotal:
           type: integer
+
+    PracticeStatus:
+      type: object
+      required: [slug, done, criteria, detail]
+      properties:
+        slug:
+          type: string
+        done:
+          type: boolean
+        criteria:
+          type: string
+        detail:
+          type: string
+
+    PracticeEventInput:
+      type: object
+      required: [tool]
+      properties:
+        tool:
+          type: string
+          enum: [calculator, calculator-rr, correlation]
 
     Alert:
       type: object

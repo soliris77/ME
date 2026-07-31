@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { useGetWatchlist } from "@workspace/api-client-react";
+import { useGetWatchlist, recordPracticeEvent } from "@workspace/api-client-react";
 import { Grid3x3, Loader2, Info } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -80,6 +80,16 @@ export default function Correlation() {
     const returns = queries.map((q) => dailyReturns((q.data ?? []) as HistoryPoint[]));
     return symbols.map((_, i) => symbols.map((_, j) => (i === j ? 1 : pearson(returns[i], returns[j]))));
   }, [queries, symbols]);
+
+  // Exercice pratique du parcours guidé : une matrice réellement calculée sur
+  // au moins 2 titres compte comme pratique — un seul événement par visite.
+  const sentPracticeEvent = useRef(false);
+  useEffect(() => {
+    if (matrix && symbols.length >= 2 && !sentPracticeEvent.current) {
+      sentPracticeEvent.current = true;
+      recordPracticeEvent({ tool: "correlation" }).catch(() => {});
+    }
+  }, [matrix, symbols.length]);
 
   const highPairs = useMemo(() => {
     if (!matrix) return [];

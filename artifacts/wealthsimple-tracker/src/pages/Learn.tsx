@@ -5,7 +5,7 @@ import { CANDLES, STRATEGIES, GLOSSAIRE, QUIZZES } from "@/data/learnContent";
 import { LESSONS, lessonSectionId } from "@/data/parcoursContent";
 import { LessonQuiz } from "@/components/LessonQuiz";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { useGetLearnProgress, useUpdateLearnProgress, getGetLearnProgressQueryKey, type LearnProgress } from "@workspace/api-client-react";
+import { useGetLearnProgress, useUpdateLearnProgress, getGetLearnProgressQueryKey, useGetPracticeStatuses, type LearnProgress } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 type Tab = "parcours" | "bases" | "chandeliers" | "strategies" | "risques" | "glossaire";
@@ -88,6 +88,9 @@ function SectionQuizBlock({ sectionId, progress, onMarkComplete }: { sectionId: 
 
 // ── Parcours guidé ───────────────────────────────────────────────────────────
 function ParcoursTab({ progressBySection }: { progressBySection: Map<string, LearnProgress> }) {
+  // Statuts d'exercice pratique vérifiés côté serveur (badge « Exercice fait »).
+  const { data: practiceStatuses } = useGetPracticeStatuses();
+  const practiceBySlug = new Map((practiceStatuses ?? []).map((s) => [s.slug, s]));
   const doneCount = LESSONS.filter((l) => progressBySection.get(lessonSectionId(l.slug))?.completed).length;
   const nextLesson = LESSONS.find((l) => !progressBySection.get(lessonSectionId(l.slug))?.completed);
 
@@ -141,6 +144,14 @@ function ParcoursTab({ progressBySection }: { progressBySection: Map<string, Lea
                         <span className="text-sm font-semibold">{l.emoji} {l.title}</span>
                         {done && prog?.quizTotal != null && (
                           <span className="text-xs gain font-mono">{prog.quizScore}/{prog.quizTotal}</span>
+                        )}
+                        {practiceBySlug.get(l.slug)?.done && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 border border-primary/25 rounded-full px-2 py-0.5"
+                            title={practiceBySlug.get(l.slug)?.detail}
+                          >
+                            🛠️ Exercice fait ✔
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{l.summary}</p>

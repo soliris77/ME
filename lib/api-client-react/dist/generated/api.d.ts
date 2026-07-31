@@ -1,5 +1,5 @@
 import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import type { Alert, AlertInput, ChartNote, ChartNoteInput, CreateWatchlistListBody, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarkAllNotificationsRead200, MarketOverview, NewsItem, NotificationEntry, NotificationsUnreadCount, Quote, RenameWatchlistList200, RenameWatchlistListBody, ReorderWatchlistListsBody, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem, WatchlistList } from './api.schemas';
+import type { Alert, AlertInput, ChartNote, ChartNoteInput, CreateWatchlistListBody, GetMarketNewsParams, GetNotesParams, GetQuotesParams, HealthStatus, HistoricalPoint, LearnProgress, LearnProgressInput, MarkAllNotificationsRead200, MarketOverview, NewsItem, NotificationEntry, NotificationsUnreadCount, PracticeEventInput, PracticeStatus, Quote, RenameWatchlistList200, RenameWatchlistListBody, ReorderWatchlistListsBody, SearchResult, SearchSymbolsParams, UpdateWatchlistItemBody, WatchlistInput, WatchlistItem, WatchlistList } from './api.schemas';
 import { customFetch } from '../custom-fetch';
 import type { ErrorType, BodyType } from '../custom-fetch';
 type AwaitedInput<T> = PromiseLike<T> | T;
@@ -532,6 +532,56 @@ export declare const useUpdateLearnProgress: <TError = ErrorType<unknown>, TCont
 }) => UseMutationResult<Awaited<ReturnType<typeof updateLearnProgress>>, TError, {
     sectionId: string;
     data: BodyType<LearnProgressInput>;
+}, TContext>;
+export declare const getGetPracticeStatusesUrl: () => string;
+/**
+ * @summary Server-verified status of each guided-course practice exercise
+ */
+export declare const getPracticeStatuses: (options?: RequestInit) => Promise<PracticeStatus[]>;
+export declare const getGetPracticeStatusesQueryKey: () => readonly ["/api/learn-practice"];
+export declare const getGetPracticeStatusesQueryOptions: <TData = Awaited<ReturnType<typeof getPracticeStatuses>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPracticeStatuses>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getPracticeStatuses>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetPracticeStatusesQueryResult = NonNullable<Awaited<ReturnType<typeof getPracticeStatuses>>>;
+export type GetPracticeStatusesQueryError = ErrorType<unknown>;
+/**
+ * @summary Server-verified status of each guided-course practice exercise
+ */
+export declare function useGetPracticeStatuses<TData = Awaited<ReturnType<typeof getPracticeStatuses>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPracticeStatuses>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getRecordPracticeEventUrl: () => string;
+/**
+ * @summary Record real usage of a client-only tool (calculator, correlation)
+ */
+export declare const recordPracticeEvent: (practiceEventInput: PracticeEventInput, options?: RequestInit) => Promise<void>;
+export declare const getRecordPracticeEventMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof recordPracticeEvent>>, TError, {
+        data: BodyType<PracticeEventInput>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof recordPracticeEvent>>, TError, {
+    data: BodyType<PracticeEventInput>;
+}, TContext>;
+export type RecordPracticeEventMutationResult = NonNullable<Awaited<ReturnType<typeof recordPracticeEvent>>>;
+export type RecordPracticeEventMutationBody = BodyType<PracticeEventInput>;
+export type RecordPracticeEventMutationError = ErrorType<unknown>;
+/**
+* @summary Record real usage of a client-only tool (calculator, correlation)
+*/
+export declare const useRecordPracticeEvent: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof recordPracticeEvent>>, TError, {
+        data: BodyType<PracticeEventInput>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof recordPracticeEvent>>, TError, {
+    data: BodyType<PracticeEventInput>;
 }, TContext>;
 export declare const getGetAlertsUrl: () => string;
 /**

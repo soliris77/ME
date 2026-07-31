@@ -3,6 +3,7 @@ export * from "./alerts";
 export * from "./broker";
 export * from "./settings";
 export * from "./learn";
+export * from "./practice";
 export * from "./notes";
 export * from "./copyTrading";
 export * from "./spotify";

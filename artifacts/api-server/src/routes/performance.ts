@@ -9,6 +9,7 @@
 import { Router } from "express";
 import { getPerformanceReport } from "../lib/performance";
 import { getDisciplineReport } from "../lib/discipline";
+import { recordPracticeEvent } from "../lib/practiceValidation";
 
 const router = Router();
 
@@ -22,8 +23,11 @@ router.get("/performance/discipline", async (_req, res) => {
   }
 });
 
-router.get("/performance", async (_req, res) => {
+router.get("/performance", async (req, res) => {
   try {
+    // Exercice pratique du parcours (leçon espérance mathématique) : consulter
+    // ses statistiques réelles compte comme pratique — enregistré en tâche de fond.
+    recordPracticeEvent("performance").catch((err) => req.log.warn({ err }, "practice event performance failed"));
     const report = await getPerformanceReport();
     return res.json(report);
   } catch (err) {

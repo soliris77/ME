@@ -134,6 +134,21 @@ export interface LearnProgressInput {
     quizScore?: number;
     quizTotal?: number;
 }
+export interface PracticeStatus {
+    slug: string;
+    done: boolean;
+    criteria: string;
+    detail: string;
+}
+export type PracticeEventInputTool = typeof PracticeEventInputTool[keyof typeof PracticeEventInputTool];
+export declare const PracticeEventInputTool: {
+    readonly calculator: "calculator";
+    readonly 'calculator-rr': "calculator-rr";
+    readonly correlation: "correlation";
+};
+export interface PracticeEventInput {
+    tool: PracticeEventInputTool;
+}
 export type AlertAlertType = typeof AlertAlertType[keyof typeof AlertAlertType];
 export declare const AlertAlertType: {
     readonly price: "price";

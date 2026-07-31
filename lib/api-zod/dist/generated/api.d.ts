@@ -1181,6 +1181,52 @@ export declare const UpdateLearnProgressResponse: zod.ZodObject<{
     completedAt?: string | null | undefined;
 }>;
 /**
+ * @summary Server-verified status of each guided-course practice exercise
+ */
+export declare const GetPracticeStatusesResponseItem: zod.ZodObject<{
+    slug: zod.ZodString;
+    done: zod.ZodBoolean;
+    criteria: zod.ZodString;
+    detail: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    slug: string;
+    done: boolean;
+    criteria: string;
+    detail: string;
+}, {
+    slug: string;
+    done: boolean;
+    criteria: string;
+    detail: string;
+}>;
+export declare const GetPracticeStatusesResponse: zod.ZodArray<zod.ZodObject<{
+    slug: zod.ZodString;
+    done: zod.ZodBoolean;
+    criteria: zod.ZodString;
+    detail: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    slug: string;
+    done: boolean;
+    criteria: string;
+    detail: string;
+}, {
+    slug: string;
+    done: boolean;
+    criteria: string;
+    detail: string;
+}>, "many">;
+/**
+ * @summary Record real usage of a client-only tool (calculator, correlation)
+ */
+export declare const RecordPracticeEventBody: zod.ZodObject<{
+    tool: zod.ZodEnum<["calculator", "calculator-rr", "correlation"]>;
+}, "strip", zod.ZodTypeAny, {
+    tool: "calculator" | "calculator-rr" | "correlation";
+}, {
+    tool: "calculator" | "calculator-rr" | "correlation";
+}>;
+export declare const RecordPracticeEventResponse: zod.ZodVoid;
+/**
  * @summary Get all price alerts
  */
 export declare const GetAlertsResponseItem: zod.ZodObject<{
