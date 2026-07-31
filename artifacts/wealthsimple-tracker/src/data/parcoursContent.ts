@@ -27,6 +27,7 @@ export interface Lesson {
   sections: LessonSection[];
   quiz: QuizQuestion[];
   practice: LessonPractice;
+  level?: "fondations" | "avance"; // niveau du parcours (défaut : fondations)
 }
 
 /** Identifiant de progression en DB pour une leçon du parcours. */
@@ -423,6 +424,447 @@ export const LESSONS: Lesson[] = [
     practice: {
       label: "Configurer une règle Auto-Trader",
       description: "Créez une règle automatique (ex. vente si baisse de X %) qui appliquera votre consigne sans émotion.",
+      href: "/auto-trader",
+    },
+  },
+
+  // ── Niveau avancé ──────────────────────────────────────────────────────────
+  {
+    slug: "esperance-mathematique",
+    title: "L'espérance mathématique",
+    emoji: "🎲",
+    minutes: 5,
+    level: "avance",
+    summary: "Gain moyen × taux de réussite face à la perte moyenne : pourquoi un système à 40 % de réussite peut être gagnant.",
+    sections: [
+      {
+        heading: "Le seul chiffre qui compte vraiment",
+        paragraphs: [
+          "Avoir raison souvent ne suffit pas à être rentable. Ce qui compte, c'est l'espérance mathématique : le gain moyen que rapporte chaque trade sur le long terme, en tenant compte à la fois de vos gains, de vos pertes et de leur fréquence.",
+          "La formule est simple : espérance = (taux de réussite × gain moyen) − (taux d'échec × perte moyenne). Si le résultat est positif, le système est gagnant à long terme, même si vous perdez plus souvent que vous ne gagnez.",
+        ],
+      },
+      {
+        heading: "Un exemple qui va à contre-intuition",
+        paragraphs: [
+          "Prenons un système qui ne réussit que 40 % du temps. La plupart des débutants l'abandonneraient. Pourtant, s'il gagne gros et perd petit, il est très rentable :",
+        ],
+        example: [
+          "Taux de réussite : 40 % / Taux d'échec : 60 %",
+          "Gain moyen d'un trade gagnant : 300 $",
+          "Perte moyenne d'un trade perdant : 100 $",
+          "Espérance = (0,40 × 300) − (0,60 × 100)",
+          "Espérance = 120 − 60 = +60 $ par trade ✅",
+        ],
+        bullets: [
+          "Sur 100 trades : ~40 gagnants × 300 $ = 12 000 $ de gains",
+          "~60 perdants × 100 $ = 6 000 $ de pertes → +6 000 $ net",
+          "Le secret : couper les pertes court et laisser courir les gains",
+        ],
+      },
+      {
+        heading: "Mesurer son espérance réelle",
+        paragraphs: [
+          "L'espérance théorique ne vaut que si vos chiffres sont réels. Vos statistiques passées (taux de réussite, gain et perte moyens) sont la seule base fiable. La page Performance calcule tout cela à partir de vos ordres réellement exécutés.",
+          "Un système à espérance négative ne se corrige pas en tradant plus : il faut soit améliorer le taux de réussite, soit augmenter le gain moyen, soit réduire la perte moyenne. Souvent, réduire la perte moyenne (stops plus serrés, discipline) est le levier le plus rapide.",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Un système réussit 40 % du temps, gagne 300 $ en moyenne et perd 100 $ en moyenne. Quelle est son espérance par trade ?",
+        options: ["−60 $", "+60 $", "+200 $"],
+        correctIndex: 1,
+        explanation: "(0,40 × 300) − (0,60 × 100) = 120 − 60 = +60 $. Un taux de réussite faible reste gagnant si les gains dépassent largement les pertes.",
+      },
+      {
+        question: "Quelle affirmation sur l'espérance mathématique est correcte ?",
+        options: [
+          "Il faut gagner plus souvent qu'on ne perd pour être rentable",
+          "Un système peut être rentable avec 40 % de réussite si le gain moyen dépasse la perte moyenne",
+          "L'espérance ne dépend que du taux de réussite",
+        ],
+        correctIndex: 1,
+        explanation: "L'espérance combine fréquence ET amplitude. Un faible taux de réussite se compense par des gains moyens plus gros que les pertes moyennes.",
+      },
+      {
+        question: "Votre système a une espérance négative. Quel est le levier souvent le plus rapide pour la corriger ?",
+        options: ["Trader beaucoup plus pour se refaire", "Réduire la perte moyenne (stops plus serrés, discipline)", "Augmenter la taille de chaque position"],
+        correctIndex: 1,
+        explanation: "Réduire la perte moyenne agit directement sur l'espérance sans dépendre de la chance. Trader plus ou plus gros amplifie une espérance négative.",
+      },
+      {
+        question: "Sur quoi doit reposer le calcul de votre espérance réelle ?",
+        options: ["Vos meilleurs souvenirs de trades", "Vos ordres réellement exécutés (page Performance)", "Une estimation optimiste de vos futurs gains"],
+        correctIndex: 1,
+        explanation: "Seuls les ordres exécutés donnent des chiffres fiables. La page Performance calcule taux de réussite, gain et perte moyens à partir de ces données.",
+      },
+    ],
+    practice: {
+      label: "Analyser mes statistiques réelles",
+      description: "Ouvrez la page Performance et calculez votre taux de réussite, votre gain moyen et votre perte moyenne pour estimer votre espérance.",
+      href: "/performance",
+    },
+  },
+  {
+    slug: "sorties-partielles",
+    title: "Sorties partielles et stop suiveur",
+    emoji: "🪜",
+    minutes: 5,
+    level: "avance",
+    summary: "Sécuriser une partie du gain, laisser courir le reste, et remonter le stop sans jamais le baisser.",
+    sections: [
+      {
+        heading: "Ne pas tout vendre d'un coup",
+        paragraphs: [
+          "Le dilemme classique : vendre trop tôt et regarder le titre continuer sa hausse, ou garder et voir le gain s'évaporer. La sortie partielle résout ce conflit en vendant une fraction de la position à un premier objectif, puis en laissant courir le reste.",
+          "Une approche courante consiste à vendre la moitié au premier objectif, ce qui sécurise un gain concret, puis à gérer la seconde moitié avec un stop qu'on remonte au fil de la hausse.",
+        ],
+      },
+      {
+        heading: "Le stop suiveur : remonter, jamais baisser",
+        paragraphs: [
+          "Le stop suiveur (trailing stop) accompagne le prix vers le haut. Règle absolue : on ne remonte le stop que lorsque le prix progresse, on ne le baisse jamais. Baisser un stop annule sa protection au pire moment.",
+        ],
+        example: [
+          "Entrée : 100 $ / Stop initial : 95 $ (risque 5 $)",
+          "Le prix atteint 110 $ → on vend la moitié (gain sécurisé : +10 $/action)",
+          "On remonte le stop de 95 $ à 100 $ (point mort) sur le reste",
+          "Le prix monte à 120 $ → stop remonté à 110 $",
+          "Le reste ne peut plus devenir perdant : trade « sans risque »",
+        ],
+        bullets: [
+          "1re moitié vendue → gain concret encaissé",
+          "Stop remonté au prix d'entrée → position devenue sans risque",
+          "Le reste capte la grande tendance si elle continue",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Quel est l'intérêt principal d'une sortie partielle ?",
+        options: ["Payer moins de frais", "Sécuriser un gain concret tout en laissant courir le reste de la position", "Doubler la taille de la position"],
+        correctIndex: 1,
+        explanation: "Vendre une fraction encaisse un gain réel et calme l'émotion, tandis que le solde peut profiter de la suite de la tendance.",
+      },
+      {
+        question: "Après une sortie partielle, vous remontez le stop du reste au prix d'entrée. Conséquence ?",
+        options: ["La position ne peut plus devenir perdante", "Le risque double", "Vous perdez le gain déjà encaissé"],
+        correctIndex: 0,
+        explanation: "Stop au point mort = si le prix redescend, on sort à zéro sur ce reste. Combiné au gain déjà pris, le trade est globalement gagnant ou neutre.",
+      },
+      {
+        question: "Le prix redescend et vous êtes tenté de baisser le stop suiveur. Verdict ?",
+        options: ["Acceptable pour laisser respirer le titre", "Jamais : un stop suiveur ne se remonte que dans le sens du gain", "Obligatoire pour rester dans le trade"],
+        correctIndex: 1,
+        explanation: "Le stop suiveur ne descend jamais. Le baisser revient à supprimer la protection au moment où elle sert le plus.",
+      },
+      {
+        question: "Dans quel sens remonte-t-on un stop suiveur ?",
+        options: ["Uniquement quand le prix progresse en notre faveur", "Chaque jour d'un montant fixe", "Quand on a peur de perdre le gain"],
+        correctIndex: 0,
+        explanation: "Le stop ne bouge que lorsque le prix monte (position longue), verrouillant progressivement le gain acquis.",
+      },
+    ],
+    practice: {
+      label: "Poser une alerte de sortie partielle",
+      description: "Sur la page Alertes, posez une alerte au niveau de votre premier objectif pour être prévenu quand vendre une partie de la position.",
+      href: "/alerts",
+    },
+  },
+  {
+    slug: "correlation-exposition",
+    title: "Corrélation et exposition réelle",
+    emoji: "🔗",
+    minutes: 5,
+    level: "avance",
+    summary: "Trois positions tech qui bougent ensemble, c'est une seule grosse position déguisée.",
+    sections: [
+      {
+        heading: "La fausse diversification",
+        paragraphs: [
+          "Détenir plusieurs titres n'est pas forcément être diversifié. Si vos positions montent et descendent ensemble, vous êtes fortement corrélé : vous portez en réalité une seule grosse position, découpée en plusieurs lignes.",
+          "La corrélation mesure à quel point deux actifs bougent dans le même sens. Proche de +1, ils évoluent quasi à l'identique ; proche de 0, ils sont indépendants ; proche de −1, ils vont en sens opposé.",
+        ],
+      },
+      {
+        heading: "Un exemple d'exposition cachée",
+        paragraphs: [
+          "Imaginez un portefeuille qui se croit prudent parce qu'il détient trois titres différents :",
+        ],
+        example: [
+          "Position A : 2 000 $ (grande valeur technologique)",
+          "Position B : 2 000 $ (autre valeur technologique)",
+          "Position C : 2 000 $ (semi-conducteurs)",
+          "Corrélation entre les trois : ~0,9 (très élevée)",
+          "Exposition réelle au secteur tech : 6 000 $ d'un seul bloc",
+        ],
+        bullets: [
+          "Une mauvaise nouvelle sur la tech fait plonger les trois en même temps",
+          "Le risque n'est pas réparti, il est concentré",
+          "Vraie diversification : des actifs à corrélation faible ou négative",
+        ],
+      },
+      {
+        heading: "Mesurer avant d'ajouter",
+        paragraphs: [
+          "Avant d'ajouter une position, la bonne question n'est pas « ce titre est-il intéressant ? » mais « augmente-t-il une exposition que j'ai déjà ? ». Un nouveau titre fortement corrélé à vos positions existantes ne diversifie rien : il concentre.",
+          "La page Corrélation de cette app calcule la corrélation entre vos positions, ce qui rend visible l'exposition réelle avant d'agir.",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Vous détenez trois valeurs technologiques corrélées à ~0,9. Quelle est votre situation ?",
+        options: ["Un portefeuille bien diversifié", "Une seule grosse position tech déguisée en trois lignes", "Un portefeuille sans risque"],
+        correctIndex: 1,
+        explanation: "Une corrélation proche de +1 signifie que les titres bougent ensemble : l'exposition est concentrée, pas diversifiée.",
+      },
+      {
+        question: "Que mesure la corrélation entre deux actifs ?",
+        options: ["Leur prix moyen", "À quel point ils bougent dans le même sens", "Leur volume d'échange"],
+        correctIndex: 1,
+        explanation: "La corrélation (de −1 à +1) indique le degré de synchronisation des mouvements de deux actifs.",
+      },
+      {
+        question: "Pour vraiment diversifier, quels actifs faut-il combiner ?",
+        options: ["Des actifs à corrélation élevée (proche de +1)", "Des actifs à corrélation faible ou négative", "Uniquement des actifs du même secteur"],
+        correctIndex: 1,
+        explanation: "Des corrélations faibles ou négatives font que les actifs ne chutent pas tous en même temps : c'est ça, la vraie diversification.",
+      },
+      {
+        question: "Avant d'ajouter une nouvelle position, quelle est la bonne question ?",
+        options: ["Ce titre a-t-il beaucoup monté récemment ?", "Augmente-t-il une exposition que j'ai déjà ?", "Est-ce le titre le moins cher ?"],
+        correctIndex: 1,
+        explanation: "Un titre fortement corrélé à vos positions existantes concentre le risque au lieu de le répartir.",
+      },
+    ],
+    practice: {
+      label: "Mesurer la corrélation de mes positions",
+      description: "Ouvrez la page Corrélation pour voir à quel point vos positions bougent ensemble et repérer une exposition cachée.",
+      href: "/correlation",
+    },
+  },
+  {
+    slug: "pyramider",
+    title: "Pyramider sans exploser le risque",
+    emoji: "🔺",
+    minutes: 5,
+    level: "avance",
+    summary: "Renforcer une position uniquement quand elle gagne, avec le stop remonté — jamais moyenner à la baisse.",
+    sections: [
+      {
+        heading: "Ajouter sur les gagnants, pas sur les perdants",
+        paragraphs: [
+          "Pyramider, c'est augmenter la taille d'une position qui va déjà dans votre sens. C'est l'exact opposé de « moyenner à la baisse », qui consiste à racheter un titre qui chute pour abaisser son prix moyen — une pratique qui transforme les petites pertes en catastrophes.",
+          "La logique est saine : on met plus d'argent là où le marché confirme qu'on a raison, et jamais là où il prouve qu'on a tort.",
+        ],
+        bullets: [
+          "Pyramider = ajouter sur une position gagnante qui confirme la tendance",
+          "Moyenner à la baisse = racheter un titre qui chute (à proscrire)",
+          "On renforce la conviction du marché, pas la sienne",
+        ],
+      },
+      {
+        heading: "Remonter le stop au prix d'entrée moyen",
+        paragraphs: [
+          "La clé pour pyramider sans exploser le risque : à chaque ajout, on remonte le stop de l'ensemble au niveau du nouveau prix d'entrée moyen (ou plus haut). Ainsi, le risque total reste maîtrisé même si la position grossit.",
+        ],
+        example: [
+          "Achat 1 : 100 actions à 50 $ / Stop : 48 $",
+          "Le prix monte à 55 $ → Achat 2 : 100 actions à 55 $",
+          "Prix d'entrée moyen : 52,50 $",
+          "On remonte le stop à ~52,50 $ (point mort de l'ensemble)",
+          "Position doublée, mais risque global proche de zéro",
+        ],
+      },
+      {
+        heading: "Le piège à éviter absolument",
+        paragraphs: [
+          "Moyenner à la baisse ressemble à pyramider mais s'y oppose totalement : on ajoute sur une position perdante en espérant un retournement. Résultat : la taille augmente pendant que la thèse se dégrade, et une perte contrôlée devient une perte majeure.",
+          "Règle claire : on n'ajoute que sur une position en gain, avec un stop remonté. Si la position perd, on ne renforce pas — on applique le plan de sortie.",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Quand est-il justifié de pyramider (ajouter à une position) ?",
+        options: ["Quand la position est perdante, pour abaisser le prix moyen", "Quand la position est déjà gagnante et confirme la tendance", "À intervalles réguliers, peu importe le prix"],
+        correctIndex: 1,
+        explanation: "On ajoute là où le marché confirme qu'on a raison. Ajouter sur une position perdante (moyenner à la baisse) est à proscrire.",
+      },
+      {
+        question: "Après un ajout, que faut-il faire du stop pour maîtriser le risque ?",
+        options: ["Le laisser à son niveau initial", "Le remonter au prix d'entrée moyen (ou plus haut)", "Le supprimer puisque la position gagne"],
+        correctIndex: 1,
+        explanation: "Remonter le stop au prix moyen garde le risque total sous contrôle même quand la position grossit.",
+      },
+      {
+        question: "Achat 1 : 100 actions à 50 $. Achat 2 : 100 actions à 55 $. Quel est le prix d'entrée moyen ?",
+        options: ["50 $", "52,50 $", "55 $"],
+        correctIndex: 1,
+        explanation: "(50 + 55) ÷ 2 = 52,50 $. Le stop se remonte alors autour de ce niveau pour neutraliser le risque de l'ensemble.",
+      },
+      {
+        question: "Votre position est en perte. Faut-il pyramider ?",
+        options: ["Oui, pour abaisser le prix moyen", "Non, on n'ajoute que sur une position gagnante", "Oui, si on est convaincu du retournement"],
+        correctIndex: 1,
+        explanation: "Ajouter sur une position perdante, c'est moyenner à la baisse : la taille grossit pendant que la thèse se dégrade. On applique le plan de sortie, pas un renforcement.",
+      },
+    ],
+    practice: {
+      label: "Recalculer ma taille après un ajout",
+      description: "Ouvrez le calculateur pour dimensionner un ajout et vérifier le nouveau risque total avec le stop remonté au prix moyen.",
+      action: "calculator",
+    },
+  },
+  {
+    slug: "biais-cognitifs",
+    title: "Les biais cognitifs avancés",
+    emoji: "🪞",
+    minutes: 6,
+    level: "avance",
+    summary: "Revenge trading, biais de récence, coût irrécupérable, excès de confiance : les reconnaître et les neutraliser.",
+    sections: [
+      {
+        heading: "Quatre biais qui coûtent cher",
+        paragraphs: [
+          "Au-delà du FOMO, quatre biais plus insidieux minent la discipline des traders qui progressent. Les nommer est la première étape pour les désamorcer :",
+        ],
+        bullets: [
+          "Revenge trading : après une perte, reprendre un trade impulsif pour « se refaire », souvent avec une taille trop grosse",
+          "Biais de récence : surpondérer les derniers événements (« ça monte depuis 3 jours, donc ça va continuer »)",
+          "Coût irrécupérable : garder une position perdante parce qu'on y a déjà « mis trop d'argent » — l'argent perdu ne revient pas en gardant",
+          "Excès de confiance : après une série de gains, augmenter les tailles et abandonner les règles",
+        ],
+      },
+      {
+        heading: "Le coût irrécupérable en détail",
+        paragraphs: [
+          "Le biais de coût irrécupérable (sunk cost) fait confondre l'argent déjà perdu avec l'avenir de la position. Un exemple :",
+        ],
+        example: [
+          "Achat : 3 000 $ dans un titre qui vaut maintenant 1 800 $",
+          "Perte latente : −1 200 $ (déjà « dépensée »)",
+          "Mauvais raisonnement : « je garde, j'ai trop investi pour vendre »",
+          "Bonne question : « si j'avais 1 800 $ en liquide, achèterais-je ce titre aujourd'hui ? »",
+          "Si non → la perte passée n'est pas une raison de rester",
+        ],
+      },
+      {
+        heading: "Des parades concrètes",
+        paragraphs: [
+          "On ne combat pas un biais par la volonté seule, mais par des dispositifs :",
+        ],
+        bullets: [
+          "Coupe-circuit : une limite automatique (perte max, nb de pertes) qui stoppe le revenge trading",
+          "Journal : relire ses trades rend le biais de récence visible et met les résultats en perspective sur la durée",
+          "Débriefing : se demander chaque jour « ai-je suivi mon plan ? » désamorce l'excès de confiance et le coût irrécupérable",
+          "Règle du « j'achèterais aujourd'hui ? » pour trancher les positions marquées par le coût irrécupérable",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Vous gardez une position perdante « parce que vous y avez déjà mis trop d'argent ». Quel biais est-ce ?",
+        options: ["Biais de récence", "Coût irrécupérable (sunk cost)", "FOMO"],
+        correctIndex: 1,
+        explanation: "L'argent déjà perdu ne se récupère pas en gardant. La bonne question : achèterais-je ce titre aujourd'hui avec l'argent restant ?",
+      },
+      {
+        question: "« Ça monte depuis 3 jours, donc ça va continuer. » Quel biais parle ?",
+        options: ["Biais de récence", "Coût irrécupérable", "Revenge trading"],
+        correctIndex: 0,
+        explanation: "Le biais de récence surpondère les événements les plus récents et fait extrapoler une tendance courte sans fondement.",
+      },
+      {
+        question: "Quelle parade concrète est la plus efficace contre le revenge trading ?",
+        options: ["Plus de volonté", "Un coupe-circuit automatique (perte max, nb de pertes)", "Augmenter la taille pour se refaire vite"],
+        correctIndex: 1,
+        explanation: "Une limite automatique décidée à froid stoppe la spirale impulsive mieux que n'importe quelle promesse.",
+      },
+      {
+        question: "Après une belle série de gains, vous doublez vos tailles et laissez tomber vos règles. Quel biais ?",
+        options: ["Coût irrécupérable", "Excès de confiance", "Biais de récence uniquement"],
+        correctIndex: 1,
+        explanation: "L'excès de confiance après des succès pousse à prendre plus de risques. Le débriefing quotidien aide à rester discipliné même quand tout va bien.",
+      },
+    ],
+    practice: {
+      label: "Faire mon débriefing du jour",
+      description: "Ouvrez le débriefing quotidien et repérez si un de ces biais a influencé vos décisions récentes.",
+      href: "/debrief",
+    },
+  },
+  {
+    slug: "drawdown",
+    title: "Lire un drawdown",
+    emoji: "📉",
+    minutes: 5,
+    level: "avance",
+    summary: "Une perte de 20 % exige un gain de 25 % pour revenir à l'équilibre — d'où l'importance de réduire la taille en drawdown.",
+    sections: [
+      {
+        heading: "L'asymétrie perte / récupération",
+        paragraphs: [
+          "Le drawdown est la baisse de votre capital depuis son plus haut. Sa mécanique est piégeuse : perdre un pourcentage donné exige un gain SUPÉRIEUR pour revenir au point de départ, car ce gain s'applique sur un capital réduit.",
+        ],
+        example: [
+          "−10 % exige +11,1 % pour récupérer",
+          "−20 % exige +25 % pour récupérer",
+          "−50 % exige +100 % pour récupérer",
+          "−80 % exige +400 % pour récupérer",
+        ],
+        bullets: [
+          "Plus le drawdown est profond, plus la remontée requise explose",
+          "Éviter les grosses pertes vaut mieux que d'espérer de gros rebonds",
+          "C'est pour ça qu'on protège le capital avant de chercher le gain",
+        ],
+      },
+      {
+        heading: "Réduire la taille pendant un drawdown",
+        paragraphs: [
+          "Instinctivement, on veut « se refaire » en tradant plus gros après une série de pertes. C'est exactement l'inverse qu'il faut faire. Réduire la taille des positions pendant un drawdown limite l'aggravation et laisse le temps de retrouver ses marques.",
+          "Une approche disciplinée consiste à baisser la taille de position quand le drawdown dépasse un seuil, puis à revenir progressivement à la normale une fois la courbe stabilisée.",
+        ],
+      },
+      {
+        heading: "Avoir un plan de récupération",
+        paragraphs: [
+          "Un plan de récupération se décide à froid, avant d'en avoir besoin : à quel niveau de drawdown je réduis la taille, quand je m'arrête complètement pour réévaluer, et comment je reviens progressivement.",
+          "La vue de risque global de l'Auto-Trader permet de suivre votre exposition et votre drawdown pour appliquer ce plan sans céder à l'émotion.",
+        ],
+      },
+    ],
+    quiz: [
+      {
+        question: "Votre capital subit un drawdown de 20 %. Quel gain faut-il pour revenir à l'équilibre ?",
+        options: ["+20 %", "+25 %", "+15 %"],
+        correctIndex: 1,
+        explanation: "Le gain s'applique sur un capital réduit : 100 → 80, il faut +25 % (80 × 1,25 = 100) pour récupérer.",
+      },
+      {
+        question: "Pourquoi la remontée requise dépasse-t-elle toujours la perte subie ?",
+        options: ["À cause des frais uniquement", "Parce que le gain se calcule sur un capital réduit par la perte", "C'est une coïncidence sans règle"],
+        correctIndex: 1,
+        explanation: "Après une perte, le capital de base est plus petit, donc il faut un pourcentage de gain plus élevé pour revenir au niveau initial.",
+      },
+      {
+        question: "Que faire de la taille de position pendant un drawdown important ?",
+        options: ["L'augmenter pour se refaire vite", "La réduire pour limiter l'aggravation", "Ne rien changer"],
+        correctIndex: 1,
+        explanation: "Réduire la taille pendant un drawdown limite les dégâts. Augmenter la taille amplifie une mauvaise passe.",
+      },
+      {
+        question: "Quand décide-t-on son plan de récupération ?",
+        options: ["Pendant le drawdown, sous le stress", "À froid, avant d'en avoir besoin", "Jamais, on improvise"],
+        correctIndex: 1,
+        explanation: "Un plan décidé à froid (seuils de réduction, pause, retour progressif) résiste à l'émotion mieux qu'une décision prise en pleine perte.",
+      },
+    ],
+    practice: {
+      label: "Voir mon risque global",
+      description: "Ouvrez la vue de risque global de l'Auto-Trader pour suivre votre exposition et votre drawdown, et appliquer votre plan de récupération.",
       href: "/auto-trader",
     },
   },

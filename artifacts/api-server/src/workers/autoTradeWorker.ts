@@ -6,7 +6,7 @@
  *   2. checkDailyLossCircuitBreaker() — coupe-circuit de perte journalière
  *   3. processRule() — évalue chaque règle active (signal → ordre ou notif)
  */
-import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable } from "@workspace/db";
+import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
@@ -645,6 +645,55 @@ export async function checkDailyLossCircuitBreaker(
   }
 }
 
+// ── Garde-fous d'ENTRÉE au niveau de la règle (partagés) ──────────────────────
+// Cooldown + quota journalier. Utilisés à l'identique par les signaux techniques
+// (processRule) ET les signaux copy-trading (processCopySignal) : une source de
+// signal ne doit JAMAIS contourner ces garde-fous propres à la règle.
+export type RuleEntryCheck =
+  | { ok: true; todayReset: boolean; tradesToday: number }
+  | { ok: false; reason: "cooldown" | "daily_quota" };
+
+export function checkRuleEntryGuardrails(
+  rule: typeof autoTradeRulesTable.$inferSelect,
+  now: Date,
+): RuleEntryCheck {
+  // Cooldown minimum entre deux ordres auto.
+  if (rule.lastTriggeredAt) {
+    const elapsed = now.getTime() - rule.lastTriggeredAt.getTime();
+    const cooldownMs = rule.cooldownMinutes * 60 * 1000;
+    if (elapsed < cooldownMs) return { ok: false, reason: "cooldown" };
+  }
+
+  // Quota journalier (réinitialisé à minuit UTC).
+  const todayReset = isTodayReset(rule.tradesTodayResetAt);
+  const tradesToday = todayReset ? rule.tradesToday : 0;
+  if (tradesToday >= rule.maxTradesPerDay) return { ok: false, reason: "daily_quota" };
+
+  return { ok: true, todayReset, tradesToday };
+}
+
+// ── Dimensionnement de la position au niveau de la règle (partagé) ────────────
+// "fixed" : quantité fixe. "risk" : quantité = montant risqué ÷ (prix × SL%).
+// Le mode "risk" ne s'applique qu'aux ACHATS (dimensionnement d'entrée) et
+// requiert un prix courant fiable + un stop-loss configuré ; sinon repli sur la
+// quantité fixe. Pur (testable) et identique pour les deux sources de signal.
+export function computeRuleQuantity(
+  rule: typeof autoTradeRulesTable.$inferSelect,
+  currentPrice: number,
+  side: "BUY" | "SELL",
+): number {
+  let quantity = parseFloat(rule.quantity as string) || 1;
+  if (rule.sizingMode === "risk" && rule.riskAmount && rule.stopLossPct && side === "BUY") {
+    const riskAmount = parseFloat(rule.riskAmount as string);
+    const slPct = parseFloat(rule.stopLossPct as string) / 100;
+    if (riskAmount > 0 && slPct > 0 && currentPrice > 0) {
+      const riskPerShare = currentPrice * slPct;
+      quantity = Math.max(Math.floor((riskAmount / riskPerShare) * 10000) / 10000, 0.0001);
+    }
+  }
+  return quantity;
+}
+
 // ── Traitement d'une règle active ─────────────────────────────────────────────
 export async function processRule(
   rule: typeof autoTradeRulesTable.$inferSelect,
@@ -652,20 +701,15 @@ export async function processRule(
 ): Promise<void> {
   const now = new Date();
 
-  // ── Cooldown ────────────────────────────────────────────────────────────────
-  if (rule.lastTriggeredAt) {
-    const elapsed = now.getTime() - rule.lastTriggeredAt.getTime();
-    const cooldownMs = rule.cooldownMinutes * 60 * 1000;
-    if (elapsed < cooldownMs) return;
-  }
-
-  // ── Quota journalier ────────────────────────────────────────────────────────
-  const todayReset = isTodayReset(rule.tradesTodayResetAt);
-  const tradesToday = todayReset ? rule.tradesToday : 0;
-  if (tradesToday >= rule.maxTradesPerDay) {
-    logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: quota journalier atteint, skip");
+  // ── Garde-fous d'entrée (cooldown + quota) — partagés avec le copy-trading ──
+  const entry = checkRuleEntryGuardrails(rule, now);
+  if (!entry.ok) {
+    if (entry.reason === "daily_quota") {
+      logger.info({ ruleId: rule.id, symbol: rule.symbol }, "autoTradeWorker: quota journalier atteint, skip");
+    }
     return;
   }
+  const { todayReset, tradesToday } = entry;
 
   // ── Calcul des indicateurs ──────────────────────────────────────────────────
   let history: OHLCPoint[];
@@ -729,17 +773,8 @@ export async function processRule(
     }
   }
 
-  // ── Dimensionnement de la position ─────────────────────────────────────────
-  // "fixed" : quantité fixe. "risk" : quantité = montant risqué ÷ (prix × SL%).
-  let quantity = parseFloat(rule.quantity as string) || 1;
-  if (rule.sizingMode === "risk" && rule.riskAmount && rule.stopLossPct && side === "BUY") {
-    const riskAmount = parseFloat(rule.riskAmount as string);
-    const slPct = parseFloat(rule.stopLossPct as string) / 100;
-    if (riskAmount > 0 && slPct > 0 && currentPrice > 0) {
-      const riskPerShare = currentPrice * slPct;
-      quantity = Math.max(Math.floor((riskAmount / riskPerShare) * 10000) / 10000, 0.0001);
-    }
-  }
+  // ── Dimensionnement de la position (politique partagée) ────────────────────
+  const quantity = computeRuleQuantity(rule, currentPrice, side);
 
   // ── Passer l'ordre ou juste notifier ───────────────────────────────────────
   const signalId = `auto-${rule.id}-${Date.now()}`;
@@ -850,6 +885,261 @@ export async function processRule(
       updatedAt:          now,
     })
     .where(eq(autoTradeRulesTable.id, rule.id));
+}
+
+// ── Pont copy-trading → auto-trader ───────────────────────────────────────────
+// Signal normalisé émis par le sync copy-trading (metatrader/sync.ts) lorsqu'un
+// NOUVEAU trade copié est détecté chez un trader suivi.
+export interface CopySignalEvent {
+  followedTraderId: number;
+  externalTradeId: string;
+  symbol: string;
+  side: "buy" | "sell";
+  openedAt: Date | null;
+  source: "copy-trading";
+}
+
+/**
+ * Traite un signal copy-trading : cherche les liaisons ACTIVES pour ce trader
+ * suivi, jointes aux règles d'auto-trading ACTIVES dont le symbole correspond
+ * EXACTEMENT à celui du trade. Pour chaque correspondance, soumet un ordre via
+ * le MÊME pipeline de risque que les signaux techniques (submitOrder du moteur
+ * central : kill-switch, idempotence, garde-fous de risque, heures de marché,
+ * tailles max, fail-closed live).
+ *
+ * ⚠️  Aucune évaluation de score technique ici — le signal EST la copie du trade.
+ *
+ * Idempotence : signalId = copy-${followedTraderId}-${externalTradeId}-${ruleId}
+ * (l'idempotence par signalId de submitOrder empêche le double passage même si
+ * le sync ré-émet le même trade).
+ *
+ * Fail closed : sans connexion courtier connectée (ou en mode live sans
+ * prérequis), submitOrder refuse et rien n'est placé — on journalise le rejet.
+ */
+export async function processCopySignal(event: CopySignalEvent): Promise<void> {
+  const { followedTraderId, externalTradeId, symbol, side } = event;
+
+  // Liaisons actives pour ce trader, jointes aux règles actives correspondant
+  // EXACTEMENT au symbole du trade copié.
+  let matches: {
+    rule: typeof autoTradeRulesTable.$inferSelect;
+    bindingId: number;
+  }[];
+  try {
+    const rows = await db
+      .select({ rule: autoTradeRulesTable, bindingId: autoTradeCopyBindingsTable.id })
+      .from(autoTradeCopyBindingsTable)
+      .innerJoin(
+        autoTradeRulesTable,
+        eq(autoTradeCopyBindingsTable.ruleId, autoTradeRulesTable.id),
+      )
+      .where(
+        and(
+          eq(autoTradeCopyBindingsTable.followedTraderId, followedTraderId),
+          eq(autoTradeCopyBindingsTable.enabled, true),
+          eq(autoTradeRulesTable.enabled, true),
+          eq(autoTradeRulesTable.symbol, symbol.toUpperCase()),
+        ),
+      );
+    matches = rows.map((r) => ({ rule: r.rule, bindingId: r.bindingId }));
+  } catch (err) {
+    logger.error({ err, followedTraderId, symbol }, "copySignal: lookup des liaisons échoué");
+    return;
+  }
+
+  if (matches.length === 0) {
+    logger.debug({ followedTraderId, symbol }, "copySignal: aucune liaison active correspondante — ignoré");
+    return;
+  }
+
+  const orderSide: "BUY" | "SELL" = side === "buy" ? "BUY" : "SELL";
+
+  // Connexion courtier (comme processRule). Fail closed : pas de connexion
+  // connectée → submitOrder refusera l'ordre live (aucun placement).
+  const conn = await resolveConnection();
+  const now = new Date();
+
+  // Cotation courante du symbole — nécessaire au dimensionnement "risk". On la
+  // récupère une seule fois. getQuotes n'échoue jamais (il avale les erreurs
+  // Yahoo) : une cotation ABSENTE est traitée comme un fail-closed pour toute
+  // règle dont la taille dépend du prix (cf. .agents/memory/quotes-fail-closed.md).
+  let currentPrice: number | null = null;
+  try {
+    const quotes = await getQuotes([symbol.toUpperCase()]);
+    const q = quotes.find((x) => x.symbol?.toUpperCase() === symbol.toUpperCase());
+    if (q && Number.isFinite(q.price) && q.price > 0) currentPrice = q.price;
+  } catch (err) {
+    logger.warn({ err, symbol }, "copySignal: getQuotes échoué — cotation absente");
+  }
+
+  for (const { rule } of matches) {
+    // ── Respect de la direction configurée sur la règle ──────────────────────
+    const modeAllowsBuy = rule.sideMode === "buy" || rule.sideMode === "both";
+    const modeAllowsSell = rule.sideMode === "sell" || rule.sideMode === "both";
+    if ((orderSide === "BUY" && !modeAllowsBuy) || (orderSide === "SELL" && !modeAllowsSell)) {
+      logger.info(
+        { ruleId: rule.id, symbol: rule.symbol, orderSide, sideMode: rule.sideMode },
+        "copySignal: direction du trade non autorisée par la règle — ignoré",
+      );
+      continue;
+    }
+
+    // Idempotence : un même trade copié ne déclenche qu'un seul ordre par règle.
+    const signalId = `copy-${followedTraderId}-${externalTradeId}-${rule.id}`;
+
+    // ── Garde-fous d'ENTRÉE de la règle (cooldown + quota) — mêmes que technique
+    // Une source copy-trading ne doit JAMAIS contourner ces limites.
+    const entry = checkRuleEntryGuardrails(rule, now);
+    if (!entry.ok) {
+      logger.info(
+        { ruleId: rule.id, symbol: rule.symbol, reason: entry.reason, signalId },
+        "copySignal: garde-fou d'entrée de la règle — ignoré",
+      );
+      await db.insert(autoTradeLogsTable).values({
+        ruleId: rule.id,
+        symbol: rule.symbol,
+        side: orderSide,
+        triggerType: "notification_only",
+        signalScore: null,
+        signalVerdict: "COPY-TRADING",
+        price: currentPrice != null ? String(currentPrice) : null,
+        quantity: null,
+        orderId: null,
+        notificationSent: false,
+        notes: `Signal copy-trading bloqué (${entry.reason === "cooldown" ? "cooldown" : "quota journalier"})`,
+        source: "copy-trading",
+        followedTraderId,
+        externalTradeId,
+      }).catch((err) => logger.error({ err, ruleId: rule.id }, "copySignal: insertion du log (garde-fou) échouée"));
+      continue;
+    }
+    const { todayReset, tradesToday } = entry;
+
+    // ── Dimensionnement de la position (politique partagée avec processRule) ──
+    // Fail closed : si le mode "risk" est requis (BUY + riskAmount + SL) mais la
+    // cotation est absente, on NE dimensionne PAS sur rule.quantity (risque non
+    // borné) — on refuse ce déclenchement.
+    const needsPriceForSizing =
+      rule.sizingMode === "risk" && !!rule.riskAmount && !!rule.stopLossPct && orderSide === "BUY";
+    if (needsPriceForSizing && currentPrice == null) {
+      logger.warn(
+        { ruleId: rule.id, symbol: rule.symbol, signalId },
+        "copySignal: dimensionnement 'risk' impossible sans cotation — rejet (fail closed)",
+      );
+      await db.insert(autoTradeLogsTable).values({
+        ruleId: rule.id,
+        symbol: rule.symbol,
+        side: orderSide,
+        triggerType: "notification_only",
+        signalScore: null,
+        signalVerdict: "COPY-TRADING",
+        price: null,
+        quantity: null,
+        orderId: null,
+        notificationSent: false,
+        notes: "Signal copy-trading rejeté : cotation absente pour dimensionnement 'risk' (fail closed)",
+        source: "copy-trading",
+        followedTraderId,
+        externalTradeId,
+      }).catch((err) => logger.error({ err, ruleId: rule.id }, "copySignal: insertion du log (sizing) échouée"));
+      continue;
+    }
+    const quantity = computeRuleQuantity(rule, currentPrice ?? 0, orderSide);
+
+    const brokerConnection = conn?.status === "connected"
+      ? { snaptradeUserId: conn.snaptradeUserId!, snaptradeUserSecret: conn.snaptradeUserSecret! }
+      : null;
+
+    let orderId: number | undefined;
+    let triggerType: "order" | "notification_only" = "notification_only";
+    let orderStatus: string | null = null;
+    let rejectReason: string | null = null;
+
+    try {
+      const result = await submitOrder({
+        signalId,
+        symbol: rule.symbol,
+        side: orderSide,
+        quantity,
+        accountId: rule.accountId ?? undefined,
+        expectedPrice: currentPrice ?? undefined,
+        source: "copy-trading",
+        brokerConnection,
+      });
+
+      if (result.status !== "rejected") {
+        const order = result.order as { id?: number; status?: string };
+        orderStatus = order.status ?? null;
+        // « accepted » peut masquer un ordre en erreur côté courtier (mode live).
+        if (order.status === "error") {
+          rejectReason = "broker_error";
+          logger.warn(
+            { ruleId: rule.id, symbol: rule.symbol, signalId },
+            "copySignal: ordre en erreur côté courtier — aucun ordre confirmé",
+          );
+        } else {
+          orderId = order.id;
+          triggerType = "order";
+          if (result.status === "duplicate") {
+            logger.info({ ruleId: rule.id, signalId }, "copySignal: ordre déjà passé pour ce trade copié (idempotence) — ignoré");
+            continue; // ne pas re-journaliser un doublon
+          }
+          logger.info(
+            { ruleId: rule.id, symbol: rule.symbol, orderSide, quantity, orderId, signalId },
+            "copySignal: ordre copy-trading soumis via le pipeline de risque",
+          );
+        }
+      } else {
+        // status === "rejected" : kill-switch, garde-fous de risque, heures de
+        // marché, cotation manquante (fail closed), prérequis live manquants…
+        rejectReason = result.reason;
+        logger.warn(
+          { ruleId: rule.id, symbol: rule.symbol, reason: result.reason, signalId },
+          "copySignal: ordre copy-trading rejeté par les garde-fous",
+        );
+      }
+    } catch (err) {
+      rejectReason = "exception";
+      logger.error({ err, ruleId: rule.id, symbol: rule.symbol, signalId }, "copySignal: erreur lors de la soumission");
+    }
+
+    // ── Log en base (source distinguable + traçabilité du trade copié) ────────
+    await db.insert(autoTradeLogsTable).values({
+      ruleId: rule.id,
+      symbol: rule.symbol,
+      side: orderSide,
+      triggerType,
+      signalScore: null,
+      signalVerdict: "COPY-TRADING",
+      price: currentPrice != null ? String(currentPrice) : null,
+      quantity: String(quantity),
+      orderId: orderId ?? null,
+      notificationSent: false,
+      notes: rejectReason
+        ? `Signal copy-trading rejeté : ${rejectReason}`
+        : `Signal copy-trading du trader #${followedTraderId} (trade ${externalTradeId})`,
+      source: "copy-trading",
+      followedTraderId,
+      externalTradeId,
+    }).catch((err) => logger.error({ err, ruleId: rule.id }, "copySignal: insertion du log échouée"));
+
+    // Mettre à jour le compteur/dernier déclenchement uniquement si un ordre a
+    // été passé. Réutilise le todayReset/tradesToday du garde-fou d'entrée pour
+    // que le quota reste cohérent (pas de recalcul divergent).
+    if (triggerType === "order") {
+      await db.update(autoTradeRulesTable)
+        .set({
+          lastTriggeredAt: now,
+          tradesToday: tradesToday + 1,
+          tradesTodayResetAt: todayReset ? rule.tradesTodayResetAt : now,
+          updatedAt: now,
+        })
+        .where(eq(autoTradeRulesTable.id, rule.id))
+        .catch((err) => logger.error({ err, ruleId: rule.id }, "copySignal: mise à jour de la règle échouée"));
+    }
+
+    void orderStatus; // conservé pour lisibilité/debug
+  }
 }
 
 export async function runAutoTradeCheck(): Promise<void> {

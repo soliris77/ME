@@ -8,6 +8,7 @@ export * from "./copyTrading";
 export * from "./spotify";
 export * from "./agentTasks";
 export * from "./autoTrader";
+export * from "./autoTradeCopyBindings";
 export * from "./push";
 export * from "./notifications";
 export * from "./theses";

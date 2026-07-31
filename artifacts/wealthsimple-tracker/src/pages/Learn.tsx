@@ -117,34 +117,45 @@ function ParcoursTab({ progressBySection }: { progressBySection: Map<string, Lea
         </Link>
       )}
 
-      <div className="space-y-2">
-        {LESSONS.map((l, i) => {
-          const prog = progressBySection.get(lessonSectionId(l.slug));
-          const done = !!prog?.completed;
-          return (
-            <Link key={l.slug} href={`/apprendre/parcours/${l.slug}`}>
-              <div className={`flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition-colors ${done ? "border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-border bg-card hover:border-primary/40"}`}>
-                <span className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${done ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-                  {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold">{l.emoji} {l.title}</span>
-                    {done && prog?.quizTotal != null && (
-                      <span className="text-xs gain font-mono">{prog.quizScore}/{prog.quizTotal}</span>
-                    )}
+      {([
+        { level: "fondations" as const, label: "Fondations" },
+        { level: "avance" as const, label: "Avancé" },
+      ]).map((group) => {
+        const groupLessons = LESSONS.filter((l) => (l.level ?? "fondations") === group.level);
+        if (groupLessons.length === 0) return null;
+        return (
+          <div key={group.level} className="space-y-2">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold px-1">{group.label}</p>
+            {groupLessons.map((l) => {
+              const i = LESSONS.findIndex((x) => x.slug === l.slug);
+              const prog = progressBySection.get(lessonSectionId(l.slug));
+              const done = !!prog?.completed;
+              return (
+                <Link key={l.slug} href={`/apprendre/parcours/${l.slug}`}>
+                  <div className={`flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition-colors ${done ? "border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-border bg-card hover:border-primary/40"}`}>
+                    <span className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${done ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                      {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{l.emoji} {l.title}</span>
+                        {done && prog?.quizTotal != null && (
+                          <span className="text-xs gain font-mono">{prog.quizScore}/{prog.quizTotal}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{l.summary}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 hidden sm:flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {l.minutes} min
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{l.summary}</p>
-                </div>
-                <span className="text-xs text-muted-foreground shrink-0 hidden sm:flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> {l.minutes} min
-                </span>
-                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }

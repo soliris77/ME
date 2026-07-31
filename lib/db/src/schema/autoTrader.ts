@@ -86,6 +86,12 @@ export const autoTradeLogsTable = pgTable("auto_trade_logs", {
   orderId: integer("order_id"),                    // référence à orders.id si un ordre a été passé
   notificationSent: boolean("notification_sent").default(false).notNull(),
   notes: text("notes"),
+  // Provenance du déclenchement : null/"technical" (signal technique, défaut) |
+  // "copy-trading" (pont copy-trading → auto-trader). Rétrocompatible : null = technique.
+  source: text("source"),
+  // Renseignés uniquement pour les déclenchements copy-trading (traçabilité).
+  followedTraderId: integer("followed_trader_id"),
+  externalTradeId: text("external_trade_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

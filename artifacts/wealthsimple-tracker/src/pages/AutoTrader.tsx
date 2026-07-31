@@ -14,9 +14,11 @@ import {
   TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
   Clock, Shield, Bell, BellOff, Play, ArrowUpRight, ArrowDownRight,
   FlaskConical, Briefcase, CalendarCheck, Scale, ShieldAlert, ShieldCheck,
+  Users, Link2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
+import { useToast } from "@/hooks/use-toast";
 import GlobalRiskPanel from "@/components/GlobalRiskPanel";
 import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 
@@ -85,6 +87,24 @@ interface AutoTradeLog {
   notificationSent: boolean;
   notes: string | null;
   createdAt: string;
+}
+
+interface FollowedTrader {
+  id: number;
+  externalStrategyId: string;
+  traderDisplayName: string | null;
+}
+
+interface CopyBinding {
+  id: number;
+  ruleId: number;
+  followedTraderId: number;
+  enabled: boolean;
+  createdAt: string | null;
+  ruleName: string | null;
+  ruleSymbol: string | null;
+  traderDisplayName: string | null;
+  traderStrategyId: string | null;
 }
 
 /* ── Design tokens ─────────────────────────────────────── */
@@ -1063,6 +1083,205 @@ function OpenPositionsPanel({ rules }: { rules: AutoTradeRule[] }) {
   );
 }
 
+/* ── Source copy trading — liaisons règle ↔ trader suivi ─────────────────── */
+function CopyBindingsCard({ rules }: { rules: AutoTradeRule[] }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [ruleId, setRuleId] = useState<number | "">("");
+  const [traderId, setTraderId] = useState<number | "">("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Lit la réponse et LÈVE si le statut n'est pas 2xx — indispensable pour ne
+  // jamais faire passer un échec (ex. désactivation refusée) pour un succès.
+  async function jsonOrThrow(r: Response, fallback: string): Promise<unknown> {
+    let data: unknown = null;
+    try { data = await r.json(); } catch { /* corps vide / non-JSON */ }
+    if (!r.ok) {
+      const msg = (data as { error?: string } | null)?.error ?? fallback;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  const bindingsQ = useQuery<CopyBinding[]>({
+    queryKey: ["auto-trade-copy-bindings"],
+    queryFn: () => fetch(`${BASE}/api/auto-trader/copy-bindings`).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  const tradersQ = useQuery<FollowedTrader[]>({
+    queryKey: ["copy-trading-followed-traders"],
+    queryFn: () => fetch(`${BASE}/api/copy-trading/followed-traders`).then(r => r.json()),
+  });
+
+  const bindings: CopyBinding[] = Array.isArray(bindingsQ.data) ? bindingsQ.data : [];
+  const traders: FollowedTrader[] = Array.isArray(tradersQ.data) ? tradersQ.data : [];
+
+  const addMut = useMutation({
+    mutationFn: async (body: { ruleId: number; followedTraderId: number }) => {
+      const r = await fetch(`${BASE}/api/auto-trader/copy-bindings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return jsonOrThrow(r, "Erreur lors de l'ajout de la liaison");
+    },
+    onSuccess: () => {
+      setError(null);
+      setRuleId("");
+      setTraderId("");
+      qc.invalidateQueries({ queryKey: ["auto-trade-copy-bindings"] });
+      toast({ title: "Liaison copy-trading créée" });
+    },
+    onError: (e: Error) => {
+      setError(e.message);
+      toast({ title: "Échec de l'ajout", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
+      const r = await fetch(`${BASE}/api/auto-trader/copy-bindings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      return jsonOrThrow(r, "Erreur lors de la mise à jour de la liaison");
+    },
+    // Rafraîchit systématiquement (succès comme échec) pour que l'UI reflète
+    // l'état RÉEL du serveur : une désactivation refusée doit rester "Actif".
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["auto-trade-copy-bindings"] });
+      toast({ title: vars.enabled ? "Liaison activée" : "Liaison désactivée" });
+    },
+    onError: (e: Error) => {
+      qc.invalidateQueries({ queryKey: ["auto-trade-copy-bindings"] });
+      toast({ title: "Échec de la mise à jour", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`${BASE}/api/auto-trader/copy-bindings/${id}`, { method: "DELETE" });
+      return jsonOrThrow(r, "Erreur lors de la suppression de la liaison");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["auto-trade-copy-bindings"] });
+      toast({ title: "Liaison supprimée" });
+    },
+    onError: (e: Error) => {
+      qc.invalidateQueries({ queryKey: ["auto-trade-copy-bindings"] });
+      toast({ title: "Échec de la suppression", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const canAdd = ruleId !== "" && traderId !== "" && !addMut.isPending;
+  const selectCls = "flex-1 min-w-0 rounded-lg px-3 py-2 text-[12px] bg-background border border-border/60 text-foreground focus:outline-none focus:border-primary/60";
+
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Link2 className="w-4 h-4 text-primary" />
+        <h3 className="text-[13px] font-bold text-foreground">Source copy trading</h3>
+      </div>
+      <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+        Lie une règle d'auto-trading à un trader suivi : quand ce trader ouvre un trade sur le
+        symbole de la règle, un ordre est soumis via le <strong>même pipeline de risque</strong>
+        {" "}(coupe-circuit, quotas, heures de marché, tailles max). Sans liaison, rien ne change.
+      </p>
+
+      {/* Formulaire d'ajout */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <select
+          className={selectCls}
+          value={ruleId}
+          onChange={(e) => setRuleId(e.target.value === "" ? "" : Number(e.target.value))}
+        >
+          <option value="">Règle…</option>
+          {rules.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.symbol}{r.name ? ` — ${r.name}` : ""}
+            </option>
+          ))}
+        </select>
+        <select
+          className={selectCls}
+          value={traderId}
+          onChange={(e) => setTraderId(e.target.value === "" ? "" : Number(e.target.value))}
+        >
+          <option value="">Trader suivi…</option>
+          {traders.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.traderDisplayName ?? `Stratégie ${t.externalStrategyId}`}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={!canAdd}
+          onClick={() => addMut.mutate({ ruleId: ruleId as number, followedTraderId: traderId as number })}
+          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5" /> Lier
+        </button>
+      </div>
+
+      {error && <div className="text-[11px] text-red-400 mb-2">{error}</div>}
+      {traders.length === 0 && (
+        <div className="text-[11px] text-muted-foreground/70 mb-2 flex items-center gap-1.5">
+          <Users className="w-3.5 h-3.5" /> Aucun trader suivi — ajoute-en un dans la page Copy Trading.
+        </div>
+      )}
+
+      {/* Liste des liaisons */}
+      {bindings.length === 0 ? (
+        <div className="text-[11px] text-muted-foreground/60 text-center py-3">
+          Aucune liaison copy-trading. Le copy-trading et l'auto-trader fonctionnent indépendamment.
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border/40 overflow-hidden">
+          {bindings.map((b) => (
+            <div
+              key={b.id}
+              className="grid grid-cols-[1fr_1fr_auto_auto] gap-x-3 px-3 py-2 border-t border-border/30 first:border-t-0 text-[12px] items-center"
+            >
+              <span className="font-mono font-semibold text-foreground truncate">
+                {b.ruleSymbol ?? "?"}
+                {b.ruleName ? <span className="text-muted-foreground font-sans font-normal"> · {b.ruleName}</span> : ""}
+              </span>
+              <span className="text-muted-foreground truncate flex items-center gap-1">
+                <Users className="w-3 h-3 shrink-0" />
+                {b.traderDisplayName ?? `Stratégie ${b.traderStrategyId ?? "?"}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleMut.mutate({ id: b.id, enabled: !b.enabled })}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors ${
+                  b.enabled
+                    ? "bg-green-500/15 border-green-500/40 text-green-400"
+                    : "border-border/40 text-muted-foreground hover:border-border"
+                }`}
+                title={b.enabled ? "Désactiver" : "Activer"}
+              >
+                {b.enabled ? <Power className="w-3 h-3" /> : <PowerOff className="w-3 h-3" />}
+                {b.enabled ? "Actif" : "Inactif"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { if (confirm("Supprimer cette liaison copy-trading ?")) deleteMut.mutate(b.id); }}
+                className="text-muted-foreground hover:text-red-400 transition-colors"
+                title="Supprimer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AutoTrader() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -1307,6 +1526,11 @@ export default function AutoTrader() {
           ))}
         </div>
       )}
+
+      {/* Source copy trading — liaisons règle ↔ trader suivi */}
+      <div className="mt-6">
+        <CopyBindingsCard rules={rules} />
+      </div>
 
       {/* Modals */}
       {backtestRule && (

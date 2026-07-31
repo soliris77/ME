@@ -690,6 +690,57 @@ export declare const autoTradeLogsTable: import("drizzle-orm/pg-core").PgTableWi
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        source: import("drizzle-orm/pg-core").PgColumn<{
+            name: "source";
+            tableName: "auto_trade_logs";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        followedTraderId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "followed_trader_id";
+            tableName: "auto_trade_logs";
+            dataType: "number";
+            columnType: "PgInteger";
+            data: number;
+            driverParam: string | number;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        externalTradeId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "external_trade_id";
+            tableName: "auto_trade_logs";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
             tableName: "auto_trade_logs";
@@ -713,10 +764,10 @@ export declare const autoTradeLogsTable: import("drizzle-orm/pg-core").PgTableWi
 export declare const insertAutoTradeRuleSchema: z.ZodObject<{
     symbol: z.ZodString;
     name: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    quantity: z.ZodOptional<z.ZodString>;
     enabled: z.ZodOptional<z.ZodBoolean>;
     sideMode: z.ZodOptional<z.ZodString>;
     minScore: z.ZodOptional<z.ZodInt>;
+    quantity: z.ZodOptional<z.ZodString>;
     accountId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     stopLossPct: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     takeProfitPct: z.ZodOptional<z.ZodNullable<z.ZodString>>;

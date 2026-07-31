@@ -79,23 +79,36 @@ export type FollowedTrader = typeof followedTradersTable.$inferSelect;
 // ─── Trades copiés / notifiés ──────────────────────────────────────────────────
 // Historique des trades détectés chez un trader suivi, avec leur statut dans
 // le cycle de vie : notifié → validé/exécuté ou rejeté.
-export const copiedTradesTable = pgTable("copied_trades", {
-  id: serial("id").primaryKey(),
-  followedTraderId: serial("followed_trader_id")
-    .notNull()
-    .references(() => followedTradersTable.id),
-  // Identifiant unique du trade côté MetaApi (idempotence)
-  externalTradeId: text("external_trade_id").notNull(),
-  symbol: text("symbol").notNull(),
-  direction: text("direction").notNull(), // "buy" | "sell"
-  originalAmount: numeric("original_amount"),
-  copiedAmount: numeric("copied_amount"),
-  // pending → notified → executed | rejected | failed
-  status: text("status").notNull().default("pending"),
-  openedAt: timestamp("opened_at"),
-  closedAt: timestamp("closed_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const copiedTradesTable = pgTable(
+  "copied_trades",
+  {
+    id: serial("id").primaryKey(),
+    followedTraderId: serial("followed_trader_id")
+      .notNull()
+      .references(() => followedTradersTable.id),
+    // Identifiant unique du trade côté MetaApi (idempotence)
+    externalTradeId: text("external_trade_id").notNull(),
+    symbol: text("symbol").notNull(),
+    direction: text("direction").notNull(), // "buy" | "sell"
+    originalAmount: numeric("original_amount"),
+    copiedAmount: numeric("copied_amount"),
+    // pending → notified → executed | rejected | failed
+    status: text("status").notNull().default("pending"),
+    openedAt: timestamp("opened_at"),
+    closedAt: timestamp("closed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Idempotence FORTE d'un trade copié : garantit qu'un même trade (trader +
+    // externalTradeId) ne peut être inséré qu'une fois, même après un crash
+    // entre l'insert et l'émission vers le pont auto-trader. La réclamation
+    // atomique (INSERT ... ON CONFLICT DO NOTHING RETURNING) s'appuie dessus.
+    uniqueIndex("copied_trades_trader_external_unique").on(
+      table.followedTraderId,
+      table.externalTradeId,
+    ),
+  ],
+);
 
 export const insertCopiedTradeSchema = createInsertSchema(copiedTradesTable).omit({
   id: true,

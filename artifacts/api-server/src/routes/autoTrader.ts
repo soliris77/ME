@@ -9,7 +9,7 @@
  * POST   /api/auto-trader/run           — forcer un cycle immédiat (debug)
  */
 import { Router } from "express";
-import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable } from "@workspace/db";
+import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable, autoTradeCopyBindingsTable, followedTradersTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runAutoTradeCheck, getDailyRealizedPnLStatus } from "../workers/autoTradeWorker";
@@ -434,6 +434,105 @@ router.post("/auto-trader/backtest", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "auto-trader: POST backtest error");
     return res.status(500).json({ error: "Erreur lors du backtest" });
+  }
+});
+
+// ── Liaisons copy-trading → auto-trader ────────────────────────────────────────
+// Source de signal optionnelle : associe une règle d'auto-trading à un trader
+// suivi. Quand ce trader ouvre un trade, l'auto-trader soumet un ordre via le
+// même pipeline de risque (si le symbole correspond exactement à la règle).
+
+// GET /api/auto-trader/copy-bindings — liste avec noms de règle et de trader
+router.get("/auto-trader/copy-bindings", async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        id: autoTradeCopyBindingsTable.id,
+        ruleId: autoTradeCopyBindingsTable.ruleId,
+        followedTraderId: autoTradeCopyBindingsTable.followedTraderId,
+        enabled: autoTradeCopyBindingsTable.enabled,
+        createdAt: autoTradeCopyBindingsTable.createdAt,
+        ruleName: autoTradeRulesTable.name,
+        ruleSymbol: autoTradeRulesTable.symbol,
+        traderDisplayName: followedTradersTable.traderDisplayName,
+        traderStrategyId: followedTradersTable.externalStrategyId,
+      })
+      .from(autoTradeCopyBindingsTable)
+      .leftJoin(autoTradeRulesTable, eq(autoTradeCopyBindingsTable.ruleId, autoTradeRulesTable.id))
+      .leftJoin(followedTradersTable, eq(autoTradeCopyBindingsTable.followedTraderId, followedTradersTable.id))
+      .orderBy(desc(autoTradeCopyBindingsTable.id));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: GET copy-bindings error");
+    res.status(500).json({ error: "Erreur lors du chargement des liaisons copy-trading" });
+  }
+});
+
+// POST /api/auto-trader/copy-bindings — { ruleId, followedTraderId }
+router.post("/auto-trader/copy-bindings", async (req, res) => {
+  try {
+    const { ruleId, followedTraderId } = req.body as Record<string, unknown>;
+    if (typeof ruleId !== "number" || !Number.isInteger(ruleId)) {
+      return res.status(400).json({ error: "ruleId (entier) requis" });
+    }
+    if (typeof followedTraderId !== "number" || !Number.isInteger(followedTraderId)) {
+      return res.status(400).json({ error: "followedTraderId (entier) requis" });
+    }
+
+    // Vérifier l'existence des deux références (message d'erreur clair).
+    const [rule] = await db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.id, ruleId)).limit(1);
+    if (!rule) return res.status(404).json({ error: "Règle introuvable" });
+    const [trader] = await db.select().from(followedTradersTable).where(eq(followedTradersTable.id, followedTraderId)).limit(1);
+    if (!trader) return res.status(404).json({ error: "Trader suivi introuvable" });
+
+    const [binding] = await db.insert(autoTradeCopyBindingsTable).values({
+      ruleId,
+      followedTraderId,
+      enabled: true,
+    }).returning();
+
+    logger.info({ bindingId: binding.id, ruleId, followedTraderId }, "auto-trader: liaison copy-trading créée");
+    return res.status(201).json(binding);
+  } catch (err) {
+    if (String(err).includes("unique") || String(err).includes("duplicate")) {
+      return res.status(409).json({ error: "Cette liaison existe déjà." });
+    }
+    logger.error({ err }, "auto-trader: POST copy-bindings error");
+    return res.status(500).json({ error: "Erreur lors de la création de la liaison" });
+  }
+});
+
+// PATCH /api/auto-trader/copy-bindings/:id — { enabled }
+router.patch("/auto-trader/copy-bindings/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "id invalide" });
+    const { enabled } = req.body as Record<string, unknown>;
+    if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled (booléen) requis" });
+
+    const [updated] = await db.update(autoTradeCopyBindingsTable)
+      .set({ enabled })
+      .where(eq(autoTradeCopyBindingsTable.id, id))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "Liaison introuvable" });
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "auto-trader: PATCH copy-bindings error");
+    return res.status(500).json({ error: "Erreur lors de la mise à jour de la liaison" });
+  }
+});
+
+// DELETE /api/auto-trader/copy-bindings/:id
+router.delete("/auto-trader/copy-bindings/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "id invalide" });
+    await db.delete(autoTradeCopyBindingsTable).where(eq(autoTradeCopyBindingsTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "auto-trader: DELETE copy-bindings error");
+    return res.status(500).json({ error: "Erreur lors de la suppression de la liaison" });
   }
 });
 

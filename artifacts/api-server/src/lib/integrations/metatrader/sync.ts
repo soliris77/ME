@@ -13,11 +13,12 @@
  *     aucun crash du serveur.
  */
 import { db, mtConnectionsTable, followedTradersTable, copiedTradesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { decrypt } from "./crypto";
 import { getOpenPositions } from "./client";
 import { sendEmail } from "../../emailClient";
 import { logger } from "../../logger";
+import { processCopySignal } from "../../../workers/autoTradeWorker";
 
 const SYNC_INTERVAL_MS = Number(process.env.COPY_TRADING_SYNC_INTERVAL_MS ?? 5 * 60 * 1000);
 
@@ -43,20 +44,6 @@ async function syncFollowedTrader(
   }
 
   for (const position of positions) {
-    // Vérifier si ce trade est déjà connu (idempotence)
-    const existing = await db
-      .select({ id: copiedTradesTable.id })
-      .from(copiedTradesTable)
-      .where(
-        and(
-          eq(copiedTradesTable.followedTraderId, followedTrader.id),
-          eq(copiedTradesTable.externalTradeId, position.id),
-        ),
-      )
-      .limit(1);
-
-    if (existing.length > 0) continue; // déjà enregistré
-
     const direction = position.type === "POSITION_TYPE_BUY" ? "buy" : "sell";
 
     // Calculer le montant à copier selon les règles de risque
@@ -65,17 +52,32 @@ async function syncFollowedTrader(
       copiedAmount = followedTrader.maxAmountPerTrade;
     }
 
-    // Insérer le trade copié
-    await db.insert(copiedTradesTable).values({
-      followedTraderId: followedTrader.id,
-      externalTradeId: position.id,
-      symbol: position.symbol,
-      direction,
-      originalAmount: String(position.volume),
-      copiedAmount,
-      status: followedTrader.autoExecute ? "executed" : "notified",
-      openedAt: new Date(position.openTime),
-    });
+    // ── Réclamation ATOMIQUE du trade copié ───────────────────────────────────
+    // INSERT ... ON CONFLICT DO NOTHING RETURNING : seul le premier appelant à
+    // insérer ce (trader, externalTradeId) obtient une ligne. Si le processus
+    // crashe entre cet insert et l'émission vers le pont auto-trader, le cycle
+    // suivant retombera sur "conflit" (0 ligne) et NE ré-émettra PAS le signal —
+    // pas de doublon d'ordre. La contrainte unique
+    // copied_trades_trader_external_unique garantit l'atomicité.
+    const claimed = await db
+      .insert(copiedTradesTable)
+      .values({
+        followedTraderId: followedTrader.id,
+        externalTradeId: position.id,
+        symbol: position.symbol,
+        direction,
+        originalAmount: String(position.volume),
+        copiedAmount,
+        status: followedTrader.autoExecute ? "executed" : "notified",
+        openedAt: new Date(position.openTime),
+      })
+      .onConflictDoNothing({
+        target: [copiedTradesTable.followedTraderId, copiedTradesTable.externalTradeId],
+      })
+      .returning({ id: copiedTradesTable.id });
+
+    // 0 ligne renvoyée = trade déjà réclamé (déjà connu) → ne rien ré-émettre.
+    if (claimed.length === 0) continue;
 
     logger.info(
       {
@@ -85,6 +87,22 @@ async function syncFollowedTrader(
         autoExecute: followedTrader.autoExecute,
       },
       "copytrading: new trade detected",
+    );
+
+    // ── Pont copy-trading → auto-trader (source de signal optionnelle) ─────────
+    // Émet un signal normalisé ; processCopySignal ne fait rien s'il n'existe
+    // aucune liaison ACTIVE pour ce trader/symbole. Le sync et le copy-trading
+    // continuent de fonctionner à l'identique en l'absence de liaison.
+    // Isolé : une erreur du pont ne doit jamais interrompre le sync.
+    await processCopySignal({
+      followedTraderId: followedTrader.id,
+      externalTradeId: position.id,
+      symbol: position.symbol,
+      side: direction,
+      openedAt: new Date(position.openTime),
+      source: "copy-trading",
+    }).catch((err) =>
+      logger.warn({ err, followedTraderId: followedTrader.id }, "copytrading: pont auto-trader échoué"),
     );
 
     // Envoyer une notification email si mode notification

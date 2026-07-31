@@ -66,3 +66,5 @@ Colonnes ajoutées: lastDailySummaryDate (YYYY-MM-DD), maxDailyLossAmount (text/
 
 **Why:** Système demandé explicitement par l'utilisateur pour automatiser le trading
 basé sur les signaux techniques existants (RSI, MACD, SMA, Bollinger).
+
+**Sources de signaux (juillet 2026)** : toute nouvelle source de signal (ex. copy trading) doit réutiliser `checkRuleEntryGuardrails` + `computeRuleQuantity` du worker — jamais réimplémenter quotas/cooldown/sizing, et fail closed sans cotation. Réclamation atomique des événements source (INSERT ... ON CONFLICT DO NOTHING) avant émission.
