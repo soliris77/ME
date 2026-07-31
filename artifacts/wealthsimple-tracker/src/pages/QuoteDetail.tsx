@@ -15,10 +15,11 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, ArrowUpRight, ArrowDownRight, Bookmark,
   TrendingUp, TrendingDown, BarChart2, Gauge, StickyNote, Newspaper, ExternalLink,
-  Clock, CheckCircle2, XCircle,
+  Clock, CheckCircle2, XCircle, Calculator,
 } from "lucide-react";
 import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
 import TradeModal from "@/components/TradeModal";
+import { PositionCalculator } from "@/components/PositionCalculator";
 import { useToast } from "@/hooks/use-toast";
 import {
   ComposedChart, AreaChart, Area, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -321,6 +322,7 @@ export default function QuoteDetail() {
   const [selectedAnnotation, setSelectedAnnotation] = useState<SelectedAnnotation | null>(null);
   const [noteModal, setNoteModal]               = useState<NoteModalState | null>(null);
   const [tradeModal, setTradeModal]             = useState<{ side: "BUY" | "SELL"; source: string } | null>(null);
+  const [showCalculator, setShowCalculator]     = useState(false);
   const [brushStart, setBrushStart]             = useState(0);
   const [brushEnd, setBrushEnd]                 = useState(0);
   const { toast }                               = useToast();
@@ -571,6 +573,13 @@ export default function QuoteDetail() {
             style={{ background: "rgba(220,38,38,0.12)", color: "#DC2626", border: "1px solid rgba(220,38,38,0.28)" }}
           >
             <TrendingDown className="w-3.5 h-3.5" /> Vendre
+          </button>
+          <button
+            onClick={() => setShowCalculator(true)}
+            title="Calculateur de taille de position — prix d'entrée prérempli"
+            className="flex items-center gap-2 px-4 py-2.5 border border-border text-[13px] font-medium rounded-xl hover:bg-muted hover:border-primary/30 hover:text-primary transition-all"
+          >
+            <Calculator className="w-4 h-4" /> Calculateur
           </button>
           <button
             onClick={() => add.mutate({ data: { symbol: quote.symbol, name: quote.name } })}
@@ -975,6 +984,15 @@ export default function QuoteDetail() {
           currency={quote.currency}
           source={tradeModal.source}
           onClose={() => setTradeModal(null)}
+        />
+      )}
+
+      {/* Calculateur de position — prix courant prérempli */}
+      {showCalculator && (
+        <PositionCalculator
+          symbol={quote.symbol}
+          defaultEntryPrice={quote.price ?? undefined}
+          onClose={() => setShowCalculator(false)}
         />
       )}
     </div>
