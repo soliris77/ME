@@ -815,10 +815,10 @@ export declare const autoTradeLogsTable: import("drizzle-orm/pg-core").PgTableWi
 export declare const insertAutoTradeRuleSchema: z.ZodObject<{
     symbol: z.ZodString;
     name: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    quantity: z.ZodOptional<z.ZodString>;
     enabled: z.ZodOptional<z.ZodBoolean>;
     sideMode: z.ZodOptional<z.ZodString>;
     minScore: z.ZodOptional<z.ZodInt>;
-    quantity: z.ZodOptional<z.ZodString>;
     accountId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     stopLossPct: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     takeProfitPct: z.ZodOptional<z.ZodNullable<z.ZodString>>;
