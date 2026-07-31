@@ -32,7 +32,7 @@ import type { CandlePattern } from "@/lib/patternDetect";
 import { useChartNotes, useAddChartNote, useDeleteChartNote } from "@/lib/useChartNotes";
 import type { ChartNoteItem } from "@/lib/useChartNotes";
 import NoteModal from "@/components/NoteModal";
-import { twentyDayLow } from "@/lib/stopSuggestion";
+import { twentyDayLow, twentyDayHigh } from "@/lib/stopSuggestion";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -427,6 +427,12 @@ export default function QuoteDetail() {
   // historique quotidien dédié (1 mois), indépendant de la plage du graphique.
   const low20d = useMemo(
     () => twentyDayLow(dailyHistory.map((p) => ({ date: p.date, low: p.low ?? null }))),
+    [dailyHistory]
+  );
+
+  // Plus haut 20 jours pour la suggestion d'objectif de prix (même historique dédié).
+  const high20d = useMemo(
+    () => twentyDayHigh(dailyHistory.map((p) => ({ date: p.date, high: p.high ?? null }))),
     [dailyHistory]
   );
 
@@ -1008,6 +1014,8 @@ export default function QuoteDetail() {
           defaultEntryPrice={quote.price ?? undefined}
           recentLow={low20d}
           recentLowLabel="plus bas 20 jours"
+          recentHigh={high20d}
+          recentHighLabel="plus haut 20 jours"
           onBuy={
             isTradeableSymbol(quote.symbol)
               ? (units) => {

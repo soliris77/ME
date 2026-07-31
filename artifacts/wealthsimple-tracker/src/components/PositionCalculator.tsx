@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { X, Calculator, AlertTriangle, CheckCircle2, Info, TrendingUp } from "lucide-react";
-import { suggestStopLoss } from "@/lib/stopSuggestion";
+import { suggestStopLoss, suggestTarget } from "@/lib/stopSuggestion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +12,10 @@ interface Props {
   recentLow?: number;
   /** Libellé de la source du plus bas (ex. "plus bas 20 jours"). */
   recentLowLabel?: string;
+  /** Plus haut récent (ex. plus haut 20 jours) pour suggérer un objectif de prix. */
+  recentHigh?: number;
+  /** Libellé de la source du plus haut (ex. "plus haut 20 jours"). */
+  recentHighLabel?: string;
   /**
    * Appelé quand l'utilisateur veut acheter la quantité calculée.
    * Fourni uniquement lorsque le calculateur est ouvert depuis une fiche
@@ -49,7 +53,7 @@ function ResultItem({
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentLow, recentLowLabel, onBuy }: Props) {
+export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentLow, recentLowLabel, recentHigh, recentHighLabel, onBuy }: Props) {
   const suggestion = useMemo(
     () => suggestStopLoss(defaultEntryPrice, recentLow, recentLowLabel),
     [defaultEntryPrice, recentLow, recentLowLabel]
@@ -65,7 +69,27 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentL
   useEffect(() => {
     if (suggestion && !stopTouched.current) setStopPrice(suggestion.value.toFixed(2));
   }, [suggestion]);
-  const [targetPrice, setTargetPrice] = useState("");
+
+  // Objectif de prix suggéré — dépend de l'entrée ET du stop courants (y compris
+  // modifiés à la main) : le risque par action définit l'échelle de la récompense.
+  const targetTouched = useRef(false);
+  const targetSuggestion = useMemo(() => {
+    const entry = parseFloat(entryPrice);
+    const stop = parseFloat(stopPrice);
+    return suggestTarget(
+      Number.isFinite(entry) ? entry : undefined,
+      Number.isFinite(stop) ? stop : undefined,
+      recentHigh,
+      recentHighLabel
+    );
+  }, [entryPrice, stopPrice, recentHigh, recentHighLabel]);
+  const [targetPrice, setTargetPrice] = useState(targetSuggestion ? targetSuggestion.value.toFixed(2) : "");
+
+  // Comme pour le stop : applique la suggestion tant que l'utilisateur n'a pas
+  // modifié le champ lui-même (le plus haut 20 jours arrive de façon asynchrone).
+  useEffect(() => {
+    if (!targetTouched.current) setTargetPrice(targetSuggestion ? targetSuggestion.value.toFixed(2) : "");
+  }, [targetSuggestion]);
 
   const calc = useMemo(() => {
     const cap    = parseFloat(capital);
@@ -189,10 +213,16 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentL
               Objectif de prix ($) <span className="normal-case font-normal opacity-60">— optionnel, pour le ratio R/R</span>
             </label>
             <input
-              type="number" value={targetPrice} onChange={(e) => setTargetPrice(e.target.value)}
+              type="number" value={targetPrice}
+              onChange={(e) => { targetTouched.current = true; setTargetPrice(e.target.value); }}
               className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring font-mono"
               placeholder="0.00" step="0.01"
             />
+            {targetSuggestion && (
+              <p className="text-[10px] text-muted-foreground/70 mt-1">
+                Suggestion : <span className="font-mono">${targetSuggestion.value.toFixed(2)}</span> ({targetSuggestion.source})
+              </p>
+            )}
           </div>
         </div>
 

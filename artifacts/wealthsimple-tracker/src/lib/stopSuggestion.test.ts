@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { suggestStopLoss, twentyDayLow } from "./stopSuggestion";
+import { suggestStopLoss, suggestTarget, twentyDayLow, twentyDayHigh } from "./stopSuggestion";
 
 const day = (i: number) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString();
 const dailyCandles = (lows: (number | null)[]) =>
@@ -26,6 +26,69 @@ describe("suggestStopLoss", () => {
     const s = suggestStopLoss(50);
     expect(s?.value).toBeCloseTo(49);
     expect(s?.source).toBe("-2 % sous l'entrée");
+  });
+});
+
+describe("suggestTarget", () => {
+  it("retourne null sans entrée ou sans stop valide (stop ≥ entrée)", () => {
+    expect(suggestTarget(undefined, 95)).toBeNull();
+    expect(suggestTarget(100, undefined)).toBeNull();
+    expect(suggestTarget(100, 0)).toBeNull();
+    expect(suggestTarget(100, 100)).toBeNull();
+    expect(suggestTarget(100, 105)).toBeNull();
+  });
+
+  it("utilise le plus haut récent s'il offre au moins un R/R 1:1", () => {
+    // risque = 5 → seuil = 105 ; plus haut 112 → R/R 2.4
+    const s = suggestTarget(100, 95, 112, "plus haut 20 jours");
+    expect(s).toEqual({ value: 112, source: "plus haut 20 jours" });
+  });
+
+  it("accepte le plus haut exactement au seuil R/R 1:1", () => {
+    const s = suggestTarget(100, 95, 105, "plus haut 20 jours");
+    expect(s).toEqual({ value: 105, source: "plus haut 20 jours" });
+  });
+
+  it("retombe sur 2× le risque si le plus haut est trop proche de l'entrée (R/R < 1)", () => {
+    const s = suggestTarget(100, 95, 103);
+    expect(s?.value).toBeCloseTo(110); // 100 + 2×5
+    expect(s?.source).toBe("2× le risque (R/R 1:2)");
+  });
+
+  it("retombe sur 2× le risque sans plus haut disponible", () => {
+    const s = suggestTarget(50, 48);
+    expect(s?.value).toBeCloseTo(54);
+    expect(s?.source).toBe("2× le risque (R/R 1:2)");
+  });
+});
+
+describe("twentyDayHigh", () => {
+  const dailyHighs = (highs: (number | null)[]) =>
+    highs.map((high, i) => ({ date: day(i), high }));
+
+  it("retourne le plus haut des 20 dernières bougies quotidiennes", () => {
+    const highs = Array.from({ length: 30 }, (_, i) => 100 + i);
+    expect(twentyDayHigh(dailyHighs(highs))).toBe(129);
+  });
+
+  it("retourne undefined si moins de 20 bougies ou des plus hauts invalides", () => {
+    expect(twentyDayHigh([])).toBeUndefined();
+    const highs: (number | null)[] = Array.from({ length: 20 }, (_, i) => 100 + i);
+    highs[5] = null;
+    expect(twentyDayHigh(dailyHighs(highs))).toBeUndefined();
+  });
+
+  it("retourne undefined pour un historique intraday ou hebdomadaire", () => {
+    const intraday = Array.from({ length: 30 }, (_, i) => ({
+      date: new Date(Date.UTC(2026, 0, 5, 14, 30 + i * 5)).toISOString(),
+      high: 90 + i,
+    }));
+    expect(twentyDayHigh(intraday)).toBeUndefined();
+    const weekly = Array.from({ length: 30 }, (_, i) => ({
+      date: new Date(Date.UTC(2026, 0, 1 + i * 7)).toISOString(),
+      high: 90 + i,
+    }));
+    expect(twentyDayHigh(weekly)).toBeUndefined();
   });
 });
 
