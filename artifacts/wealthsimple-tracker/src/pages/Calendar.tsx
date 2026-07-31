@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useGetWatchlist } from "@workspace/api-client-react";
-import { CalendarDays, Landmark, Briefcase, TrendingUp, Loader2 } from "lucide-react";
+import { CalendarDays, Landmark, Briefcase, TrendingUp, Loader2, Ban, Clock3 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -34,6 +34,101 @@ function groupByMonth(events: CalendarEvent[]): { key: string; label: string; ev
       label: new Date(`${key}-01T12:00:00Z`).toLocaleDateString("fr-CA", { month: "long", year: "numeric" }),
       events: evts,
     }));
+}
+
+// ─── Fermetures de bourse (fériés + demi-journées) ───────────────────────────
+
+interface MarketClosure {
+  date: string;
+  kind: "holiday" | "early_close";
+  exchanges: ("TSX" | "NASDAQ_NYSE")[];
+  closesAt?: string;
+}
+
+interface ClosuresResponse {
+  asOf: string;
+  timezone: string;
+  closures: MarketClosure[];
+}
+
+const EXCHANGE_LABELS: Record<MarketClosure["exchanges"][number], string> = {
+  TSX: "TSX (Toronto)",
+  NASDAQ_NYSE: "NASDAQ/NYSE",
+};
+
+function formatClosureDate(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("fr-CA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function MarketClosuresSection() {
+  const q = useQuery<ClosuresResponse>({
+    queryKey: ["market-closures"],
+    queryFn: () => fetch(`${BASE}/api/market/closures?limit=8`).then((r) => {
+      if (!r.ok) throw new Error("Erreur de chargement des fermetures");
+      return r.json();
+    }),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  return (
+    <div className="mb-8">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60 mb-3">
+        Fermetures de bourse à venir
+      </h2>
+      {q.isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
+        </div>
+      ) : q.isError ? (
+        <div className="text-sm text-muted-foreground border border-dashed border-card-border rounded-xl p-4">
+          Impossible de charger les fermetures de bourse.
+        </div>
+      ) : (q.data?.closures ?? []).length === 0 ? (
+        <div className="text-sm text-muted-foreground border border-dashed border-card-border rounded-xl p-4">
+          Aucune fermeture à venir.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(q.data?.closures ?? []).map((c) => {
+            const isEarly = c.kind === "early_close";
+            const Icon = isEarly ? Clock3 : Ban;
+            const d = new Date(`${c.date}T12:00:00Z`);
+            return (
+              <div key={`${c.date}-${c.kind}`} className="flex items-center gap-3 bg-card border border-card-border rounded-xl px-4 py-3">
+                <div className="w-11 text-center shrink-0">
+                  <div className="text-[10px] uppercase text-muted-foreground/60">
+                    {d.toLocaleDateString("fr-CA", { weekday: "short" })}
+                  </div>
+                  <div className="text-lg font-bold font-mono leading-none">{d.getUTCDate()}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium capitalize truncate">{formatClosureDate(c.date)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.exchanges.map((ex) => EXCHANGE_LABELS[ex]).join(" · ")}
+                  </p>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border shrink-0 ${
+                    isEarly
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                      : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {isEarly ? "Ferme à 13h00 ET" : "Fermé (férié)"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CalendarPage() {
@@ -68,6 +163,8 @@ export default function CalendarPage() {
           de résultats trimestriels pour les titres de votre liste de suivi.
         </p>
       </div>
+
+      <MarketClosuresSection />
 
       {q.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

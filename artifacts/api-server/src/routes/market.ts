@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
-import { isMarketOpen, getExchangeForSymbol } from "../lib/risk";
+import { isMarketOpen, getExchangeForSymbol, getMarketHolidays, getEarlyCloseDays } from "../lib/risk";
 
 const router = Router();
 
@@ -188,6 +188,77 @@ router.get("/market/hours/:symbol", (req, res) => {
     closeTime,
     timezone,
     continuous: false,
+  });
+});
+
+// ─── GET /api/market/closures ────────────────────────────────────────────────
+// Prochaines fermetures de bourse (jours fériés complets + demi-journées à
+// fermeture anticipée 13h00 ET) pour TSX et NASDAQ/NYSE. Ne dépend pas de
+// Yahoo Finance — tout est calculé localement via lib/risk.ts.
+
+export interface MarketClosure {
+  date: string; // "YYYY-MM-DD" (heure de l'Est)
+  kind: "holiday" | "early_close";
+  exchanges: ("TSX" | "NASDAQ_NYSE")[];
+  /** Pour les demi-journées : heure de fermeture anticipée, ET. */
+  closesAt?: "13:00";
+}
+
+function computeUpcomingClosures(todayKey: string, limit: number): MarketClosure[] {
+  const year = Number(todayKey.slice(0, 4));
+  const exchanges: ("TSX" | "NASDAQ_NYSE")[] = ["TSX", "NASDAQ_NYSE"];
+  // Clé "date|kind" → bourses concernées
+  const map = new Map<string, Set<"TSX" | "NASDAQ_NYSE">>();
+
+  for (const y of [year, year + 1]) {
+    for (const ex of exchanges) {
+      for (const d of getMarketHolidays(y, ex)) {
+        if (d < todayKey) continue;
+        const key = `${d}|holiday`;
+        if (!map.has(key)) map.set(key, new Set());
+        map.get(key)!.add(ex);
+      }
+      for (const d of getEarlyCloseDays(y, ex)) {
+        if (d < todayKey) continue;
+        const key = `${d}|early_close`;
+        if (!map.has(key)) map.set(key, new Set());
+        map.get(key)!.add(ex);
+      }
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([key, exs]) => {
+      const [date, kind] = key.split("|") as [string, "holiday" | "early_close"];
+      return {
+        date,
+        kind,
+        exchanges: exchanges.filter((ex) => exs.has(ex)),
+        ...(kind === "early_close" ? { closesAt: "13:00" as const } : {}),
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, limit);
+}
+
+router.get("/market/closures", (req, res) => {
+  // "Aujourd'hui" en heure de l'Est (les clés de risk.ts sont en ET)
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const todayKey = `${get("year")}-${get("month")}-${get("day")}`;
+
+  const rawLimit = Number((req.query as { limit?: string }).limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 12;
+
+  return res.json({
+    asOf: todayKey,
+    timezone: "America/New_York",
+    closures: computeUpcomingClosures(todayKey, limit),
   });
 });
 
