@@ -148,52 +148,67 @@ function victoriaDay(year: number): Date {
  * Chaque entrée est au format "YYYY-MM-DD" en heure locale (ET).
  */
 export function getMarketHolidays(year: number, exchange: "TSX" | "NASDAQ_NYSE"): Set<string> {
-  const holidays = new Set<string>();
-  const add = (d: Date) => holidays.add(toKey(d));
+  return new Set(getMarketHolidaysWithNames(year, exchange).keys());
+}
+
+/**
+ * Variante nommée : Map date "YYYY-MM-DD" → libellé du férié (en français).
+ * Source unique des dates ; `getMarketHolidays` en dérive son Set.
+ */
+export function getMarketHolidaysWithNames(
+  year: number,
+  exchange: "TSX" | "NASDAQ_NYSE",
+): Map<string, string> {
+  const holidays = new Map<string, string>();
+  const add = (d: Date, label: string) => {
+    const key = toKey(d);
+    // En cas de collision de dates, on garde le premier libellé posé.
+    if (!holidays.has(key)) holidays.set(key, label);
+  };
 
   // ── Commun aux deux bourses ────────────────────────────────────────────────
   // Nouvel An
-  add(observed(new Date(year, 0, 1)));
+  add(observed(new Date(year, 0, 1)), "Jour de l'An");
   // Good Friday (vendredi précédant Pâques)
-  add(addDays(easterSunday(year), -2));
+  add(addDays(easterSunday(year), -2), "Vendredi saint");
 
   // ── NASDAQ / NYSE ─────────────────────────────────────────────────────────
   if (exchange === "NASDAQ_NYSE") {
     // Martin Luther King Jr. Day — 3e lundi de janvier
-    add(nthWeekday(year, 1, 1, 3));
+    add(nthWeekday(year, 1, 1, 3), "Martin Luther King Jr. Day");
     // Presidents' Day — 3e lundi de février
-    add(nthWeekday(year, 2, 1, 3));
+    add(nthWeekday(year, 2, 1, 3), "Presidents' Day");
     // Memorial Day — dernier lundi de mai
-    add(lastWeekday(year, 5, 1));
+    add(lastWeekday(year, 5, 1), "Memorial Day");
     // Juneteenth (depuis 2021)
-    if (year >= 2021) add(observed(new Date(year, 5, 19)));
+    if (year >= 2021) add(observed(new Date(year, 5, 19)), "Juneteenth");
     // Independence Day
-    add(observed(new Date(year, 6, 4)));
+    add(observed(new Date(year, 6, 4)), "Independence Day");
     // Labor Day — 1er lundi de septembre
-    add(nthWeekday(year, 9, 1, 1));
+    add(nthWeekday(year, 9, 1, 1), "Fête du Travail (É.-U.)");
     // Thanksgiving US — 4e jeudi de novembre
-    add(nthWeekday(year, 11, 4, 4));
+    add(nthWeekday(year, 11, 4, 4), "Thanksgiving (É.-U.)");
     // Noël
-    add(observed(new Date(year, 11, 25)));
+    add(observed(new Date(year, 11, 25)), "Noël");
   }
 
   // ── TSX ──────────────────────────────────────────────────────────────────
   if (exchange === "TSX") {
     // Family Day (Ontario / TSX) — 3e lundi de février
-    add(nthWeekday(year, 2, 1, 3));
+    add(nthWeekday(year, 2, 1, 3), "Jour de la famille");
     // Victoria Day
-    add(victoriaDay(year));
+    add(victoriaDay(year), "Fête de Victoria");
     // Fête du Canada — 1er juillet, observé
-    add(observed(new Date(year, 6, 1)));
+    add(observed(new Date(year, 6, 1)), "Fête du Canada");
     // Civic Holiday — 1er lundi d'août
-    add(nthWeekday(year, 8, 1, 1));
+    add(nthWeekday(year, 8, 1, 1), "Congé civique");
     // Labour Day CA — 1er lundi de septembre
-    add(nthWeekday(year, 9, 1, 1));
+    add(nthWeekday(year, 9, 1, 1), "Fête du Travail");
     // Action de grâce CA — 2e lundi d'octobre
-    add(nthWeekday(year, 10, 1, 2));
+    add(nthWeekday(year, 10, 1, 2), "Action de grâce");
     // Noël
     const christmas = new Date(year, 11, 25);
-    add(observed(christmas));
+    add(observed(christmas), "Noël");
     // Lendemain de Noël (Boxing Day) — avec gestion des collisions
     const christmasDow = christmas.getDay();
     let boxingDay: Date;
@@ -210,7 +225,7 @@ export function getMarketHolidays(year: number, exchange: "TSX" | "NASDAQ_NYSE")
       // Cas normaux
       boxingDay = observed(new Date(year, 11, 26));
     }
-    add(boxingDay);
+    add(boxingDay, "Lendemain de Noël");
   }
 
   return holidays;
@@ -229,25 +244,36 @@ export function getMarketHolidays(year: number, exchange: "TSX" | "NASDAQ_NYSE")
  * quand Noël tombe un samedi).
  */
 export function getEarlyCloseDays(year: number, exchange: "TSX" | "NASDAQ_NYSE"): Set<string> {
+  return new Set(getEarlyCloseDaysWithNames(year, exchange).keys());
+}
+
+/**
+ * Variante nommée : Map date "YYYY-MM-DD" → libellé de la demi-journée.
+ * Source unique des dates ; `getEarlyCloseDays` en dérive son Set.
+ */
+export function getEarlyCloseDaysWithNames(
+  year: number,
+  exchange: "TSX" | "NASDAQ_NYSE",
+): Map<string, string> {
   const holidays = getMarketHolidays(year, exchange);
-  const earlyClose = new Set<string>();
-  const addIfEligible = (d: Date) => {
+  const earlyClose = new Map<string, string>();
+  const addIfEligible = (d: Date, label: string) => {
     const dow = d.getDay();
     if (dow === 0 || dow === 6) return; // week-end → pas de séance du tout
     const key = toKey(d);
     if (holidays.has(key)) return; // déjà férié complet
-    earlyClose.add(key);
+    if (!earlyClose.has(key)) earlyClose.set(key, label);
   };
 
   if (exchange === "NASDAQ_NYSE") {
     // Veille de l'Independence Day
-    addIfEligible(new Date(year, 6, 3));
+    addIfEligible(new Date(year, 6, 3), "Veille de l'Independence Day");
     // Lendemain de Thanksgiving US (vendredi après le 4e jeudi de novembre)
-    addIfEligible(addDays(nthWeekday(year, 11, 4, 4), 1));
+    addIfEligible(addDays(nthWeekday(year, 11, 4, 4), 1), "Lendemain de Thanksgiving (É.-U.)");
   }
 
   // Veille de Noël — commun aux deux bourses
-  addIfEligible(new Date(year, 11, 24));
+  addIfEligible(new Date(year, 11, 24), "Veille de Noël");
 
   return earlyClose;
 }

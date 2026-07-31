@@ -42,6 +42,7 @@ interface MarketClosure {
   date: string;
   kind: "holiday" | "early_close";
   exchanges: ("TSX" | "NASDAQ_NYSE")[];
+  label: string;
   closesAt?: string;
 }
 
@@ -107,7 +108,16 @@ function MarketClosuresSection() {
                   <div className="text-lg font-bold font-mono leading-none">{d.getUTCDate()}</div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium capitalize truncate">{formatClosureDate(c.date)}</p>
+                  <p className="text-sm font-medium truncate">
+                    {c.label ? (
+                      <>
+                        {c.label}
+                        <span className="text-muted-foreground font-normal capitalize"> — {formatClosureDate(c.date)}</span>
+                      </>
+                    ) : (
+                      <span className="capitalize">{formatClosureDate(c.date)}</span>
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {c.exchanges.map((ex) => EXCHANGE_LABELS[ex]).join(" · ")}
                   </p>

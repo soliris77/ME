@@ -78,12 +78,12 @@ export default function SectorHeatmap() {
   );
 
   return (
-    <div className="mb-8">
-      <div className="section-rule mb-4 mt-1">
+    <div className="mb-7">
+      <div className="section-rule mb-3 mt-1">
         <span className="text-primary/60 uppercase">Heatmap de performance</span>
       </div>
 
-      <div className="bg-card border border-card-border rounded-2xl p-4 space-y-2.5">
+      <div className="bg-card border border-card-border rounded-xl overflow-hidden divide-y divide-border/30">
         {HEATMAP_SECTORS.map((sector) => {
           const sectorQuotes = sector.symbols.map((s) => quoteMap[s]).filter(Boolean);
           const validPcts = sectorQuotes.map((q) => q.changePercent).filter((p) => p != null) as number[];
@@ -93,14 +93,13 @@ export default function SectorHeatmap() {
           const sectorClr = heatColor(avgPct);
 
           return (
-            <div key={sector.label} className="flex items-center gap-3 min-h-[36px]">
+            <div key={sector.label} className="flex items-center gap-3 px-4 py-2.5">
               {/* Sector label */}
-              <div
-                className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wide rounded-lg px-2.5 py-1.5 shrink-0 select-none"
-                style={{ width: 106, background: sectorClr.bg, color: sectorClr.fg }}
-              >
-                <span>{sector.emoji}</span>
-                <span className="truncate">{sector.label}</span>
+              <div className="flex items-center gap-1.5 shrink-0 select-none" style={{ width: 118 }}>
+                <span className="text-sm leading-none">{sector.emoji}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 truncate">
+                  {sector.label}
+                </span>
               </div>
 
               {/* Symbol cells */}
@@ -117,17 +116,17 @@ export default function SectorHeatmap() {
                     <Link key={sym} href={`/quote/${encodeURIComponent(sym)}`}>
                       <div
                         title={tooltipText}
-                        className="flex flex-col items-center justify-center rounded-md cursor-pointer transition-transform hover:scale-110 hover:z-10 relative"
+                        className="flex flex-col items-center justify-center rounded-md cursor-pointer transition-all hover:ring-1 hover:ring-primary/40 hover:brightness-110"
                         style={{
                           background: bg,
                           color: fg,
-                          width: 42,
+                          width: 44,
                           height: 36,
                           padding: "2px 4px",
                         }}
                       >
-                        <span className="font-mono font-bold leading-none" style={{ fontSize: 9 }}>{label}</span>
-                        <span className="font-mono leading-none mt-0.5 opacity-90" style={{ fontSize: 8 }}>
+                        <span className="font-mono font-semibold leading-none text-[10px]">{label}</span>
+                        <span className="font-mono leading-none mt-0.5 opacity-80 tabular-nums text-[9px]">
                           {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
                         </span>
                       </div>
@@ -137,21 +136,19 @@ export default function SectorHeatmap() {
               </div>
 
               {/* Sector avg */}
-              {avgPct != null && (
-                <span
-                  className="text-[11px] font-mono font-bold shrink-0 tabular-nums"
-                  style={{ color: sectorClr.fg, minWidth: 54, textAlign: "right" }}
-                >
-                  {avgPct >= 0 ? "+" : ""}{avgPct.toFixed(2)}%
-                </span>
-              )}
+              <span
+                className="text-[11px] font-mono font-semibold shrink-0 tabular-nums text-right"
+                style={{ color: avgPct != null ? sectorClr.fg : undefined, minWidth: 54 }}
+              >
+                {avgPct != null ? `${avgPct >= 0 ? "+" : ""}${avgPct.toFixed(2)}%` : "—"}
+              </span>
             </div>
           );
         })}
 
         {/* Légende */}
-        <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border/30">
-          <span className="text-[10px] text-muted-foreground shrink-0">Légende :</span>
+        <div className="flex items-center gap-3 flex-wrap px-4 py-2.5 bg-muted/20">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 shrink-0">Légende</span>
           {[
             { label: "< −3%", pct: -4 },
             { label: "−1.5%", pct: -2 },
@@ -164,8 +161,8 @@ export default function SectorHeatmap() {
             const { bg, fg } = heatColor(pct);
             return (
               <div key={label} className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-sm" style={{ background: bg }} />
-                <span className="text-[10px]" style={{ color: fg }}>{label}</span>
+                <div className="w-3 h-3 rounded-sm border border-border/20" style={{ background: bg }} />
+                <span className="text-[10px] font-mono tabular-nums" style={{ color: fg }}>{label}</span>
               </div>
             );
           })}

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
-import { isMarketOpen, getExchangeForSymbol, getMarketHolidays, getEarlyCloseDays } from "../lib/risk";
+import { isMarketOpen, getExchangeForSymbol, getMarketHolidaysWithNames, getEarlyCloseDaysWithNames } from "../lib/risk";
 
 const router = Router();
 
@@ -200,40 +200,50 @@ export interface MarketClosure {
   date: string; // "YYYY-MM-DD" (heure de l'Est)
   kind: "holiday" | "early_close";
   exchanges: ("TSX" | "NASDAQ_NYSE")[];
+  /** Nom du férié ou de la demi-journée (« Noël », « Action de grâce »…). */
+  label: string;
   /** Pour les demi-journées : heure de fermeture anticipée, ET. */
   closesAt?: "13:00";
 }
 
-function computeUpcomingClosures(todayKey: string, limit: number): MarketClosure[] {
+export function computeUpcomingClosures(todayKey: string, limit: number): MarketClosure[] {
   const year = Number(todayKey.slice(0, 4));
   const exchanges: ("TSX" | "NASDAQ_NYSE")[] = ["TSX", "NASDAQ_NYSE"];
-  // Clé "date|kind" → bourses concernées
-  const map = new Map<string, Set<"TSX" | "NASDAQ_NYSE">>();
+  // Clé "date|kind" → bourse → libellé (le même jour peut porter un nom
+  // différent selon la bourse, ex. Jour de la famille vs Presidents' Day).
+  const map = new Map<string, Map<"TSX" | "NASDAQ_NYSE", string>>();
+  const record = (d: string, kind: "holiday" | "early_close", ex: "TSX" | "NASDAQ_NYSE", label: string) => {
+    if (d < todayKey) return;
+    const key = `${d}|${kind}`;
+    if (!map.has(key)) map.set(key, new Map());
+    const byEx = map.get(key)!;
+    if (!byEx.has(ex)) byEx.set(ex, label);
+  };
 
   for (const y of [year, year + 1]) {
     for (const ex of exchanges) {
-      for (const d of getMarketHolidays(y, ex)) {
-        if (d < todayKey) continue;
-        const key = `${d}|holiday`;
-        if (!map.has(key)) map.set(key, new Set());
-        map.get(key)!.add(ex);
-      }
-      for (const d of getEarlyCloseDays(y, ex)) {
-        if (d < todayKey) continue;
-        const key = `${d}|early_close`;
-        if (!map.has(key)) map.set(key, new Set());
-        map.get(key)!.add(ex);
-      }
+      for (const [d, label] of getMarketHolidaysWithNames(y, ex)) record(d, "holiday", ex, label);
+      for (const [d, label] of getEarlyCloseDaysWithNames(y, ex)) record(d, "early_close", ex, label);
     }
   }
 
   return Array.from(map.entries())
-    .map(([key, exs]) => {
+    .map(([key, byEx]) => {
       const [date, kind] = key.split("|") as [string, "holiday" | "early_close"];
+      const exs = exchanges.filter((ex) => byEx.has(ex));
+      // Libellés distincts agrégés : « Jour de la famille (TSX) · Presidents' Day (NASDAQ/NYSE) »
+      const uniqueLabels = Array.from(new Set(exs.map((ex) => byEx.get(ex)!)));
+      const label =
+        uniqueLabels.length === 1
+          ? uniqueLabels[0]
+          : exs
+              .map((ex) => `${byEx.get(ex)!} (${ex === "TSX" ? "TSX" : "NASDAQ/NYSE"})`)
+              .join(" · ");
       return {
         date,
         kind,
-        exchanges: exchanges.filter((ex) => exs.has(ex)),
+        exchanges: exs,
+        label,
         ...(kind === "early_close" ? { closesAt: "13:00" as const } : {}),
       };
     })

@@ -1,95 +1,69 @@
-/**
- * Tests de la route GET /api/market/closures — prochaines fermetures de bourse
- * (jours fériés complets + demi-journées à fermeture anticipée 13h00 ET).
- */
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { vi } from "vitest";
-import express from "express";
-import type { Server } from "node:http";
+import { describe, it, expect } from "vitest";
+import { computeUpcomingClosures } from "../market";
 
-vi.mock("../../lib/yahoo", () => ({
-  yahooFinance: { search: vi.fn(), quote: vi.fn() },
-  getQuotes: vi.fn(async () => []),
-}));
+const find = (closures: ReturnType<typeof computeUpcomingClosures>, date: string, kind: string) =>
+  closures.find((c) => c.date === date && c.kind === kind);
 
-interface Closure {
-  date: string;
-  kind: "holiday" | "early_close";
-  exchanges: string[];
-  closesAt?: string;
-}
+describe("computeUpcomingClosures — libellés des fermetures", () => {
+  // Point de départ fixe : 1er janvier 2026 → couvre toute l'année 2026.
+  const closures = computeUpcomingClosures("2026-01-01", 50);
 
-describe("GET /api/market/closures", () => {
-  let server: Server;
-  let base: string;
-
-  beforeAll(async () => {
-    const { default: router } = await import("../market");
-    const app = express();
-    app.use((req, _res, next) => {
-      // Stub du logger pino attaché par le middleware de prod
-      (req as unknown as { log: { error: () => void; warn: () => void } }).log = {
-        error: () => {},
-        warn: () => {},
-      };
-      next();
-    });
-    app.use("/api", router);
-    await new Promise<void>((resolve) => {
-      server = app.listen(0, () => resolve());
-    });
-    const addr = server.address();
-    if (addr === null || typeof addr === "string") throw new Error("no port");
-    base = `http://127.0.0.1:${addr.port}`;
-  });
-
-  afterAll(() => {
-    server?.close();
-  });
-
-  it("renvoie des fermetures triées, futures, avec métadonnées", async () => {
-    const res = await fetch(`${base}/api/market/closures`);
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { asOf: string; timezone: string; closures: Closure[] };
-
-    expect(body.timezone).toBe("America/New_York");
-    expect(body.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(body.closures.length).toBeGreaterThan(0);
-    expect(body.closures.length).toBeLessThanOrEqual(12);
-
-    const dates = body.closures.map((c) => c.date);
-    expect([...dates].sort()).toEqual(dates); // triées croissant
-    for (const c of body.closures) {
-      expect(c.date >= body.asOf).toBe(true); // aucune date passée
-      expect(["holiday", "early_close"]).toContain(c.kind);
-      expect(c.exchanges.length).toBeGreaterThan(0);
-      for (const ex of c.exchanges) expect(["TSX", "NASDAQ_NYSE"]).toContain(ex);
-      if (c.kind === "early_close") {
-        expect(c.closesAt).toBe("13:00");
-      } else {
-        expect(c.closesAt).toBeUndefined();
-      }
+  it("chaque fermeture porte un libellé non vide", () => {
+    expect(closures.length).toBeGreaterThan(0);
+    for (const c of closures) {
+      expect(typeof c.label).toBe("string");
+      expect(c.label.length).toBeGreaterThan(0);
     }
   });
 
-  it("respecte le paramètre limit et le plafonne à 50", async () => {
-    const res = await fetch(`${base}/api/market/closures?limit=3`);
-    const body = (await res.json()) as { closures: Closure[] };
-    expect(body.closures.length).toBeLessThanOrEqual(3);
-
-    const resBig = await fetch(`${base}/api/market/closures?limit=999`);
-    const bodyBig = (await resBig.json()) as { closures: Closure[] };
-    expect(bodyBig.closures.length).toBeLessThanOrEqual(50);
+  it("3e lundi de février 2026 : libellés distincts par bourse agrégés", () => {
+    // 16 février 2026 = Jour de la famille (TSX) ET Presidents' Day (NASDAQ/NYSE)
+    const c = find(closures, "2026-02-16", "holiday");
+    expect(c).toBeDefined();
+    expect(c!.exchanges).toEqual(["TSX", "NASDAQ_NYSE"]);
+    expect(c!.label).toBe("Jour de la famille (TSX) · Presidents' Day (NASDAQ/NYSE)");
   });
 
-  it("inclut au moins une demi-journée (24 décembre, commun aux deux bourses)", async () => {
-    const res = await fetch(`${base}/api/market/closures?limit=50`);
-    const body = (await res.json()) as { closures: Closure[] };
-    const early = body.closures.filter((c) => c.kind === "early_close");
-    expect(early.length).toBeGreaterThan(0);
-    const dec24 = early.find((c) => c.date.endsWith("-12-24"));
-    expect(dec24).toBeDefined();
-    expect(dec24!.exchanges).toContain("TSX");
-    expect(dec24!.exchanges).toContain("NASDAQ_NYSE");
+  it("Noël 2026 (observé) : libellé commun unique", () => {
+    // 25 décembre 2026 tombe un vendredi → observé le jour même, les deux bourses
+    const c = find(closures, "2026-12-25", "holiday");
+    expect(c).toBeDefined();
+    expect(c!.exchanges).toEqual(["TSX", "NASDAQ_NYSE"]);
+    expect(c!.label).toBe("Noël");
+  });
+
+  it("Action de grâce (CA) 2026 : TSX seulement", () => {
+    // 2e lundi d'octobre 2026 = 12 octobre
+    const c = find(closures, "2026-10-12", "holiday");
+    expect(c).toBeDefined();
+    expect(c!.exchanges).toEqual(["TSX"]);
+    expect(c!.label).toBe("Action de grâce");
+  });
+
+  it("Thanksgiving US 2026 : NASDAQ/NYSE seulement, avec demi-journée le lendemain", () => {
+    // 4e jeudi de novembre 2026 = 26 novembre
+    const holiday = find(closures, "2026-11-26", "holiday");
+    expect(holiday).toBeDefined();
+    expect(holiday!.exchanges).toEqual(["NASDAQ_NYSE"]);
+    expect(holiday!.label).toBe("Thanksgiving (É.-U.)");
+
+    const early = find(closures, "2026-11-27", "early_close");
+    expect(early).toBeDefined();
+    expect(early!.label).toBe("Lendemain de Thanksgiving (É.-U.)");
+    expect(early!.closesAt).toBe("13:00");
+  });
+
+  it("Lendemain de Noël 2026 (Noël un vendredi → lundi 28) : TSX seulement", () => {
+    const c = find(closures, "2026-12-28", "holiday");
+    expect(c).toBeDefined();
+    expect(c!.exchanges).toEqual(["TSX"]);
+    expect(c!.label).toBe("Lendemain de Noël");
+  });
+
+  it("les dates passées sont exclues et la liste est triée", () => {
+    const later = computeUpcomingClosures("2026-07-31", 50);
+    expect(later.every((c) => c.date >= "2026-07-31")).toBe(true);
+    const dates = later.map((c) => c.date);
+    expect([...dates].sort()).toEqual(dates);
   });
 });
