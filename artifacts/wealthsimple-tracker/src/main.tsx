@@ -32,11 +32,30 @@ window.addEventListener("unhandledrejection", (e) => {
   );
 });
 
-// Enregistre le service worker (installation PWA + cache offline léger des
-// pages déjà visitées). Non bloquant, échoue silencieusement si non supporté.
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register(`${BASE}/sw.js`).catch(() => {});
+// Enregistre le service worker (installation PWA + cache offline léger +
+// alertes prix en arrière-plan). Non bloquant, échoue silencieusement si non
+// supporté. Enregistré aussi en dev pour que les alertes en arrière-plan
+// fonctionnent dans l'aperçu.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register(`${BASE}/sw.js`);
+      // Démarre le polling des alertes dans le SW (60 s)
+      (reg.active ?? reg.waiting ?? reg.installing)?.postMessage({ type: "start-alert-polling" });
+      navigator.serviceWorker.ready.then((r) => {
+        r.active?.postMessage({ type: "start-alert-polling" });
+      });
+      // Periodic Background Sync — réveille le SW même onglet fermé
+      // (Chrome/Edge, PWA installée). Ignoré silencieusement ailleurs.
+      const anyReg = reg as ServiceWorkerRegistration & {
+        periodicSync?: { register: (tag: string, opts: { minInterval: number }) => Promise<void> };
+      };
+      if (anyReg.periodicSync) {
+        anyReg.periodicSync.register("soliris-check-alerts", { minInterval: 60_000 }).catch(() => {});
+      }
+    } catch {
+      /* SW non supporté ou enregistrement refusé — l'app fonctionne sans */
+    }
   });
 }
 

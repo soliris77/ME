@@ -494,7 +494,16 @@ export default function Alerts() {
               requestNotificationPermission();
               const perm = await Notification.requestPermission();
               setNotifPerm(perm);
-              if (perm === "granted") sendNotification("Notifications activées ✅", "Vous recevrez des alertes.");
+              if (perm === "granted") {
+                sendNotification("Notifications activées ✅", "Vous recevrez des alertes, même si l'onglet est fermé.");
+                // Informe le service worker : vérification immédiate + polling 60 s
+                if ("serviceWorker" in navigator) {
+                  navigator.serviceWorker.ready.then((reg) => {
+                    reg.active?.postMessage({ type: "start-alert-polling" });
+                    reg.active?.postMessage({ type: "check-alerts-now" });
+                  }).catch(() => {});
+                }
+              }
             }}
             className="shrink-0 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
           >

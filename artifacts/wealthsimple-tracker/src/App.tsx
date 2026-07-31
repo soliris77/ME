@@ -74,6 +74,17 @@ function useActiveAlertsCount() {
   return Array.isArray(data) ? data.filter((a) => a.active).length : 0;
 }
 
+/**
+ * Surveille les alertes déclenchées et émet une notification navigateur —
+ * fonctionne de façon fiable tant que l'onglet est ouvert, même en
+ * arrière-plan (les timers ≥ 60 s ne sont pas supprimés par le throttling
+ * des onglets inactifs). Les notifications passent par le Service Worker
+ * (registration.showNotification) quand il est disponible : elles restent
+ * visibles et cliquables même si l'onglet perd ensuite le focus.
+ * Complété par le Periodic Background Sync du SW (Chrome/Edge, PWA
+ * installée) qui couvre opportunistiquement le cas onglet fermé.
+ */
+const NOTIFIED_IDS_KEY = "soliris-notified-alert-ids";
 function Nav() {
   const [location] = useLocation();
   const { logout } = useAuth();
@@ -334,6 +345,7 @@ function App() {
             </Switch>
           </WouterRouter>
           <AuthedCommandPalette />
+          <AlertNotificationWatcher />
           <Toaster />
         </TooltipProvider>
       </AuthProvider>
@@ -343,3 +355,72 @@ function App() {
 }
 
 export default App;
+
+function alertNotificationBody(a: {
+  alertType?: string; symbol: string; patternSignal?: string | null;
+  condition?: string | null; targetPrice?: number | null;
+}) {
+  if (a.alertType === "pattern") return `Pattern ${a.patternSignal || "détecté"} sur ${a.symbol}`;
+  if (a.alertType === "signal") return `Signal technique ${a.patternSignal || "composite"} sur ${a.symbol}`;
+  const dir = a.condition === "above" ? "au-dessus" : "en dessous";
+  const target = a.targetPrice != null ? ` de ${a.targetPrice} $` : "";
+  return `${a.symbol} est passé ${dir}${target}`;
+}
+
+function AlertNotificationWatcher() {
+  const { authenticated } = useAuth();
+
+  useEffect(() => {
+    if (!authenticated || !("Notification" in window)) return;
+
+    const check = async () => {
+      if (Notification.permission !== "granted") return;
+      try {
+        const res = await fetch(`${BASE_URL}/api/alerts`, { credentials: "same-origin" });
+        if (!res.ok) return;
+        const alerts: {
+          id: number; active: boolean; triggeredAt?: string | null; symbol: string;
+          alertType?: string; patternSignal?: string | null; condition?: string | null; targetPrice?: number | null;
+        }[] = await res.json();
+        if (!Array.isArray(alerts)) return;
+
+        const triggered = alerts.filter((a) => !a.active && a.triggeredAt);
+        const raw = localStorage.getItem(NOTIFIED_IDS_KEY);
+        // Premier passage : on mémorise l'existant sans notifier (évite une
+        // rafale de notifications historiques).
+        const firstRun = raw == null;
+        const seen = new Set<number>(firstRun ? [] : (JSON.parse(raw) as number[]));
+        const fresh = firstRun ? [] : triggered.filter((a) => !seen.has(a.id));
+
+        for (const a of fresh) {
+          const title = `🔔 Alerte ${a.symbol}`;
+          const options: NotificationOptions = {
+            body: alertNotificationBody(a),
+            icon: "/icon-192.png",
+            // Même tag que le SW → jamais de doublon si les deux chemins notifient
+            tag: `soliris-alert-${a.id}`,
+          };
+          try {
+            // Notification persistante via le SW si dispo (reste cliquable,
+            // redirige vers /alerts via le handler notificationclick du SW)
+            const reg = await navigator.serviceWorker?.ready;
+            if (reg) await reg.showNotification(title, { ...options, data: { url: "/alerts" } });
+            else new Notification(title, options);
+          } catch {
+            try { new Notification(title, options); } catch { /* plateforme sans notifications */ }
+          }
+        }
+
+        localStorage.setItem(NOTIFIED_IDS_KEY, JSON.stringify(triggered.map((a) => a.id)));
+      } catch {
+        /* hors-ligne ou API indisponible — on réessaie au prochain tick */
+      }
+    };
+
+    check();
+    const timer = setInterval(check, 60_000);
+    return () => clearInterval(timer);
+  }, [authenticated]);
+
+  return null;
+}
