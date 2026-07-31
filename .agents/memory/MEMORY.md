@@ -13,4 +13,5 @@
 - [Agent Task Continuity System](agent-task-continuity.md) — DB table agent_tasks + API /api/agent-tasks + page /agent-tasks; auto-writes in-progress.md on every save/pause.
 - [Motion system frontend](motion-system.md) — variants partagés src/lib/motion.ts; reduced-motion via MotionConfig racine + useReducedMotion (pas automatique); easings `as const`.
 - [Alertes en arrière-plan](background-alerts.md) — poll fiable = page (≥60 s survit au throttling) ; timers SW non fiables ; periodicsync = bonus ; navigateur fermé → Web Push.
+- [Confirmation des ventes protectrices](api-server-tests.md) — "accepted" de submitOrder peut cacher un ordre en erreur ; ne jamais effacer une position sans vérifier order.status.
 - [Auto-Trader System](auto-trader-system.md) — tables auto_trade_rules + auto_trade_logs; worker 60s; routes /api/auto-trader/*; page /auto-trader; SMS Twilio sur signal.

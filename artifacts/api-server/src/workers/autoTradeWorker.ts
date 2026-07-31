@@ -124,7 +124,7 @@ async function sendAutoTradeNotification(params: {
 // ── C3 — Surveillance stop-loss / take-profit ─────────────────────────────────
 // Appelée à chaque cycle AVANT processRule(). Ignore cooldown et maxTradesPerDay —
 // une sortie protectrice ne doit pas être bloquée par des garde-fous d'entrée.
-async function checkProtectiveExits(
+export async function checkProtectiveExits(
   conn: typeof brokerConnectionsTable.$inferSelect | null,
 ): Promise<void> {
   const allRules = await db.select().from(autoTradeRulesTable)
@@ -195,7 +195,11 @@ async function checkProtectiveExits(
       "autoTradeWorker: sortie protectrice déclenchée",
     );
 
-    const signalId = `auto-${rule.id}-${triggerType}-${Date.now()}`;
+    // Identifiant STABLE par position (pas de Date.now) : si le processus est
+    // interrompu après la soumission mais avant l'effacement de l'état, le cycle
+    // suivant retombera sur "duplicate" au lieu de vendre une deuxième fois.
+    const positionKey = rule.openSince ? new Date(rule.openSince).getTime() : "x";
+    const signalId = `auto-${rule.id}-${triggerType}-${positionKey}`;
     const brokerConnection = conn?.status === "connected"
       ? { snaptradeUserId: conn.snaptradeUserId!, snaptradeUserSecret: conn.snaptradeUserSecret! }
       : null;
@@ -204,8 +208,8 @@ async function checkProtectiveExits(
     let orderMode: "paper" | "live" = "paper";
     let sellConfirmed = false;
     try {
-      const result = await submitOrder({
-        signalId,
+      const submitExit = (id: string) => submitOrder({
+        signalId: id,
         symbol: rule.symbol,
         side: "SELL",
         quantity: openQty,          // sortir la TOTALITÉ de la position
@@ -214,16 +218,41 @@ async function checkProtectiveExits(
         source: "auto-signal",
         brokerConnection,
       });
-      if (result.status === "accepted") {
-        orderId = (result.order as { id?: number }).id;
-        orderMode = (result.order as { mode?: string }).mode === "live" ? "live" : "paper";
-        sellConfirmed = true;
-      } else if (result.status === "duplicate") {
-        // Ordre déjà soumis lors d'un cycle précédent : la sortie est en cours.
-        sellConfirmed = true;
-      } else {
+
+      let result = await submitExit(signalId);
+
+      // En mode live, submitOrder renvoie "duplicate" si le signalId existe déjà.
+      // Si cette tentative précédente a ÉCHOUÉ au courtier (status "error"),
+      // la position est toujours ouverte : re-soumettre avec un id de reprise unique.
+      if (result.status === "duplicate" && (result.order as { status?: string }).status === "error") {
         logger.warn(
-          { ruleId: rule.id, symbol: rule.symbol, status: result.status, reason: (result as { reason?: string }).reason },
+          { ruleId: rule.id, symbol: rule.symbol, signalId },
+          "autoTradeWorker: tentative de sortie précédente en erreur — nouvelle soumission",
+        );
+        result = await submitExit(`${signalId}-r${Date.now()}`);
+      }
+
+      // Contrat de confirmation : la vente n'est confirmée QUE si l'ordre
+      // renvoyé n'est PAS en erreur. submitOrder peut renvoyer "accepted" avec
+      // un ordre status "error" (échec de l'appel courtier en mode live) :
+      // dans ce cas la position réelle est toujours ouverte, il ne faut JAMAIS
+      // effacer l'état de suivi.
+      const orderRow = (result.status === "accepted" || result.status === "duplicate")
+        ? (result.order as { id?: number; mode?: string; status?: string })
+        : null;
+      if (orderRow && orderRow.status !== "error") {
+        orderId = orderRow.id;
+        orderMode = orderRow.mode === "live" ? "live" : "paper";
+        sellConfirmed = true;
+      } else if (orderRow) {
+        logger.warn(
+          { ruleId: rule.id, symbol: rule.symbol, orderStatus: orderRow.status },
+          "autoTradeWorker: vente protectrice en erreur côté courtier — position conservée, nouvelle tentative au prochain cycle",
+        );
+      } else {
+        const failed = result as { status: string; reason?: string };
+        logger.warn(
+          { ruleId: rule.id, symbol: rule.symbol, status: failed.status, reason: failed.reason },
           "autoTradeWorker: vente protectrice rejetée — position conservée, nouvelle tentative au prochain cycle",
         );
       }
@@ -530,7 +559,7 @@ async function checkDailyLossCircuitBreaker(
 }
 
 // ── Traitement d'une règle active ─────────────────────────────────────────────
-async function processRule(
+export async function processRule(
   rule: typeof autoTradeRulesTable.$inferSelect,
   conn: typeof brokerConnectionsTable.$inferSelect | null,
 ): Promise<void> {
