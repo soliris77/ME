@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { X, Calculator, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { X, Calculator, AlertTriangle, CheckCircle2, Info, TrendingUp } from "lucide-react";
 import { suggestStopLoss } from "@/lib/stopSuggestion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -12,6 +12,12 @@ interface Props {
   recentLow?: number;
   /** Libellé de la source du plus bas (ex. "plus bas 20 jours"). */
   recentLowLabel?: string;
+  /**
+   * Appelé quand l'utilisateur veut acheter la quantité calculée.
+   * Fourni uniquement lorsque le calculateur est ouvert depuis une fiche
+   * de titre négociable — ouvre TradeModal (BUY) prérempli.
+   */
+  onBuy?: (units: number) => void;
 }
 
 // ─── Résultat d'un champ affiché ──────────────────────────────────────────────
@@ -43,7 +49,7 @@ function ResultItem({
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentLow, recentLowLabel }: Props) {
+export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentLow, recentLowLabel, onBuy }: Props) {
   const suggestion = useMemo(
     () => suggestStopLoss(defaultEntryPrice, recentLow, recentLowLabel),
     [defaultEntryPrice, recentLow, recentLowLabel]
@@ -254,6 +260,18 @@ export function PositionCalculator({ onClose, defaultEntryPrice, symbol, recentL
                 <p className="text-[10px] text-muted-foreground/60 text-center">
                   Règle d'or : ne risquez jamais plus de 1–2% de votre capital par trade.
                 </p>
+              )}
+
+              {/* Passer directement à l'ordre d'achat avec la quantité calculée */}
+              {onBuy && calc.units > 0 && (
+                <button
+                  onClick={() => onBuy(calc.units)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#16A34A]/50"
+                  style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.35)", color: "#22c55e" }}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Acheter {calc.units.toLocaleString("fr-CA")} unité{calc.units > 1 ? "s" : ""}
+                </button>
               )}
             </div>
           ) : (

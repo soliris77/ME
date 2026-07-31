@@ -95,6 +95,8 @@ interface Props {
   currency: string;
   /** Description libre de l'origine du signal (ex : "FORT ACHAT", "Etoile filante") */
   source?: string;
+  /** Quantité initiale préremplie (ex : venant du calculateur de position). */
+  defaultQuantity?: number;
   onClose: () => void;
 }
 
@@ -153,7 +155,7 @@ const MONO: React.CSSProperties = {
 /* ── Composant ─────────────────────────────────────────── */
 
 export default function TradeModal({
-  open, side, symbol, currentPrice, currency, source, onClose,
+  open, side, symbol, currentPrice, currency, source, defaultQuantity, onClose,
 }: Props) {
   const uid = useId();
   const qc  = useQueryClient();
@@ -211,7 +213,7 @@ export default function TradeModal({
   /* Reset à l'ouverture */
   useEffect(() => {
     if (open) {
-      setQty("1");
+      setQty(defaultQuantity && defaultQuantity > 0 ? String(defaultQuantity) : "1");
       setResult(null);
       setRejection(null);
     }
