@@ -32,3 +32,7 @@ RESEND_TO_EMAIL = "tambweexauce14@gmail.com"
 
 [nix]
 channel = "stable-25_05"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
