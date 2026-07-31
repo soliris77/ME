@@ -47,7 +47,7 @@ export interface BacktestResult {
   bars: number;
 }
 
-const WARMUP = 55; // barres nécessaires pour que les indicateurs soient valides
+export const WARMUP = 55; // barres nécessaires pour que les indicateurs soient valides
 
 export function runBacktest(params: BacktestParams): BacktestResult {
   const { history, minScore, sideMode } = params;

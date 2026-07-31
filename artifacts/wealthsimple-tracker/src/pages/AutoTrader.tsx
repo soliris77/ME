@@ -4,6 +4,10 @@
  * que le score atteint le seuil configuré.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  ResponsiveContainer, ComposedChart, Line, XAxis, YAxis, Tooltip,
+  ReferenceDot, CartesianGrid,
+} from "recharts";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bot, Plus, Trash2, Power, PowerOff, ChevronDown, ChevronUp,
@@ -50,6 +54,8 @@ interface AutoTradeRule {
 interface BacktestResult {
   symbol: string;
   years: number;
+  months?: number | null;
+  chartHistory?: { date: string; close: number }[];
   totalTrades: number;
   longTrades: number;
   shortTrades: number;
@@ -581,18 +587,223 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
   );
 }
 
+/* ── Backtest Modal — rejoue la règle sur les 6 derniers mois ─────────────── */
+function BacktestModal({ rule, onClose }: { rule: AutoTradeRule; onClose: () => void }) {
+  const btQ = useQuery<BacktestResult & { error?: string }>({
+    queryKey: ["auto-trade-backtest-6mo", rule.id],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/auto-trader/backtest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: rule.symbol,
+          minScore: rule.minScore,
+          sideMode: rule.sideMode,
+          stopLossPct: rule.stopLossPct ? parseFloat(rule.stopLossPct) : null,
+          takeProfitPct: rule.takeProfitPct ? parseFloat(rule.takeProfitPct) : null,
+          trailingStopPct: rule.trailingStopPct ? parseFloat(rule.trailingStopPct) : null,
+          months: 6,
+          includeHistory: true,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? "Erreur de backtest");
+      return data as BacktestResult;
+    },
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+
+  const result = btQ.data ?? null;
+  const history = result?.chartHistory ?? [];
+
+  // Index par date (YYYY-MM-DD) pour placer les marqueurs sur le graphique
+  const dayKey = (iso: string) => iso.slice(0, 10);
+  const historyByDay = new Map(history.map((p) => [dayKey(p.date), p]));
+  const markers = (result?.trades ?? []).flatMap((t, i) => {
+    const entryPt = historyByDay.get(dayKey(t.entryDate));
+    const exitPt = historyByDay.get(dayKey(t.exitDate));
+    const out: { x: string; y: number; kind: "entry" | "exit"; side: "long" | "short"; key: string }[] = [];
+    if (entryPt) out.push({ x: entryPt.date, y: t.entryPrice, kind: "entry", side: t.side, key: `e${i}` });
+    if (exitPt) out.push({ x: exitPt.date, y: t.exitPrice, kind: "exit", side: t.side, key: `x${i}` });
+    return out;
+  });
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("fr-CA", { month: "short", day: "numeric" });
+
+  const EXIT_LABELS: Record<string, string> = {
+    stop_loss: "⛔ Stop-loss", take_profit: "✅ Take-profit",
+    trailing_stop: "🔃 Trailing", signal: "↩ Signal inverse", end: "🏁 Fin de période",
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-[720px] bg-card border border-border/60 rounded-xl overflow-hidden"
+        style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.75)" }}
+      >
+        {/* Header */}
+        <div className="px-6 pt-5 pb-4 border-b border-border/60 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-4 h-4 text-primary" />
+            <h2 className="text-[14px] font-bold text-foreground tracking-wide">
+              Backtest — {rule.symbol}
+              <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                6 derniers mois · règle « {rule.name ?? rule.symbol} » (score ≥ {rule.minScore}, {SIDE_MODE_LABELS[rule.sideMode]})
+              </span>
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-[18px] leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {btQ.isLoading && (
+            <div className="flex items-center justify-center gap-2 py-16 text-[12px] text-muted-foreground">
+              <RefreshCw className="w-4 h-4 animate-spin" /> Simulation en cours…
+            </div>
+          )}
+          {btQ.isError && (
+            <div className="flex items-center gap-2 py-8 justify-center text-[12px] text-red-400">
+              <AlertTriangle className="w-4 h-4" /> {(btQ.error as Error).message}
+            </div>
+          )}
+
+          {result && (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "P&L simulé", value: `${result.totalReturnPct >= 0 ? "+" : ""}${result.totalReturnPct.toFixed(1)}%`,
+                    color: result.totalReturnPct >= 0 ? "text-green-400" : "text-red-400" },
+                  { label: "Trades", value: String(result.totalTrades), color: "text-foreground",
+                    sub: `${result.longTrades} achat · ${result.shortTrades} vente` },
+                  { label: "Taux de réussite", value: result.winRate !== null ? `${(result.winRate * 100).toFixed(0)}%` : "—",
+                    color: (result.winRate ?? 0) >= 0.5 ? "text-green-400" : "text-red-400" },
+                  { label: "Drawdown max", value: `-${result.maxDrawdownPct.toFixed(1)}%`, color: "text-yellow-400/80" },
+                ].map(({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) => (
+                  <div key={label} className="bg-background/50 rounded-lg px-3 py-2">
+                    <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+                    <div className={`text-[15px] font-mono font-bold ${color}`}>{value}</div>
+                    {sub && <div className="text-[9px] text-muted-foreground">{sub}</div>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Chart */}
+              {history.length > 0 && (
+                <div className="rounded-lg border border-border/40 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Graphique 6 mois — entrées et sorties simulées
+                    </span>
+                    <span className="flex items-center gap-3 text-[9px] text-muted-foreground">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" /> Entrée</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Sortie</span>
+                    </span>
+                  </div>
+                  <div className="h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={history} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,146,165,0.12)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={fmtDate}
+                          tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                          minTickGap={40}
+                          axisLine={false} tickLine={false}
+                        />
+                        <YAxis
+                          domain={["auto", "auto"]}
+                          tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                          tickFormatter={(v: number) => v.toFixed(0)}
+                          width={44}
+                          axisLine={false} tickLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                          labelFormatter={(l) => new Date(String(l)).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" })}
+                          formatter={(v: number | string) => [`${Number(v).toFixed(2)} $`, "Clôture"]}
+                        />
+                        <Line type="monotone" dataKey="close" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                        {markers.map((m) => (
+                          <ReferenceDot
+                            key={m.key}
+                            x={m.x} y={m.y}
+                            r={4.5}
+                            fill={m.kind === "entry" ? "#4ade80" : "#f87171"}
+                            stroke="hsl(var(--card))"
+                            strokeWidth={1.5}
+                          />
+                        ))}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Trades list */}
+              {result.trades.length === 0 ? (
+                <div className="text-[11px] text-muted-foreground text-center py-3">
+                  Aucun trade déclenché sur la période — le score n'a jamais atteint le seuil de la règle.
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border/40 overflow-hidden">
+                  <div className="grid grid-cols-[auto_1fr_1fr_1fr_auto] gap-x-3 px-3 py-1.5 bg-background/50 text-[9px] uppercase tracking-wider text-muted-foreground">
+                    <span>Sens</span><span>Entrée</span><span>Sortie</span><span>Raison</span><span className="text-right">P&L</span>
+                  </div>
+                  {result.trades.map((t, i) => (
+                    <div key={i} className="grid grid-cols-[auto_1fr_1fr_1fr_auto] gap-x-3 px-3 py-1.5 border-t border-border/30 text-[11px] font-mono items-center">
+                      <span className={t.side === "long" ? "text-green-400" : "text-red-400"}>
+                        {t.side === "long" ? "🟢 Achat" : "🔴 Vente"}
+                      </span>
+                      <span className="text-muted-foreground">{fmtDate(t.entryDate)} @ {t.entryPrice.toFixed(2)}$</span>
+                      <span className="text-muted-foreground">{fmtDate(t.exitDate)} @ {t.exitPrice.toFixed(2)}$</span>
+                      <span className="text-muted-foreground text-[10px]">{EXIT_LABELS[t.exitReason] ?? t.exitReason}</span>
+                      <span className={`text-right font-bold ${t.pnlPct >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {t.pnlPct >= 0 ? "+" : ""}{t.pnlPct.toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="text-[10px] text-muted-foreground">
+                Comparaison achat-conservation : {result.buyHoldReturnPct >= 0 ? "+" : ""}{result.buyHoldReturnPct.toFixed(1)}%
+                {" · "}
+                {result.totalReturnPct > result.buyHoldReturnPct
+                  ? <span className="text-green-400">la règle bat le marché ✓</span>
+                  : <span className="text-yellow-400/80">l'achat-conservation aurait fait mieux</span>}
+              </div>
+              <div className="text-[9px] text-muted-foreground/60">
+                Simulation pure (aucune écriture) — mêmes signaux que le moteur d'auto-trading, données quotidiennes.
+                Performance passée ≠ résultats futurs. Sans frais ni glissement.
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Rule Card ──────────────────────────────────────────── */
 function RuleCard({
   rule,
   onToggle,
   onEdit,
   onDelete,
+  onBacktest,
   logs,
 }: {
   rule: AutoTradeRule;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onBacktest: () => void;
   logs: AutoTradeLog[];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -672,6 +883,10 @@ function RuleCard({
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
+          <button onClick={onBacktest} title="Backtester — rejouer la règle sur 6 mois"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+            <FlaskConical className="w-3.5 h-3.5" />
+          </button>
           <button onClick={onEdit} title="Modifier"
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
             <Shield className="w-3.5 h-3.5" />
@@ -851,6 +1066,7 @@ export default function AutoTrader() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editRule, setEditRule] = useState<AutoTradeRule | null>(null);
+  const [backtestRule, setBacktestRule] = useState<AutoTradeRule | null>(null);
 
   const rulesQ = useQuery<AutoTradeRule[]>({
     queryKey: ["auto-trade-rules"],
@@ -1081,6 +1297,7 @@ export default function AutoTrader() {
               logs={logs}
               onToggle={() => toggleMut.mutate(rule.id)}
               onEdit={() => { setEditRule(rule); setShowForm(true); }}
+              onBacktest={() => setBacktestRule(rule)}
               onDelete={() => { if (confirm(`Supprimer la règle "${rule.name ?? rule.symbol}" ?`)) deleteMut.mutate(rule.id); }}
             />
           ))}
@@ -1088,6 +1305,9 @@ export default function AutoTrader() {
       )}
 
       {/* Modals */}
+      {backtestRule && (
+        <BacktestModal rule={backtestRule} onClose={() => setBacktestRule(null)} />
+      )}
       {showForm && (
         <RuleForm
           rule={editRule}

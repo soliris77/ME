@@ -13,7 +13,7 @@ import { db, autoTradeRulesTable, autoTradeLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runAutoTradeCheck, getDailyRealizedPnLStatus } from "../workers/autoTradeWorker";
-import { runBacktest } from "../lib/backtest";
+import { runBacktest, WARMUP } from "../lib/backtest";
 import { yahooFinance } from "../lib/yahoo";
 import type { OHLCPoint } from "../lib/patternDetect";
 
@@ -219,7 +219,7 @@ router.get("/auto-trader/daily-pnl", async (_req, res) => {
 router.post("/auto-trader/backtest", async (req, res) => {
   try {
     const {
-      symbol, minScore, sideMode, stopLossPct, takeProfitPct, trailingStopPct, years,
+      symbol, minScore, sideMode, stopLossPct, takeProfitPct, trailingStopPct, years, months, includeHistory,
     } = req.body as Record<string, unknown>;
 
     if (!symbol || typeof symbol !== "string") {
@@ -228,8 +228,15 @@ router.post("/auto-trader/backtest", async (req, res) => {
     const vErr = validateRuleNumbers(req.body as Record<string, unknown>);
     if (vErr) return res.status(400).json({ error: vErr });
 
+    // Fenêtre de simulation : soit en années (1-5, défaut 2), soit en mois (3-12).
+    // En mode "mois", on récupère ~3 mois supplémentaires pour le warm-up des
+    // indicateurs (55 barres) afin que la simulation couvre bien la fenêtre demandée.
+    const DAY = 24 * 60 * 60 * 1000;
+    const lookbackMonths = typeof months === "number" && months >= 3 && months <= 12 ? months : null;
     const lookbackYears = typeof years === "number" && years >= 1 && years <= 5 ? years : 2;
-    const period1 = new Date(Date.now() - lookbackYears * 365 * 24 * 60 * 60 * 1000);
+    const period1 = lookbackMonths !== null
+      ? new Date(Date.now() - (lookbackMonths * 30.5 + 95) * DAY)
+      : new Date(Date.now() - lookbackYears * 365 * DAY);
     const chart = await yahooFinance.chart(symbol.toUpperCase(), { period1, interval: "1d" });
     const history: OHLCPoint[] = (chart.quotes ?? [])
       .map((p: { date: string | number | Date; open?: number; high?: number; low?: number; close?: number; volume?: number }) => ({
@@ -242,7 +249,8 @@ router.post("/auto-trader/backtest", async (req, res) => {
       }))
       .filter((p: OHLCPoint) => p.close > 0);
 
-    if (history.length < 120) {
+    const minBars = lookbackMonths !== null ? WARMUP + 20 : 120;
+    if (history.length < minBars) {
       return res.status(400).json({ error: "Historique insuffisant pour ce symbole (min ~6 mois)" });
     }
 
@@ -255,7 +263,19 @@ router.post("/auto-trader/backtest", async (req, res) => {
       trailingStopPct: typeof trailingStopPct === "number" && trailingStopPct > 0 ? trailingStopPct : null,
     });
 
-    return res.json({ symbol: symbol.toUpperCase(), years: lookbackYears, ...result });
+    // Historique de graphique (post-warm-up = fenêtre réellement simulée),
+    // pour afficher les marqueurs d'entrées/sorties côté frontend.
+    const chartHistory = includeHistory === true
+      ? history.slice(WARMUP).map((p) => ({ date: p.date, close: p.close }))
+      : undefined;
+
+    return res.json({
+      symbol: symbol.toUpperCase(),
+      years: lookbackMonths !== null ? lookbackMonths / 12 : lookbackYears,
+      months: lookbackMonths,
+      ...result,
+      ...(chartHistory ? { chartHistory } : {}),
+    });
   } catch (err) {
     logger.error({ err }, "auto-trader: POST backtest error");
     return res.status(500).json({ error: "Erreur lors du backtest" });
