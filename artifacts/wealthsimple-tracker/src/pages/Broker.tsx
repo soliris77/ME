@@ -7,6 +7,8 @@ import {
   Radio, Building2, KeyRound, Wifi, WifiOff, ArrowRight, Save, Eye, EyeOff,
 } from "lucide-react";
 
+import StopOrdersSection from "@/components/StopOrdersSection";
+
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface BrokerStatus {
@@ -529,6 +531,9 @@ export default function BrokerPage() {
           </div>
         </div>
       )}
+
+      {/* ── Ordres stop de protection ────────────────────────── */}
+      <StopOrdersSection />
 
       {/* ── Statut API compact (bas de page) ─────────────────── */}
       {s && (

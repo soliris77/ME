@@ -381,7 +381,7 @@ export function mapSnaptradeStatus(status: string | null | undefined): string | 
     case "FAILED": return "rejected";
     case "CANCELED":
     case "PARTIAL_CANCELED":
-    case "EXPIRED": return "error";
+    case "EXPIRED": return "cancelled";
     default: return null; // PENDING/ACCEPTED/QUEUED... → toujours en attente
   }
 }

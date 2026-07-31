@@ -25,6 +25,7 @@ import {
   getSnaptradeClientAsync,
   resolveCredentials,
   invalidateSnaptradeClient,
+  cancelBrokerOrder,
 } from "../lib/snaptrade";
 import { getTradingMode, setTradingMode } from "../lib/tradingMode";
 import { submitOrder, OrderValidationError } from "../lib/orderEngine";
@@ -574,6 +575,133 @@ router.get("/broker/reconciliation", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "broker: reconciliation failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── GET /api/broker/stop-orders ──────────────────────────────────────────────
+// Ordres stop de protection, avec statut rafraîchi depuis le courtier.
+// En mode live avec connexion active, on synchronise d'abord les statuts
+// SnapTrade (submitted → filled / cancelled / rejected) avant de répondre —
+// l'utilisateur voit donc l'état réel, pas le statut initial "submitted".
+router.get("/broker/stop-orders", async (req, res) => {
+  try {
+    const mode = getTradingMode();
+    const conn = await getConnection();
+    let syncError: string | null = null;
+
+    if (mode === "live" && conn && conn.status === "connected") {
+      try {
+        const { syncLiveOrderFills } = await import("../workers/autoTradeWorker");
+        await syncLiveOrderFills(conn);
+      } catch (err) {
+        syncError = String(err);
+        req.log.warn({ err }, "broker: stop-orders — sync des statuts SnapTrade échouée, statuts en cache renvoyés");
+      }
+    }
+
+    const orders = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.orderType, "stop"))
+      .orderBy(desc(ordersTable.createdAt))
+      .limit(50);
+
+    // "actif" = le stop protège encore la position : accepté par le courtier
+    // (submitted/pending) ou simulé en mode paper.
+    const ACTIVE_STATUSES = ["pending", "submitted", "simulated"];
+    return res.json({
+      mode,
+      syncedFromBroker: mode === "live" && !!conn && conn.status === "connected" && !syncError,
+      syncError,
+      orders: orders.map((o) => ({ ...o, active: ACTIVE_STATUSES.includes(o.status) })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "broker: stop-orders failed");
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── POST /api/broker/orders/:id/cancel ───────────────────────────────────────
+// Annule un ordre stop actif. En mode live, l'annulation est demandée à
+// SnapTrade — le statut local ne passe à "cancelled" QUE si le courtier
+// confirme (jamais d'annulation locale optimiste : un stop qu'on croit annulé
+// mais encore actif — ou l'inverse — est dangereux).
+router.post("/broker/orders/:id/cancel", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Identifiant d'ordre invalide." });
+    }
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+    if (!order) return res.status(404).json({ error: "Ordre introuvable." });
+    if (order.orderType !== "stop") {
+      return res.status(400).json({ error: "Seuls les ordres stop de protection peuvent être annulés ici." });
+    }
+
+    const CANCELLABLE = ["pending", "submitted", "simulated"];
+    if (!CANCELLABLE.includes(order.status)) {
+      return res.status(409).json({
+        error: `Cet ordre n'est plus annulable (statut : ${order.status}). Rafraîchis la liste pour voir son état final.`,
+        status: order.status,
+      });
+    }
+
+    // Ordre paper (simulé) — annulation purement locale.
+    if (order.mode === "paper") {
+      const [updated] = await db
+        .update(ordersTable)
+        .set({ status: "cancelled" })
+        .where(eq(ordersTable.id, id))
+        .returning();
+      await logAudit("order.cancel", `Ordre stop paper #${id} (${order.symbol}) annulé.`, { orderId: id, symbol: order.symbol, mode: "paper" });
+      logger.info({ orderId: id, symbol: order.symbol }, "broker: ordre stop paper annulé");
+      return res.json({ ok: true, order: updated });
+    }
+
+    // Ordre live — annulation via SnapTrade, jamais locale seule.
+    if (!order.snaptradeOrderId || !order.brokerAccountId) {
+      return res.status(409).json({
+        error: "Ordre live sans identifiant courtier — impossible de l'annuler via SnapTrade. Vérifie-le directement dans Wealthsimple.",
+      });
+    }
+    const conn = await getConnection();
+    if (!conn) return res.status(400).json({ error: "Aucune connexion courtier configurée." });
+
+    try {
+      await cancelBrokerOrder({
+        userId: conn.snaptradeUserId,
+        userSecret: conn.snaptradeUserSecret,
+        accountId: order.brokerAccountId,
+        brokerageOrderId: order.snaptradeOrderId,
+      });
+    } catch (err) {
+      // Le courtier a refusé (déjà exécuté/annulé ?) — on re-synchronise le
+      // statut réel plutôt que de laisser un état trompeur.
+      req.log.warn({ err, orderId: id }, "broker: annulation SnapTrade refusée — resynchronisation du statut");
+      try {
+        const { syncLiveOrderFills } = await import("../workers/autoTradeWorker");
+        await syncLiveOrderFills(conn);
+      } catch { /* statut en cache conservé */ }
+      const [fresh] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+      return res.status(409).json({
+        error: "Le courtier a refusé l'annulation — l'ordre a peut-être déjà été exécuté ou annulé.",
+        status: fresh?.status ?? order.status,
+        details: String(err),
+      });
+    }
+
+    const [updated] = await db
+      .update(ordersTable)
+      .set({ status: "cancelled" })
+      .where(eq(ordersTable.id, id))
+      .returning();
+    await logAudit("order.cancel", `Ordre stop live #${id} (${order.symbol}) annulé chez le courtier.`, { orderId: id, symbol: order.symbol, mode: "live", snaptradeOrderId: order.snaptradeOrderId });
+    logger.info({ orderId: id, symbol: order.symbol, snaptradeOrderId: order.snaptradeOrderId }, "broker: ordre stop live annulé via SnapTrade");
+    return res.json({ ok: true, order: updated });
+  } catch (err) {
+    req.log.error({ err }, "broker: cancel order failed");
     return res.status(500).json({ error: String(err) });
   }
 });

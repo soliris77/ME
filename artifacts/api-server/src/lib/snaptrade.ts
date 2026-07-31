@@ -214,6 +214,31 @@ export async function refreshConnection(userId: string, userSecret: string): Pro
   logger.info({ authorizationId }, "snaptrade: refresh d'autorisation demandé");
 }
 
+// ─── Order cancellation ───────────────────────────────────────────────────────
+
+/**
+ * Annule un ordre ouvert chez le courtier via SnapTrade.
+ * Utilise le nouvel endpoint Trading_cancelOrder (brokerage_order_id).
+ * Lève une erreur si l'ordre n'est plus annulable (déjà exécuté/annulé) —
+ * l'appelant doit alors re-synchroniser le statut plutôt que de forcer.
+ */
+export async function cancelBrokerOrder(params: {
+  userId: string;
+  userSecret: string;
+  accountId: string;
+  brokerageOrderId: string;
+}) {
+  const client = await getSnaptradeClientAsync();
+  const res = await client.trading.cancelOrder({
+    userId: params.userId,
+    userSecret: params.userSecret,
+    accountId: params.accountId,
+    brokerage_order_id: params.brokerageOrderId,
+  });
+  logger.info({ brokerageOrderId: params.brokerageOrderId }, "snaptrade: annulation d'ordre demandée");
+  return res.data;
+}
+
 // ─── Order placement ──────────────────────────────────────────────────────────
 
 export interface PlaceOrderParams {
