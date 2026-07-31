@@ -18,6 +18,7 @@ import { resolveDestinations } from "../lib/notificationPrefs";
 import { logger } from "../lib/logger";
 import { getTradingMode } from "../lib/tradingMode";
 import { notifyKillSwitchActivated, notifyDailyLossWarning } from "../lib/notifications";
+import { getAiSecondOpinion, type AiReviewResult } from "../lib/aiReview";
 
 const WORKER_INTERVAL_MS = 60_000;
 const OHLC_DAYS = 90;
@@ -694,6 +695,69 @@ export function computeRuleQuantity(
   return quantity;
 }
 
+// ── Second avis IA (hook partagé) ─────────────────────────────────────────────
+// Appelé juste avant submitOrder par les DEUX chemins de soumission (signaux
+// techniques et copy-trading). Auto-contenu et FAIL-OPEN : ne bloque JAMAIS un
+// trade à cause d'une erreur interne — retourne null (= poursuivre) dès que la
+// règle n'a pas activé l'IA ou que l'IA est indisponible. Récupère lui-même les
+// derniers logs de la règle pour donner un contexte historique à l'IA.
+export async function runAiSecondOpinion(params: {
+  rule: typeof autoTradeRulesTable.$inferSelect;
+  side: "BUY" | "SELL";
+  quantity: number;
+  price: number;
+  changePercent?: number | null;
+  signalScore?: number | null;
+  signalVerdict?: string | null;
+  source?: "technical" | "copy";
+}): Promise<AiReviewResult | null> {
+  const { rule, side, quantity, price, changePercent, signalScore, signalVerdict, source } = params;
+  if (!rule.aiReview) return null;
+
+  let recentOutcomes: string[] = [];
+  try {
+    const recent = await db.select().from(autoTradeLogsTable)
+      .where(eq(autoTradeLogsTable.ruleId, rule.id))
+      .orderBy(sql`created_at DESC`)
+      .limit(5);
+    recentOutcomes = recent.map((l) => {
+      const parts = [
+        l.side,
+        l.triggerType,
+        l.signalVerdict ? `signal ${l.signalVerdict}` : null,
+        l.signalScore != null ? `score ${l.signalScore}` : null,
+        l.price != null ? `@ ${l.price}` : null,
+      ].filter(Boolean);
+      return parts.join(" ");
+    });
+  } catch (err) {
+    // Contexte historique optionnel : une lecture échouée ne doit pas empêcher l'avis.
+    logger.warn({ err, ruleId: rule.id }, "aiReview: lecture des logs récents échouée — avis sans historique");
+  }
+
+  try {
+    return await getAiSecondOpinion({
+      symbol: rule.symbol,
+      side,
+      quantity,
+      price,
+      changePercent: changePercent ?? null,
+      signalScore: signalScore ?? null,
+      signalVerdict: signalVerdict ?? null,
+      ruleName: rule.name ?? null,
+      sideMode: rule.sideMode ?? null,
+      minScore: rule.minScore ?? null,
+      recentOutcomes,
+      source,
+    });
+  } catch (err) {
+    // Défense en profondeur : getAiSecondOpinion est déjà fail-open, mais on
+    // garantit qu'aucune exception ne remonte au chemin de soumission.
+    logger.warn({ err, ruleId: rule.id }, "aiReview: exception inattendue — fail-open");
+    return null;
+  }
+}
+
 // ── Traitement d'une règle active ─────────────────────────────────────────────
 export async function processRule(
   rule: typeof autoTradeRulesTable.$inferSelect,
@@ -785,7 +849,65 @@ export async function processRule(
 
   const killSwitchActive = conn?.tradingHalted ?? false;
 
-  if (!killSwitchActive) {
+  // ── Second avis IA (opt-in) — juste avant la soumission ────────────────────
+  let aiVerdict: string | null = null;
+  let aiReason: string | null = null;
+  let aiBlocked = false;
+  if (!killSwitchActive && rule.aiReview) {
+    const opinion = await runAiSecondOpinion({
+      rule, side, quantity, price: currentPrice,
+      changePercent: null,
+      signalScore: analysis.score, signalVerdict: analysis.overall,
+      source: "technical",
+    });
+    if (opinion) {
+      aiVerdict = opinion.verdict;
+      aiReason = opinion.reason;
+      if (opinion.verdict === "block") {
+        aiBlocked = true;
+        logger.info({ ruleId: rule.id, symbol: rule.symbol, side, reason: opinion.reason }, "autoTradeWorker: ordre bloqué par le second avis IA");
+      }
+    } else {
+      // IA indisponible / non configurée / erreur → fail-open (l'ordre passe).
+      aiReason = "avis IA indisponible";
+    }
+  }
+
+  // ── Décision de BLOCAGE IA : persistance dédiée et DURABLE ──────────────────
+  // Un trade bloqué par l'IA DOIT laisser une trace, même si l'insert échoue.
+  // On journalise ici (try/catch propre) puis on sort — pas de soumission, pas
+  // d'incrément de quota. En cas d'échec d'insertion : ce n'est PAS un skip
+  // normal → console.error haute-sévérité distincte pour qu'il ne passe jamais
+  // inaperçu.
+  if (aiBlocked) {
+    const baseNotesBlocked = analysis.signals.filter(s => s.verdict !== "neutral").slice(0, 3).map(s => `${s.name}: ${s.value}`).join(", ");
+    try {
+      await db.insert(autoTradeLogsTable).values({
+        ruleId: rule.id,
+        symbol: rule.symbol,
+        side,
+        triggerType: "notification_only",
+        signalScore: analysis.score,
+        signalVerdict: analysis.overall,
+        price: String(currentPrice),
+        quantity: String(quantity),
+        orderId: null,
+        notificationSent: false,
+        notes: `Ordre bloqué par le second avis IA : ${aiReason}${baseNotesBlocked ? ` | ${baseNotesBlocked}` : ""}`,
+        aiVerdict,
+        aiReason,
+      });
+    } catch (err) {
+      // Perte de la trace d'un BLOCAGE — anomalie grave, pas un simple skip.
+      console.error(
+        "[autoTradeWorker] ALERTE: échec de l'enregistrement d'un BLOCAGE IA — décision non tracée en base",
+        { ruleId: rule.id, symbol: rule.symbol, side, aiVerdict, aiReason, err: String(err) },
+      );
+    }
+    return;
+  }
+
+  if (!killSwitchActive && !aiBlocked) {
     try {
       const brokerConnection = conn?.status === "connected"
         ? { snaptradeUserId: conn.snaptradeUserId!, snaptradeUserSecret: conn.snaptradeUserSecret! }
@@ -861,6 +983,7 @@ export async function processRule(
   }
 
   // ── Log en base ──────────────────────────────────────────────────────────────
+  const baseNotes = analysis.signals.filter(s => s.verdict !== "neutral").slice(0, 3).map(s => `${s.name}: ${s.value}`).join(", ");
   await db.insert(autoTradeLogsTable).values({
     ruleId: rule.id,
     symbol: rule.symbol,
@@ -872,7 +995,9 @@ export async function processRule(
     quantity: String(quantity),
     orderId: orderId ?? null,
     notificationSent,
-    notes: analysis.signals.filter(s => s.verdict !== "neutral").slice(0, 3).map(s => `${s.name}: ${s.value}`).join(", "),
+    notes: baseNotes,
+    aiVerdict,
+    aiReason,
   });
 
   // ── Mettre à jour la règle ───────────────────────────────────────────────────
@@ -1055,6 +1180,56 @@ export async function processCopySignal(event: CopySignalEvent): Promise<void> {
     let orderStatus: string | null = null;
     let rejectReason: string | null = null;
 
+    // ── Second avis IA (opt-in) — juste avant la soumission ──────────────────
+    let aiVerdict: string | null = null;
+    let aiReason: string | null = null;
+    if (rule.aiReview) {
+      const opinion = await runAiSecondOpinion({
+        rule, side: orderSide, quantity, price: currentPrice ?? 0,
+        signalScore: null, signalVerdict: "COPY-TRADING",
+        source: "copy",
+      });
+      if (opinion) {
+        aiVerdict = opinion.verdict;
+        aiReason = opinion.reason;
+      } else {
+        aiReason = "avis IA indisponible";
+      }
+    }
+
+    if (aiVerdict === "block") {
+      // Trade refusé par l'IA : aucun ordre soumis, on journalise et on continue.
+      // Persistance dédiée et DURABLE : un blocage DOIT laisser une trace.
+      logger.info({ ruleId: rule.id, symbol: rule.symbol, signalId, reason: aiReason }, "copySignal: ordre bloqué par le second avis IA");
+      try {
+        await db.insert(autoTradeLogsTable).values({
+          ruleId: rule.id,
+          symbol: rule.symbol,
+          side: orderSide,
+          triggerType: "notification_only",
+          signalScore: null,
+          signalVerdict: "COPY-TRADING",
+          price: currentPrice != null ? String(currentPrice) : null,
+          quantity: String(quantity),
+          orderId: null,
+          notificationSent: false,
+          notes: `Signal copy-trading bloqué par le second avis IA : ${aiReason}`,
+          source: "copy-trading",
+          followedTraderId,
+          externalTradeId,
+          aiVerdict,
+          aiReason,
+        });
+      } catch (err) {
+        // Perte de la trace d'un BLOCAGE — anomalie grave, pas un simple skip.
+        console.error(
+          "[copySignal] ALERTE: échec de l'enregistrement d'un BLOCAGE IA — décision non tracée en base",
+          { ruleId: rule.id, symbol: rule.symbol, signalId, aiVerdict, aiReason, err: String(err) },
+        );
+      }
+      continue;
+    }
+
     try {
       const result = await submitOrder({
         signalId,
@@ -1121,6 +1296,8 @@ export async function processCopySignal(event: CopySignalEvent): Promise<void> {
       source: "copy-trading",
       followedTraderId,
       externalTradeId,
+      aiVerdict,
+      aiReason,
     }).catch((err) => logger.error({ err, ruleId: rule.id }, "copySignal: insertion du log échouée"));
 
     // Mettre à jour le compteur/dernier déclenchement uniquement si un ordre a
@@ -1142,7 +1319,36 @@ export async function processCopySignal(event: CopySignalEvent): Promise<void> {
   }
 }
 
+// ── Verrou d'exécution en cours (in-flight) ──────────────────────────────────
+// Un cycle peut être LENT (attentes IA de 10 s × plusieurs règles) et dépasser
+// l'intervalle de 60 s : sans verrou, un second tick de setInterval (ou un run
+// forcé/manuel via l'API) démarrerait en parallèle. Or le signalId technique
+// est basé sur l'horodatage → l'idempotence de submitOrder ne peut PAS
+// dédoublonner deux évaluations concurrentes de la même règle → DOUBLE ORDRE.
+// Politique : coalescer (skip) — si un cycle tourne déjà, on ignore la nouvelle
+// demande. Le prochain tick reprendra normalement une fois le cycle terminé.
+let cycleInFlight = false;
+
+/**
+ * Point d'entrée public : sérialise les cycles. Toute demande (tick périodique,
+ * cycle initial, run forcé/manuel) qui arrive pendant qu'un cycle tourne déjà
+ * est ignorée (coalescée) pour empêcher tout double passage d'ordre.
+ */
 export async function runAutoTradeCheck(): Promise<void> {
+  if (cycleInFlight) {
+    logger.warn("autoTradeWorker: cycle déjà en cours — nouvelle demande ignorée (anti-chevauchement)");
+    return;
+  }
+  cycleInFlight = true;
+  try {
+    await runAutoTradeCycle();
+  } finally {
+    cycleInFlight = false;
+  }
+}
+
+/** Corps réel d'un cycle. Ne JAMAIS appeler directement : passer par runAutoTradeCheck (verrou). */
+async function runAutoTradeCycle(): Promise<void> {
   const [rules, conn] = await Promise.all([
     db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true)),
     resolveConnection(),

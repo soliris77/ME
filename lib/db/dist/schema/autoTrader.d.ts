@@ -309,6 +309,23 @@ export declare const autoTradeRulesTable: import("drizzle-orm/pg-core").PgTableW
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        aiReview: import("drizzle-orm/pg-core").PgColumn<{
+            name: "ai_review";
+            tableName: "auto_trade_rules";
+            dataType: "boolean";
+            columnType: "PgBoolean";
+            data: boolean;
+            driverParam: boolean;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         tradesToday: import("drizzle-orm/pg-core").PgColumn<{
             name: "trades_today";
             tableName: "auto_trade_rules";
@@ -741,6 +758,40 @@ export declare const autoTradeLogsTable: import("drizzle-orm/pg-core").PgTableWi
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        aiVerdict: import("drizzle-orm/pg-core").PgColumn<{
+            name: "ai_verdict";
+            tableName: "auto_trade_logs";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        aiReason: import("drizzle-orm/pg-core").PgColumn<{
+            name: "ai_reason";
+            tableName: "auto_trade_logs";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
             tableName: "auto_trade_logs";
@@ -764,10 +815,10 @@ export declare const autoTradeLogsTable: import("drizzle-orm/pg-core").PgTableWi
 export declare const insertAutoTradeRuleSchema: z.ZodObject<{
     symbol: z.ZodString;
     name: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    quantity: z.ZodOptional<z.ZodString>;
     enabled: z.ZodOptional<z.ZodBoolean>;
     sideMode: z.ZodOptional<z.ZodString>;
     minScore: z.ZodOptional<z.ZodInt>;
+    quantity: z.ZodOptional<z.ZodString>;
     accountId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     stopLossPct: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     takeProfitPct: z.ZodOptional<z.ZodNullable<z.ZodString>>;
@@ -779,6 +830,7 @@ export declare const insertAutoTradeRuleSchema: z.ZodObject<{
     maxTradesPerDay: z.ZodOptional<z.ZodInt>;
     notifyOnSignal: z.ZodOptional<z.ZodBoolean>;
     cooldownMinutes: z.ZodOptional<z.ZodInt>;
+    aiReview: z.ZodOptional<z.ZodBoolean>;
     openEntryPrice: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     openQuantity: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     openSince: z.ZodOptional<z.ZodNullable<z.ZodDate>>;

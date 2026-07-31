@@ -80,7 +80,7 @@ router.post("/auto-trader/rules", async (req, res) => {
       symbol, name, sideMode, minScore, quantity,
       accountId, stopLossPct, takeProfitPct, trailingStopPct,
       sizingMode, riskAmount, confirmWeekly,
-      maxTradesPerDay, notifyOnSignal, cooldownMinutes,
+      maxTradesPerDay, notifyOnSignal, cooldownMinutes, aiReview,
     } = req.body as Record<string, unknown>;
 
     if (!symbol || typeof symbol !== "string") {
@@ -106,6 +106,7 @@ router.post("/auto-trader/rules", async (req, res) => {
       maxTradesPerDay: typeof maxTradesPerDay === "number" ? maxTradesPerDay : 3,
       notifyOnSignal: typeof notifyOnSignal === "boolean" ? notifyOnSignal : true,
       cooldownMinutes: typeof cooldownMinutes === "number" ? cooldownMinutes : 240,
+      aiReview: typeof aiReview === "boolean" ? aiReview : false,
     }).returning();
 
     logger.info({ ruleId: rule.id, symbol: rule.symbol }, "auto-trader: règle créée");
@@ -126,7 +127,7 @@ router.put("/auto-trader/rules/:id", async (req, res) => {
       symbol, name, sideMode, minScore, quantity,
       accountId, stopLossPct, takeProfitPct, trailingStopPct,
       sizingMode, riskAmount, confirmWeekly,
-      maxTradesPerDay, notifyOnSignal, cooldownMinutes, enabled,
+      maxTradesPerDay, notifyOnSignal, cooldownMinutes, enabled, aiReview,
     } = req.body as Record<string, unknown>;
 
     const vErr = validateRuleNumbers(req.body as Record<string, unknown>);
@@ -149,6 +150,7 @@ router.put("/auto-trader/rules/:id", async (req, res) => {
       ...(typeof notifyOnSignal === "boolean" && { notifyOnSignal }),
       ...(typeof cooldownMinutes === "number" && { cooldownMinutes }),
       ...(typeof enabled === "boolean" && { enabled }),
+      ...(typeof aiReview === "boolean" && { aiReview }),
       updatedAt: new Date(),
     }).where(eq(autoTradeRulesTable.id, id)).returning();
 

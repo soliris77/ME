@@ -92,9 +92,9 @@ export declare const autoTradeCopyBindingsTable: import("drizzle-orm/pg-core").P
     dialect: "pg";
 }>;
 export declare const insertAutoTradeCopyBindingSchema: z.ZodObject<{
-    followedTraderId: z.ZodInt;
     enabled: z.ZodOptional<z.ZodBoolean>;
     ruleId: z.ZodInt;
+    followedTraderId: z.ZodInt;
 }, {
     out: {};
     in: {};

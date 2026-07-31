@@ -54,6 +54,10 @@ export const autoTradeRulesTable = pgTable("auto_trade_rules", {
   // Cooldown minimum entre deux ordres auto (en minutes)
   cooldownMinutes: integer("cooldown_minutes").default(240).notNull(),
 
+  // Second avis IA : si activé, une LLM vérifie le contexte avant chaque ordre
+  // et peut le bloquer. Fail-open : sans clé OpenAI / en erreur, l'ordre passe.
+  aiReview: boolean("ai_review").default(false).notNull(),
+
   // Statistiques courantes
   tradesToday: integer("trades_today").default(0).notNull(),
   tradesTodayResetAt: timestamp("trades_today_reset_at"),
@@ -92,6 +96,10 @@ export const autoTradeLogsTable = pgTable("auto_trade_logs", {
   // Renseignés uniquement pour les déclenchements copy-trading (traçabilité).
   followedTraderId: integer("followed_trader_id"),
   externalTradeId: text("external_trade_id"),
+  // Second avis IA : verdict ("approve" | "block") et explication en français.
+  // null = aucun avis IA rendu (règle sans IA, ou IA indisponible → fail-open).
+  aiVerdict: text("ai_verdict"),
+  aiReason: text("ai_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

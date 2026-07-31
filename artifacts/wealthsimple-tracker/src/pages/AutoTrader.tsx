@@ -44,6 +44,7 @@ interface AutoTradeRule {
   maxTradesPerDay: number;
   notifyOnSignal: boolean;
   cooldownMinutes: number;
+  aiReview: boolean;
   tradesToday: number;
   lastTriggeredAt: string | null;
   lastSignalScore: number | null;
@@ -86,6 +87,8 @@ interface AutoTradeLog {
   orderId: number | null;
   notificationSent: boolean;
   notes: string | null;
+  aiVerdict: string | null;
+  aiReason: string | null;
   createdAt: string;
 }
 
@@ -295,6 +298,7 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
   const [maxTrades, setMaxTrades] = useState(rule?.maxTradesPerDay ?? 3);
   const [notify, setNotify] = useState(rule?.notifyOnSignal ?? true);
   const [cooldown, setCooldown] = useState(rule?.cooldownMinutes ?? 240);
+  const [aiReview, setAiReview] = useState(rule?.aiReview ?? false);
 
   // Backtest inline
   const [btResult, setBtResult] = useState<BacktestResult | null>(null);
@@ -320,6 +324,7 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
       maxTradesPerDay: maxTrades,
       notifyOnSignal: notify,
       cooldownMinutes: cooldown,
+      aiReview,
     });
   }
 
@@ -507,6 +512,21 @@ function RuleForm({ rule, onSave, onClose, saving }: RuleFormProps) {
             <span className="text-left flex-1">
               Confirmation hebdomadaire {confirmWeekly ? "activée" : "désactivée"}
               <span className="block text-[10px] opacity-70">Le signal 1 semaine doit pointer dans la même direction avant d'agir</span>
+            </span>
+          </button>
+
+          {/* Second avis IA */}
+          <button
+            type="button"
+            onClick={() => setAiReview(v => !v)}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
+              aiReview ? "bg-primary/10 border-primary/40 text-primary" : "border-border/40 text-muted-foreground hover:border-border"
+            }`}
+          >
+            <Bot className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-left flex-1">
+              Second avis IA {aiReview ? "activé" : "désactivé"}
+              <span className="block text-[10px] opacity-70">Une IA vérifie le contexte avant chaque ordre et peut bloquer un trade douteux (nécessite une clé OpenAI). Sans clé, les ordres passent normalement.</span>
             </span>
           </button>
 
@@ -973,27 +993,39 @@ function RuleCard({
           ) : (
             <div className="space-y-1.5">
               {recentLogs.map(log => (
-                <div key={log.id} className="flex items-center gap-2 text-[11px]">
-                  <span className={`font-mono font-bold shrink-0 ${log.side === "BUY" ? "text-green-400" : "text-red-400"}`}>
-                    {log.side === "BUY" ? "🟢" : "🔴"} {log.side}
-                  </span>
-                  <span className="text-muted-foreground font-mono">
-                    {log.quantity} @ {log.price ? parseFloat(log.price).toFixed(2) : "—"}$
-                  </span>
-                  <span className="text-muted-foreground/60 font-mono text-[10px]">
-                    {log.triggerType === "order" ? "✅ Ordre" :
-                     log.triggerType === "stop_loss" ? "⛔ Stop-loss" :
-                     log.triggerType === "trailing_stop" ? "🔃 Trailing-stop" :
-                     log.triggerType === "take_profit" ? "✅ Take-profit" : "📢 Notif."}
-                  </span>
-                  {log.signalScore !== null && (
-                    <span className="font-mono text-[10px]" style={{ color: VERDICT_COLOR[log.signalVerdict ?? ""] ?? MUTED }}>
-                      score {log.signalScore > 0 ? "+" : ""}{log.signalScore}
+                <div key={log.id} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className={`font-mono font-bold shrink-0 ${log.side === "BUY" ? "text-green-400" : "text-red-400"}`}>
+                      {log.side === "BUY" ? "🟢" : "🔴"} {log.side}
                     </span>
+                    <span className="text-muted-foreground font-mono">
+                      {log.quantity} @ {log.price ? parseFloat(log.price).toFixed(2) : "—"}$
+                    </span>
+                    <span className="text-muted-foreground/60 font-mono text-[10px]">
+                      {log.triggerType === "order" ? "✅ Ordre" :
+                       log.triggerType === "stop_loss" ? "⛔ Stop-loss" :
+                       log.triggerType === "trailing_stop" ? "🔃 Trailing-stop" :
+                       log.triggerType === "take_profit" ? "✅ Take-profit" : "📢 Notif."}
+                    </span>
+                    {log.signalScore !== null && (
+                      <span className="font-mono text-[10px]" style={{ color: VERDICT_COLOR[log.signalVerdict ?? ""] ?? MUTED }}>
+                        score {log.signalScore > 0 ? "+" : ""}{log.signalScore}
+                      </span>
+                    )}
+                    {log.aiVerdict && (
+                      <span className={`font-mono text-[10px] ${log.aiVerdict === "block" ? "text-red-400" : "text-muted-foreground"}`}>
+                        🤖 IA : {log.aiVerdict === "block" ? "bloqué" : "approuvé"}
+                      </span>
+                    )}
+                    <span className="ml-auto text-muted-foreground/50 text-[10px]">
+                      {new Date(log.createdAt).toLocaleString("fr-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  {log.aiVerdict && log.aiReason && (
+                    <div className={`text-xs pl-5 ${log.aiVerdict === "block" ? "text-red-400/80" : "text-muted-foreground/70"}`}>
+                      {log.aiReason}
+                    </div>
                   )}
-                  <span className="ml-auto text-muted-foreground/50 text-[10px]">
-                    {new Date(log.createdAt).toLocaleString("fr-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                  </span>
                 </div>
               ))}
             </div>
