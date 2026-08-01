@@ -1,134 +1,141 @@
 /**
  * SpotifyWidget — lecteur Spotify compact intégré dans la sidebar.
  *
+ * Implémentation 100 % REST (aucun Web Playback SDK) : les contrôles agissent
+ * sur l'appareil Spotify actif de l'utilisateur (téléphone, ordinateur, enceinte…)
+ * via des routes serveur qui rafraîchissent elles-mêmes l'access_token.
+ * Aucun token n'est jamais stocké côté client.
+ *
  * États :
  *   checking      → montage, vérification silencieuse
- *   disconnected  → pas de connexion → affiche le bouton "Connecter Spotify"
- *   loading-sdk   → connexion trouvée, SDK en cours de chargement
- *   ready         → SDK prêt, contrôles actifs
+ *   disconnected  → pas de connexion → bouton « Connecter Spotify »
+ *   connected     → connexion établie, affichage de la lecture en cours
  *
- * Le widget gère son propre cycle de vie Spotify Web Playback SDK.
- * L'access_token est récupéré (et rafraîchi) via /api/integrations/spotify/token
- * à chaque fois que le SDK en a besoin — jamais stocké en clair dans le state.
- *
- * ⚠️ Spotify Web Playback SDK nécessite un compte Premium.
+ * Le widget interroge /now-playing toutes les 5 s tant que l'onglet est visible,
+ * avec un « tick » optimiste local entre deux sondages pour une barre fluide.
  */
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Music, LogOut, Play, Pause, Loader2 } from "lucide-react";
-import { WaveformVisual } from "./WaveformVisual";
+import { LogOut, Play, Pause, SkipBack, SkipForward, ExternalLink } from "lucide-react";
 import { playSound } from "@/lib/sounds";
 
-type WidgetState = "checking" | "disconnected" | "loading-sdk" | "ready";
+type WidgetState = "checking" | "disconnected" | "connected";
 
-interface SpotifyStatus {
-  isPremium: boolean;
-  displayName: string | null;
+interface NowPlaying {
+  playing: boolean;
+  isPlaying?: boolean;
+  trackName?: string;
+  artists?: string;
+  albumArtUrl?: string | null;
+  progressMs?: number;
+  durationMs?: number;
+  deviceName?: string | null;
+  trackUrl?: string | null;
+}
+
+const POLL_MS = 5_000;
+
+function formatTime(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function SpotifyWidget() {
-  const [state, setState]           = useState<WidgetState>("checking");
-  const [status, setStatus]         = useState<SpotifyStatus | null>(null);
-  const [isPlaying, setIsPlaying]   = useState(false);
-  const [currentTrack, setTrack]    = useState<string | null>(null);
-  const playerRef                   = useRef<unknown>(null);
+  const [state, setState]     = useState<WidgetState>("checking");
+  const [now, setNow]         = useState<NowPlaying | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [notice, setNotice]   = useState<string | null>(null);
 
-  /** Toujours appeler le serveur pour avoir un token frais (le serveur gère le refresh). */
-  const getFreshToken = useCallback(async (): Promise<string | null> => {
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nowRef    = useRef<NowPlaying | null>(null);
+
+  /** Récupère la lecture en cours. Renvoie false si non connecté (→ disconnected). */
+  const fetchNowPlaying = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch("/api/integrations/spotify/token");
-      if (!res.ok) return null;
-      const data = await res.json() as { accessToken: string };
-      return data.accessToken;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const initSDK = useCallback(async () => {
-    // Le SDK ne se charge qu'une fois
-    if (!document.querySelector('script[src*="spotify-player.js"]')) {
-      const script    = document.createElement("script");
-      script.src      = "https://sdk.scdn.co/spotify-player.js";
-      script.async    = true;
-      document.body.appendChild(script);
-    }
-
-    (window as unknown as Record<string, unknown>).onSpotifyWebPlaybackSDKReady = () => {
-      const Spotify = (window as unknown as Record<string, unknown>).Spotify as {
-        Player: new (opts: unknown) => unknown;
-      };
-      const player = new Spotify.Player({
-        name:          "Soliris Market",
-        getOAuthToken: async (cb: (t: string) => void) => {
-          const token = await getFreshToken();
-          if (token) cb(token);
-        },
-        volume: 0.4,
-      }) as {
-        addListener:  (event: string, cb: (arg: unknown) => void) => void;
-        connect:      () => void;
-        disconnect:   () => void;
-        togglePlay:   () => void;
-      };
-
-      player.addListener("ready", () => {
-        setState("ready");
-      });
-
-      player.addListener("not_ready", () => {
-        setState("loading-sdk");
-      });
-
-      player.addListener("player_state_changed", (state) => {
-        if (!state) return;
-        const s = state as {
-          paused: boolean;
-          track_window?: { current_track?: { name?: string } };
-        };
-        setIsPlaying(!s.paused);
-        setTrack(s.track_window?.current_track?.name ?? null);
-      });
-
-      player.connect();
-      playerRef.current = player;
-    };
-
-    // Si le SDK est déjà chargé (rechargement HMR), déclencher manuellement
-    if ((window as unknown as Record<string, unknown>).Spotify) {
-      ((window as unknown as Record<string, unknown>).onSpotifyWebPlaybackSDKReady as () => void)?.();
-    }
-  }, [getFreshToken]);
-
-  // Vérification initiale de la connexion
-  useEffect(() => {
-    async function check() {
-      try {
-        const res = await fetch("/api/integrations/spotify/token");
-        if (!res.ok) {
-          setState("disconnected");
-          return;
-        }
-        const data = await res.json() as {
-          isPremium: boolean;
-          displayName: string | null;
-          accessToken: string;
-        };
-        setStatus({ isPremium: data.isPremium, displayName: data.displayName });
-        setState("loading-sdk");
-        await initSDK();
-      } catch {
-        setState("disconnected");
+      const res = await fetch("/api/integrations/spotify/now-playing");
+      if (res.status === 404) {
+        return false; // aucune connexion enregistrée
       }
+      if (!res.ok) {
+        return true; // connecté mais erreur transitoire : on garde l'état
+      }
+      const data = (await res.json()) as NowPlaying;
+      nowRef.current = data;
+      setNow(data);
+      setProgress(data.progressMs ?? 0);
+      return true;
+    } catch {
+      return true;
     }
-    check();
-  }, [initSDK]);
-
-  // Nettoyage du player au démontage
-  useEffect(() => {
-    return () => {
-      (playerRef.current as { disconnect?: () => void } | null)?.disconnect?.();
-    };
   }, []);
+
+  // Vérification initiale
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const ok = await fetchNowPlaying();
+      if (!mounted) return;
+      setState(ok ? "connected" : "disconnected");
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [fetchNowPlaying]);
+
+  // Sondage toutes les 5 s + tick optimiste local, uniquement onglet visible
+  useEffect(() => {
+    if (state !== "connected") return;
+
+    const startTimers = () => {
+      if (!pollTimer.current) {
+        pollTimer.current = setInterval(() => {
+          void fetchNowPlaying();
+        }, POLL_MS);
+      }
+      if (!tickTimer.current) {
+        tickTimer.current = setInterval(() => {
+          const cur = nowRef.current;
+          if (cur?.playing && cur.isPlaying) {
+            setProgress((p) => {
+              const dur = cur.durationMs ?? 0;
+              return dur > 0 ? Math.min(p + 1000, dur) : p + 1000;
+            });
+          }
+        }, 1000);
+      }
+    };
+
+    const stopTimers = () => {
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
+      }
+      if (tickTimer.current) {
+        clearInterval(tickTimer.current);
+        tickTimer.current = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void fetchNowPlaying();
+        startTimers();
+      } else {
+        stopTimers();
+      }
+    };
+
+    if (document.visibilityState === "visible") startTimers();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      stopTimers();
+    };
+  }, [state, fetchNowPlaying]);
 
   const handleConnect = () => {
     playSound("click");
@@ -138,20 +145,58 @@ export function SpotifyWidget() {
   const handleDisconnect = async () => {
     playSound("click");
     await fetch("/api/integrations/spotify/disconnect", { method: "DELETE" });
-    (playerRef.current as { disconnect?: () => void } | null)?.disconnect?.();
-    playerRef.current = null;
+    nowRef.current = null;
+    setNow(null);
+    setProgress(0);
+    setNotice(null);
     setState("disconnected");
-    setStatus(null);
-    setIsPlaying(false);
-    setTrack(null);
   };
+
+  /** Envoie une commande de contrôle et traduit les erreurs Spotify en FR. */
+  const sendControl = useCallback(
+    async (action: "play" | "pause" | "next" | "previous") => {
+      setNotice(null);
+      try {
+        const res = await fetch(`/api/integrations/spotify/${action}`, { method: "POST" });
+        if (res.status === 404) {
+          setNotice("Lance la lecture sur un appareil Spotify d'abord.");
+          return;
+        }
+        if (res.status === 403) {
+          setNotice("Contrôles réservés aux comptes Premium.");
+          return;
+        }
+        if (!res.ok) {
+          setNotice("Commande Spotify indisponible pour le moment.");
+          return;
+        }
+        // Optimisme local pour play/pause, puis re-synchro rapide
+        if (action === "play" || action === "pause") {
+          setNow((prev) => (prev ? { ...prev, isPlaying: action === "play", playing: true } : prev));
+          if (nowRef.current) nowRef.current = { ...nowRef.current, isPlaying: action === "play", playing: true };
+        }
+        setTimeout(() => void fetchNowPlaying(), 350);
+      } catch {
+        setNotice("Commande Spotify indisponible pour le moment.");
+      }
+    },
+    [fetchNowPlaying],
+  );
 
   const handleToggle = () => {
     playSound("toggle");
-    (playerRef.current as { togglePlay?: () => void } | null)?.togglePlay?.();
+    void sendControl(now?.isPlaying ? "pause" : "play");
+  };
+  const handleNext = () => {
+    playSound("click");
+    void sendControl("next");
+  };
+  const handlePrev = () => {
+    playSound("click");
+    void sendControl("previous");
   };
 
-  // Rien à afficher pendant la vérification silencieuse
+  // Rien pendant la vérification silencieuse
   if (state === "checking") return null;
 
   // ─── Non connecté ────────────────────────────────────────────────────────
@@ -159,8 +204,8 @@ export function SpotifyWidget() {
     return (
       <div className="px-3 py-2.5 border-t border-sidebar-border">
         <p className="text-[10px] text-sidebar-foreground/35 leading-snug mb-1.5 px-0.5">
-          Musique de fond — nécessite un compte{" "}
-          <span className="text-[#1DB954] font-medium">Spotify Premium</span>
+          Musique de fond via{" "}
+          <span className="text-[#1DB954] font-medium">Spotify</span>
         </p>
         <button
           onClick={handleConnect}
@@ -173,15 +218,31 @@ export function SpotifyWidget() {
     );
   }
 
-  // ─── Connecté (SDK en cours ou prêt) ─────────────────────────────────────
+  // ─── Connecté ─────────────────────────────────────────────────────────────
+  const isPlaying = now?.isPlaying ?? false;
+  const hasTrack  = now?.playing && !!now.trackName;
+  const duration  = now?.durationMs ?? 0;
+  const pct       = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
+
   return (
     <div className="px-3 py-2.5 border-t border-sidebar-border">
-      {/* Ligne infos + déconnexion */}
-      <div className="flex items-center gap-1.5 mb-1.5">
+      {/* Ligne titre + déconnexion */}
+      <div className="flex items-center gap-1.5 mb-2">
         <SpotifyIcon className="w-3.5 h-3.5 flex-shrink-0" />
-        <span className="text-[11px] text-sidebar-foreground/50 truncate flex-1 min-w-0">
-          {currentTrack ?? (state === "loading-sdk" ? "Connexion…" : "Prêt")}
+        <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 flex-1 min-w-0 truncate">
+          {now?.deviceName ? now.deviceName : "Spotify"}
         </span>
+        {now?.trackUrl && (
+          <a
+            href={now.trackUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Ouvrir dans Spotify"
+            className="p-0.5 text-sidebar-foreground/25 hover:text-sidebar-foreground/60 rounded transition-colors flex-shrink-0"
+          >
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
         <button
           onClick={handleDisconnect}
           title="Déconnecter Spotify"
@@ -191,29 +252,83 @@ export function SpotifyWidget() {
         </button>
       </div>
 
-      {/* Contrôles lecture + onde */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleToggle}
-          disabled={state !== "ready"}
-          className="p-1.5 text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-md transition-all disabled:opacity-30 flex-shrink-0"
-          title={isPlaying ? "Pause" : "Lecture"}
-        >
-          {state === "loading-sdk" ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : isPlaying ? (
-            <Pause className="w-3.5 h-3.5" />
+      {/* Pochette + titre / artistes */}
+      <div className="flex items-center gap-2.5 mb-2">
+        <div className="w-10 h-10 rounded-md bg-sidebar-accent flex-shrink-0 overflow-hidden flex items-center justify-center">
+          {now?.albumArtUrl ? (
+            <img
+              src={now.albumArtUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
           ) : (
-            <Play className="w-3.5 h-3.5" />
+            <SpotifyIcon className="w-4 h-4 opacity-40" />
           )}
-        </button>
-        <WaveformVisual active={isPlaying} width={116} height={24} />
+        </div>
+        <div className="flex-1 min-w-0">
+          {hasTrack ? (
+            <>
+              <div className="text-[12px] text-sidebar-foreground/80 truncate font-medium">
+                {now?.trackName}
+              </div>
+              <div className="text-[10.5px] text-sidebar-foreground/45 truncate">
+                {now?.artists}
+              </div>
+            </>
+          ) : (
+            <div className="text-[11px] text-sidebar-foreground/45 leading-snug">
+              Rien en cours de lecture
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Avertissement si pas Premium */}
-      {status && !status.isPremium && (
-        <p className="text-[10px] text-amber-500/70 mt-1.5 leading-snug px-0.5">
-          Premium requis pour la lecture complète.
+      {/* Barre de progression */}
+      {hasTrack && (
+        <div className="mb-2 px-0.5">
+          <div className="h-1 rounded-full bg-sidebar-accent overflow-hidden">
+            <div
+              className="h-full bg-[#1DB954] transition-[width] duration-1000 ease-linear"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-0.5 text-[9px] text-sidebar-foreground/35 tabular-nums">
+            <span>{formatTime(progress)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Contrôles */}
+      <div className="flex items-center justify-center gap-1">
+        <button
+          onClick={handlePrev}
+          className="p-1.5 text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-md transition-all flex-shrink-0"
+          title="Précédent"
+        >
+          <SkipBack className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={handleToggle}
+          className="p-2 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-full transition-all flex-shrink-0"
+          title={isPlaying ? "Pause" : "Lecture"}
+        >
+          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+        </button>
+        <button
+          onClick={handleNext}
+          className="p-1.5 text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-md transition-all flex-shrink-0"
+          title="Suivant"
+        >
+          <SkipForward className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Message d'erreur contextuel */}
+      {notice && (
+        <p className="text-[10px] text-amber-500/80 mt-1.5 leading-snug px-0.5 text-center">
+          {notice}
         </p>
       )}
     </div>

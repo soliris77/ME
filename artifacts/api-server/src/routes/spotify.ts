@@ -24,6 +24,7 @@ const SCOPES = [
   "user-read-private",
   "user-modify-playback-state",
   "user-read-playback-state",
+  "user-read-currently-playing",
 ].join(" ");
 
 /** Construit l'URI de redirection OAuth.
@@ -145,62 +146,210 @@ router.get("/integrations/spotify/callback", async (req, res) => {
   }
 });
 
-// ─── GET /api/integrations/spotify/token ──────────────────────────────────
-router.get("/integrations/spotify/token", async (req, res) => {
-  const [conn] = await db.select().from(spotifyConnectionsTable).limit(1);
-  if (!conn) {
-    return res.status(404).json({ error: "Aucune connexion Spotify enregistrée." });
-  }
+/** Détecte une absence de ENCRYPTION_KEY sans jamais logguer de secret. */
+function isEncryptionKeyMissing(): boolean {
+  const hex = process.env.ENCRYPTION_KEY;
+  return !hex || hex.length !== 64;
+}
 
+type SpotifyConnection = {
+  encryptedRefreshToken: string;
+  isPremium: boolean;
+  displayName: string | null;
+  email: string | null;
+};
+
+/** Erreur métier renvoyée au client avec un statut HTTP + message français. */
+class SpotifyRouteError extends Error {
+  constructor(public statusCode: number, message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Renvoie un access_token Spotify frais en utilisant le refresh_token chiffré.
+ * Lève une SpotifyRouteError (statut + message FR) en cas de problème.
+ * Ne loggue jamais de token.
+ */
+async function getFreshAccessToken(): Promise<{ accessToken: string; expiresIn: number; conn: SpotifyConnection }> {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   if (!clientId) {
-    return res.status(503).json({ error: "SPOTIFY_CLIENT_ID non configuré." });
+    throw new SpotifyRouteError(503, "SPOTIFY_CLIENT_ID non configuré.");
+  }
+  if (isEncryptionKeyMissing()) {
+    throw new SpotifyRouteError(503, "Chiffrement indisponible : ENCRYPTION_KEY manquante côté serveur.");
   }
 
+  const [conn] = await db.select().from(spotifyConnectionsTable).limit(1);
+  if (!conn) {
+    throw new SpotifyRouteError(404, "Aucune connexion Spotify enregistrée.");
+  }
+
+  let refreshToken: string;
   try {
-    const refreshToken = decrypt(conn.encryptedRefreshToken);
+    refreshToken = decrypt(conn.encryptedRefreshToken);
+  } catch {
+    throw new SpotifyRouteError(503, "Chiffrement indisponible : impossible de déchiffrer le token Spotify.");
+  }
 
-    const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-      method:  "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body:    new URLSearchParams({
-        grant_type:    "refresh_token",
-        refresh_token: refreshToken,
-        client_id:     clientId,
-      }),
-    });
+  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
+    method:  "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body:    new URLSearchParams({
+      grant_type:    "refresh_token",
+      refresh_token: refreshToken,
+      client_id:     clientId,
+    }),
+  });
 
-    if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
-      console.error("[Spotify] Échec du refresh token :", errText);
-      return res.status(502).json({ error: "Échec du renouvellement du token Spotify." });
-    }
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    console.error("[Spotify] Échec du refresh token :", errText);
+    throw new SpotifyRouteError(502, "Échec du renouvellement du token Spotify.");
+  }
 
-    const data = await tokenRes.json() as {
-      access_token: string;
-      refresh_token?: string;
-      expires_in: number;
-    };
+  const data = await tokenRes.json() as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+  };
 
-    // Si Spotify renvoie un nouveau refresh_token, on le met à jour
-    if (data.refresh_token) {
-      await db
-        .update(spotifyConnectionsTable)
-        .set({ encryptedRefreshToken: encrypt(data.refresh_token) });
-    }
+  // Si Spotify renvoie un nouveau refresh_token, on le met à jour.
+  if (data.refresh_token) {
+    await db
+      .update(spotifyConnectionsTable)
+      .set({ encryptedRefreshToken: encrypt(data.refresh_token) });
+  }
 
+  return {
+    accessToken: data.access_token,
+    expiresIn:   data.expires_in,
+    conn,
+  };
+}
+
+/** Traduit une SpotifyRouteError (ou erreur inattendue) en réponse JSON FR. */
+function sendSpotifyError(res: import("express").Response, err: unknown): void {
+  if (err instanceof SpotifyRouteError) {
+    res.status(err.statusCode).json({ error: err.message });
+    return;
+  }
+  console.error("[Spotify] Erreur inattendue :", err);
+  res.status(500).json({ error: "Erreur interne." });
+}
+
+// ─── GET /api/integrations/spotify/token ──────────────────────────────────
+router.get("/integrations/spotify/token", async (_req, res) => {
+  try {
+    const { accessToken, expiresIn, conn } = await getFreshAccessToken();
     res.json({
-      accessToken:  data.access_token,
-      expiresIn:    data.expires_in,
-      isPremium:    conn.isPremium,
-      displayName:  conn.displayName,
-      email:        conn.email,
+      accessToken,
+      expiresIn,
+      isPremium:   conn.isPremium,
+      displayName: conn.displayName,
+      email:       conn.email,
     });
   } catch (err) {
-    console.error("[Spotify] Erreur lors du refresh :", err);
-    res.status(500).json({ error: "Erreur interne." });
+    sendSpotifyError(res, err);
   }
 });
+
+// ─── GET /api/integrations/spotify/now-playing ────────────────────────────
+router.get("/integrations/spotify/now-playing", async (_req, res) => {
+  try {
+    const { accessToken } = await getFreshAccessToken();
+    const r = await fetch("https://api.spotify.com/v1/me/player", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    // 204 (ou corps vide) : rien en cours de lecture.
+    if (r.status === 204) {
+      return res.json({ playing: false });
+    }
+    if (!r.ok) {
+      const errText = await r.text();
+      console.error("[Spotify] now-playing statut", r.status, ":", errText);
+      return res.status(502).json({ error: "Impossible de récupérer la lecture en cours." });
+    }
+
+    const raw = await r.text();
+    if (!raw) {
+      return res.json({ playing: false });
+    }
+
+    const p = JSON.parse(raw) as {
+      is_playing?: boolean;
+      progress_ms?: number | null;
+      device?: { name?: string } | null;
+      item?: {
+        name?: string;
+        duration_ms?: number;
+        external_urls?: { spotify?: string };
+        artists?: { name: string }[];
+        album?: { images?: { url: string }[] };
+      } | null;
+    };
+
+    if (!p.item) {
+      return res.json({ playing: false });
+    }
+
+    const images = p.item.album?.images ?? [];
+    res.json({
+      playing:      true,
+      isPlaying:    p.is_playing ?? false,
+      trackName:    p.item.name ?? "",
+      artists:      (p.item.artists ?? []).map((a) => a.name).join(", "),
+      albumArtUrl:  images.length > 0 ? images[images.length - 1].url : null,
+      progressMs:   p.progress_ms ?? 0,
+      durationMs:   p.item.duration_ms ?? 0,
+      deviceName:   p.device?.name ?? null,
+      trackUrl:     p.item.external_urls?.spotify ?? null,
+    });
+  } catch (err) {
+    sendSpotifyError(res, err);
+  }
+});
+
+/** Proxy générique vers un endpoint de contrôle /v1/me/player/*. */
+async function proxyPlayerControl(
+  res: import("express").Response,
+  method: "PUT" | "POST",
+  path: string,
+): Promise<void> {
+  try {
+    const { accessToken } = await getFreshAccessToken();
+    const r = await fetch(`https://api.spotify.com/v1/me/player/${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    // Succès Spotify : 204 (No Content) le plus souvent, ou 200/202.
+    if (r.ok || r.status === 204) {
+      return void res.json({ ok: true });
+    }
+
+    // Traduction des erreurs Spotify en messages FR selon le statut.
+    if (r.status === 403) {
+      return void res.status(403).json({ error: "Premium requis." });
+    }
+    if (r.status === 404) {
+      return void res.status(404).json({ error: "Aucun appareil actif." });
+    }
+
+    const errText = await r.text();
+    console.error("[Spotify] contrôle", path, "statut", r.status, ":", errText);
+    res.status(r.status).json({ error: "Échec de la commande de lecture Spotify." });
+  } catch (err) {
+    sendSpotifyError(res, err);
+  }
+}
+
+// ─── POST contrôles de lecture ────────────────────────────────────────────
+router.post("/integrations/spotify/play",     (_req, res) => proxyPlayerControl(res, "PUT",  "play"));
+router.post("/integrations/spotify/pause",    (_req, res) => proxyPlayerControl(res, "PUT",  "pause"));
+router.post("/integrations/spotify/next",     (_req, res) => proxyPlayerControl(res, "POST", "next"));
+router.post("/integrations/spotify/previous", (_req, res) => proxyPlayerControl(res, "POST", "previous"));
 
 // ─── DELETE /api/integrations/spotify/disconnect ──────────────────────────
 router.delete("/integrations/spotify/disconnect", async (req, res) => {
