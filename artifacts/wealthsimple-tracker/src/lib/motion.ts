@@ -13,6 +13,73 @@ export const EASE_PRECISION = [0.22, 1, 0.36, 1] as const; // var(--ease-precisi
 export const EASE_SNAP = [0.4, 0, 0.2, 1] as const;
 export const EASE_SMOOTH = [0.65, 0, 0.35, 1] as const;
 
+// ─── Premium reveal system ─────────────────────────────────────────────────
+export const DUR = {
+  instant: 0.09,
+  fast: 0.18,
+  base: 0.32,
+  slow: 0.56,
+  cinematic: 0.9,
+} as const;
+
+export const STAGGER = {
+  tight: 0.028,
+  base: 0.055,
+  wide: 0.09,
+} as const;
+
+export const REVEAL_VIEWPORT = {
+  once: true,
+  amount: 0.2,
+  margin: "0px 0px -12% 0px",
+} as const;
+
+export type RevealDirection = "up" | "down" | "left" | "right" | "scale" | "fade";
+
+const REVEAL_OFFSETS: Record<RevealDirection, { x?: number; y?: number; scale?: number }> = {
+  up: { y: 28 },
+  down: { y: -28 },
+  left: { x: 32 },
+  right: { x: -32 },
+  scale: { scale: 0.94 },
+  fade: {},
+};
+
+export function revealVariants(
+  direction: RevealDirection = "up",
+  distance = 1,
+  duration: number = DUR.slow,
+): Variants {
+  const offset = REVEAL_OFFSETS[direction];
+  return {
+    initial: {
+      opacity: 0,
+      x: (offset.x ?? 0) * distance,
+      y: (offset.y ?? 0) * distance,
+      scale: offset.scale ?? 1,
+    },
+    enter: {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      scale: 1,
+      transition: { duration, ease: EASE_PRECISION },
+    },
+  };
+}
+
+export function staggerGroup(
+  speed: keyof typeof STAGGER = "base",
+  delayChildren = 0.06,
+): Variants {
+  return {
+    initial: {},
+    enter: {
+      transition: { staggerChildren: STAGGER[speed], delayChildren },
+    },
+  };
+}
+
 // ─── Page transitions ──────────────────────────────────────────────────────
 export const pageVariants: Variants = {
   initial: { opacity: 0, y: 12 },

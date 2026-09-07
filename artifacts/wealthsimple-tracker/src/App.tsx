@@ -40,6 +40,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
+import Pricing from "@/pages/Pricing";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
@@ -281,9 +282,9 @@ function AppLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen relative">
       <GoldParticles />
       <Nav />
-      <div className="flex-1 ml-56 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 ml-56 flex flex-col min-h-screen">
         <TradingModeBanner />
-        <main className="flex-1 bg-background relative z-10">
+        <main className="flex-1 min-w-0 bg-background relative z-10">
           {children}
         </main>
       </div>
@@ -358,6 +359,8 @@ function App() {
               <Route path="/" component={Landing} />
               <Route path="/setup" component={SetupPassword} />
               <Route path="/login" component={Login} />
+              <Route path="/pricing" component={Pricing} />
+              <Route path="/tarifs" component={Pricing} />
               <Route path="/conditions-utilisation" component={ConditionsUtilisation} />
               <Route path="/courtier" component={wrap("Courtier", BrokerPage)} />
               <Route path="/dashboard" component={wrap("Tableau de bord", Dashboard)} />

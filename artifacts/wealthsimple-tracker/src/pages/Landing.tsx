@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { LineChart, ShieldCheck, Bell, Compass } from "lucide-react";
+import { Reveal, StaggerGroup, StaggerItem, Parallax } from "@/components/motion";
 
 const PILLARS = [
   {
@@ -68,14 +69,14 @@ export default function Landing() {
 
       {/* corps : emblème + signature de marque */}
       <main className="relative z-10 flex flex-col items-center justify-center px-6 pt-[6vh] pb-[10vh] sm:pt-[8vh] text-center">
-        <div className="animate-[fadeUp_1.1s_ease-out]">
+        <Parallax speed={0.35} className="animate-[fadeUp_1.1s_ease-out]">
           <img
             src="/soliris-icon.svg"
             alt=""
             aria-hidden="true"
             className="emblem-spin mx-auto h-40 w-40 sm:h-52 sm:w-52 object-contain drop-shadow-[0_0_40px_rgba(201,162,39,0.25)]"
           />
-        </div>
+        </Parallax>
 
         <h1
           className="brand-mark mt-10 text-[15vw] leading-none text-[#f2ead6] sm:text-[64px] animate-[fadeUp_1.1s_ease-out_0.15s_both]"
@@ -95,11 +96,18 @@ export default function Landing() {
           Une lecture claire des marchés, pour ceux qui n'ont pas de temps à perdre.
         </p>
 
-        <Link href="/dashboard">
-          <button className="btn-sheen mt-12 border border-[#c9a227]/60 px-10 py-3 text-xs tracking-[0.3em] text-[#c9a227] uppercase hover:text-[#07080a] hover:bg-[#c9a227] hover:border-[#c9a227] hover:shadow-[0_0_36px_rgba(201,162,39,0.35)] animate-[fadeUp_1.1s_ease-out_0.55s_both]">
-            Accéder aux marchés
-          </button>
-        </Link>
+        <div className="mt-12 flex flex-col items-center gap-5 sm:flex-row sm:gap-4 animate-[fadeUp_1.1s_ease-out_0.55s_both]">
+          <Link href="/dashboard">
+            <button className="btn-sheen border border-[#c9a227]/60 px-10 py-3 text-xs tracking-[0.3em] text-[#c9a227] uppercase hover:text-[#07080a] hover:bg-[#c9a227] hover:border-[#c9a227] hover:shadow-[0_0_36px_rgba(201,162,39,0.35)]">
+              Accéder aux marchés
+            </button>
+          </Link>
+          <Link href="/tarifs">
+            <button className="link-underline px-2 py-3 text-xs tracking-[0.28em] uppercase text-[#f2ead6]/55 hover:text-[#c9a227] tr-control">
+              Voir l'abonnement
+            </button>
+          </Link>
+        </div>
       </main>
 
       {/* piliers de marque */}
@@ -108,33 +116,37 @@ export default function Landing() {
           <span className="shrink-0">L'ESPRIT SOLIRIS</span>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {PILLARS.map(({ icon: Icon, title, text }, i) => (
-            <div
+        <StaggerGroup speed="wide" className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map(({ icon: Icon, title, text }) => (
+            <StaggerItem
               key={title}
-              className="lux-card reveal rounded-lg border border-[#c9a227]/15 bg-white/[0.02] p-6 text-left"
-              style={{ animationDelay: `${0.15 * i}s` }}
+              className="lux-card rounded-lg border border-[#c9a227]/15 bg-white/[0.02] p-6 text-left"
             >
               <Icon className="h-5 w-5 text-[#c9a227]" strokeWidth={1.5} />
               <div className="brand-mark mt-4 text-[12px] tracking-[0.22em] text-[#f2ead6]">
                 {title.toUpperCase()}
               </div>
               <p className="mt-3 text-sm leading-relaxed text-[#f2ead6]/60">{text}</p>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerGroup>
       </section>
 
       {/* citation de fermeture */}
-      <section className="reveal relative z-10 mx-auto max-w-2xl px-6 pb-[12vh] text-center sm:px-10">
+      <Reveal as="section" direction="scale" className="relative z-10 mx-auto max-w-2xl px-6 pb-[12vh] text-center sm:px-10">
         <div className="gold-divider mx-auto w-24" />
         <p className="brand-serif mt-8 text-lg italic text-[#f2ead6]/70 sm:text-xl">
           « La précision n'est pas un détail. C'est la mesure de tout. »
         </p>
-      </section>
+      </Reveal>
 
       <footer className="relative z-10 flex flex-col items-center justify-center gap-3 pb-10">
         <div className="flex items-center gap-6 text-[10px] tracking-[0.2em] text-[#f2ead6]/45">
+          <Link href="/tarifs">
+            <span className="link-underline cursor-pointer hover:text-[#c9a227] transition-colors">
+              ABONNEMENT
+            </span>
+          </Link>
           <Link href="/conditions-utilisation">
             <span className="link-underline cursor-pointer hover:text-[#c9a227] transition-colors">
               CONDITIONS D'UTILISATION
