@@ -62,7 +62,7 @@ function AddSymbolModal({ existingLists, onClose }: { existingLists: string[]; o
       exit="exit"
     >
       <motion.div 
-        className="bg-card border border-card-border rounded-xl p-6 w-full max-w-sm shadow-xl" 
+        className="bg-card border border-card-border elev-3 rounded-xl p-6 w-full max-w-sm"
         onClick={(e) => e.stopPropagation()}
         variants={modalContentVariants}
       >
@@ -191,7 +191,7 @@ function MoveListMenu({ item, lists, onMove, onCreateNew }: {
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 z-20 w-48 bg-card border border-card-border rounded-lg shadow-xl py-1"
+          className="absolute right-0 top-full mt-1 z-20 w-48 bg-card border border-card-border elev-2 rounded-lg py-1"
           onClick={(e) => e.stopPropagation()}
         >
           {!creating ? (
@@ -548,7 +548,7 @@ export default function Watchlist() {
             <button
               onClick={() => setCreatingList(true)}
               disabled={createList.isPending}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary/60 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary/60 tr-control disabled:opacity-50"
               title="Créer une nouvelle liste vide"
             >
               <Plus className="w-3 h-3" />
@@ -558,7 +558,7 @@ export default function Watchlist() {
         </div>
 
       {isLoading ? (
-        <div className="bg-card border border-card-border rounded-2xl overflow-hidden divide-y divide-border">
+        <div className="bg-card border border-card-border elev-1 tr-surface rounded-2xl overflow-hidden divide-y divide-border">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="px-4 py-4 flex items-center gap-4">
               <div className="flex-1">
@@ -574,7 +574,7 @@ export default function Watchlist() {
           ))}
         </div>
       ) : watchlist.length === 0 ? (
-        <div className="bg-card border border-card-border rounded-2xl p-14 text-center">
+        <div className="bg-card border border-card-border elev-1 rounded-2xl p-14 text-center">
           {/* Illustration SVG */}
           <div className="w-20 h-20 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center mx-auto mb-5">
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="text-primary/50">
@@ -606,7 +606,7 @@ export default function Watchlist() {
         </div>
       ) : (
         <motion.div 
-          className="bg-card border border-card-border rounded-lg overflow-hidden divide-y divide-border"
+          className="bg-card border border-card-border elev-1 tr-surface rounded-lg overflow-hidden divide-y divide-border"
           variants={staggerContainer}
           initial="initial"
           animate="enter"

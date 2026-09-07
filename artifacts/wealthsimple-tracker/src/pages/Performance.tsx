@@ -13,6 +13,9 @@ import {
   ShieldCheck, ShieldAlert, ShieldOff,
 } from "lucide-react";
 import { useCountUp } from "@/hooks/use-count-up";
+import { PageTransition } from "@/components/PageTransition";
+import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -124,22 +127,22 @@ function AnimatedStatCard({
     : value;
 
   return (
-    <div className="bg-card border border-card-border rounded-xl p-4 hover:border-primary/20 transition-colors">
-      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
-      <div className={`text-xl font-mono font-bold ${toneClass}`}>{displayValue}</div>
+    <StaggerItem className="bg-card border border-card-border elev-1 tr-surface rounded-xl p-4 lux-card">
+      <div className="t-label mb-2 min-h-[2.2em] leading-tight">{label}</div>
+      <div className={`text-lg lg:text-xl t-figure font-bold whitespace-nowrap ${toneClass}`}>{displayValue}</div>
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
-    </div>
+    </StaggerItem>
   );
 }
 
 function StatCard({ label, value, tone, sub, sensitive }: { label: string; value: string; tone?: "gain" | "loss" | "neutral"; sub?: string; sensitive?: boolean }) {
   const toneClass = tone === "gain" ? "gain" : tone === "loss" ? "loss" : "text-foreground";
   return (
-    <div className="bg-card border border-card-border rounded-xl p-4 hover:border-primary/20 transition-colors">
-      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label}</div>
-      <div className={`text-xl font-mono font-bold ${toneClass}${sensitive ? " sensitive" : ""}`}>{value}</div>
+    <StaggerItem className="bg-card border border-card-border elev-1 tr-surface rounded-xl p-4 lux-card">
+      <div className="t-label mb-2 min-h-[2.2em] leading-tight">{label}</div>
+      <div className={`text-lg lg:text-xl t-figure font-bold whitespace-nowrap ${toneClass}${sensitive ? " sensitive" : ""}`}>{value}</div>
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
-    </div>
+    </StaggerItem>
   );
 }
 
@@ -192,7 +195,7 @@ function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: t
           {metrics.openPositions > 0 && ` · ${metrics.openPositions} position${metrics.openPositions > 1 ? "s" : ""} ouverte${metrics.openPositions > 1 ? "s" : ""}`}
         </span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <StaggerGroup speed="tight" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Taux de réussite" value={pct(metrics.winRate)} tone={metrics.winRate === null ? "neutral" : metrics.winRate >= 0.5 ? "gain" : "loss"} />
         <StatCard label="Gains / Pertes" value={`${metrics.wins}G / ${metrics.losses}P`} />
         <StatCard label="Gain moyen" value={money(metrics.avgWin)} tone="gain" sensitive />
@@ -204,7 +207,7 @@ function MetricsSection({ title, icon: Icon, metrics }: { title: string; icon: t
           tone={metrics.totalPnl >= 0 ? "gain" : "loss"}
           sensitive
         />
-      </div>
+      </StaggerGroup>
       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium">Drawdown max :</span>
         <span className="font-mono loss sensitive">-{formatPrice(metrics.maxDrawdown)}</span>
@@ -723,7 +726,7 @@ export default function Performance() {
   const data = q.data;
 
   return (
-    <div className="p-6 sm:p-8 max-w-5xl mx-auto animate-fadeUp">
+    <PageTransition className="p-6 sm:p-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
@@ -739,7 +742,7 @@ export default function Performance() {
         </div>
         <button
           onClick={() => q.refetch()}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-input hover:bg-muted transition-colors shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-input hover:bg-muted btn-outline-premium tr-control shrink-0"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${q.isFetching ? "animate-spin" : ""}`} />
           Actualiser
@@ -747,20 +750,25 @@ export default function Performance() {
       </div>
 
       {/* ── Section 1 : métriques API (ordres remplis) ── */}
-      <div className="mb-10">
+      <Reveal className="mb-10">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-1 h-5 bg-primary rounded-full" />
           <h2 className="text-base font-semibold">Métriques des ordres (courtier)</h2>
         </div>
 
         {q.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" aria-busy="true" aria-label="Chargement des métriques">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="bg-card border border-card-border elev-1 rounded-xl p-4 space-y-2.5">
+                <Skeleton className="h-2.5 w-2/3" />
+                <Skeleton className="h-5 w-1/2" />
+              </div>
+            ))}
           </div>
         ) : !data ? (
           <div className="text-sm text-destructive">Impossible de charger les métriques de performance.</div>
         ) : data.combined.totalTrades === 0 ? (
-          <div className="bg-card border border-card-border rounded-2xl p-8 text-center">
+          <div className="bg-card border border-card-border elev-1 tr-surface rounded-2xl p-8 text-center">
             <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-3">
               <LineChartIcon className="w-6 h-6 text-primary/40" />
             </div>
@@ -782,27 +790,27 @@ export default function Performance() {
             )}
           </>
         )}
-      </div>
+      </Reveal>
 
       {/* ── Section 2 : score de discipline ── */}
-      <div className="mb-10">
+      <Reveal className="mb-10">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-1 h-5 bg-red-500 rounded-full" />
           <h2 className="text-base font-semibold">Score de discipline</h2>
           <span className="text-xs text-muted-foreground ml-1">— vos trades respectent-ils votre plan de risque ?</span>
         </div>
         <DisciplineSection />
-      </div>
+      </Reveal>
 
       {/* ── Section 3 : analyse du journal local ── */}
-      <div>
+      <Reveal>
         <div className="flex items-center gap-2 mb-5">
           <div className="w-1 h-5 bg-emerald-500 rounded-full" />
           <h2 className="text-base font-semibold">Analyse du journal de trading local</h2>
           <span className="text-xs text-muted-foreground ml-1">— stockage navigateur uniquement</span>
         </div>
         <JournalAnalyticsSection />
-      </div>
-    </div>
+      </Reveal>
+    </PageTransition>
   );
 }

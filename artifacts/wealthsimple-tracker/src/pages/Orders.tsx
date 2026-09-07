@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { formatPrice } from "@/lib/format";
-import { ScrollText, Download, Printer, RefreshCw, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ScrollText, Download, Printer, RefreshCw, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useMemo, useState } from "react";
+import { PageTransition } from "@/components/PageTransition";
+import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -101,7 +104,7 @@ export default function Orders() {
   );
 
   return (
-    <div className="p-6 sm:p-8 max-w-5xl mx-auto animate-fadeUp print:p-0">
+    <PageTransition className="p-6 sm:p-8 max-w-5xl mx-auto print:p-0">
       <div className="mb-6 flex items-start justify-between gap-4 print:hidden">
         <div>
           <div className="section-rule mb-4"><span>JOURNAL</span></div>
@@ -117,7 +120,7 @@ export default function Orders() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => q.refetch()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-input hover:bg-muted transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-input hover:bg-muted btn-outline-premium tr-control"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${q.isFetching ? "animate-spin" : ""}`} />
             Actualiser
@@ -125,7 +128,7 @@ export default function Orders() {
           <button
             onClick={() => exportCsv(filtered)}
             disabled={filtered.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-input hover:bg-muted transition-colors disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-input hover:bg-muted btn-outline-premium tr-control disabled:opacity-40"
           >
             <Download className="w-3.5 h-3.5" />
             Exporter CSV
@@ -133,7 +136,7 @@ export default function Orders() {
           <button
             onClick={() => window.print()}
             disabled={filtered.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md bg-primary text-primary-foreground btn-sheen btn-gold tr-control disabled:opacity-40"
           >
             <Printer className="w-3.5 h-3.5" />
             Imprimer / PDF
@@ -146,7 +149,7 @@ export default function Orders() {
           <button
             key={m}
             onClick={() => setModeFilter(m)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-full border tr-control ${
               modeFilter === m ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
             }`}
           >
@@ -158,33 +161,50 @@ export default function Orders() {
       <h1 className="hidden print:block text-xl font-bold mb-4">Soliris Market — Journal des ordres</h1>
 
       {q.isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
+        <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl p-4 space-y-3" aria-busy="true" aria-label="Chargement des ordres">
+          <Skeleton className="h-3 w-1/3" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="grid grid-cols-7 gap-3">
+              <Skeleton className="h-3 col-span-2" />
+              <Skeleton className="h-3" />
+              <Skeleton className="h-3" />
+              <Skeleton className="h-3" />
+              <Skeleton className="h-3" />
+              <Skeleton className="h-3" />
+            </div>
+          ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-sm text-muted-foreground border border-dashed border-card-border rounded-xl p-8 text-center">
-          Aucun ordre {modeFilter !== "all" ? `en mode ${modeFilter} ` : ""}pour le moment.
-        </div>
+        <Reveal direction="scale" className="border border-dashed border-card-border rounded-xl p-12 text-center">
+          <ScrollText className="w-6 h-6 text-primary/50 mx-auto mb-3" />
+          <p className="text-sm text-foreground/80 mb-1">
+            Aucun ordre {modeFilter !== "all" ? `en mode ${modeFilter} ` : ""}pour le moment.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Les ordres apparaîtront ici dès qu'un signal sera exécuté.
+          </p>
+          <hr className="rule-gold mt-6 mx-auto max-w-[180px]" />
+        </Reveal>
       ) : (
-        <div className="bg-card border border-card-border rounded-xl overflow-x-auto print:border-0 print:bg-transparent">
+        <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl overflow-x-auto print:border-0 print:bg-transparent">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground uppercase tracking-wide">
-                <th className="px-4 py-2.5 font-medium">Date</th>
-                <th className="px-4 py-2.5 font-medium">Symbole</th>
-                <th className="px-4 py-2.5 font-medium">Sens</th>
-                <th className="px-4 py-2.5 font-medium text-right">Quantité</th>
-                <th className="px-4 py-2.5 font-medium">Mode</th>
-                <th className="px-4 py-2.5 font-medium">Statut</th>
-                <th className="px-4 py-2.5 font-medium text-right">Prix exécuté</th>
+                <th className="px-4 py-2.5 t-label">Date</th>
+                <th className="px-4 py-2.5 t-label">Symbole</th>
+                <th className="px-4 py-2.5 t-label">Sens</th>
+                <th className="px-4 py-2.5 t-label text-right">Quantité</th>
+                <th className="px-4 py-2.5 t-label">Mode</th>
+                <th className="px-4 py-2.5 t-label">Statut</th>
+                <th className="px-4 py-2.5 t-label text-right">Prix exécuté</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <StaggerGroup as="tbody" speed="tight" className="divide-y divide-border">
               {filtered.map((o) => {
                 const status = STATUS_LABEL[o.status] ?? { text: o.status, cls: "bg-muted text-muted-foreground border-border" };
                 const buy = o.side.toUpperCase() === "BUY";
                 return (
-                  <tr key={o.id} className="hover:bg-muted/20 transition-colors">
+                  <StaggerItem as="tr" key={o.id} className="hover:bg-muted/20 tr-control">
                     <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(o.submittedAt ?? o.createdAt)}</td>
                     <td className="px-4 py-2.5 font-mono font-semibold">{o.symbol}</td>
                     <td className="px-4 py-2.5">
@@ -203,13 +223,13 @@ export default function Orders() {
                     <td className="px-4 py-2.5 text-right font-mono">
                       {o.fillPrice ? formatPrice(Number(o.fillPrice)) : o.expectedPrice ? `~${formatPrice(Number(o.expectedPrice))}` : "—"}
                     </td>
-                  </tr>
+                  </StaggerItem>
                 );
               })}
-            </tbody>
+            </StaggerGroup>
           </table>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

@@ -12,6 +12,8 @@ import { type Variants } from "framer-motion";
 export const EASE_PRECISION = [0.22, 1, 0.36, 1] as const; // var(--ease-precision) en JS
 export const EASE_SNAP = [0.4, 0, 0.2, 1] as const;
 export const EASE_SMOOTH = [0.65, 0, 0.35, 1] as const;
+export const EASE_ENTRANCE = [0.16, 1, 0.3, 1] as const;
+export const EASE_EXIT = [0.4, 0, 1, 1] as const;
 
 // ─── Premium reveal system ─────────────────────────────────────────────────
 export const DUR = {
@@ -79,6 +81,65 @@ export function staggerGroup(
     },
   };
 }
+
+export const pageVariantsCinematic: Variants = {
+  initial: { opacity: 0, y: 18, scale: 0.985, filter: "blur(6px)" },
+  enter: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: "blur(0px)",
+    transition: { duration: DUR.slow, ease: EASE_ENTRANCE },
+  },
+  exit: {
+    opacity: 0,
+    y: -10,
+    scale: 0.99,
+    filter: "blur(4px)",
+    transition: { duration: DUR.fast, ease: EASE_EXIT },
+  },
+};
+
+export const drawVariants: Variants = {
+  initial: { pathLength: 0, opacity: 0 },
+  enter: {
+    pathLength: 1,
+    opacity: 1,
+    transition: {
+      pathLength: { duration: DUR.cinematic, ease: EASE_PRECISION },
+      opacity: { duration: DUR.fast },
+    },
+  },
+};
+
+export const drawAreaVariants: Variants = {
+  initial: { opacity: 0 },
+  enter: {
+    opacity: 1,
+    transition: { duration: DUR.slow, delay: DUR.base, ease: EASE_ENTRANCE },
+  },
+};
+
+export const rollVariants: Variants = {
+  initial: (direction: number) => ({ opacity: 0, y: direction >= 0 ? 14 : -14 }),
+  enter: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: DUR.base, ease: EASE_PRECISION },
+  },
+  exit: (direction: number) => ({
+    opacity: 0,
+    y: direction >= 0 ? -14 : 14,
+    transition: { duration: DUR.fast, ease: EASE_EXIT },
+  }),
+};
+
+export const TILT = {
+  maxRotate: 6,
+  perspective: 900,
+  scale: 1.015,
+  spring: { stiffness: 220, damping: 26, mass: 0.6 },
+} as const;
 
 // ─── Page transitions ──────────────────────────────────────────────────────
 export const pageVariants: Variants = {

@@ -5,7 +5,7 @@
  * (ou /dashboard) dès qu'une session valide est établie.
  */
 import { useState, type FormEvent } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageMeta } from "@/hooks/use-page-meta";
@@ -38,12 +38,19 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center px-4"
+      className="relative min-h-screen w-full flex items-center justify-center px-4 overflow-hidden"
       style={{ background: "#07080a", color: "#f2ead6" }}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse 55% 45% at 50% 40%, rgba(212,167,44,0.12), transparent 68%)",
+        }}
+      />
       <motion.div
-        className="w-full max-w-[380px] p-8 rounded-xl"
-        style={{ background: SURFACE, border: `1px solid ${BORDER_C}`, boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+        className="relative z-10 w-full max-w-[380px] p-8 rounded-xl"
+        style={{ background: SURFACE, border: `1px solid ${BORDER_C}`, boxShadow: "var(--elev-3)" }}
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: EASE_PRECISION }}
@@ -92,10 +99,11 @@ export default function Login() {
           <motion.input
             type="password"
             autoFocus
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Mot de passe"
-            className="w-full rounded-lg px-4 py-3 text-[14px] focus:outline-none transition-all"
+            className="w-full rounded-lg px-4 py-3 text-[14px] focus:outline-none focus-ring-premium tr-control"
             style={{ background: BASE_BG, border: `1px solid ${BORDER_C}`, color: "#E8E9ED" }}
             onFocus={(e) => (e.currentTarget.style.borderColor = ACCENT)}
             onBlur={(e) => (e.currentTarget.style.borderColor = BORDER_C)}
@@ -105,7 +113,7 @@ export default function Login() {
           <AnimatePresence mode="wait">
             {loginError && (
               <motion.div
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-[12px]"
+                className="error-shake flex items-center gap-2 rounded-lg px-3 py-2.5 text-[12px]"
                 style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.28)", color: "#DC2626" }}
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -121,7 +129,7 @@ export default function Login() {
           <motion.button
             type="submit"
             disabled={isLoggingIn || !password}
-            className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-[13px] font-bold tracking-[0.06em] text-black transition-all disabled:opacity-50"
+            className="btn-sheen btn-gold tr-control w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-[13px] font-semibold tracking-[0.06em] text-black disabled:opacity-50"
             style={{ background: ACCENT }}
             whileHover={{ scale: !isLoggingIn && password ? 1.02 : 1 }}
             whileTap={{ scale: !isLoggingIn && password ? 0.98 : 1 }}
@@ -129,6 +137,14 @@ export default function Login() {
             {isLoggingIn ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Connexion…</> : "Se connecter"}
           </motion.button>
         </motion.form>
+        <div className="mt-6 flex items-center justify-center gap-5 text-[10px] tracking-[0.18em] uppercase" style={{ color: MUTED }}>
+          <Link href="/">
+            <span className="link-underline cursor-pointer hover:text-[#D4A72C] tr-control">Accueil</span>
+          </Link>
+          <Link href="/tarifs">
+            <span className="link-underline cursor-pointer hover:text-[#D4A72C] tr-control">Abonnement</span>
+          </Link>
+        </div>
       </motion.div>
     </div>
   );

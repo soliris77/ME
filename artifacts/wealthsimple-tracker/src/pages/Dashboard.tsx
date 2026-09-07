@@ -533,10 +533,10 @@ function FlashQuote({ q }: { q: Quote }) {
 
 function MarketCardSkeleton() {
   return (
-    <div className="bg-card border border-card-border rounded-xl p-4 animate-pulse">
-      <div className="h-2 bg-muted rounded w-20 mb-3" />
-      <div className="h-5 bg-muted rounded w-28 mb-2.5" />
-      <div className="h-3 bg-muted rounded w-14" />
+    <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl p-4 skeleton-premium">
+      <div className="h-2 bg-muted/60 rounded w-20 mb-3" />
+      <div className="h-5 bg-muted/60 rounded w-28 mb-2.5" />
+      <div className="h-3 bg-muted/60 rounded w-14" />
     </div>
   );
 }
@@ -718,14 +718,14 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
 }) {
   const filtered = allQuotes.filter((q) => symbols.includes(q.symbol));
   return (
-    <div className="bg-card border border-card-border rounded-xl overflow-hidden">
+    <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">{title}</span>
       </div>
       <div className="divide-y divide-border/50">
         {loading
           ? [...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-3 animate-pulse">
+              <div key={i} className="flex items-center justify-between px-4 py-3 skeleton-premium">
                 <div className="space-y-1.5">
                   <div className="h-3 bg-muted rounded w-16" />
                   <div className="h-2.5 bg-muted rounded w-8" />
@@ -784,7 +784,7 @@ function PopularStocksTabs({ allQuotes, loading, onTrade }: PopularStocksTabsPro
   const filtered = allQuotes.filter((q) => STOCK_CATS[activeTab].symbols.includes(q.symbol));
 
   return (
-    <div className="bg-card border border-card-border rounded-xl overflow-hidden">
+    <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60">
         <div className="flex items-center gap-2">
@@ -818,7 +818,7 @@ function PopularStocksTabs({ allQuotes, loading, onTrade }: PopularStocksTabsPro
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="animate-pulse flex items-center justify-between px-3 py-2.5">
+              <div key={i} className="skeleton-premium flex items-center justify-between px-3 py-2.5">
                 <div className="space-y-1.5">
                   <div className="h-3 bg-muted rounded w-12" />
                   <div className="h-2 bg-muted rounded w-20" />
