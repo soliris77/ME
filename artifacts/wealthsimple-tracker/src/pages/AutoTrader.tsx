@@ -1083,45 +1083,45 @@ function OpenPositionsPanel({ rules }: { rules: AutoTradeRule[] }) {
   const totalPnl = rows.every(r => r.pnl === null) ? null : rows.reduce((s, r) => s + (r.pnl ?? 0), 0);
 
   return (
-    <div className="mb-5 bg-card border border-border/50 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Briefcase className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="mb-6 surface-glass border border-border/40 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-4 border-b border-border/40 pb-3">
+        <div className="flex items-center gap-2.5">
+          <Briefcase className="w-4 h-4 text-primary" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
             Positions ouvertes ({open.length})
           </span>
         </div>
         {totalPnl !== null && (
-          <span className={`text-[13px] font-mono font-bold ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+          <span className={`text-[14px] font-mono font-bold ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
             {totalPnl >= 0 ? "+" : ""}{totalPnl.toFixed(2)} $
           </span>
         )}
       </div>
       <div className="space-y-2">
         {rows.map(({ rule, entry, qty, price, pnl, pnlPct }) => (
-          <div key={rule.id} className="flex items-center justify-between gap-3 rounded-lg bg-background/50 px-3 py-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="text-[13px] font-bold font-mono text-foreground">{rule.symbol}</span>
-              <span className="text-[11px] text-muted-foreground font-mono">
+          <div key={rule.id} className="flex items-center justify-between gap-4 rounded-lg bg-background/40 border border-border/40 px-4 py-3 transition-colors hover:border-border/80">
+            <div className="flex items-center gap-4 min-w-0">
+              <span className="text-[14px] font-bold font-mono text-foreground tracking-tight">{rule.symbol}</span>
+              <span className="text-[12px] text-muted-foreground/80 font-mono tracking-wide">
                 {qty} × {entry.toFixed(2)} $
               </span>
               {rule.openSince && (
-                <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-                  depuis le {new Date(rule.openSince).toLocaleDateString("fr-CA")}
+                <span className="text-[10px] text-muted-foreground/50 hidden md:inline tracking-wider uppercase font-semibold">
+                  depuis {new Date(rule.openSince).toLocaleDateString("fr-CA")}
                 </span>
               )}
               {rule.trailingStopPct && rule.highWaterMark && (
-                <span className="text-[10px] text-muted-foreground/60 hidden md:inline font-mono">
+                <span className="text-[10px] text-blue-400/60 hidden lg:inline font-mono uppercase tracking-widest font-bold">
                   trail : {(parseFloat(rule.highWaterMark) * (1 - parseFloat(rule.trailingStopPct) / 100)).toFixed(2)} $
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-[12px] font-mono text-muted-foreground">
+            <div className="flex items-center gap-4 shrink-0">
+              <span className="text-[13px] font-mono text-muted-foreground font-medium">
                 {price !== null ? `${price.toFixed(2)} $` : "…"}
               </span>
               {pnl !== null && pnlPct !== null ? (
-                <span className={`text-[12px] font-mono font-bold ${pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <span className={`text-[13px] font-mono font-bold tracking-tight ${pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)} $ ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
                 </span>
               ) : (
@@ -1379,29 +1379,29 @@ function SuggestionsPanel({ onCreate }: { onCreate: (prefill: RulePrefill) => vo
           Impossible de charger les suggestions pour le moment.
         </div>
       ) : suggestions.length === 0 ? (
-        <div className="bg-card border border-border/50 rounded-xl p-4 flex items-start gap-2.5">
+        <div className="surface-glass border border-border/40 rounded-xl p-4 flex items-start gap-2.5">
           <Sparkles className="w-4 h-4 text-muted-foreground/50 mt-0.5 shrink-0" />
-          <p className="text-[12px] text-muted-foreground leading-relaxed">
+          <p className="text-[12px] text-muted-foreground leading-relaxed tracking-wide">
             {message ?? "Aucune suggestion pour le moment."}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {suggestions.map(s => {
             const Icon = SUGGESTION_ICON[s.kind] ?? Lightbulb;
             return (
-              <div key={s.id} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <h3 className="text-[13px] font-bold text-foreground leading-tight">{s.title}</h3>
+              <div key={s.id} className="surface-glass border border-border/40 rounded-xl p-5 flex flex-col transition-all hover:border-primary/40 hover:bg-background/40">
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon className="w-4 h-4 text-primary shrink-0" />
+                  <h3 className="text-[13px] font-bold text-foreground leading-tight tracking-wide">{s.title}</h3>
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed flex-1">{s.explanation}</p>
+                <p className="text-[11px] text-muted-foreground/80 leading-relaxed tracking-wide flex-1">{s.explanation}</p>
                 <button
                   onClick={() => onCreate(s.prefill)}
-                  className="mt-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors self-start"
+                  className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[11px] font-bold tracking-widest uppercase hover:bg-primary/20 hover:border-primary/40 transition-colors self-start"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Créer cette règle
+                  CRÉER
                 </button>
               </div>
             );
@@ -1493,29 +1493,35 @@ export default function AutoTrader() {
   }).length;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 lg:py-10 animate-fadeUp">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Bot className="w-5 h-5 text-primary" />
-            <h1 className="text-[20px] font-bold text-foreground tracking-tight">Auto-Trader</h1>
+          <div className="section-rule mb-3 mt-1">
+            <span className="text-primary/60 uppercase tracking-widest font-bold text-[10px]">Moteur de trading</span>
+          </div>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-[24px] font-semibold tracking-wide text-foreground brand-mark flex items-center gap-2.5">
+              <Bot className="w-6 h-6 text-primary" />
+              Auto-Trader
+            </h1>
             {enabledCount > 0 && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-green-500/10 border border-green-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-[10px] font-mono text-green-400">{enabledCount} active{enabledCount > 1 ? "s" : ""}</span>
+                <span className="text-[9px] font-mono font-bold tracking-widest uppercase text-green-400">{enabledCount} active{enabledCount > 1 ? "s" : ""}</span>
               </div>
             )}
+            <GlobalRiskPanel />
           </div>
-          <p className="text-[12px] text-muted-foreground">
-            Surveille les signaux techniques en continu · Passe des ordres automatiquement · Notifie par SMS
+          <p className="text-[12px] text-muted-foreground tracking-wide max-w-lg">
+            Moteur algorithmique surveillant vos règles de trading. Les signaux qualifiés exécutent des ordres autonomes avec gestion stricte du risque.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => runMut.mutate()}
             disabled={runMut.isPending}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-[12px] text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all hover:border-primary/40 disabled:opacity-50"
             title="Forcer un cycle d'analyse immédiat"
           >
             {runMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
@@ -1523,9 +1529,9 @@ export default function AutoTrader() {
           </button>
           <button
             onClick={() => { setEditRule(null); setPrefill(null); setShowForm(true); }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary text-primary-foreground btn-sheen hover:bg-primary/90 transition-colors shadow-sm"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             Nouvelle règle
           </button>
         </div>

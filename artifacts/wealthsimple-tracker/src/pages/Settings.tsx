@@ -134,52 +134,52 @@ function NotificationsSection() {
   }
 
   return (
-    <div className="bg-card border border-card-border rounded-xl p-6 space-y-6">
-      <div className="grid sm:grid-cols-2 gap-4">
+    <div className="surface-glass rounded-xl p-6 md:p-8 space-y-7">
+      <div className="grid sm:grid-cols-2 gap-6">
         <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Email</label>
+          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">Email</label>
           <input
             type="email"
             placeholder="toi@exemple.com"
-            className={`w-full px-3 py-2.5 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring ${
-              emailValid ? "border-input" : "border-destructive"
+            className={`w-full px-4 py-3 text-sm bg-background/50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors ${
+              emailValid ? "border-border/60 hover:border-border" : "border-destructive"
             }`}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          {!emailValid && <p className="text-xs text-destructive mt-1.5">Adresse email invalide.</p>}
+          {!emailValid && <p className="text-[11px] text-destructive mt-2">Adresse email invalide.</p>}
         </div>
         <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Téléphone (SMS)</label>
+          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">Téléphone (SMS)</label>
           <input
             type="tel"
             placeholder="+15145551234"
-            className={`w-full px-3 py-2.5 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono ${
-              phoneValid ? "border-input" : "border-destructive"
+            className={`w-full px-4 py-3 text-sm bg-background/50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono transition-colors ${
+              phoneValid ? "border-border/60 hover:border-border" : "border-destructive"
             }`}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-          {!phoneValid && <p className="text-xs text-destructive mt-1.5">Format E.164 attendu, ex. +15145551234.</p>}
+          {!phoneValid && <p className="text-[11px] text-destructive mt-2">Format E.164 attendu, ex. +15145551234.</p>}
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400">
+      <div className="flex items-start gap-3 rounded-lg px-4 py-3 text-sm bg-amber-500/5 border border-amber-500/20 text-amber-500">
         <MessageSquareWarning className="w-4 h-4 shrink-0 mt-0.5" />
-        <span>Le SMS est envoyé via Twilio et coûte des frais par message, contrairement à l'email. Il n'est jamais activé par défaut — choisis-le explicitement par type d'événement ci-dessous.</span>
+        <span className="leading-relaxed">Le SMS est envoyé via Twilio et coûte des frais par message, contrairement à l'email. Il n'est jamais activé par défaut — choisis-le explicitement par type d'événement ci-dessous.</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4 pt-2">
         {NOTIFICATION_EVENTS.map((evt) => (
-          <div key={evt.key} className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-b-0">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{evt.label}</p>
-              <p className="text-xs text-muted-foreground">{evt.description}</p>
+          <div key={evt.key} className="flex items-center justify-between gap-6 py-3 border-b border-border/40 last:border-b-0">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground/90">{evt.label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">{evt.description}</p>
             </div>
             <select
               value={channels[evt.key] ?? "email"}
               onChange={(e) => setChannels((c) => ({ ...c, [evt.key]: e.target.value as NotificationChannel }))}
-              className="shrink-0 px-2.5 py-1.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+              className="shrink-0 px-3 py-2 text-sm font-medium bg-background/80 border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer hover:border-border transition-colors"
             >
               {CHANNEL_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value} disabled={(opt.value === "sms" || opt.value === "both") && !phone}>
@@ -192,32 +192,32 @@ function NotificationsSection() {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
+        <div className="flex items-start gap-3 rounded-lg px-4 py-3 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
           <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border/40">
         <button
           onClick={() => saveMut.mutate()}
           disabled={!canSubmit}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold tracking-wide rounded-md bg-primary text-primary-foreground disabled:opacity-50 transition-all hover:bg-primary/90 btn-sheen shadow-sm"
         >
           {saveMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Enregistrer
+          ENREGISTRER
         </button>
         <button
           onClick={() => prefsQ.data && resetFromServer(prefsQ.data)}
           disabled={!dirty}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md border border-input disabled:opacity-40"
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold tracking-wide rounded-md border border-border/60 disabled:opacity-40 hover:border-border hover:bg-muted/30 transition-all"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Annuler
+          <RotateCcw className="w-3.5 h-3.5 opacity-70" />
+          ANNULER
         </button>
         {prefsQ.data && (
-          <span className="text-xs text-muted-foreground ml-auto">
-            Dernière modification : {new Date(prefsQ.data.updatedAt).toLocaleString("fr-CA")}
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground ml-auto font-mono opacity-70">
+            Dernière modif. {new Date(prefsQ.data.updatedAt).toLocaleString("fr-CA")}
           </span>
         )}
       </div>
@@ -239,7 +239,7 @@ function SubscriptionSection() {
     (isError ? "L’état d’abonnement est indisponible." : null);
 
   return (
-    <div className="bg-card border border-card-border rounded-xl p-6 space-y-5">
+    <div className="surface-glass border border-border/40 rounded-xl p-6 md:p-8 space-y-5">
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -249,15 +249,15 @@ function SubscriptionSection() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">État actuel</p>
-              <p className="mt-1 text-lg font-semibold">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">État actuel</p>
+              <p className="mt-1 text-lg font-semibold text-foreground/90">
                 {subscription.founder ? "Accès fondateur" : subscriptionLabel(subscription.status)}
               </p>
               {subscription.inGrace && (
-                <p className="mt-1 text-xs text-amber-500">Paiement en retard — l’accès reste temporairement ouvert.</p>
+                <p className="mt-1 text-[11px] text-amber-500 font-medium">Paiement en retard — l’accès reste temporairement ouvert.</p>
               )}
               {subscription.currentPeriodEnd && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-[11px] tracking-wide text-muted-foreground">
                   Période actuelle jusqu’au {new Date(subscription.currentPeriodEnd).toLocaleDateString("fr-CA")}
                 </p>
               )}
@@ -266,10 +266,10 @@ function SubscriptionSection() {
               type="button"
               onClick={() => refresh.mutate()}
               disabled={refresh.isPending}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-input disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-[12px] font-semibold tracking-wide rounded-md border border-border/60 hover:bg-muted/30 hover:border-border transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${refresh.isPending ? "animate-spin" : ""}`} />
-              Actualiser
+              <RefreshCw className={`w-3.5 h-3.5 ${refresh.isPending ? "animate-spin" : ""}`} />
+              ACTUALISER
             </button>
           </div>
 
@@ -285,37 +285,37 @@ function SubscriptionSection() {
             </button>
           ) : subscription.founderAvailable ? (
             <form
-              className="space-y-3 border-t border-card-border pt-5"
+              className="space-y-4 border-t border-border/40 pt-5 mt-2"
               onSubmit={(event) => {
                 event.preventDefault();
                 grantFounder.mutate(founderCode, { onSuccess: () => setFounderCode("") });
               }}
             >
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
                 Clé fondateur
               </label>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="password"
                   value={founderCode}
                   onChange={(event) => setFounderCode(event.target.value)}
                   autoComplete="off"
-                  className="flex-1 px-3 py-2.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="flex-1 px-4 py-3 text-sm bg-background/50 border border-border/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors hover:border-border"
                 />
                 <button
                   type="submit"
                   disabled={!founderCode.trim() || grantFounder.isPending}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold tracking-wide rounded-lg bg-primary text-primary-foreground disabled:opacity-50 btn-sheen shadow-sm"
                 >
                   {grantFounder.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Ouvrir l’accès
+                  OUVRIR L'ACCÈS
                 </button>
               </div>
             </form>
           ) : null}
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
+            <div className="flex items-start gap-3 rounded-lg px-4 py-3 text-sm bg-destructive/10 border border-destructive/25 text-destructive mt-4">
               <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
               {error}
             </div>
@@ -362,39 +362,39 @@ function IntegrationsHealthSection() {
   };
 
   return (
-    <div className="bg-card border border-card-border rounded-xl p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">État global</span>
+    <div className="surface-glass border border-border/40 rounded-xl p-6 md:p-8 space-y-7">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/40 pb-4">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">État global</span>
           {overall === "ok" ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-500 font-semibold text-xs tracking-wide">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-sm bg-green-500/10 border border-green-500/20 text-green-400 font-bold text-[9px] tracking-widest uppercase">
               <CheckCircle2 className="w-3.5 h-3.5" /> Opérationnel
             </span>
           ) : overall === "degraded" ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-500 font-semibold text-xs tracking-wide">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-sm bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold text-[9px] tracking-widest uppercase">
               <AlertCircle className="w-3.5 h-3.5" /> Dégradé
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-destructive/10 border border-destructive/20 text-destructive font-semibold text-xs tracking-wide">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-sm bg-destructive/10 border border-destructive/20 text-destructive font-bold text-[9px] tracking-widest uppercase">
               <XCircle className="w-3.5 h-3.5" /> Erreur
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-          <Clock className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono tracking-widest uppercase">
+          <Clock className="w-3 h-3 opacity-70" />
           MAJ {new Date(generatedAt).toLocaleTimeString("fr-CA")}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Object.entries(entries).map(([key, data]) => (
-          <div key={key} className="p-4 rounded-lg bg-background border border-input flex flex-col gap-2.5">
+          <div key={key} className="p-5 rounded-xl bg-background/30 border border-border/40 flex flex-col gap-3 transition-colors hover:border-border/80 hover:bg-background/50">
             <div className="flex items-start justify-between gap-3">
-              <h4 className="font-semibold text-sm">{labels[key] || key}</h4>
+              <h4 className="font-bold text-[13px] tracking-wide">{labels[key] || key}</h4>
               {data.status === "ok" ? (
-                <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
               ) : data.status === "degraded" ? (
-                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
               ) : data.status === "not_configured" ? (
                 <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0" />
               ) : (
@@ -402,17 +402,17 @@ function IntegrationsHealthSection() {
               )}
             </div>
 
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-[11px] text-muted-foreground/80 leading-relaxed tracking-wide">
               {data.summary}
             </p>
 
             {data.status === "not_configured" && (
-              <span className="inline-block mt-auto pt-2 text-[10px] text-muted-foreground/70 uppercase tracking-widest font-semibold">
+              <span className="inline-block mt-auto pt-3 text-[9px] text-muted-foreground/50 uppercase tracking-[0.2em] font-bold">
                 Non configuré
               </span>
             )}
             {data.configured && data.status !== "not_configured" && (
-              <span className="inline-block mt-auto pt-2 text-[10px] text-muted-foreground/70 uppercase tracking-widest font-semibold">
+              <span className="inline-block mt-auto pt-3 text-[9px] text-primary/70 uppercase tracking-[0.2em] font-bold">
                 Configuré
               </span>
             )}
@@ -420,8 +420,8 @@ function IntegrationsHealthSection() {
         ))}
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-[11px] bg-muted/40 border border-input text-muted-foreground">
-        <Activity className="w-4 h-4 shrink-0" />
+      <div className="flex items-start gap-3 rounded-lg px-4 py-3 text-[11px] bg-muted/20 border border-border/40 text-muted-foreground tracking-wide mt-2">
+        <Activity className="w-4 h-4 shrink-0 opacity-70" />
         <span className="leading-relaxed">
           L'état "Configuré" ou "OK" garantit la présence des identifiants et le succès des requêtes de base, mais n'implique pas toujours un test réseau complet (ex: émission réelle d'un SMS ou exécution d'un ordre).
         </span>
@@ -508,9 +508,9 @@ export default function SettingsPage() {
           <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
         </div>
       ) : (
-        <div className="bg-card border border-card-border rounded-xl p-6 space-y-6">
+        <div className="surface-glass rounded-xl p-6 md:p-8 space-y-7">
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
               Valeur maximale par ordre
             </label>
             <div className="relative">
@@ -518,35 +518,35 @@ export default function SettingsPage() {
                 type="number"
                 min="1"
                 step="1"
-                className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                className="w-full px-4 py-3 text-sm bg-background/50 border border-border/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono transition-colors hover:border-border"
                 value={maxOrderValue}
                 onChange={(e) => setMaxOrderValue(e.target.value)}
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-1.5">
+            <p className="text-[11px] text-muted-foreground mt-2 tracking-wide">
               Tout ordre dont la valeur dépasse ce montant est refusé automatiquement par les garde-fous.
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
               Exposition maximale du portefeuille
             </label>
             <input
               type="number"
               min="1"
               step="1"
-              className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+              className="w-full px-4 py-3 text-sm bg-background/50 border border-border/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono transition-colors hover:border-border"
               value={maxPortfolioExposure}
               onChange={(e) => setMaxPortfolioExposure(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground mt-1.5">
+            <p className="text-[11px] text-muted-foreground mt-2 tracking-wide">
               Limite l'exposition totale (par devise) après un achat. Ne s'applique pas aux ventes.
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
               Seuil de confirmation renforcée
             </label>
             <div className="relative">
@@ -555,19 +555,19 @@ export default function SettingsPage() {
                 min="1"
                 max="100"
                 step="1"
-                className="w-full px-3 py-2.5 pr-9 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                className="w-full px-4 py-3 pr-10 text-sm bg-background/50 border border-border/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono transition-colors hover:border-border"
                 value={frictionPct}
                 onChange={(e) => setFrictionPct(e.target.value)}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-muted-foreground">%</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1.5">
+            <p className="text-[11px] text-muted-foreground mt-2 tracking-wide">
               % de la valeur maximale par ordre au-delà duquel un délai de confirmation de 3 secondes s'applique.
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
               Perte journalière max ($)
             </label>
             <div className="relative">
@@ -576,58 +576,58 @@ export default function SettingsPage() {
                 min="1"
                 step="1"
                 placeholder="Vide = désactivé"
-                className="w-full px-3 py-2.5 pr-9 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                className="w-full px-4 py-3 pr-10 text-sm bg-background/50 border border-border/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono transition-colors hover:border-border"
                 value={maxDailyLoss}
                 onChange={(e) => setMaxDailyLoss(e.target.value)}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-muted-foreground">$</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1.5">
+            <p className="text-[11px] text-muted-foreground mt-2 tracking-wide">
               Coupe-circuit : si la perte réalisée du jour dépasse ce montant, le trading automatique est
               suspendu (kill-switch) jusqu'à réactivation manuelle. Laisse vide pour désactiver.
             </p>
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
+            <div className="flex items-start gap-3 rounded-lg px-4 py-3 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
               <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
               {error}
             </div>
           )}
 
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border/40">
             <button
               onClick={() => saveMut.mutate()}
               disabled={!dirty || saveMut.isPending}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold tracking-wide rounded-md bg-primary text-primary-foreground disabled:opacity-50 transition-all hover:bg-primary/90 btn-sheen shadow-sm"
             >
               {saveMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Enregistrer
+              ENREGISTRER
             </button>
             <button
               onClick={() => settingsQ.data && resetFromServer(settingsQ.data)}
               disabled={!dirty}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md border border-input disabled:opacity-40"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold tracking-wide rounded-md border border-border/60 disabled:opacity-40 hover:border-border hover:bg-muted/30 transition-all"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Annuler
+              <RotateCcw className="w-3.5 h-3.5 opacity-70" />
+              ANNULER
             </button>
             {settingsQ.data && (
-              <span className="text-xs text-muted-foreground ml-auto">
-                Dernière modification : {new Date(settingsQ.data.updatedAt).toLocaleString("fr-CA")}
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground ml-auto font-mono opacity-70">
+                Dernière modif. {new Date(settingsQ.data.updatedAt).toLocaleString("fr-CA")}
               </span>
             )}
           </div>
         </div>
       )}
 
-      <div className="mt-10">
-        <div className="section-rule mb-4"><span>NOTIFICATIONS</span></div>
-        <h2 className="text-xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-2.5">
+      <div className="mt-14">
+        <div className="section-rule mb-5"><span>NOTIFICATIONS</span></div>
+        <h2 className="text-xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-3">
           <Bell className="w-5 h-5 text-primary" />
           Canaux de notification
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground max-w-xl">
+        <p className="mt-2 text-[13px] tracking-wide text-muted-foreground max-w-xl">
           Choisis où recevoir chaque type d'événement critique — par email, par SMS, les deux, ou aucun.
         </p>
       </div>

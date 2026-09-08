@@ -295,46 +295,46 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
   const hasMore = cat.assets.length > H24_DEFAULT_VISIBLE;
 
   return (
-    <div className={`bg-card border ${t.border} rounded-xl p-4 flex flex-col`}>
+    <div className={`surface-glass border rounded-xl p-4 flex flex-col transition-all ${t.border} hover:border-opacity-50`}>
       {/* Header — cliquable pour étendre */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2 mb-3 w-full text-left group"
+        className="flex items-center gap-2.5 mb-4 w-full text-left group"
       >
-        <div className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-widest font-mono ${t.badge}`}>
+        <div className={`px-2 py-0.5 rounded-sm text-[9px] font-bold tracking-[0.2em] font-mono border border-current/20 ${t.badge}`}>
           {cat.badge}
         </div>
-        <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] font-mono ${t.label}`}>
+        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] font-mono ${t.label}`}>
           {cat.label}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
-          <Infinity className={`w-3.5 h-3.5 ${t.label} opacity-50`} />
+          <Infinity className={`w-3.5 h-3.5 ${t.label} opacity-40`} />
           {hasMore && (
             expanded
-              ? <ChevronUp  className={`w-3.5 h-3.5 ${t.label} opacity-60`} />
-              : <ChevronDown className={`w-3.5 h-3.5 ${t.label} opacity-60`} />
+              ? <ChevronUp  className={`w-3.5 h-3.5 ${t.label} opacity-50`} />
+              : <ChevronDown className={`w-3.5 h-3.5 ${t.label} opacity-50`} />
           )}
         </span>
       </button>
 
       {/* Asset chips — navigables */}
-      <div className="flex flex-wrap gap-1.5 mb-3 flex-1">
+      <div className="flex flex-wrap gap-1.5 mb-4 flex-1">
         {visible.map((asset) =>
           asset.symbol ? (
             <Link
               key={asset.symbol}
               href={`/quote/${encodeURIComponent(asset.symbol)}`}
-              className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded
-                transition-colors cursor-pointer ${t.chip} ${t.chipHover}`}
+              className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md
+                transition-all cursor-pointer border border-transparent ${t.chip} ${t.chipHover}`}
               title={`Voir ${asset.label}`}
             >
               {asset.label}
-              <ExternalLink className="w-2.5 h-2.5 opacity-40" />
+              <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
             </Link>
           ) : (
             <span
               key={asset.label}
-              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${t.chip}`}
+              className={`text-[10px] font-mono px-2 py-1 rounded-md ${t.chip}`}
             >
               {asset.label}
             </span>
@@ -343,16 +343,16 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
         {!expanded && hasMore && (
           <button
             onClick={() => setExpanded(true)}
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded border border-dashed
-              opacity-50 hover:opacity-80 transition-opacity ${t.label} border-current`}
+            className={`text-[9px] font-mono px-2 py-1 rounded-md border border-dashed
+              opacity-60 hover:opacity-100 transition-opacity ${t.label} border-current uppercase tracking-widest`}
           >
-            +{cat.assets.length - H24_DEFAULT_VISIBLE} autres
+            +{cat.assets.length - H24_DEFAULT_VISIBLE}
           </button>
         )}
       </div>
 
       {/* Footer */}
-      <div className={`text-[10px] border-t border-border/30 pt-2 ${t.note}`}>
+      <div className={`text-[10px] border-t border-border/20 pt-3 tracking-wide ${t.note}`}>
         {cat.note}
       </div>
     </div>
@@ -370,23 +370,23 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
   const hasMore = ex.symbols.length > VISIBLE;
 
   return (
-    <div className={`bg-card border rounded-xl p-4 flex flex-col ${
-      open ? "border-green-500/30" : "border-border/60"
+    <div className={`surface-glass rounded-xl p-4 flex flex-col transition-colors ${
+      open ? "border-green-500/20" : "border-border/40"
     }`}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-base leading-none select-none" aria-hidden>{ex.flag}</span>
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="text-lg leading-none select-none drop-shadow-sm" aria-hidden>{ex.flag}</span>
         <div className="flex-1 min-w-0">
-          <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] leading-tight font-mono ${
+          <div className={`text-[10px] font-bold uppercase tracking-[0.2em] leading-tight font-mono ${
             open ? "text-green-400" : "text-foreground/70"
           }`}>
             {ex.name}
           </div>
-          <div className="text-[10px] text-muted-foreground truncate font-mono">{ex.location}</div>
+          <div className="text-[9px] text-muted-foreground truncate uppercase tracking-widest">{ex.location}</div>
         </div>
         {/* Status badge */}
-        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono ${
-          open ? "bg-green-500/15 text-green-400" : "bg-muted/60 text-muted-foreground"
+        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[9px] font-bold font-mono tracking-widest ${
+          open ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-muted/40 text-muted-foreground border border-border/50"
         }`}>
           {open
             ? <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
@@ -397,28 +397,28 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
       </div>
 
       {/* Symbol chips — navigables */}
-      <div className="flex flex-wrap gap-1 mb-3 flex-1">
+      <div className="flex flex-wrap gap-1.5 mb-4 flex-1">
         {visible.map((sym) => (
           <Link
             key={sym}
             href={`/quote/${encodeURIComponent(sym)}`}
-            className={`inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded
-              transition-colors cursor-pointer group/chip ${
+            className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md
+              transition-all cursor-pointer group/chip ${
               open
-                ? "bg-green-500/10 text-green-300/80 hover:bg-green-500/25 hover:text-green-200"
-                : "bg-muted/40 text-foreground/40 hover:bg-muted/70 hover:text-foreground/70"
+                ? "bg-green-500/10 text-green-300 hover:bg-green-500/20 hover:text-green-200 border border-transparent hover:border-green-500/30"
+                : "bg-muted/30 text-foreground/50 hover:bg-muted/60 hover:text-foreground/80 border border-transparent hover:border-border/50"
             }`}
             title={`Voir ${sym}`}
           >
             {sym}
-            <ExternalLink className="w-2 h-2 opacity-0 group-hover/chip:opacity-60 transition-opacity" />
+            <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover/chip:opacity-60 transition-opacity" />
           </Link>
         ))}
         {!expanded && hasMore && (
           <button
             onClick={() => setExpanded(true)}
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-dashed
-              border-border/40 text-muted-foreground hover:text-foreground/60 transition-colors"
+            className="text-[9px] font-mono px-2 py-1 rounded-md border border-dashed
+              border-border/40 text-muted-foreground hover:text-foreground/70 hover:border-border transition-colors uppercase tracking-widest"
           >
             +{ex.symbols.length - VISIBLE}
           </button>
@@ -426,17 +426,17 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
         {expanded && hasMore && (
           <button
             onClick={() => setExpanded(false)}
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-dashed
-              border-border/40 text-muted-foreground hover:text-foreground/60 transition-colors"
+            className="text-[9px] font-mono px-2 py-1 rounded-md border border-dashed
+              border-border/40 text-muted-foreground hover:text-foreground/70 hover:border-border transition-colors uppercase tracking-widest"
           >
-            Réduire
+            RÉDUIRE
           </button>
         )}
       </div>
 
       {/* Footer — hours + next event */}
-      <div className={`text-[10px] border-t pt-2 flex flex-col gap-0.5 ${
-        open ? "border-green-500/20 text-green-400/60" : "border-border/30 text-muted-foreground"
+      <div className={`text-[10px] border-t pt-3 flex flex-col gap-1 tracking-wide ${
+        open ? "border-green-500/10 text-green-400/60" : "border-border/30 text-muted-foreground/80"
       }`}>
         <span className="font-medium">{ex.hoursLabel}, lun–ven</span>
         <span>{next}</span>
@@ -495,24 +495,25 @@ function FlashQuote({ q }: { q: Quote }) {
         whileHover="hover"
         initial="rest"
         animate="rest"
-        className={`market-card bg-card border border-card-border rounded-xl p-4 cursor-pointer ${
+        className={`interactive-surface surface-glass rounded-xl p-4 cursor-pointer relative overflow-hidden group ${
           flash ? "border-primary/50 bg-primary/5" : ""
         }`}
         style={hoverLift}
       >
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70 mb-2 truncate">
+        <div className="absolute top-0 left-0 w-1 h-full bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80 mb-3 truncate">
           {MARKET_NAMES[q.symbol] ?? q.name}
         </div>
-        <div className="font-mono text-[17px] font-bold text-foreground leading-tight mb-2">
+        <div className="font-mono text-[18px] font-medium text-foreground leading-tight mb-2 tracking-tight">
           <AnimatedCounter 
             value={formatPrice(q.price, q.currency)} 
             flashOnChange={flash}
             flashColor={flashColor}
           />
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 mt-auto">
         <motion.div
-          className={`flex items-center gap-0.5 text-[12px] font-mono font-semibold ${
+          className={`flex items-center gap-1 text-[11px] font-mono font-medium ${
             up === null ? "text-muted-foreground" : up ? "gain" : "loss"
           }`}
           animate={flash ? { scale: [1, 1.08, 1] } : {}}
@@ -718,11 +719,11 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
 }) {
   const filtered = allQuotes.filter((q) => symbols.includes(q.symbol));
   return (
-    <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">{title}</span>
+    <div className="surface-glass border border-border/40 rounded-xl overflow-hidden transition-all hover:border-border/60">
+      <div className="px-5 py-3 border-b border-border/40 flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">{title}</span>
       </div>
-      <div className="divide-y divide-border/50">
+      <div className="divide-y divide-border/20">
         {loading
           ? [...Array(3)].map((_, i) => (
               <div key={i} className="flex items-center justify-between px-4 py-3 skeleton-premium">
@@ -784,28 +785,28 @@ function PopularStocksTabs({ allQuotes, loading, onTrade }: PopularStocksTabsPro
   const filtered = allQuotes.filter((q) => STOCK_CATS[activeTab].symbols.includes(q.symbol));
 
   return (
-    <div className="bg-card border border-card-border elev-1 tr-surface rounded-xl overflow-hidden">
+    <div className="surface-glass border border-border/40 rounded-xl overflow-hidden transition-all hover:border-border/60">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-primary/70" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">Actions populaires</span>
+          <TrendingUp className="w-4 h-4 text-primary/80" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">Actions populaires</span>
         </div>
-        <span className="text-[10px] text-muted-foreground/50 hidden sm:block">
+        <span className="text-[10px] text-muted-foreground/60 hidden sm:block tracking-wide">
           Survolez une ligne pour Suivre · Acheter · Vendre
         </span>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-border/60 overflow-x-auto bg-muted/30">
+      <div className="flex gap-2 border-b border-border/40 overflow-x-auto bg-background/20 px-3 py-2 custom-scrollbar">
         {STOCK_CATS.map((cat, i) => (
           <button
             key={cat.label}
             onClick={() => setActiveTab(i)}
-            className={`px-4 py-2.5 text-[12px] font-medium whitespace-nowrap transition-all border-b-2 -mb-px ${
+            className={`px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase whitespace-nowrap transition-all rounded-md ${
               activeTab === i
-                ? "border-primary text-primary bg-primary/5"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                ? "bg-primary/15 text-primary border border-primary/30"
+                : "border border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 hover:border-border/50"
             }`}
           >
             {cat.label}
@@ -875,11 +876,11 @@ function GainLossSection({ title, quotes, loading, isGain, onTrade }: {
   });
 
   return (
-    <div className="bg-card border border-card-border rounded-xl overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-border/60 flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">{title}</span>
+    <div className="surface-glass border border-border/40 rounded-xl overflow-hidden transition-all hover:border-border/60">
+      <div className="px-5 py-4 border-b border-border/40 flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">{title}</span>
       </div>
-      <div className="divide-y divide-border/40">
+      <div className="divide-y divide-border/20">
         {loading
           ? [...Array(5)].map((_, i) => (
               <div key={i} className="px-5 py-2.5 flex justify-between animate-pulse">
@@ -1008,34 +1009,37 @@ export default function Dashboard() {
       <PageTransition className="p-7 max-w-7xl">
         {/* Page header */}
         <motion.div 
-          className="flex items-center justify-between mb-7"
+          className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: EASE_PRECISION }}
         >
           <div>
-            <h1 className="text-[22px] font-light tracking-[0.04em] text-foreground brand-serif mb-1.5">
-              Aperçu des marchés
+            <div className="section-rule mb-2 mt-1">
+              <span className="text-primary/60 uppercase tracking-widest font-bold text-[10px]">Aperçu global</span>
+            </div>
+            <h1 className="text-[24px] font-semibold tracking-wide text-foreground brand-mark mb-2">
+              Marchés & Trading
             </h1>
             <div className="flex items-center gap-2">
               <span
                 className="w-1.5 h-1.5 rounded-full live-dot inline-block bg-primary"
                 style={{ boxShadow: "0 0 6px hsl(var(--primary) / 0.7)" }}
               />
-              <span className="text-[11px] text-muted-foreground tracking-wide">
-                En direct — mis à jour il y a {secondsSince < 10 ? "moins de 10s" : `${secondsSince}s`} · auto 10s
+              <span className="text-[11px] font-bold font-mono tracking-widest uppercase text-muted-foreground/80">
+                En direct — MAJ {secondsSince < 10 ? "< 10s" : `${secondsSince}s`} · Auto 10s
               </span>
             </div>
           </div>
           <motion.button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-lg hover:bg-muted border border-transparent hover:border-border/60"
+            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary/80 hover:text-primary transition-all px-4 py-2.5 rounded-lg border border-primary/20 hover:border-primary/40 hover:bg-primary/10 disabled:opacity-50"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-primary" : ""}`} />
-            Actualiser
+            ACTUALISER
           </motion.button>
         </motion.div>
 

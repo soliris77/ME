@@ -130,86 +130,113 @@ function Nav() {
   }, [privacy]);
 
   const links = [
-    { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-    { href: "/search", label: "Rechercher", icon: Search },
-    { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
-    { href: "/alerts", label: "Alertes prix", icon: Bell },
-    { href: "/journal", label: "Journal des marchés", icon: Newspaper },
-    { href: "/apprendre", label: "Apprendre à trader", icon: BookOpen },
-    { href: "/courtier", label: "Courtier", icon: Building2 },
-    { href: "/copy-trading", label: "Copy Trading", icon: Copy },
-    { href: "/performance", label: "Performance", icon: LineChart },
-    { href: "/comparer", label: "Comparer", icon: GitCompare },
-    { href: "/correlation", label: "Corrélation", icon: Grid3x3 },
-    { href: "/calendrier", label: "Calendrier économique", icon: CalendarDays },
-    { href: "/ordres", label: "Journal des ordres", icon: Receipt },
-    { href: "/debrief", label: "Débriefing quotidien", icon: CalendarCheck },
-    { href: "/reconciliation", label: "Réconciliation", icon: Scale },
-    { href: "/audit", label: "Journal d'audit", icon: ScrollText },
-    { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
-    { href: "/agent-tasks", label: "Tâches d'agent", icon: Bot },
-    { href: "/parametres", label: "Paramètres", icon: Settings },
+    {
+      group: "Marchés & Analyse",
+      items: [
+        { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+        { href: "/search", label: "Recherche", icon: Search },
+        { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
+        { href: "/journal", label: "Journal des marchés", icon: Newspaper },
+        { href: "/calendrier", label: "Calendrier éco", icon: CalendarDays },
+      ]
+    },
+    {
+      group: "Trading & Exécution",
+      items: [
+        { href: "/ordres", label: "Journal des ordres", icon: Receipt },
+        { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
+        { href: "/copy-trading", label: "Copy Trading", icon: Copy },
+        { href: "/agent-tasks", label: "Tâches agent", icon: Bot },
+        { href: "/courtier", label: "Courtier", icon: Building2 },
+      ]
+    },
+    {
+      group: "Performance & Suivi",
+      items: [
+        { href: "/performance", label: "Performance", icon: LineChart },
+        { href: "/comparer", label: "Comparer", icon: GitCompare },
+        { href: "/correlation", label: "Corrélation", icon: Grid3x3 },
+        { href: "/debrief", label: "Débriefing", icon: CalendarCheck },
+        { href: "/reconciliation", label: "Réconciliation", icon: Scale },
+      ]
+    },
+    {
+      group: "Système",
+      items: [
+        { href: "/alerts", label: "Alertes prix", icon: Bell },
+        { href: "/apprendre", label: "Apprendre", icon: BookOpen },
+        { href: "/audit", label: "Audit", icon: ScrollText },
+        { href: "/parametres", label: "Paramètres", icon: Settings },
+      ]
+    }
   ];
 
   return (
     <>
       {showApi  && <ApiStatusModal onClose={() => setShowApi(false)} />}
       {showCalc && <PositionCalculator onClose={() => setShowCalc(false)} />}
-      <aside className="fixed inset-y-0 left-0 w-56 bg-sidebar border-r border-sidebar-border flex flex-col z-30">
+      <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-30 shadow-2xl">
         {/* Logo */}
-        <div className="px-5 py-5">
+        <div className="px-5 py-6">
           <div className="flex items-center gap-3">
             <div className="logo-glow rounded-full flex-shrink-0">
               <SolirisMark />
             </div>
             <div className="leading-none">
-              <div className="brand-mark text-sidebar-primary font-semibold text-[13px] tracking-[0.2em]">SOLIRIS</div>
-              <div className="text-sidebar-foreground/40 text-[8.5px] tracking-[0.38em] mt-0.5">MARKET</div>
+              <div className="brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">SOLIRIS</div>
+              <div className="text-sidebar-foreground/40 text-[9px] tracking-[0.38em] mt-0.5">MARKET</div>
             </div>
           </div>
         </div>
 
-        <div className="gold-divider" />
-
         {/* Nav links */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto min-h-0">
-          {links.map(({ href, label, icon: Icon }) => {
-            const active = location.startsWith(href);
-            const isAlerts = href === "/alerts";
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-300 ease-out ${
-                  active ? "nav-link-active" : "nav-link-inactive"
-                }`}
-              >
-                <span className="relative flex-shrink-0">
-                  <Icon className={`w-4 h-4 transition-colors ${active ? "text-sidebar-primary" : ""}`} />
-                  {isAlerts && activeAlertsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-[8px] font-bold text-primary-foreground flex items-center justify-center leading-none animate-pulse">
-                      {activeAlertsCount > 9 ? "9+" : activeAlertsCount}
-                    </span>
-                  )}
-                </span>
-                <span className="flex-1">{label}</span>
-                {isAlerts && unreadNotifsCount > 0 && (
-                  <span
-                    className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center leading-none"
-                    title={`${unreadNotifsCount} notification${unreadNotifsCount > 1 ? "s" : ""} non lue${unreadNotifsCount > 1 ? "s" : ""}`}
-                  >
-                    {unreadNotifsCount > 99 ? "99+" : unreadNotifsCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-2 space-y-5 overflow-y-auto min-h-0 custom-scrollbar">
+          {links.map((group, idx) => (
+            <div key={idx}>
+              <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/30">
+                {group.group}
+              </div>
+              <div className="space-y-0.5">
+                {group.items.map(({ href, label, icon: Icon }) => {
+                  const active = location.startsWith(href);
+                  const isAlerts = href === "/alerts";
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-300 ease-out ${
+                        active ? "bg-sidebar-primary/10 text-sidebar-primary shadow-[inset_2px_0_0_0_hsl(var(--sidebar-primary))]" : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <span className="relative flex-shrink-0">
+                        <Icon className={`w-4 h-4 transition-colors ${active ? "text-sidebar-primary" : "opacity-70"}`} />
+                        {isAlerts && activeAlertsCount > 0 && (
+                          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-[8px] font-bold text-primary-foreground flex items-center justify-center leading-none animate-pulse">
+                            {activeAlertsCount > 9 ? "9+" : activeAlertsCount}
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex-1">{label}</span>
+                      {isAlerts && unreadNotifsCount > 0 && (
+                        <span
+                          className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center leading-none shadow-sm"
+                          title={`${unreadNotifsCount} notification${unreadNotifsCount > 1 ? "s" : ""} non lue${unreadNotifsCount > 1 ? "s" : ""}`}
+                        >
+                          {unreadNotifsCount > 99 ? "99+" : unreadNotifsCount}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className="gold-divider" />
+        <div className="gold-divider opacity-50" />
 
         {/* Footer */}
-        <div className="px-3 py-4 space-y-0.5">
+        <div className="px-3 py-3 space-y-0.5 bg-sidebar-accent/10">
           <button
             onClick={() => setShowCalc(true)}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
@@ -279,7 +306,7 @@ function AppLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen relative">
       <GoldParticles />
       <Nav />
-      <div className="flex-1 min-w-0 ml-56 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 ml-64 flex flex-col min-h-screen">
         <TradingModeBanner />
         <main className="flex-1 min-w-0 bg-background relative z-10">
           {children}
