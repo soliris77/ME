@@ -34,7 +34,6 @@ import AgentTasksPage from "@/pages/AgentTasks";
 import AutoTraderPage from "@/pages/AutoTrader";
 import DebriefPage from "@/pages/Debrief";
 import ApiStatusModal from "@/components/ApiStatusModal";
-import { SpotifyWidget } from "@/components/SpotifyWidget";
 import GoldParticles from "@/components/GoldParticles";
 import { CommandPalette } from "@/components/CommandPalette";
 import { PageErrorBoundary } from "@/components/PageErrorBoundary";
@@ -270,8 +269,6 @@ function Nav() {
           </button>
         </div>
 
-        {/* Lecteur Spotify — widget persistant en bas de sidebar */}
-        <SpotifyWidget />
       </aside>
     </>
   );
