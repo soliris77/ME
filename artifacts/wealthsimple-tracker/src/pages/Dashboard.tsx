@@ -27,6 +27,7 @@ import CommandCenter from "@/components/CommandCenter";
 import TradeModal from "@/components/TradeModal";
 import type { Quote } from "@workspace/api-client-react";
 import SectorHeatmap from "@/components/SectorHeatmap";
+import WealthsimpleAssets from "@/components/WealthsimpleAssets";
 import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, cardVariants, listItemVariants, hoverLift, EASE_PRECISION } from "@/lib/motion";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
@@ -1048,6 +1049,8 @@ export default function Dashboard() {
 
         {/* Market status */}
         <MarketStatusSection />
+
+        <WealthsimpleAssets />
 
         {/* Indices */}
         <div className="space-y-6 mb-7">

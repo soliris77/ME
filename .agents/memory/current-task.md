@@ -1,16 +1,16 @@
 ---
 name: Current task checkpoint
-description: Refonte visuelle du tableau de bord, de la navigation, des paramètres et de l’Auto-Trader
+description: Refonte de la heatmap et ajout des actifs Wealthsimple
 ---
 
 # Tâche en cours
 
-**Instruction utilisateur :** Améliorer le visuel du tableau de bord, de la navigation, des paramètres et de l’Auto-Trader.
+**Instruction utilisateur :** Remplacer la heatmap incohérente et ajouter une section d’actifs Wealthsimple assortie au reste de Soliris.
 **Démarrée le :** 2026-09-08
 
 ## Plan d’exécution
 
-- ✅ FAIT — Étape 1 : Auditer les composants et conventions visuelles des quatre surfaces
-- ✅ FAIT — Étape 2 : Repenser la navigation et le tableau de bord
-- ✅ FAIT — Étape 3 : Harmoniser Auto-Trader et Paramètres
-- ✅ FAIT — Étape 4 : Vérifier responsive, accessibilité, typecheck, build et rendu
+- ✅ FAIT — Étape 1 : Identifier la heatmap et les contrats de positions SnapTrade
+- ✅ FAIT — Étape 2 : Refaire la heatmap sans emojis, logos ni mosaïque criarde
+- ✅ FAIT — Étape 3 : Ajouter les actifs Wealthsimple avec les données SnapTrade réelles
+- ✅ FAIT — Étape 4 : Vérifier typecheck, build, données et rendu
