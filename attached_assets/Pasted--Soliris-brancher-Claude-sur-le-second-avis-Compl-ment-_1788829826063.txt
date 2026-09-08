@@ -1,0 +1,229 @@
+# Soliris — brancher Claude sur le second avis
+
+*Complément optionnel à `SOLIRIS-TOUT.md`. À appliquer seulement si tu veux la
+couche IA. Sans elle, le réviseur local déterministe s'applique : gratuit, sans
+réseau, et il suffit.*
+
+---
+
+## Ce que c'est, en une phrase
+
+`aiReview.ts` demande un **second avis** avant qu'un ordre automatique parte.
+Le module existe déjà et tourne sur OpenAI ; on ajoute Claude à côté.
+
+## Ce que l'IA a le droit de faire — et surtout ce qu'elle n'a pas le droit de faire
+
+Le modèle ne peut répondre que **`approve`** ou **`block`**. Il ne choisit ni
+symbole, ni quantité, ni moment : ces décisions restent au code déterministe.
+Il ne peut que **refuser** un ordre que les règles ont déjà décidé, et dire
+pourquoi.
+
+Cette asymétrie est ce qui rend le dispositif défendable. Une IA qui ne peut
+qu'empêcher ne peut pas inventer une position. Le jour où le modèle choisit
+quoi acheter, le produit vend du conseil en placement — la ligne que l'AMF
+trace entre un outil et un conseiller inscrit.
+
+**Ne pas élargir ce contrat.** C'est la seule consigne qui compte dans ce
+fichier.
+
+## Ce qu'un modèle de langage ne fait pas
+
+Il n'a pas les cours en direct. Il n'est pas déterministe : même contexte,
+réponse parfois différente. On ne peut pas le rejouer sur l'historique pour le
+tester. Ce n'est donc pas un moteur de décision — c'est un garde-fou de plus
+qui repère l'incohérence évidente. Les vrais garde-fous restent le code.
+
+---
+
+## Où va la clé
+
+```
+ANTHROPIC_API_KEY   ta clé Anthropic
+ANTHROPIC_MODEL     optionnel, défaut claude-sonnet-4-5
+OPENAI_API_KEY      alternative, utilisée seulement si aucune clé Claude
+```
+
+### ⚠ Une clé ne se colle jamais dans un chat
+
+Le code lit ces valeurs depuis l'environnement : `process.env.ANTHROPIC_API_KEY`.
+Elles n'ont donc **aucune raison** d'apparaitre dans un fichier, dans un commit,
+ni dans une conversation avec un agent — une conversation est conservee, et une
+cle qui y passe est a considerer comme divulguee.
+
+Sur Replit : panneau **Tools -> Secrets**, une entree par variable. Le code les
+retrouve tout seul au demarrage.
+
+Le second avis par IA est **optionnel**. Sans aucune cle, le reviseur local
+deterministe s'applique : il est gratuit, il ne depend d'aucun reseau, et il
+suffit.
+
+## ⚠ L avertissement qui a deja coute une semaine
+
+`verifyOrigin` refuse toute écriture dont l'origine n'est pas reconnue. En
+production, la liste vient **uniquement** de `ALLOWED_ORIGINS`. Si elle est
+vide, **chaque connexion sera refusée** avec « Requête refusée : elle ne
+provient pas de l'application » — la page s'affichera parfaitement et
+personne ne pourra entrer. C'est exactement le bug qui a bloqué le site en
+local pendant une semaine.
+
+Poser l'URL exacte du site, protocole compris, sans barre oblique finale :
+`https://mon-app.replit.app`
+
+---
+
+## Le code
+
+Ce module existe déjà et tourne sur OpenAI. On ajoute Claude **à côté**, sans
+changer le contrat.
+
+> **Le contrat, à ne pas élargir.** Le modèle ne peut répondre que `approve` ou
+> `block`. Il ne choisit ni symbole, ni quantité, ni moment — ces décisions
+> restent au code déterministe. Il ne peut que **refuser** un ordre que les
+> règles ont déjà décidé, et dire pourquoi.
+>
+> Cette asymétrie est ce qui rend le dispositif défendable : une IA qui ne peut
+> qu'empêcher ne peut pas inventer une position. Le jour où le modèle choisit
+> quoi acheter, le produit vend du conseil en placement — la ligne que l'AMF
+> trace entre un outil et un conseiller inscrit (voir partie E).
+
+### Constantes, à côté de celles d'OpenAI
+
+```ts
+const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
+const CLAUDE_VERSION = "2023-06-01";
+```
+
+### Le fournisseur Claude, à ajouter avant `getAiSecondOpinion`
+
+```ts
+/**
+ * Second avis via l'API Claude.
+ *
+ * Même contrat que le réviseur OpenAI : on ne demande QUE `approve` ou `block`.
+ * Le modèle ne choisit jamais un symbole, une quantité ni un moment — ces
+ * décisions restent au code déterministe. Il ne peut que refuser un ordre que
+ * les règles ont déjà décidé, et dire pourquoi. Cette asymétrie est ce qui rend
+ * le dispositif défendable : une IA qui ne peut qu'empêcher ne peut pas
+ * inventer une position.
+ *
+ * Toute anomalie — réseau, délai, JSON invalide, verdict inattendu — renvoie
+ * null, et l'appelant retombe sur le réviseur local déterministe.
+ */
+async function tryClaudeOpinion(ctx: AiReviewContext, apiKey: string): Promise<AiReviewResult | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(CLAUDE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": CLAUDE_VERSION,
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 300,
+        temperature: 0.2,
+        system: SYSTEM_PROMPT,
+        messages: [
+          { role: "user", content: buildUserMessage(ctx) },
+          // Réponse préremplie : le modèle continue à partir de "{", ce qui
+          // évite les phrases d'introduction autour du JSON.
+          { role: "assistant", content: "{" },
+        ],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      logger.warn({ status: res.status }, "aiReview: réponse Claude non OK — repli sur le réviseur local");
+      return null;
+    }
+
+    const data = (await res.json()) as { content?: { type?: string; text?: string }[] };
+    const texte = data.content?.find((b) => b.type === "text")?.text;
+    if (!texte || typeof texte !== "string") {
+      logger.warn("aiReview: réponse Claude sans contenu — repli sur le réviseur local");
+      return null;
+    }
+
+    let parsed: unknown;
+    try {
+      // On a préfixé "{" côté requête : on le remet pour reformer le JSON.
+      parsed = JSON.parse("{" + texte);
+    } catch {
+      logger.warn("aiReview: réponse Claude illisible (JSON invalide) — repli sur le réviseur local");
+      return null;
+    }
+
+    const obj = parsed as { verdict?: unknown; reason?: unknown };
+    if (obj.verdict !== "approve" && obj.verdict !== "block") {
+      logger.warn({ verdict: obj.verdict }, "aiReview: verdict Claude inattendu — repli sur le réviseur local");
+      return null;
+    }
+    const reason = typeof obj.reason === "string" && obj.reason.trim()
+      ? obj.reason.trim()
+      : (obj.verdict === "block" ? "Trade bloqué par le second avis." : "Approuvé par le second avis.");
+
+    return { verdict: obj.verdict, reason };
+  } catch (err) {
+    logger.warn({ err: String(err) }, "aiReview: appel Claude échoué ou expiré — repli sur le réviseur local");
+    return null;
+  }
+  finally {
+    clearTimeout(timer);
+  }
+}
+```
+
+### Choix du fournisseur, dans `getAiSecondOpinion`
+
+```ts
+// AVANT
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey) {
+      const remote = await tryOpenAiOpinion(ctx, apiKey);
+      if (remote) return remote;
+      return localSecondOpinion(ctx);
+    }
+    return localSecondOpinion(ctx);
+
+// APRÈS
+    // Ordre de préférence : Claude, puis OpenAI, puis le réviseur local.
+    // Quel que soit le fournisseur, un échec retombe TOUJOURS sur le réviseur
+    // local déterministe : l'automatisation ne dépend jamais d'un service
+    // distant pour décider de bloquer ou non.
+    const cleClaude = process.env.ANTHROPIC_API_KEY;
+    if (cleClaude) {
+      const remote = await tryClaudeOpinion(ctx, cleClaude);
+      if (remote) return remote;
+      return localSecondOpinion(ctx);
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey) {
+      const remote = await tryOpenAiOpinion(ctx, apiKey);
+      if (remote) return remote;
+      // Échec OpenAI → repli local (jamais null).
+      return localSecondOpinion(ctx);
+    }
+    // Pas de clé → réviseur local gratuit directement.
+    return localSecondOpinion(ctx);
+```
+
+**Repli vérifié sur cinq cas** : clé Claude et service disponible, clé Claude et
+service en panne, clé OpenAI seule, les deux clés, aucune clé. Dans tous, un
+avis est rendu — une panne réseau ne bloque jamais l'automatisation, elle
+retombe sur le réviseur local déterministe. Les 14 tests existants passent.
+
+---
+
+## Vérification attendue
+
+- sans aucune clé : le réviseur local s'applique, aucun appel réseau
+- avec `ANTHROPIC_API_KEY` : les journaux montrent un avis Claude
+- en coupant le réseau : les journaux montrent
+  `appel Claude échoué ou expiré — repli sur le réviseur local`, et
+  l'automatisation continue de fonctionner
+- les 14 tests de `src/lib/__tests__/aiReview.test.ts` passent toujours
