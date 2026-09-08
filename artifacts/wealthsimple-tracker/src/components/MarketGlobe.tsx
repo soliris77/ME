@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import land110m from 'world-atlas/land-110m.json';
+import { RotateCw } from 'lucide-react';
 
 // Places à couvrir
 const GLOBE_EXCHANGES = [
@@ -265,6 +266,11 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     }
   };
 
+  const handleRotateButton = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    rotationRef.current += 72;
+  };
+
   const getDotClass = (status: ExStatus) => {
     switch(status) {
       case 'open': return 'bg-primary shadow-[0_0_10px_1px_hsl(var(--primary))] motion-safe:animate-pulse';
@@ -322,6 +328,18 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
           </button>
         );
       })}
+
+      {variant === 'hero' && (
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={handleRotateButton}
+          className="absolute bottom-[7%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/35 bg-background/65 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary shadow-lg backdrop-blur-md transition-all hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <RotateCw className="h-3 w-3" />
+          Tourner le globe
+        </button>
+      )}
     </div>
   );
 }
