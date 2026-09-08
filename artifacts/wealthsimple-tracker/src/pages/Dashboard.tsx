@@ -27,7 +27,6 @@ import CommandCenter from "@/components/CommandCenter";
 import TradeModal from "@/components/TradeModal";
 import type { Quote } from "@workspace/api-client-react";
 import SectorHeatmap from "@/components/SectorHeatmap";
-import WealthsimpleAssets from "@/components/WealthsimpleAssets";
 import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, cardVariants, listItemVariants, hoverLift, EASE_PRECISION } from "@/lib/motion";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
@@ -1050,8 +1049,6 @@ export default function Dashboard() {
         {/* Market status */}
         <MarketStatusSection />
 
-        <WealthsimpleAssets />
-
         {/* Indices */}
         <div className="space-y-6 mb-7">
           <MarketSection title="Amérique du Nord" symbols={CANADA_NORTH_AM} allQuotes={allIndices} loading={isLoading} />
@@ -1069,6 +1066,16 @@ export default function Dashboard() {
 
         {/* Heatmap de performance par secteur */}
         <SectorHeatmap />
+
+        {/* Actifs populaires disponibles sur Wealthsimple — pas les positions détenues */}
+        <div className="mb-7">
+          <MarketSection
+            title="Actifs populaires sur Wealthsimple"
+            symbols={allPopular.slice(0, 8).map((quote) => quote.symbol)}
+            allQuotes={allPopular}
+            loading={isLoading}
+          />
+        </div>
 
         {/* Popular stocks — 11 categories, all with quick-actions */}
         <div className="mb-7">
