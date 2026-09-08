@@ -1,0 +1,2042 @@
+# Soliris — tout en un seul fichier
+
+*Compilé le 2026-09-08 depuis le dépôt local, fichier par fichier. Rien n'est recopié à la main : ce que tu lis ici est exactement ce qui compile et tourne.*
+
+---
+
+## Mode d'emploi
+
+Ce document contient **tout** : le code à intégrer, les correctifs, les chantiers restants et le volet juridique. Il se lit de haut en bas et s'exécute dans l'ordre.
+
+- **Partie A** — fichiers à créer, contenu intégral. À copier tels quels.
+- **Partie B** — modifications ciblées de fichiers existants. À appliquer à la main, sans écraser le reste.
+- **Partie C** — variables d'environnement.
+- **Partie D** — chantiers restants, avec leurs critères de vérification.
+- **Partie E** — juridique.
+
+> **À l'agent qui lit ceci** : ce code est déjà écrit, compilé et testé. Il est à **copier**, pas à réécrire ni à réinterpréter. Une intégration précédente a volontairement écarté cette couche en la jugeant « produit » ; c'est précisément elle qui est demandée.
+
+---
+
+## Deux défauts trouvés en cours de route — lire avant tout
+
+**1. Les sorties protectrices ne se déclenchaient jamais.** `checkProtectiveExits` construisait sa carte de cotations en lisant `q.regularMarketPrice`, alors que `getQuotes` renvoie des `FormattedQuote` où le prix s'appelle `price`. Un cast masquait l'erreur au compilateur. La carte restait vide à chaque cycle : **stop-loss, take-profit et trailing stop n'ont jamais été évalués**. Correctif en partie B.
+
+**2. L'âge des cotations n'existait pas.** `formatQuote` posait `lastUpdated: new Date()` — l'heure de notre récupération — et jetait `regularMarketTime`. Toute cotation se déclarait fraîche, même issue d'un flux gelé. Correctif en partie B.
+
+---
+
+# Partie A — fichiers à créer
+
+Aucun de ces fichiers n'existe encore côté Replit (vérifié). Il n'y a donc rien à fusionner, rien à arbitrer : on copie.
+
+
+## `artifacts/api-server/src/lib/founder.ts`
+
+```ts
+/**
+ * Accès fondateur — la clé du propriétaire de l'instance.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Soliris est vendu par abonnement, mais celui qui l'a écrit n'a pas à
+ * s'abonner à son propre produit. Ce module lui donne une porte d'entrée, avec
+ * trois garde-fous qui la distinguent d'une faille :
+ *
+ *  1. Elle n'existe que si FOUNDER_CODE est posé dans l'environnement. Pas de
+ *     code, pas de porte — rien à deviner sur une instance client.
+ *  2. Le code n'est jamais dans le bundle du navigateur, jamais dans le dépôt.
+ *     Il vit dans .env.local, au même endroit que le mot de passe du site.
+ *  3. L'accès obtenu est marqué comme fondateur, PAS comme abonnement payé.
+ *     Les réglages affichent « Accès fondateur » : on ne se ment pas à soi-même
+ *     sur l'état réel de la facturation, et la page tarifs reste testable en
+ *     révoquant l'accès d'un clic.
+ *
+ * La comparaison est à temps constant. Une comparaison naïve fuit la longueur
+ * du préfixe correct par le temps de réponse — c'est peu, mais c'est gratuit à
+ * éviter.
+ */
+import { timingSafeEqual } from "node:crypto";
+import type { Request } from "express";
+
+/** Longueur minimale acceptée : sous ce seuil, on refuse d'activer la porte. */
+const LONGUEUR_MINIMALE = 12;
+
+/** Le code configuré, ou null si la fonctionnalité est désactivée. */
+export function founderCode(): string | null {
+  const brut = process.env.FOUNDER_CODE?.trim();
+  if (!brut) return null;
+  if (brut.length < LONGUEUR_MINIMALE) return null;
+  return brut;
+}
+
+/** La porte fondateur est-elle configurée sur cette instance ? */
+export function isFounderConfigured(): boolean {
+  return founderCode() !== null;
+}
+
+/**
+ * FOUNDER_CODE est posé mais trop court pour être pris au sérieux : on le
+ * signale au démarrage plutôt que de laisser croire qu'il fonctionne.
+ */
+export function founderCodeTooShort(): boolean {
+  const brut = process.env.FOUNDER_CODE?.trim();
+  return Boolean(brut) && (brut as string).length < LONGUEUR_MINIMALE;
+}
+
+/** Comparaison à temps constant, tolérante aux longueurs différentes. */
+export function checkFounderCode(fourni: unknown): boolean {
+  const attendu = founderCode();
+  if (!attendu) return false;
+  if (typeof fourni !== "string" || fourni.length === 0) return false;
+
+  const a = Buffer.from(attendu, "utf8");
+  const b = Buffer.from(fourni, "utf8");
+  // timingSafeEqual exige des longueurs égales : on compare des empreintes de
+  // taille fixe plutôt que de court-circuiter sur la longueur.
+  const pad = Buffer.alloc(Math.max(a.length, b.length));
+  const aPad = Buffer.alloc(pad.length);
+  const bPad = Buffer.alloc(pad.length);
+  a.copy(aPad);
+  b.copy(bPad);
+  return timingSafeEqual(aPad, bPad) && a.length === b.length;
+}
+
+/** La session courante a-t-elle l'accès fondateur ? */
+export function hasFounderAccess(req: Request): boolean {
+  // Le drapeau ne vaut rien si la porte a été refermée entre-temps : on
+  // revérifie que FOUNDER_CODE existe toujours. Retirer la variable de
+  // .env.local et redémarrer suffit donc à révoquer toutes les sessions.
+  return isFounderConfigured() && req.session?.founder === true;
+}
+```
+
+
+## `artifacts/api-server/src/lib/httpSecurity.ts`
+
+```ts
+/**
+ * Origines de confiance — CORS et protection CSRF.
+ * ─────────────────────────────────────────────────────────────────────────
+ * Le frontend appelle l'API en chemin relatif (/api/…), donc en même origine :
+ * en pratique aucune requête légitime n'est cross-origin. La configuration par
+ * défaut est donc fermée, et s'ouvre uniquement via ALLOWED_ORIGINS.
+ *
+ *   ALLOWED_ORIGINS — liste séparée par des virgules
+ *                     ex. https://soliris.app,https://app.soliris.app
+ *
+ * En développement, les origines locales usuelles (Vite, aperçu) sont
+ * autorisées d'office pour ne pas gêner le travail au quotidien.
+ *
+ * Deux protections distinctes, volontairement séparées :
+ *
+ *   CORS         — décide quelle page a le droit de LIRE une réponse.
+ *   verifyOrigin — décide quelle page a le droit de DÉCLENCHER une écriture.
+ *
+ * La seconde est celle qui compte contre le CSRF : un formulaire hostile peut
+ * envoyer un POST sans lire la réponse, et CORS seul ne l'arrête pas. Le
+ * cookie est en SameSite=Lax, ce qui couvre déjà l'essentiel — cette
+ * vérification est la seconde ligne, pour que la sécurité ne repose pas sur
+ * un unique attribut de cookie.
+ */
+import type { CorsOptions } from "cors";
+import type { RequestHandler } from "express";
+import { logger } from "./logger";
+
+/**
+ * Origines locales acceptées d'office en développement.
+ *
+ * 23051 est le port du serveur Vite de CE projet (voir `vite.config.ts`, où
+ * il est la valeur par défaut). Il manquait ici, et c'est ce qui rendait la
+ * connexion impossible en local : le navigateur envoie
+ * `Origin: http://localhost:23051`, le proxy Vite réécrit l'hôte en
+ * `localhost:8080`, les deux ne correspondent plus, et verifyOrigin rejetait
+ * chaque écriture — à commencer par le POST de connexion. La page s'affichait
+ * parfaitement, mais on ne pouvait pas entrer.
+ *
+ * 5173 reste listé pour quiconque lance Vite sur son port par défaut.
+ */
+const DEV_ORIGINS = [
+  "http://localhost:23051",
+  "http://127.0.0.1:23051",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:8080",
+];
+
+/** Origines autorisées, résolues une fois au démarrage. */
+export function allowedOrigins(): string[] {
+  const configured = (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+  if (process.env.NODE_ENV === "production") return configured;
+  return [...new Set([...configured, ...DEV_ORIGINS])];
+}
+
+/**
+ * Politique CORS. Une requête sans en-tête Origin (même origine, appel
+ * serveur à serveur, sonde de santé) passe : il n'y a rien à protéger.
+ */
+export const corsOptions: CorsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const list = allowedOrigins();
+    if (list.includes(origin.replace(/\/$/, ""))) return callback(null, true);
+    logger.warn({ origin }, "cors: origine refusée");
+    return callback(null, false);
+  },
+  credentials: true,
+};
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Refuse les écritures déclenchées depuis une page tierce.
+ *
+ * - Méthode sans effet de bord → laissé passer.
+ * - Aucun en-tête Origin ni Referer → ce n'est pas un navigateur, laissé
+ *   passer (curl, tests, appels internes).
+ * - Origine identique à l'hôte de la requête, ou explicitement autorisée →
+ *   laissé passer.
+ * - Tout le reste → 403, et on le journalise : c'est le signal d'une
+ *   tentative, pas un incident silencieux.
+ */
+export const verifyOrigin: RequestHandler = (req, res, next) => {
+  if (SAFE_METHODS.has(req.method)) return next();
+
+  const raw = req.get("origin") ?? req.get("referer");
+  if (!raw) return next();
+
+  let origin: string;
+  try {
+    const url = new URL(raw);
+    origin = `${url.protocol}//${url.host}`;
+  } catch {
+    logger.warn({ raw, path: req.path }, "csrf: en-tête Origin illisible");
+    return res.status(403).json({ error: "Origine de la requête invalide." });
+  }
+
+  const host = req.get("host");
+  const proto = req.protocol;
+  if (host && origin === `${proto}://${host}`) return next();
+  if (allowedOrigins().includes(origin)) return next();
+
+  logger.warn({ origin, path: req.path, method: req.method }, "csrf: écriture refusée depuis une origine tierce");
+  return res.status(403).json({
+    error: "Requête refusée : elle ne provient pas de l'application.",
+  });
+};
+```
+
+
+## `artifacts/api-server/src/lib/subscription.ts`
+
+```ts
+/**
+ * Abonnement — vérité serveur, jamais client.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Le frontend ne décide pas s'il est premium : il demande, on répond. La
+ * réponse vient de la table `subscription`, rafraîchie depuis Whop au plus une
+ * fois toutes les cinq minutes (ou immédiatement sur demande explicite, par
+ * exemple au retour du paiement).
+ *
+ * Pourquoi ne pas interroger Whop à chaque requête : leur API est distante et
+ * peut être lente ou indisponible. Une panne Whop couperait alors l'accès de
+ * quelqu'un qui a payé. Ici, la dernière vérité connue reste valable ; en cas
+ * d'échec de synchronisation on conserve l'état précédent et on note l'erreur
+ * pour l'afficher dans les réglages.
+ *
+ * Mono-utilisateur pour l'instant : une seule ligne, `subject_id = "owner"`.
+ * Toutes les fonctions prennent déjà un sujet, donc le passage multi-comptes
+ * consistera à passer l'identifiant d'utilisateur au lieu de la constante.
+ */
+import { db, subscriptionTable, type Subscription } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import type { Request, Response, NextFunction } from "express";
+import { getWhopClient } from "../whopClient";
+import { hasFounderAccess } from "./founder";
+import { logger } from "./logger";
+
+/** Sujet unique tant que l'application est mono-utilisateur. */
+export const OWNER_SUBJECT = "owner";
+
+/** Fenêtre pendant laquelle on fait confiance à l'état déjà en base. */
+const SUBSCRIPTION_TTL_MS = 5 * 60 * 1000;
+
+const PLAN_ID = process.env.WHOP_PLAN_ID ?? "plan_JrkAsnIXuyaK6";
+const PRODUCT_ID = process.env.WHOP_PRODUCT_ID ?? "prod_Vm5BtK32mmOY2";
+
+/**
+ * Statuts qui ouvrent l'accès. `completed` couvre les achats à vie, `trialing`
+ * la période d'essai. Tout le reste est fermé, à l'exception des statuts
+ * d'avertissement traités plus bas.
+ */
+const OPEN_STATUSES = new Set(["active", "trialing", "completed"]);
+/** Paiement en retard : on avertit, mais on laisse la porte ouverte. */
+const GRACE_STATUSES = new Set(["past_due", "unpaid"]);
+
+export interface SubscriptionState {
+  /** L'accès premium est-il ouvert ? Seul champ que l'interface doit consulter. */
+  active: boolean;
+  status: string;
+  /** true quand le paiement a échoué mais que l'accès reste ouvert. */
+  inGrace: boolean;
+  planId: string | null;
+  membershipId: string | null;
+  currentPeriodEnd: string | null;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  /**
+   * L'accès vient de la clé fondateur, pas d'un paiement. Volontairement
+   * distinct de `active` : l'interface doit pouvoir le dire, et le propriétaire
+   * doit pouvoir voir l'état réel de sa facturation derrière.
+   */
+  founder: boolean;
+}
+
+function toState(row: Subscription): SubscriptionState {
+  return {
+    active: row.active,
+    status: row.status,
+    inGrace: GRACE_STATUSES.has(row.status) && row.active,
+    planId: row.planId,
+    membershipId: row.membershipId,
+    currentPeriodEnd: row.currentPeriodEnd?.toISOString() ?? null,
+    lastCheckedAt: row.lastCheckedAt?.toISOString() ?? null,
+    lastError: row.lastError,
+    founder: false,
+  };
+}
+
+/**
+ * Superpose l'accès fondateur à l'état réel. `status` n'est PAS réécrit : on
+ * garde le statut Whop tel quel pour que les réglages montrent la vérité de la
+ * facturation sous la mention « Accès fondateur ».
+ */
+export function withFounder(state: SubscriptionState, founder: boolean): SubscriptionState {
+  if (!founder) return state;
+  return { ...state, active: true, founder: true };
+}
+
+/**
+ * État tel qu'il s'applique à CETTE requête — c'est-à-dire en tenant compte de
+ * la session, seul endroit où vit l'accès fondateur.
+ */
+export async function getSubscriptionForRequest(
+  req: Request,
+  subjectId = OWNER_SUBJECT,
+): Promise<SubscriptionState> {
+  const state = await getSubscription(subjectId);
+  return withFounder(state, hasFounderAccess(req));
+}
+
+async function ensureRow(subjectId: string): Promise<Subscription> {
+  const [existing] = await db
+    .select()
+    .from(subscriptionTable)
+    .where(eq(subscriptionTable.subjectId, subjectId))
+    .limit(1);
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(subscriptionTable)
+    .values({ subjectId, status: "none", active: false })
+    .onConflictDoNothing({ target: subscriptionTable.subjectId })
+    .returning();
+  if (created) return created;
+
+  // Course avec une autre requête : la ligne vient d'être créée à côté.
+  const [row] = await db
+    .select()
+    .from(subscriptionTable)
+    .where(eq(subscriptionTable.subjectId, subjectId))
+    .limit(1);
+  return row;
+}
+
+/** Extrait la fin de période, quel que soit le nom de champ renvoyé par Whop. */
+function readPeriodEnd(m: Record<string, unknown>): Date | null {
+  const candidates = [m.renewal_period_end, m.expires_at, m.valid_until, m.current_period_end];
+  for (const c of candidates) {
+    if (typeof c === "number" && Number.isFinite(c)) {
+      // Whop renvoie des secondes Unix sur la plupart des champs de date.
+      return new Date(c < 1e12 ? c * 1000 : c);
+    }
+    if (typeof c === "string" && c) {
+      const d = new Date(c);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+}
+
+/**
+ * Retrouve l'adhésion courante auprès de Whop.
+ * Deux chemins : par identifiant si on en connaît déjà un, sinon en listant
+ * les adhésions du plan. Le SDK n'est pas typé finement côté projet — d'où les
+ * accès souples, encadrés par des vérifications explicites.
+ */
+async function fetchMembership(knownId: string | null): Promise<Record<string, unknown> | null> {
+  const client = await getWhopClient();
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const api = client as any;
+
+  if (knownId) {
+    const m = await api.memberships.retrieve(knownId);
+    if (m) return m as Record<string, unknown>;
+  }
+
+  // Pas d'identifiant connu : on demande à Whop les adhésions du plan et on
+  // retient la première valide. C'est ce chemin qui sert au retour de paiement,
+  // sans jamais faire confiance à un identifiant venu du navigateur.
+  const list = await api.memberships.list({ plan_id: PLAN_ID, valid: true });
+  const items: unknown[] = Array.isArray(list) ? list : (list?.data ?? list?.items ?? []);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  const valid = items.find((raw) => {
+    const m = raw as Record<string, unknown>;
+    const status = String(m.status ?? "");
+    return m.valid === true || OPEN_STATUSES.has(status);
+  });
+  return (valid as Record<string, unknown>) ?? null;
+}
+
+/**
+ * Interroge Whop et met la base à jour. En cas d'échec, l'état précédent est
+ * conservé : une panne chez le fournisseur de paiement ne doit jamais fermer
+ * l'accès de quelqu'un qui a payé.
+ */
+export async function refreshSubscription(subjectId = OWNER_SUBJECT): Promise<SubscriptionState> {
+  const row = await ensureRow(subjectId);
+
+  try {
+    const membership = await fetchMembership(row.membershipId);
+
+    if (!membership) {
+      const [updated] = await db
+        .update(subscriptionTable)
+        .set({
+          status: "none",
+          active: false,
+          lastCheckedAt: new Date(),
+          lastError: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptionTable.subjectId, subjectId))
+        .returning();
+      return toState(updated);
+    }
+
+    const status = String(membership.status ?? (membership.valid ? "active" : "none"));
+    const productId =
+      (membership.product as Record<string, unknown> | undefined)?.id ?? membership.product_id ?? null;
+
+    // Le produit doit correspondre : une adhésion à un autre produit du même
+    // compte Whop ne doit pas ouvrir Soliris.
+    const productMatches = !productId || productId === PRODUCT_ID;
+    const active = productMatches && (OPEN_STATUSES.has(status) || GRACE_STATUSES.has(status));
+
+    const [updated] = await db
+      .update(subscriptionTable)
+      .set({
+        membershipId: String(membership.id ?? row.membershipId ?? "") || null,
+        planId: PLAN_ID,
+        productId: productId ? String(productId) : null,
+        status,
+        active,
+        currentPeriodEnd: readPeriodEnd(membership),
+        lastCheckedAt: new Date(),
+        lastError: null,
+        raw: membership,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptionTable.subjectId, subjectId))
+      .returning();
+
+    return toState(updated);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    logger.error({ err }, "subscription: échec de la synchronisation Whop");
+
+    const [updated] = await db
+      .update(subscriptionTable)
+      .set({ lastCheckedAt: new Date(), lastError: message, updatedAt: new Date() })
+      .where(eq(subscriptionTable.subjectId, subjectId))
+      .returning();
+
+    // L'état conservé est celui d'avant : on n'a rien appris, on ne coupe rien.
+    return toState(updated);
+  }
+}
+
+/**
+ * État courant. Rafraîchit depuis Whop si la dernière vérification date de
+ * plus de cinq minutes, sinon répond depuis la base.
+ */
+export async function getSubscription(
+  subjectId = OWNER_SUBJECT,
+  { force = false }: { force?: boolean } = {},
+): Promise<SubscriptionState> {
+  const row = await ensureRow(subjectId);
+  const age = row.lastCheckedAt ? Date.now() - row.lastCheckedAt.getTime() : Infinity;
+
+  if (force || age > SUBSCRIPTION_TTL_MS) {
+    return refreshSubscription(subjectId);
+  }
+  return toState(row);
+}
+
+/** Raccourci de lecture pour le code métier. */
+export async function isPremium(subjectId = OWNER_SUBJECT): Promise<boolean> {
+  const state = await getSubscription(subjectId);
+  return state.active;
+}
+
+/**
+ * Middleware Express — ferme une route aux non-abonnés.
+ * Répond 402 (« Payment Required ») plutôt que 403 : le client sait ainsi
+ * qu'il doit proposer l'abonnement, pas signaler une erreur de droits.
+ *
+ * Le verrou est VOLONTAIREMENT opt-in : il ne ferme rien tant que
+ * PREMIUM_ENFORCED=true n'est pas posé dans l'environnement. Activer la
+ * fermeture par défaut couperait l'accès du propriétaire de l'instance à ses
+ * propres fonctions dès le déploiement de ce code, avant même qu'une adhésion
+ * Whop soit rattachée. En attendant, chaque refus qui *aurait* eu lieu est
+ * journalisé : on peut donc mesurer l'effet du mur avant de l'ériger.
+ */
+export async function requirePremium(req: Request, res: Response, next: NextFunction) {
+  const enforced = process.env.PREMIUM_ENFORCED === "true";
+
+  // La clé du propriétaire passe avant tout appel réseau : pas de dépendance à
+  // Whop pour que celui qui a écrit le logiciel puisse s'en servir.
+  if (hasFounderAccess(req)) {
+    return next();
+  }
+
+  try {
+    const state = await getSubscription();
+    if (state.active || !enforced) {
+      if (!state.active) {
+        logger.info(
+          { path: req.path, status: state.status },
+          "subscription: accès premium laissé ouvert (PREMIUM_ENFORCED non activé)",
+        );
+      }
+      return next();
+    }
+    return res.status(402).json({
+      error: "Cette fonctionnalité nécessite un abonnement Soliris Premium.",
+      code: "subscription_required",
+      status: state.status,
+    });
+  } catch (err) {
+    logger.error({ err }, "subscription: vérification impossible");
+    // Indisponibilité de notre côté : on laisse passer plutôt que de bloquer
+    // un abonné légitime sur une panne interne.
+    return next();
+  }
+}
+```
+
+
+## `artifacts/api-server/src/routes/subscription.ts`
+
+```ts
+/**
+ * /api/subscription — état d'abonnement, tel que le serveur le connaît.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Aucun paramètre venant du client n'influence le verdict : c'est tout l'objet
+ * de ces routes. L'ancienne /api/whop/verify acceptait un identifiant
+ * d'adhésion en query string, ce qui revenait à laisser le navigateur décider
+ * s'il était abonné.
+ *
+ * Seule exception, et elle est explicite : la clé fondateur. Elle n'est pas un
+ * paramètre qui influence le verdict, c'est un secret que seul le propriétaire
+ * de l'instance connaît, vérifié côté serveur contre FOUNDER_CODE.
+ */
+import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import {
+  getSubscriptionForRequest,
+  refreshSubscription,
+  withFounder,
+} from "../lib/subscription";
+import { checkFounderCode, hasFounderAccess, isFounderConfigured } from "../lib/founder";
+import { logger } from "../lib/logger";
+
+const router = Router();
+
+/**
+ * Cinq essais par quart d'heure. Le code fondateur est long, donc hors de
+ * portée d'une attaque par force brute de toute façon — mais une route qui
+ * accepte un secret sans limite d'essais est une invitation.
+ */
+const founderRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: "Trop de tentatives. Réessaie dans quelques minutes." },
+});
+
+// ─── GET /api/subscription ─────────────────────────────────────────────────
+// Consulté au chargement de l'app et par le mur de paiement. Réponse depuis la
+// base, avec rafraîchissement automatique passé cinq minutes, puis superposition
+// de l'accès fondateur s'il est ouvert dans cette session.
+router.get("/subscription", async (req, res) => {
+  try {
+    const state = await getSubscriptionForRequest(req);
+    return res.json({ ...state, founderAvailable: isFounderConfigured() });
+  } catch (err) {
+    req.log.error({ err }, "subscription: lecture impossible");
+    return res.status(500).json({ error: "État d'abonnement indisponible." });
+  }
+});
+
+// ─── POST /api/subscription/refresh ────────────────────────────────────────
+// Synchronisation immédiate. Appelé au retour du paiement — sans cela,
+// l'abonné venant de payer attendrait l'expiration du cache avant de voir son
+// accès s'ouvrir — et depuis le bouton « Actualiser » des réglages.
+router.post("/subscription/refresh", async (req, res) => {
+  try {
+    const state = await refreshSubscription();
+    return res.json({
+      ...withFounder(state, hasFounderAccess(req)),
+      founderAvailable: isFounderConfigured(),
+    });
+  } catch (err) {
+    req.log.error({ err }, "subscription: synchronisation impossible");
+    return res.status(502).json({ error: "Synchronisation avec Whop impossible." });
+  }
+});
+
+// ─── POST /api/subscription/founder ────────────────────────────────────────
+// Ouvre l'accès fondateur pour cette session. Réservé au propriétaire de
+// l'instance : la route est déjà derrière requireAuth, et exige en plus le
+// secret FOUNDER_CODE, qui n'existe que dans son .env.local.
+router.post("/subscription/founder", founderRateLimiter, (req, res) => {
+  if (!isFounderConfigured()) {
+    // Pas de FOUNDER_CODE sur cette instance : la porte n'existe pas. On le dit
+    // franchement — la route est derrière l'authentification, il n'y a rien à
+    // dissimuler à quelqu'un qui a déjà le mot de passe du site.
+    return res.status(404).json({
+      error: "Aucune clé fondateur n'est configurée sur cette instance.",
+      code: "founder_not_configured",
+    });
+  }
+
+  const { code } = req.body as { code?: unknown };
+  if (!checkFounderCode(code)) {
+    logger.warn({ ip: req.ip }, "founder: clé refusée");
+    return res.status(401).json({ error: "Clé fondateur incorrecte." });
+  }
+
+  req.session.founder = true;
+  req.session.save((err) => {
+    if (err) {
+      req.log.error({ err }, "founder: session non enregistrée");
+      return res.status(500).json({ error: "Erreur de session." });
+    }
+    logger.info({ ip: req.ip }, "founder: accès fondateur ouvert");
+    return res.json({ founder: true });
+  });
+});
+
+// ─── DELETE /api/subscription/founder ──────────────────────────────────────
+// Referme la porte. Indispensable, et pas seulement par principe : c'est le
+// seul moyen de voir le mur de paiement tel que le verra un client, sans
+// toucher à la configuration ni se déconnecter.
+router.delete("/subscription/founder", (req, res) => {
+  req.session.founder = false;
+  req.session.save((err) => {
+    if (err) {
+      req.log.error({ err }, "founder: session non enregistrée");
+      return res.status(500).json({ error: "Erreur de session." });
+    }
+    logger.info("founder: accès fondateur refermé");
+    return res.json({ founder: false });
+  });
+});
+
+export default router;
+```
+
+
+## `artifacts/api-server/src/whopClient.ts`
+
+```ts
+/**
+ * Client Whop — deux chemins d'authentification, dans cet ordre.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 1. WHOP_API_KEY dans l'environnement. C'est le chemin normal partout ailleurs
+ *    que sur Replit : machine locale, VPS, conteneur, instance dédiée à un client.
+ * 2. Le connecteur Replit, quand l'application tourne sur Replit et que la clé
+ *    n'a pas été posée en variable d'environnement.
+ *
+ * Pourquoi ce changement : la version précédente ne connaissait QUE le chemin
+ * Replit — elle lisait la clé sur `REPLIT_CONNECTORS_HOSTNAME` et levait une
+ * erreur si ces variables n'existaient pas. Hors de Replit, toute vérification
+ * d'abonnement échouait donc silencieusement : `requirePremium` rattrape
+ * l'erreur et laisse passer (pour ne jamais bloquer un abonné sur une panne),
+ * si bien que le mur de paiement n'aurait jamais fermé quoi que ce soit sur une
+ * instance auto-hébergée. Le problème ne se serait vu qu'en constatant, des
+ * semaines plus tard, que personne n'a jamais été bloqué.
+ *
+ * La clé est un secret : elle vient de l'environnement, jamais du dépôt.
+ */
+import Whop from '@whop/sdk';
+
+let clientPromise: Promise<Whop> | null = null;
+
+/** Chemin 1 — clé fournie directement par l'environnement. */
+function apiKeyFromEnv(): string | null {
+  const key = process.env.WHOP_API_KEY?.trim();
+  return key ? key : null;
+}
+
+/** Chemin 2 — clé récupérée auprès du connecteur Replit. */
+async function apiKeyFromReplitConnector(): Promise<string> {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? "depl " + process.env.WEB_REPL_RENEWAL
+      : null;
+
+  if (!hostname || !xReplitToken) {
+    throw new Error(
+      "Aucune clé Whop disponible. Posez WHOP_API_KEY dans l'environnement " +
+      "(instance auto-hébergée), ou connectez l'intégration Whop depuis " +
+      "l'onglet Integrations si l'application tourne sur Replit."
+    );
+  }
+
+  const resp = await fetch(
+    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=whop`,
+    {
+      headers: { Accept: "application/json", X_REPLIT_TOKEN: xReplitToken },
+      signal: AbortSignal.timeout(10_000),
+    }
+  );
+
+  if (!resp.ok) {
+    throw new Error(`Récupération des identifiants Whop impossible : ${resp.status} ${resp.statusText}`);
+  }
+
+  const data = await resp.json();
+  const settings = data.items?.[0]?.settings;
+
+  if (!settings?.api_key) {
+    throw new Error(
+      "Intégration Whop non connectée ou sans identifiants. " +
+      "Connectez Whop depuis l'onglet Integrations, ou posez WHOP_API_KEY."
+    );
+  }
+
+  return settings.api_key as string;
+}
+
+async function initWhopClient(): Promise<Whop> {
+  const apiKey = apiKeyFromEnv() ?? (await apiKeyFromReplitConnector());
+  return new Whop({ apiKey });
+}
+
+export function getWhopClient(): Promise<Whop> {
+  if (!clientPromise) {
+    clientPromise = initWhopClient().catch((err) => {
+      // On oublie la promesse en échec : la tentative suivante réessaiera
+      // plutôt que de resservir éternellement la même erreur.
+      clientPromise = null;
+      throw err;
+    });
+  }
+  return clientPromise;
+}
+
+/**
+ * Whop est-il configuré ? Utilisé au démarrage pour prévenir tout de suite
+ * plutôt que de laisser découvrir le problème au premier client qui paie.
+ */
+export function isWhopConfigured(): boolean {
+  return (
+    apiKeyFromEnv() !== null ||
+    Boolean(process.env.REPLIT_CONNECTORS_HOSTNAME &&
+      (process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL))
+  );
+}
+```
+
+
+## `artifacts/api-server/src/routes/whop.ts`
+
+```ts
+/**
+ * /api/whop/* — tarif public et ouverture du paiement.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Ces deux routes sont PUBLIQUES à dessein : la page tarifs doit être lisible
+ * et l'abonnement souscriptible par quelqu'un qui n'a pas encore de session.
+ * Elles étaient jusqu'ici derrière requireAuth, ce qui renvoyait 401 à tout
+ * visiteur : le prix ne s'affichait pas et le bouton « S'abonner » échouait.
+ *
+ * La vérification d'abonnement ne vit PAS ici. L'ancienne /api/whop/verify
+ * acceptait un identifiant d'adhésion fourni par le client — donc n'importe
+ * qui pouvait se déclarer abonné. Elle est remplacée par /api/subscription,
+ * qui n'interroge que Whop et la base. Voir lib/subscription.ts.
+ */
+import { Router } from "express";
+import { getWhopClient } from "../whopClient";
+
+const router = Router();
+
+// Identifiants de configuration, pas des secrets.
+const PLAN_ID = process.env.WHOP_PLAN_ID ?? "plan_JrkAsnIXuyaK6";
+
+/**
+ * L'URL de retour vient du navigateur : sans contrôle, on offrirait une
+ * redirection ouverte depuis un domaine de paiement — exactement le genre de
+ * lien dont se servent les campagnes d'hameçonnage. On n'accepte donc qu'une
+ * URL du même hôte que la requête.
+ */
+function isSameOrigin(candidate: string, req: { headers: Record<string, unknown>; protocol: string }): boolean {
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "");
+    return host !== "" && url.host === host;
+  } catch {
+    return false;
+  }
+}
+
+// ─── GET /api/whop/plans ───────────────────────────────────────────────────
+router.get("/whop/plans", async (req, res) => {
+  try {
+    const client = await getWhopClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plan = await (client as any).plans.retrieve(PLAN_ID);
+    return res.json({
+      id: plan.id,
+      renewalPrice: plan.renewal_price,
+      billingPeriod: plan.billing_period,
+      currency: plan.currency,
+      productTitle: plan.product?.title ?? "Accès Premium",
+      purchaseUrl: plan.purchase_url,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch Whop plan");
+    // La page tarifs doit rester lisible même si Whop est injoignable : elle
+    // affiche alors son prix de repli plutôt qu'une page en erreur.
+    return res.status(503).json({ error: "Tarif indisponible pour le moment." });
+  }
+});
+
+// ─── POST /api/whop/checkout ───────────────────────────────────────────────
+router.post("/whop/checkout", async (req, res) => {
+  const { redirectUrl } = req.body as { redirectUrl?: string };
+  if (!redirectUrl) {
+    return res.status(400).json({ error: "redirectUrl is required" });
+  }
+  if (!isSameOrigin(redirectUrl, req)) {
+    req.log.warn({ redirectUrl }, "whop: URL de retour refusée (hôte différent)");
+    return res.status(400).json({ error: "URL de retour invalide." });
+  }
+
+  try {
+    const client = await getWhopClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const checkout = await (client as any).checkoutConfigurations.create({
+      plan_id: PLAN_ID,
+      redirect_url: redirectUrl,
+    });
+
+    return res.json({
+      checkoutId: checkout.id,
+      purchaseUrl: checkout.purchase_url,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to create Whop checkout");
+    return res.status(502).json({ error: "Impossible d'ouvrir le paiement pour le moment." });
+  }
+});
+
+export default router;
+```
+
+
+## `artifacts/wealthsimple-tracker/src/components/PremiumGate.tsx`
+
+```tsx
+/**
+ * PremiumGate — mur de paiement.
+ * ──────────────────────────────────────────────────────────────────────────
+ * Enveloppe une fonctionnalité réservée aux abonnés. Trois règles de conduite,
+ * apprises de ce qui rend un mur de paiement supportable plutôt qu'irritant :
+ *
+ *   1. On ne fait rien clignoter. Tant que l'état d'abonnement est inconnu, on
+ *      affiche le contenu — jamais le mur. Montrer le mur puis le retirer une
+ *      demi-seconde plus tard donne l'impression d'avoir perdu son accès.
+ *   2. On montre ce qui est verrouillé. Le contenu réel reste visible derrière
+ *      un voile : l'abonnement se vend beaucoup mieux quand on voit ce qu'on
+ *      achète qu'avec un carré vide.
+ *   3. On n'invente pas de vérité locale. `active` vient du serveur, qui le
+ *      tient de Whop. Un mur qui se contourne depuis la console n'en est pas un.
+ *
+ * Ce composant est la façade visible du middleware `requirePremium` côté
+ * serveur : lui refuse la donnée, celui-ci explique pourquoi et propose la
+ * suite. Les deux doivent toujours parler du même état.
+ */
+import { Link } from "wouter";
+import { Lock, Sparkles, AlertTriangle } from "lucide-react";
+import type { ReactNode } from "react";
+import { useSubscription } from "@/hooks/use-subscription";
+import { Reveal } from "@/components/motion";
+
+interface PremiumGateProps {
+  children: ReactNode;
+  /** Nom de la fonctionnalité, affiché tel quel : « Auto-Trader », « Copy Trading ». */
+  feature: string;
+  /** Une phrase sur ce que l'abonnement apporte ici, pas un argumentaire. */
+  pitch?: string;
+  /**
+   * Laisse le contenu visible et atténué derrière le mur. Désactivez-le quand
+   * ce qui est derrière n'a aucun sens à montrer (formulaire d'ordre réel).
+   */
+  preview?: boolean;
+}
+
+export function PremiumGate({ children, feature, pitch, preview = true }: PremiumGateProps) {
+  const { subscription, isLoading } = useSubscription();
+
+  // État inconnu : on laisse passer. Une erreur réseau de notre côté ne doit
+  // pas ressembler à une perte d'abonnement.
+  if (isLoading || subscription.active) {
+    return (
+      <>
+        {subscription.inGrace && <GraceBanner />}
+        {children}
+      </>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {preview && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none select-none opacity-25 blur-[3px] saturate-50"
+        >
+          {children}
+        </div>
+      )}
+
+      <div
+        className={
+          preview
+            ? "absolute inset-0 flex items-start justify-center pt-16 px-4"
+            : "flex items-start justify-center pt-8 px-4"
+        }
+      >
+        <Reveal direction="scale" className="w-full max-w-md">
+          <div className="surface-glass rounded-2xl p-8 text-center elev-3">
+            <div className="w-12 h-12 rounded-full border border-primary/30 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-5 h-5 text-primary" />
+            </div>
+
+            <div className="t-micro mb-3">Réservé aux abonnés</div>
+            <h2 className="text-lg font-semibold tracking-tight mb-2">{feature}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-[46ch] mx-auto">
+              {pitch ?? "Cette fonctionnalité fait partie de Soliris Premium."}
+            </p>
+
+            <Link href="/tarifs">
+              <button className="btn-sheen btn-gold tr-control inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground border border-primary-border text-sm font-semibold">
+                <Sparkles className="w-4 h-4" />
+                Voir l'abonnement
+              </button>
+            </Link>
+
+            <hr className="rule-gold mt-7" />
+            <p className="text-xs text-muted-foreground mt-4">
+              Sans engagement · Annulable à tout moment
+            </p>
+          </div>
+        </Reveal>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Paiement en échec, accès encore ouvert. On prévient sans couper : couper
+ * l'accès sur un premier prélèvement refusé fait perdre des abonnés qui
+ * seraient simplement restés en changeant de carte.
+ */
+function GraceBanner() {
+  return (
+    <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+      <div className="text-sm">
+        <div className="font-medium text-amber-500">Votre dernier paiement n'est pas passé</div>
+        <p className="text-muted-foreground text-xs mt-0.5">
+          Votre accès reste ouvert pour le moment.{" "}
+          <Link href="/tarifs">
+            <span className="link-underline cursor-pointer text-primary">Mettre à jour le paiement</span>
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+```
+
+
+## `artifacts/wealthsimple-tracker/src/hooks/use-subscription.ts`
+
+```ts
+/**
+ * useSubscription — l'état d'abonnement, tel que le serveur le connaît.
+ * ──────────────────────────────────────────────────────────────────────────
+ * Le frontend ne calcule jamais s'il est premium : il le demande. La réponse
+ * vient de /api/subscription, qui la tient de Whop et de la base. Rien ici ne
+ * doit être déduit d'une valeur locale — sinon le mur de paiement se contourne
+ * depuis la console du navigateur.
+ */
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+export interface SubscriptionState {
+  /** Seul champ à consulter pour ouvrir ou fermer une fonctionnalité. */
+  active: boolean;
+  /** Statut brut Whop : active, trialing, past_due, canceled, expired, none… */
+  status: string;
+  /** Paiement en échec mais accès encore ouvert — à signaler sans bloquer. */
+  inGrace: boolean;
+  planId: string | null;
+  membershipId: string | null;
+  currentPeriodEnd: string | null;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  /** L'accès vient de la clé fondateur, pas d'un paiement encaissé. */
+  founder: boolean;
+  /** Une clé fondateur est configurée sur cette instance (réglages seulement). */
+  founderAvailable?: boolean;
+}
+
+const UNKNOWN: SubscriptionState = {
+  active: false,
+  status: "unknown",
+  inGrace: false,
+  planId: null,
+  membershipId: null,
+  currentPeriodEnd: null,
+  lastCheckedAt: null,
+  lastError: null,
+  founder: false,
+};
+
+export function useSubscription() {
+  const q = useQuery<SubscriptionState>({
+    queryKey: ["subscription"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/subscription`);
+      if (!r.ok) throw new Error("Impossible de lire l'état d'abonnement.");
+      return r.json();
+    },
+    // L'abonnement bouge rarement, et le serveur a déjà son propre cache de
+    // cinq minutes face à Whop : inutile de le redemander à chaque montage.
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  return {
+    subscription: q.data ?? UNKNOWN,
+    /** true tant qu'on ne sait pas — évite de faire clignoter le mur de paiement. */
+    isLoading: q.isLoading,
+    isError: q.isError,
+    refetch: q.refetch,
+  };
+}
+
+/**
+ * Synchronisation immédiate avec Whop. À appeler au retour du paiement :
+ * sans elle, l'abonné qui vient de payer attendrait l'expiration du cache
+ * serveur avant de voir son accès s'ouvrir.
+ */
+export function useRefreshSubscription() {
+  const qc = useQueryClient();
+
+  return useMutation<SubscriptionState, Error, void>({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/subscription/refresh`, { method: "POST" });
+      if (!r.ok) throw new Error("Synchronisation impossible pour le moment.");
+      return r.json();
+    },
+    onSuccess: (state) => {
+      qc.setQueryData(["subscription"], state);
+    },
+  });
+}
+
+/**
+ * Ouvre l'accès fondateur pour la session courante.
+ * Le code part au serveur et n'est jamais conservé côté navigateur : ce qui
+ * ouvre l'accès est le drapeau posé dans la session, pas une valeur locale
+ * qu'on pourrait remettre depuis la console.
+ */
+export function useGrantFounder() {
+  const qc = useQueryClient();
+
+  return useMutation<{ founder: boolean }, Error, string>({
+    mutationFn: async (code) => {
+      const r = await fetch(`${BASE}/api/subscription/founder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!r.ok) {
+        const detail = await r.json().catch(() => ({}));
+        throw new Error(detail.error ?? "Clé refusée.");
+      }
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subscription"] });
+    },
+  });
+}
+
+/**
+ * Referme l'accès fondateur. C'est ce qui permet de voir le site tel que le
+ * verra un client payant — sans toucher à la configuration.
+ */
+export function useRevokeFounder() {
+  const qc = useQueryClient();
+
+  return useMutation<{ founder: boolean }, Error, void>({
+    mutationFn: async () => {
+      const r = await fetch(`${BASE}/api/subscription/founder`, { method: "DELETE" });
+      if (!r.ok) throw new Error("Impossible de refermer l'accès fondateur.");
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subscription"] });
+    },
+  });
+}
+
+/** Libellé lisible pour un statut Whop. */
+export function subscriptionLabel(status: string): string {
+  switch (status) {
+    case "active":
+      return "Actif";
+    case "trialing":
+      return "Période d'essai";
+    case "completed":
+      return "Accès à vie";
+    case "past_due":
+      return "Paiement en retard";
+    case "unpaid":
+      return "Impayé";
+    case "canceled":
+      return "Résilié";
+    case "expired":
+      return "Expiré";
+    case "none":
+      return "Aucun abonnement";
+    default:
+      return "Indéterminé";
+  }
+}
+```
+
+
+## `lib/db/src/schema/subscription.ts`
+
+```ts
+import { pgTable, serial, text, timestamp, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+/**
+ * État d'abonnement, tel que Whop le connaît.
+ * ──────────────────────────────────────────────────────────────────────────
+ * Cette table est la SEULE source de vérité côté application : le frontend ne
+ * décide jamais s'il est premium, il le demande au serveur, qui le tient de
+ * Whop. Auparavant l'unique vérification (`/api/whop/verify`) recevait
+ * l'identifiant d'adhésion depuis le client — n'importe qui pouvait donc
+ * revendiquer un abonnement. Rien ici ne vient du navigateur.
+ *
+ * `subject_id` prépare le passage multi-utilisateurs : aujourd'hui l'app est
+ * mono-utilisateur (un seul mot de passe partagé, cf. app_settings), donc une
+ * seule ligne existe, celle du propriétaire de l'instance. Le jour où une
+ * table d'utilisateurs apparaît, `subject_id` référencera l'utilisateur et
+ * tout le reste — middleware, hook, mur de paiement — continue de fonctionner
+ * sans changement.
+ */
+export const subscriptionTable = pgTable(
+  "subscription",
+  {
+    id: serial("id").primaryKey(),
+    // "owner" tant que l'app est mono-utilisateur ; l'id d'utilisateur ensuite.
+    subjectId: text("subject_id").notNull().default("owner"),
+    membershipId: text("membership_id"),
+    planId: text("plan_id"),
+    productId: text("product_id"),
+    // Statut brut renvoyé par Whop : active, trialing, past_due, canceled, expired…
+    status: text("status").notNull().default("none"),
+    // Verdict calculé côté serveur : l'accès premium est-il ouvert, oui ou non.
+    active: boolean("active").notNull().default(false),
+    // Fin de la période payée en cours — sert à afficher « renouvellement le … »
+    // et à laisser l'accès ouvert jusqu'au bout après une annulation.
+    currentPeriodEnd: timestamp("current_period_end"),
+    // Horodatage de la dernière interrogation de Whop, pour ne pas marteler
+    // leur API à chaque requête (cf. SUBSCRIPTION_TTL_MS).
+    lastCheckedAt: timestamp("last_checked_at"),
+    // Dernière erreur de synchronisation, affichée dans les réglages plutôt
+    // que perdue dans les journaux.
+    lastError: text("last_error"),
+    // Charge utile brute, utile pour diagnostiquer sans rappeler Whop.
+    raw: jsonb("raw").$type<Record<string, unknown>>(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    subjectUnique: uniqueIndex("subscription_subject_id_unique").on(t.subjectId),
+  }),
+);
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptionTable).omit({
+  id: true,
+  updatedAt: true,
+});
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Subscription = typeof subscriptionTable.$inferSelect;
+
+/** Statuts Whop qui ouvrent l'accès premium. */
+export const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "completed"] as const;
+
+/** Statuts qui méritent un avertissement dans l'interface sans couper l'accès. */
+export const WARNING_SUBSCRIPTION_STATUSES = ["past_due", "unpaid"] as const;
+```
+
+
+## `lib/db/migrations/0010_subscription.sql`
+
+```sql
+-- subscription : état d'abonnement Whop, vérifié et stocké côté serveur.
+--
+-- Jusqu'ici rien ne persistait l'abonnement. La seule vérification existante
+-- (/api/whop/verify) recevait l'identifiant d'adhésion depuis le client :
+-- n'importe qui pouvait donc se déclarer abonné. Et comme aucune route ne
+-- l'appelait, être abonné n'ouvrait rien et ne pas l'être ne fermait rien.
+--
+-- subject_id vaut "owner" tant que l'application est mono-utilisateur ; il
+-- accueillera l'identifiant d'utilisateur lors du passage multi-comptes.
+--
+-- Idempotent : peut être rejoué sans danger sur une base déjà migrée.
+
+CREATE TABLE IF NOT EXISTS subscription (
+  id                 serial PRIMARY KEY,
+  subject_id         text NOT NULL DEFAULT 'owner',
+  membership_id      text,
+  plan_id            text,
+  product_id         text,
+  status             text NOT NULL DEFAULT 'none',
+  active             boolean NOT NULL DEFAULT false,
+  current_period_end timestamp,
+  last_checked_at    timestamp,
+  last_error         text,
+  raw                jsonb,
+  updated_at         timestamp NOT NULL DEFAULT now()
+);
+
+-- Dédoublonnage défensif avant l'index unique : si une base a reçu plusieurs
+-- lignes pour le même sujet (rejeu partiel, insertion concurrente), on ne
+-- garde que la plus récente.
+DELETE FROM subscription a
+  USING subscription b
+ WHERE a.subject_id = b.subject_id
+   AND a.id < b.id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS subscription_subject_id_unique
+  ON subscription (subject_id);
+
+-- Ligne du propriétaire, créée vide : l'application n'a jamais à gérer
+-- l'absence de ligne, seulement un abonnement inactif.
+INSERT INTO subscription (subject_id, status, active)
+  VALUES ('owner', 'none', false)
+  ON CONFLICT (subject_id) DO NOTHING;
+```
+
+
+## `artifacts/wealthsimple-tracker/src/pages/ConditionsUtilisation.tsx`
+
+```tsx
+import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
+
+const SECTIONS = [
+  {
+    title: "1. Objet du service",
+    body: "Soliris Market (\u00ab le Service \u00bb) est un outil de suivi des march\u00e9s financiers, de tenue de journal et d\u2019alertes, qui permet en outre de connecter un compte de courtage et d\u2019y transmettre des ordres, manuellement ou de fa\u00e7on automatis\u00e9e. En acc\u00e9dant au Service, vous acceptez sans r\u00e9serve les pr\u00e9sentes conditions.",
+  },
+  {
+    title: "2. Aucun conseil en investissement",
+    body: "Le Service est fourni \u00e0 titre informatif et p\u00e9dagogique. Rien de ce qu\u2019il affiche \u2014 cours, indicateurs, signaux, alertes, journal ou contenu de la section \u00ab Apprendre \u00bb \u2014 ne constitue un conseil en investissement, une recommandation d\u2019achat ou de vente, ni une sollicitation. L\u2019\u00e9diteur n\u2019est pas un conseiller inscrit. Toute d\u00e9cision d\u2019investissement rel\u00e8ve de votre seule responsabilit\u00e9.",
+  },
+  {
+    title: "3. Ex\u00e9cution d\u2019ordres et automatisation",
+    body: "Le Service peut transmettre des ordres r\u00e9els \u00e0 votre compte de courtage. Deux modes existent : \u00ab paper \u00bb (simulation, mode par d\u00e9faut) et \u00ab live \u00bb (ordres r\u00e9els), ce dernier devant \u00eatre activ\u00e9 explicitement par vous. Les r\u00e8gles d\u2019automatisation agissent sans intervention de votre part, y compris en votre absence. Les garde-fous propos\u00e9s \u2014 plafond par ordre, exposition maximale, coupe-circuit de perte journali\u00e8re \u2014 sont des outils d\u2019aide et non des garanties : ils peuvent \u00eatre mis en d\u00e9faut par une panne, un retard de donn\u00e9es, un d\u00e9calage de cours ou une indisponibilit\u00e9 du courtier. Il vous appartient de surveiller vos positions et de v\u00e9rifier chaque ex\u00e9cution aupr\u00e8s de votre courtier.",
+  },
+  {
+    title: "4. Donn\u00e9es de march\u00e9",
+    body: "Les cours affich\u00e9s peuvent \u00eatre diff\u00e9r\u00e9s et proviennent de fournisseurs tiers. Le Service ne garantit ni leur exactitude, ni leur exhaustivit\u00e9, ni leur disponibilit\u00e9 continue. Des interruptions, retards ou \u00e9carts avec les cours r\u00e9els peuvent survenir \u00e0 tout moment et affecter les d\u00e9cisions prises \u00e0 partir de ces donn\u00e9es, y compris automatiquement.",
+  },
+  {
+    title: "5. Connexion \u00e0 un courtier tiers",
+    body: "La connexion \u00e0 votre compte de courtage s\u2019effectue par l\u2019interm\u00e9diaire d\u2019un prestataire tiers. Les conditions et la politique de confidentialit\u00e9 de ce prestataire et de votre courtier s\u2019appliquent en plus des pr\u00e9sentes. Le Service ne contr\u00f4le ni leur disponibilit\u00e9, ni leurs d\u00e9lais, ni leurs d\u00e9cisions : un ordre peut \u00eatre refus\u00e9, retard\u00e9, partiellement ex\u00e9cut\u00e9 ou ex\u00e9cut\u00e9 \u00e0 un cours diff\u00e9rent de celui affich\u00e9. Le relev\u00e9 de votre courtier fait foi.",
+  },
+  {
+    title: "6. Abonnement, paiement et r\u00e9siliation",
+    body: "Certaines fonctionnalit\u00e9s n\u00e9cessitent un abonnement payant, factur\u00e9 par un prestataire de paiement tiers dont les conditions s\u2019appliquent. L\u2019abonnement se renouvelle selon la p\u00e9riodicit\u00e9 indiqu\u00e9e au moment de la souscription. Vous pouvez le r\u00e9silier \u00e0 tout moment par avis \u00e9crit, sans avoir \u00e0 vous justifier. Lorsque la loi l\u2019exige, un avis vous est transmis avant tout renouvellement automatique, dans le d\u00e9lai qu\u2019elle pr\u00e9voit. Le d\u00e9tail des tarifs, de la dur\u00e9e et des frais applicables figure sur la page d\u2019abonnement et fait partie du contrat. La r\u00e9siliation prend effet \u00e0 la fin de la p\u00e9riode en cours ; l\u2019acc\u00e8s aux fonctionnalit\u00e9s r\u00e9serv\u00e9es cesse alors, vos donn\u00e9es demeurant accessibles selon l\u2019article 7. Les modalit\u00e9s de remboursement sont celles indiqu\u00e9es sur la page d\u2019abonnement et, \u00e0 d\u00e9faut, celles pr\u00e9vues par la loi applicable.",
+  },
+  {
+    title: "7. Donn\u00e9es personnelles et financi\u00e8res",
+    body: "Le Service conserve les donn\u00e9es n\u00e9cessaires \u00e0 son fonctionnement : pr\u00e9f\u00e9rences, listes de suivi, alertes, journal, historique des ordres transmis, ainsi que les identifiants techniques permettant la connexion \u00e0 votre courtier. Ces derniers sont conserv\u00e9s chiffr\u00e9s et ne sont utilis\u00e9s que pour les op\u00e9rations que vous demandez. Conform\u00e9ment \u00e0 la l\u00e9gislation qu\u00e9b\u00e9coise sur la protection des renseignements personnels, vous disposez d\u2019un droit d\u2019acc\u00e8s, de rectification et de retrait de vos renseignements, et pouvez demander la suppression de votre compte et des donn\u00e9es associ\u00e9es. Les donn\u00e9es peuvent \u00eatre h\u00e9berg\u00e9es par des prestataires situ\u00e9s hors du Qu\u00e9bec ; une \u00e9valuation des facteurs relatifs \u00e0 la vie priv\u00e9e est men\u00e9e avant toute communication de cette nature. Le responsable de la protection des renseignements personnels et ses coordonn\u00e9es sont indiqu\u00e9s sur le Service. Aucune donn\u00e9e n\u2019est vendue \u00e0 des tiers.",
+  },
+  {
+    title: "8. S\u00e9curit\u00e9 et acc\u00e8s",
+    body: "L\u2019acc\u00e8s au Service est prot\u00e9g\u00e9 par un mot de passe dont vous \u00eates seul responsable. Toute op\u00e9ration effectu\u00e9e depuis une session ouverte est r\u00e9put\u00e9e \u00eatre la v\u00f4tre. Pr\u00e9venez imm\u00e9diatement l\u2019\u00e9diteur en cas de soup\u00e7on d\u2019acc\u00e8s non autoris\u00e9, et coupez le mode \u00ab live \u00bb ainsi que les r\u00e8gles d\u2019automatisation.",
+  },
+  {
+    title: "9. Utilisation acceptable",
+    body: "Vous vous engagez \u00e0 utiliser le Service conform\u00e9ment \u00e0 la loi, \u00e0 ne pas en extraire le contenu de fa\u00e7on automatis\u00e9e \u00e0 des fins commerciales, \u00e0 ne pas contourner les limitations d\u2019acc\u00e8s ou d\u2019abonnement, et \u00e0 ne pas perturber son fonctionnement ni celui des infrastructures associ\u00e9es.",
+  },
+  {
+    title: "10. Limitation de responsabilit\u00e9",
+    body: "Le Service est fourni \u00ab en l\u2019\u00e9tat \u00bb, sans garantie de disponibilit\u00e9, d\u2019exactitude ni de r\u00e9sultat. Dans toute la mesure permise par la loi applicable, l\u2019\u00e9diteur ne saurait \u00eatre tenu responsable des pertes financi\u00e8res, directes ou indirectes, r\u00e9sultant de l\u2019utilisation du Service, d\u2019une interruption, d\u2019une erreur de donn\u00e9es, d\u2019un ordre transmis, non transmis, retard\u00e9 ou erron\u00e9, ou du comportement d\u2019une r\u00e8gle d\u2019automatisation. Aucune clause des pr\u00e9sentes n\u2019\u00e9carte les garanties et recours que la loi rend imp\u00e9ratifs au b\u00e9n\u00e9fice des consommateurs.",
+  },
+  {
+    title: "11. Propri\u00e9t\u00e9 intellectuelle",
+    body: "L\u2019identit\u00e9 visuelle, la marque Soliris Market, les embl\u00e8mes et l\u2019interface sont la propri\u00e9t\u00e9 de leurs auteurs respectifs. Toute reproduction non autoris\u00e9e est interdite.",
+  },
+  {
+    title: "12. Droit applicable",
+    body: "Les pr\u00e9sentes conditions sont r\u00e9gies par le droit applicable dans la province de Qu\u00e9bec et les lois du Canada qui y sont applicables. Les tribunaux du Qu\u00e9bec sont seuls comp\u00e9tents, sans pr\u00e9judice des r\u00e8gles imp\u00e9ratives prot\u00e9geant le consommateur dans son lieu de r\u00e9sidence.",
+  },
+  {
+    title: "13. Modifications et contact",
+    body: "Ces conditions peuvent \u00eatre mises \u00e0 jour. Toute modification substantielle vous est notifi\u00e9e \u00e0 l\u2019avance, avec son objet, son texte et sa date d\u2019entr\u00e9e en vigueur. Vous pouvez la refuser et r\u00e9silier sans frais ni p\u00e9nalit\u00e9 jusqu\u2019\u00e0 cette date. Une modification ne vous est jamais impos\u00e9e par le seul fait que vous continuez d\u2019utiliser le Service. Pour toute question, y compris l\u2019exercice de vos droits sur vos renseignements personnels, contactez l\u2019\u00e9diteur par les canaux indiqu\u00e9s sur le Service.",
+  },
+];
+
+export default function ConditionsUtilisation() {
+  usePageMeta(
+    "Conditions d'utilisation — Soliris Market",
+    "Conditions d'utilisation de Soliris Market : objet du service, absence de conseil financier, données de marché et responsabilités."
+  );
+
+  return (
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 55% at 50% 0%, rgba(201,162,39,0.10), transparent 60%)",
+        }}
+      />
+
+      <header className="relative z-10 flex items-center justify-between px-6 py-6 sm:px-10">
+        <Link href="/">
+          <div className="flex cursor-pointer items-center gap-2.5">
+            <img
+              src="/lion-emblem.png"
+              alt="Soliris Market"
+              className="h-8 w-8 rounded-full object-cover bg-black"
+            />
+            <span className="brand-mark text-[13px] tracking-[0.28em] text-[#c9a227]">SOLIRIS</span>
+          </div>
+        </Link>
+        <Link href="/dashboard">
+          <button className="link-underline text-xs tracking-[0.2em] text-[#f2ead6]/70 hover:text-[#c9a227] transition-colors uppercase">
+            Entrer
+          </button>
+        </Link>
+      </header>
+
+      <main className="reveal relative z-10 mx-auto max-w-2xl px-6 pb-24 pt-8 sm:px-10">
+        <div className="text-center">
+          <div className="text-[10px] tracking-[0.4em] text-[#c9a227]">SOLIRIS MARKET</div>
+          <h1 className="brand-mark mt-4 text-2xl tracking-[0.1em] text-[#f2ead6] sm:text-3xl">
+            CONDITIONS D'UTILISATION
+          </h1>
+          <div className="gold-divider mx-auto mt-6 w-24" />
+          <p className="mt-6 text-xs tracking-[0.15em] text-[#f2ead6]/40">
+            DERNIÈRE MISE À JOUR : 11 JUILLET 2026
+          </p>
+        </div>
+
+        <div className="mt-14 space-y-10">
+          {SECTIONS.map((s) => (
+            <div key={s.title}>
+              <h2 className="brand-mark text-[13px] tracking-[0.15em] text-[#c9a227]">
+                {s.title.toUpperCase()}
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-[#f2ead6]/70">{s.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-16 text-center">
+          <Link href="/">
+            <button className="btn-sheen border border-[#c9a227]/60 px-8 py-2.5 text-[11px] tracking-[0.28em] text-[#c9a227] uppercase hover:text-[#07080a] hover:bg-[#c9a227] hover:border-[#c9a227]">
+              Retour à l'accueil
+            </button>
+          </Link>
+        </div>
+      </main>
+
+      <footer className="relative z-10 flex items-center justify-center pb-8">
+        <span className="text-[10px] tracking-[0.2em] text-[#f2ead6]/35">
+          SOLIRIS MARKET — DONNÉES DE MARCHÉ EN TEMPS DIFFÉRÉ
+        </span>
+      </footer>
+    </div>
+  );
+}
+```
+
+---
+
+# Partie B — modifications de fichiers existants
+
+Ces fichiers existent déjà et ont pu diverger. **Modifier, ne pas écraser.**
+
+
+## B1. `artifacts/api-server/src/workers/autoTradeWorker.ts` — le correctif le plus important
+
+### Import
+```ts
+// AVANT
+import { yahooFinance, getQuotes } from "../lib/yahoo";
+
+// APRÈS
+import { yahooFinance, getQuotes, cotationPerimee, ageCotationMs } from "../lib/yahoo";
+```
+
+### Constante, à poser juste après `WORKER_INTERVAL_MS`
+
+```ts
+/**
+ * Au-delà de cet âge, marché ouvert, on refuse d'agir sur une cotation.
+ *
+ * Le worker tourne chaque minute : un prix de plus de cinq minutes pendant la
+ * séance ne vient pas d'un marché calme, il vient d'un flux gelé ou d'une
+ * panne du fournisseur. Sortir une position sur un prix figé, c'est vendre au
+ * prix d'il y a une heure. Ne rien faire est le moindre mal — et on le dit
+ * dans le journal plutôt que de passer en silence.
+ */
+const AGE_MAX_COTATION_MS = 5 * 60 * 1000;
+```
+
+### Carte de cotations — c'est ici que tout se jouait
+
+```ts
+// AVANT — la carte restait vide, les sorties protectrices ne partaient jamais
+let quotesMap: Record<string, { price: number }> = {};
+try {
+  const raw = await getQuotes(symbols);
+  if (Array.isArray(raw)) {
+    for (const q of raw as Array<{ symbol?: string; regularMarketPrice?: number }>) {
+      if (q.symbol && q.regularMarketPrice) quotesMap[q.symbol] = { price: q.regularMarketPrice };
+    }
+  } else {
+    quotesMap = raw as Record<string, { price: number }>;
+  }
+} catch (err) {
+  logger.warn({ err }, "autoTradeWorker: getQuotes failed in checkProtectiveExits");
+  return;
+}
+```
+
+```ts
+// APRÈS
+  // getQuotes renvoie des FormattedQuote, dont le prix s'appelle `price`.
+  // Ce code lisait `regularMarketPrice` — le nom du champ BRUT de Yahoo, qui
+  // n'existe plus une fois la cotation formatée. Un cast masquait l'erreur au
+  // compilateur, la carte restait donc vide, et stop-loss, take-profit et
+  // trailing stop n'étaient JAMAIS évalués. On type la carte au lieu de la
+  // caster : le compilateur refusera la prochaine faute du même genre.
+  const quotesMap: Record<
+    string,
+    { price: number; marketTime: string | null; marketState: string | null }
+  > = {};
+  try {
+    for (const q of await getQuotes(symbols)) {
+      if (!q.symbol || !Number.isFinite(q.price) || q.price <= 0) continue;
+      quotesMap[q.symbol] = {
+        price: q.price,
+        marketTime: q.marketTime,
+        marketState: q.marketState,
+      };
+    }
+  } catch (err) {
+    logger.warn({ err }, "autoTradeWorker: getQuotes failed in checkProtectiveExits");
+    return;
+  }
+```
+
+### Garde de fraîcheur, dans la boucle des sorties protectrices
+
+```ts
+for (const rule of rulesWithPositions) {
+  const quote = quotesMap[rule.symbol];
+  if (!quote?.price) continue;
+
+    // Cotation périmée : on n'agit pas. Voir AGE_MAX_COTATION_MS.
+    if (cotationPerimee(quote, AGE_MAX_COTATION_MS)) {
+      const ageMin = Math.round((ageCotationMs(quote) ?? 0) / 60000);
+      logger.warn(
+        { symbol: rule.symbol, ruleId: rule.id, ageMinutes: ageMin },
+        "autoTradeWorker: cotation perimee marche ouvert — sortie protectrice suspendue",
+      );
+      continue;
+    }
+  // …suite inchangée
+```
+
+
+## B2. `artifacts/api-server/src/lib/yahoo.ts` — l'âge des cotations
+
+### Champs à ajouter à `FormattedQuote`
+
+```ts
+export interface FormattedQuote {
+  // …champs existants inchangés
+  /** Horodatage de NOTRE récupération. Ne dit rien de l'âge du prix. */
+  lastUpdated: string;
+  /**
+   * Heure à laquelle le marché a produit ce prix, telle que renvoyée par le
+   * fournisseur. C'est la seule qui permet de savoir si une cotation est
+   * périmée — `lastUpdated` vaut toujours « maintenant » et ne peut pas
+   * servir à ça. null si le fournisseur ne la donne pas.
+   */
+  marketTime: string | null;
+  /** REGULAR, PRE, POST, CLOSED… tel que renvoyé par le fournisseur. */
+  marketState: string | null;
+}
+```
+
+### Dans `formatQuote`, remplacer la dernière ligne
+
+```ts
+// AVANT
+    lastUpdated: new Date().toISOString(),
+
+// APRÈS
+    lastUpdated: new Date().toISOString(),
+    marketTime: lireHeureMarche(q.regularMarketTime),
+    marketState: typeof q.marketState === "string" ? q.marketState : null,
+```
+
+### Trois fonctions à ajouter en fin de section
+
+```ts
+/**
+ * L'heure de marché arrive tantôt en Date, tantôt en secondes Unix, tantôt en
+ * millisecondes selon le point d'API. On normalise, et on refuse une valeur
+ * aberrante plutôt que d'inventer une fraîcheur.
+ */
+function lireHeureMarche(brut: unknown): string | null {
+  if (brut instanceof Date) return Number.isNaN(brut.getTime()) ? null : brut.toISOString();
+  if (typeof brut === "number" && Number.isFinite(brut)) {
+    const ms = brut < 1e12 ? brut * 1000 : brut;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  if (typeof brut === "string" && brut) {
+    const d = new Date(brut);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  return null;
+}
+
+/** Âge d'une cotation en millisecondes, ou null si le marché ne l'a pas datée. */
+export function ageCotationMs(q: Pick<FormattedQuote, "marketTime">): number | null {
+  if (!q.marketTime) return null;
+  const t = new Date(q.marketTime).getTime();
+  return Number.isNaN(t) ? null : Date.now() - t;
+}
+
+/**
+ * Une cotation est-elle trop vieille pour qu'on agisse dessus ?
+ *
+ * On ne juge la fraîcheur QUE marché ouvert : hors séance, un prix de la
+ * veille est normal et le refuser bloquerait tout. Marché ouvert, en revanche,
+ * un prix figé signale un flux gelé ou une panne du fournisseur — et agir sur
+ * un prix gelé est pire que ne rien faire.
+ *
+ * Sans horodatage du marché, on répond `false` : on n'invente pas un défaut
+ * qu'on n'a pas mesuré. C'est à l'appelant de décider s'il veut être plus
+ * strict.
+ */
+export function cotationPerimee(
+  q: Pick<FormattedQuote, "marketTime" | "marketState">,
+  ageMaxMs: number,
+): boolean {
+  if (q.marketState !== "REGULAR") return false;
+  const age = ageCotationMs(q);
+  if (age == null) return false;
+  return age > ageMaxMs;
+}
+```
+
+
+## B3. Les cinq branchements de la couche Premium
+
+**a. `lib/db/src/schema/index.ts`**
+```ts
+export * from "./subscription";
+```
+
+**b. `artifacts/api-server/src/app.ts`** — aujourd'hui `app.use(cors())`, c'est-à-dire CORS grand ouvert et aucune vérification d'origine :
+
+```ts
+import { corsOptions, verifyOrigin } from "./lib/httpSecurity";
+
+app.use(cors(corsOptions));       // remplace app.use(cors())
+app.use("/api", verifyOrigin, router);
+```
+
+**c. `artifacts/api-server/src/routes/index.ts`** — monter DERRIÈRE `requireAuth` :
+
+```ts
+import subscriptionRouter from "./subscription";
+import { requirePremium } from "../lib/subscription";
+
+router.use(subscriptionRouter);
+router.use(requirePremium, copyTradingRouter);
+router.use(requirePremium, autoTraderRouter);
+```
+
+**d. `artifacts/api-server/src/lib/auth.ts`** — dans `declare module "express-session"` :
+
+```ts
+  interface SessionData {
+    authenticated?: boolean;
+    founder?: boolean;   // ← ajouter
+  }
+```
+
+**e. `Settings.tsx`** — porter deux blocs : `SubscriptionSection` (état d'abonnement) et `FounderAccess` (champ de clé, bouton « Refermer l'accès »). Ne pas écraser la page existante.
+
+---
+
+# Partie C — variables d'environnement
+
+Sur Replit : **Secrets**, jamais dans un fichier.
+
+```
+ALLOWED_ORIGINS   OBLIGATOIRE. Voir l avertissement ci-dessous.
+WHOP_API_KEY      sans elle, aucune verification d abonnement ne fonctionne
+WHOP_PLAN_ID      deja present
+WHOP_PRODUCT_ID   le produit doit correspondre, sinon l acces reste ferme
+PREMIUM_ENFORCED  "true" ferme reellement le mur. Absent = ouvert.
+FOUNDER_CODE      cle du proprietaire, 12 caracteres minimum
+```
+
+## ⚠ L avertissement qui a deja coute une semaine
+
+`verifyOrigin` refuse toute écriture dont l'origine n'est pas reconnue. En
+production, la liste vient **uniquement** de `ALLOWED_ORIGINS`. Si elle est
+vide, **chaque connexion sera refusée** avec « Requête refusée : elle ne
+provient pas de l'application » — la page s'affichera parfaitement et
+personne ne pourra entrer. C'est exactement le bug qui a bloqué le site en
+local pendant une semaine.
+
+Poser l'URL exacte du site, protocole compris, sans barre oblique finale :
+`https://mon-app.replit.app`
+
+## L acces fondateur, et pourquoi ce n est pas une porte derobee
+
+`FOUNDER_CODE` ouvre l'accès premium au propriétaire depuis Paramètres →
+Abonnement, sans passer par Whop. Trois garde-fous, à conserver :
+
+1. La porte n'existe que si la variable est posée — sans elle, la route
+   répond 404 et le champ n'apparaît pas. Donc rien chez un client.
+2. L'accès est marqué « fondateur », jamais « abonné » : les réglages
+   affichent le statut de facturation réel derrière la mention.
+3. Il se referme d'un clic — seul moyen de voir son propre mur de paiement
+   tel que le verra un client payant.
+
+Comparaison à temps constant, cinq essais par quart d'heure, route déjà
+derrière l'authentification. Ne pas « simplifier » ces points.
+
+**Ne jamais poser `FOUNDER_CODE` sur l'instance d'un client.**
+
+---
+
+# Partie D — chantiers restants
+
+— pour qu'on sache s'il est terminé autrement qu'à l'impression.
+
+Les chiffres ci-dessous sont mesurés, pas estimés.
+
+---
+
+## 1. Couche Premium — voir `A-LIRE-AGENT.md`
+
+Le rattrapage : abonnement, mur de paiement, accès fondateur. Dix fichiers
+déjà écrits et compilés, plus six branchements. C'est le préalable au
+chantier 2.
+
+**Vérification** : Paramètres → Abonnement affiche un état, et le champ
+« Clé fondateur » apparaît quand `FOUNDER_CODE` est posé.
+
+---
+
+## 2. Tunnel d'abonnement de bout en bout
+
+Aujourd'hui il n'a **jamais été parcouru une seule fois**. Trois manques :
+
+- `WHOP_API_KEY` absente. Sans elle, chaque vérification d'abonnement échoue.
+  Et comme un échec laisse volontairement l'accès ouvert (pour ne pas couper
+  un abonné pendant une panne Whop), le mur ne fermerait rien.
+- `PREMIUM_ENFORCED` non posé : le mur journalise ce qu'il aurait refusé,
+  sans rien refuser.
+- `PremiumGate` n'est posé que sur **une seule page**. Décider lesquelles
+  sont réservées : copy-trading et auto-trader sont les candidats évidents.
+
+**Étapes** : récupérer la clé sur Whop → la poser en Secret → poser
+`PREMIUM_ENFORCED=true` → parcourir un vrai paiement de bout en bout, avec un
+compte qui n'est pas le tien.
+
+**Vérification** : un visiteur non abonné reçoit 402 sur une route premium, et
+la page tarifs propose l'abonnement. Toi, avec la clé fondateur, tu passes.
+
+---
+
+## 3. Passage visuel — 21 pages sur 28
+
+Mesuré : **7 pages sur 28** utilisent le nouveau système (mouvement,
+typographie, élévations). Les 21 autres sont dans l'ancien style :
+
+    AgentTasks, Alerts, AuditLog, AutoTrader, Broker, Calendar, Compare,
+    ConditionsUtilisation, CopyTrading, CopyTradingDiscover,
+    CopyTradingSettings, Correlation, Debrief, Learn, Login,
+    MarketNewsJournal, QuoteDetail, Reconciliation, Search, SetupPassword,
+    not-found
+
+**Méthode, page par page** : envelopper dans `PageTransition`, remplacer les
+apparitions brutes par `Reveal` / `StaggerGroup`, appliquer les classes de
+transition nommées (`tr-control`, `tr-surface`, `btn-gold`) au lieu de valeurs
+arbitraires, et vérifier qu'aucune largeur ne dépasse.
+
+**Outil fourni** : `outils/audit-visuel.mjs` parcourt les 25 routes et signale
+débordement horizontal (avec l'élément coupable), page plantée, bloc resté
+invisible, erreurs de console. C'est lui qui avait trouvé que TOUTES les pages
+mesuraient 5764 px de large pour une fenêtre de 1440 — un enfant flex sans
+`min-w-0`. Personne ne l'avait vu : on ne pense pas à faire défiler vers la
+droite.
+
+    node outils/audit-visuel.mjs        # AUDIT_URL, AUDIT_PASSWORD
+
+**Vérification** : l'audit sort en code 0 sur les 25 routes.
+
+---
+
+## 4. Automatisation — ce que j'ai vérifié, et ce qui reste
+
+J'ai lu le code plutôt que de supposer. **Elle est plus solide que prévu :**
+
+- **Coupe-circuit de perte journalière** présent et sérieux : il rejoue
+  l'historique des ordres réellement exécutés, exclut les ventes sans coût de
+  revient local plutôt que de fausser le calcul, et se déclenche sur
+  `maxDailyLossAmount`.
+- **Mode `paper` par défaut** — le mode live doit être choisi explicitement.
+- **Ordres idempotents** : chaque ordre porte un `signalId` déterministe
+  (`auto-<règle>-<déclencheur>-<position>`) et `orders.signal_id` a une
+  contrainte d'unicité. Un doublon est détecté et refusé.
+- **Aucun `catch` vide** dans les workers : 32 blocs, tous journalisés.
+
+**Le vrai risque est le déploiement, pas le code.** Les workers démarrent
+inconditionnellement dans `index.ts` et `app.ts`. Sur Replit en **Autoscale**,
+plusieurs instances tournent en parallèle — donc plusieurs boucles
+d'auto-trading, d'alertes et de synchronisation copy-trading en même temps.
+
+L'unicité de `signal_id` protège les ordres identiques. Elle ne protège pas :
+le chemin de reprise (`signalId-r<horodatage>`, volontairement unique), ni les
+notifications d'alerte, qui partiraient en double.
+
+**À faire** : soit déployer en **Reserved VM** (une seule instance), soit
+n'activer les workers que sur une instance désignée, par variable
+d'environnement. Ne pas laisser ce point au hasard avant de passer en live.
+
+**Vérification** : sur le déploiement, un seul processus journalise
+`autoTradeWorker: cycle` par minute.
+
+---
+
+## 5. Multi-client — ce qui casse au deuxième client
+
+L'application est mono-utilisateur par construction : un seul mot de passe,
+aucune table d'utilisateurs, aucun identifiant de propriétaire sur les
+19 tables. Quatre contraintes d'unicité sont **globales** et cassent dès le
+deuxième client :
+
+    investment_theses.symbol                  une seule thèse par symbole
+    watchlist_lists.name                      un seul nom de liste
+    learn_progress.section_id                 une seule progression par section
+    followed_traders.external_strategy_id     un seul abonné par trader suivi
+
+(`push_subscriptions.endpoint` et `orders.signal_id` sont légitimement
+globales — ne pas y toucher.)
+
+**Migration en six temps** : table `users` → colonne `user_id` sur les tables
+concernées → remplissage vers l'utilisateur existant → contraintes d'unicité
+recomposées en `(user_id, …)` → session portant l'identifiant → `app_settings`
+séparé entre réglages par utilisateur et réglages d'instance.
+
+La table `subscription` est déjà prête : son `subject_id` vaut `"owner"` par
+défaut, il suffira d'y mettre l'identifiant utilisateur.
+
+**Vérification** : deux comptes peuvent chacun avoir une thèse sur AAPL et une
+liste nommée « Tech ».
+
+---
+
+## 6. Juridique — à faire avant de vendre, pas après
+
+Un outil qui touche à de l'argent et passe des ordres réels engage sa
+responsabilité. La page `ConditionsUtilisation` existe mais reste à écrire.
+
+À couvrir : nature du service (outil de suivi et d'exécution, **pas** un
+conseil en placement) ; absence de garantie de résultat ; responsabilité en
+cas de perte, de panne ou d'ordre erroné ; ce qui se passe si un courtier tiers
+(SnapTrade / Wealthsimple) est indisponible ; conditions d'abonnement,
+renouvellement, remboursement, résiliation ; données personnelles et
+financières collectées, où elles sont stockées, combien de temps.
+
+Deux points propres à ta situation : tu es au Québec, donc la **Loi 25** sur
+la protection des renseignements personnels s'applique, et la loi québécoise
+encadre les contrats de consommation et les clauses de non-responsabilité.
+Par ailleurs, distribuer un outil qui exécute des ordres pour autrui peut
+relever de l'encadrement de l'AMF selon la manière dont c'est présenté et
+vendu.
+
+**Je ne suis pas juriste**, et ce point-là mérite un avis réel avant la
+première vente — c'est le seul chantier de cette liste où se tromper coûte
+autre chose que du temps.
+
+---
+
+## 7. Décision produit en attente
+
+Le **widget Spotify** dans la barre latérale reste l'élément le plus
+hors-marque d'un terminal de trading. Laissé intact volontairement : ce n'est
+pas une question technique, c'est un choix qui t'appartient.
+
+---
+
+# Partie E — juridique (Québec)
+
+Recherche faite sur les sources officielles et professionnelles, en septembre
+2026. **Je ne suis pas juriste.** Ce document sert à préparer une consultation,
+pas à la remplacer — et il indique où se trouvent les vrais risques.
+
+---
+
+## 1. Le risque le plus lourd : l'inscription auprès de l'AMF
+
+C'est le seul point qui peut coûter davantage qu'un remboursement.
+
+Le guide d'inscription de l'AMF pose l'obligation de s'inscrire dès qu'on
+exerce une activité de conseil sur des valeurs mobilières **de façon
+régulière, continue ou répétitive**, avec rémunération. L'analyse retient
+trois facteurs : le caractère répétitif, la rémunération prévue, et
+l'exercice direct ou indirect de l'activité.
+
+Une exception compte pour toi : les conseils **de nature générale**, non
+adaptés à la situation d'une personne en particulier (bulletins, articles,
+outils génériques), n'y sont pas soumis.
+
+**Ce qui fait pencher d'un côté ou de l'autre — et c'est ton vocabulaire qui
+décide :**
+
+*Du bon côté (outil).* L'utilisateur connecte **son** compte chez **son**
+courtier, définit **ses** règles, choisit ses seuils, et les ordres partent
+vers son compte à lui. Tu ne détiens ni fonds ni titres. Soliris est alors un
+instrument que l'utilisateur configure — comme un tableur qui passerait des
+ordres.
+
+*Du mauvais côté (conseil).* Vendre par abonnement des « signaux », des
+« recommandations », des « meilleures actions à acheter », ou tout ce qui est
+présenté comme adapté au profil de l'utilisateur. Là, la rémunération et la
+répétition sont réunies, et la question de l'inscription se pose vraiment.
+
+**Conséquence pratique, à appliquer partout — page tarifs, publicité,
+libellés de boutons :** parler de *règles que vous définissez*, de
+*surveillance*, d'*exécution automatisée de vos consignes*. Éviter *signal*,
+*recommandation*, *conseil*, *notre stratégie*, *rendement attendu*. Le code
+utilise déjà le mot « signal » en interne — ce n'est pas grave tant qu'il ne
+remonte pas dans ce que tu vends.
+
+C'est le point à valider avec un avocat en valeurs mobilières **avant** la
+première vente, pas après.
+
+---
+
+## 2. Loi 25 — huit obligations concrètes, dont une qui te concerne déjà
+
+Applicable à toute entreprise québécoise qui traite des renseignements
+personnels. Les tiens sont sensibles : identifiants de courtage, historique
+d'ordres.
+
+1. **Désigner un responsable de la protection des renseignements personnels.**
+   Par défaut, c'est la personne ayant la plus haute autorité — donc toi. Son
+   **titre et ses coordonnées doivent figurer sur le site**.
+2. **Politique de confidentialité** en langage clair et simple, facilement
+   accessible : types de renseignements collectés, finalités, moyens de
+   collecte, droits des personnes, coordonnées du responsable.
+3. **Consentement manifeste, libre, éclairé, à des fins déterminées.**
+   Explicite pour les renseignements sensibles — ce qui est ton cas.
+4. **Évaluation des facteurs relatifs à la vie privée (EFVP)** avant certaines
+   collectes et utilisations, **et notamment avant toute communication hors du
+   Québec**. ⚠ *Héberger sur Replit, c'est héberger aux États-Unis.* Cette
+   obligation-là est déjà déclenchée aujourd'hui.
+5. **Registre des incidents de confidentialité**, avec notification à la
+   Commission d'accès à l'information et aux personnes concernées en cas de
+   risque de préjudice sérieux.
+6. **Droits des personnes** : accès, rectification, suppression (« droit à
+   l'oubli »), portabilité.
+7. **Formation** des personnes qui manipulent les données, documentée.
+8. **Destruction ou anonymisation** quand les données ne sont plus
+   nécessaires, selon un calendrier de conservation établi.
+
+Le plus urgent : la politique de confidentialité, tes coordonnées comme
+responsable, et l'EFVP liée à l'hébergement hors Québec.
+
+---
+
+## 3. Loi sur la protection du consommateur — trois clauses nulles
+
+Le contrat d'abonnement est un contrat de consommation conclu à distance. Il
+obéit aux articles 214.1 à 214.11 de la LPC.
+
+**Mentions obligatoires** dans le contrat écrit : identité du commerçant et du
+consommateur, coordonnées, durée et date d'expiration, description détaillée
+des services, tarif de chaque service et frais, total des débours mensuels,
+restrictions d'utilisation, conditions de résiliation et frais applicables.
+Ta page tarifs doit porter tout cela — pas seulement un prix.
+
+**Renouvellement automatique** : permis vers une durée indéterminée si
+l'abonnement initial dépasse 60 jours, et un avis écrit doit être transmis
+entre le 90e et le 60e jour précédant le renouvellement.
+
+**Résiliation** : le consommateur peut résilier en tout temps par avis écrit,
+avec une indemnité plafonnée.
+
+**Trois clauses sont nulles**, et ce sont des pièges fréquents :
+
+- la clause d'**arbitrage** ;
+- la clause écartant l'**application du droit québécois** ;
+- la **modification unilatérale** sans consentement.
+
+La troisième était dans ma première version des conditions : « la poursuite de
+l'utilisation vaut acceptation ». C'est précisément ce que la loi refuse.
+Corrigé : toute modification substantielle est notifiée à l'avance, avec son
+texte et sa date, et le client peut la refuser et résilier sans frais.
+
+---
+
+## 4. Ce qui te protège, et ce qui protège l'utilisateur
+
+**Ce qui te protège** — et qui est maintenant écrit dans les conditions :
+
+- La **description exacte** de ce que fait le produit. Une clause qui décrit
+  autre chose que ce que tu vends ne protège pas : elle t'expose. C'était le
+  défaut de l'ancienne version, qui affirmait ne toucher à aucun compte de
+  courtage.
+- L'affirmation que tu **n'es pas un conseiller inscrit** et que rien n'est
+  une recommandation.
+- Le mode **paper par défaut**, le mode live activé explicitement par
+  l'utilisateur : c'est lui qui décide, et c'est traçable.
+- Les garde-fous présentés comme des **outils d'aide, pas des garanties**.
+  Promettre qu'un coupe-circuit protège, c'est s'engager à ce qu'il protège.
+- Le **relevé du courtier fait foi** en cas de désaccord sur une exécution.
+- Ta **journalisation** : la table `audit_log` et `rejected_signals` prouvent
+  ce que le système a fait et pourquoi. En litige, c'est ta meilleure défense.
+
+**Ce qui protège l'utilisateur** — et que tu ne peux pas écarter :
+
+- Les recours impératifs de la loi sur la consommation. Une clause qui prétend
+  les exclure est nulle, et fragilise le reste du document.
+- Le droit de résilier en tout temps.
+- L'avis avant renouvellement automatique.
+- L'accès, la rectification et la suppression de ses renseignements.
+- L'information complète **avant** la conclusion du contrat.
+
+---
+
+## 5. Ce que l'application doit dire quand ça ne marche pas
+
+C'est ta question — et c'est autant du produit que du droit. Une panne
+silencieuse sur un outil qui passe des ordres, c'est le scénario où la
+responsabilité se discute vraiment.
+
+**Ce qui existe déjà** (vérifié dans le code) : `TradingModeBanner` signale le
+mode live, `ApiStatusModal` affiche l'état des intégrations, les signaux
+refusés sont conservés dans `rejected_signals` avec leur motif, et le
+coupe-circuit envoie `notifyKillSwitchActivated` et `notifyDailyLossWarning`.
+La plomberie est là.
+
+**Ce qui manque, par ordre d'importance :**
+
+1. **Une confirmation explicite avant d'activer le mode live**, nommant le
+   risque en toutes lettres : des ordres réels partiront sur ton compte, y
+   compris en ton absence. Une case à cocher, horodatée et journalisée.
+2. **Un état du système toujours visible** : données de marché à jour ou non,
+   courtier joignable ou non, automatisation active ou en pause. Aujourd'hui
+   il faut ouvrir une fenêtre pour le savoir.
+3. **Mettre l'automatisation en pause quand les données sont périmées ou le
+   courtier injoignable**, et le dire. Agir sur des cours périmés est pire que
+   ne rien faire.
+4. **Rendre les signaux refusés visibles dans l'interface.** Ils sont en base
+   mais l'utilisateur ne les voit pas : il croit que rien ne s'est passé alors
+   qu'une décision a été prise et écartée.
+5. **Notifier chaque ordre refusé, retardé ou partiellement exécuté**, avec le
+   motif rendu par le courtier.
+6. **Un bouton d'arrêt d'urgence** coupant le mode live et toutes les règles
+   d'un seul geste, atteignable depuis n'importe quelle page.
+
+Les points 1, 3 et 6 sont ceux qu'un juriste regardera en premier.
+
+---
+
+## Sources
+
+- Autorité des marchés financiers — *Guide sur les obligations relatives à
+  l'inscription d'une société* (critères d'inscription, exception des conseils
+  de nature générale, catégories)
+- Loi 25 — synthèses des obligations pour les entreprises (responsable, EFVP,
+  registre d'incidents, droits, destruction)
+- BLG — *Abonnements à des services numériques et autres services fournis à
+  distance au Québec* (art. 214.1 à 214.11 LPC, renouvellement, résiliation,
+  clauses interdites)
+- Office de la protection du consommateur — contrats conclus à distance
+
+---
+
+# Vérifications attendues à la fin
+
+- `pnpm --filter @workspace/api-server run build` passe
+- la migration `0010_subscription.sql` est appliquée
+- une écriture depuis le site répond **401** sans session, jamais **403**
+- Paramètres → Abonnement affiche un état, et le champ « Clé fondateur »
+  n'apparaît que si `FOUNDER_CODE` est configuré
+- les journaux montrent `cotation perimee` au lieu d un silence quand un
+  prix est gelé marché ouvert
+- un seul processus journalise le cycle de l auto-trader par minute
+  (sinon plusieurs instances tournent en parallèle — voir partie D)
