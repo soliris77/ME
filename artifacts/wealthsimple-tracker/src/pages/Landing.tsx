@@ -120,8 +120,8 @@ export default function Landing() {
             <div className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c9a227]/80">
               Observatoire mondial
             </div>
-            <div className="mt-1 text-[9px] tracking-[0.12em] text-[#f2ead6]/45">
-              Faites glisser pour explorer
+            <div className="mt-1 rounded-full border border-[#c9a227]/25 bg-[#07080a]/50 px-3 py-1 text-[9px] tracking-[0.12em] text-[#f2ead6]/65 backdrop-blur-sm">
+              Glissez pour faire tourner
             </div>
           </div>
           <Suspense fallback={null}>
