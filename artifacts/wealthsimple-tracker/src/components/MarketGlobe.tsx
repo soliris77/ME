@@ -75,6 +75,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const rotationRef = useRef(0);
   const dragRef = useRef({ active: false, lastX: 0, lastY: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [rotationMode, setRotationMode] = useState<'auto' | 'manual'>('auto');
   
   const [states, setStates] = useState<Record<string, ReturnType<typeof getExchangeState>>>(() => {
     const init: any = {};
@@ -245,6 +246,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
     setIsDragging(true);
+    setRotationMode('manual');
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -269,6 +271,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const handleRotateButton = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     rotationRef.current += 72;
+    setRotationMode('manual');
   };
 
   const getDotClass = (status: ExStatus) => {
@@ -330,15 +333,20 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       })}
 
       {variant === 'hero' && (
-        <button
-          type="button"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={handleRotateButton}
-          className="absolute bottom-[7%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/35 bg-background/65 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary shadow-lg backdrop-blur-md transition-all hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <RotateCw className="h-3 w-3" />
-          Tourner le globe
-        </button>
+        <>
+          <div className="pointer-events-none absolute bottom-[15%] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/20 bg-background/45 px-2.5 py-1 text-[8px] uppercase tracking-[0.18em] text-primary/75 backdrop-blur-sm">
+            {rotationMode === 'manual' ? 'Rotation manuelle active' : 'Rotation automatique'}
+          </div>
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={handleRotateButton}
+            className="absolute bottom-[7%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/35 bg-background/65 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary shadow-lg backdrop-blur-md transition-all hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <RotateCw className="h-3 w-3" />
+            Tourner le globe
+          </button>
+        </>
       )}
     </div>
   );
