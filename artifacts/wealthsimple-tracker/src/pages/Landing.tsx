@@ -2,6 +2,9 @@ import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { LineChart, ShieldCheck, Bell, Compass } from "lucide-react";
 import { Reveal, StaggerGroup, StaggerItem, Parallax } from "@/components/motion";
+import { lazy, Suspense } from "react";
+
+const MarketGlobe = lazy(() => import("@/components/MarketGlobe"));
 
 const PILLARS = [
   {
@@ -34,6 +37,7 @@ export default function Landing() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
+      <div className="space-starfield pointer-events-none fixed inset-0" aria-hidden="true" />
       {/* fond : vignette dorée très douce, pas d'image importée */}
       <div
         className="pointer-events-none fixed inset-0"
@@ -43,7 +47,7 @@ export default function Landing() {
         }}
       />
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.05]"
+        className="pointer-events-none fixed inset-0 opacity-[0.018]"
         style={{
           backgroundImage:
             "repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 3px)",
@@ -67,47 +71,54 @@ export default function Landing() {
         </Link>
       </header>
 
-      {/* corps : emblème + signature de marque */}
-      <main className="relative z-10 flex flex-col items-center justify-center px-6 pt-[6vh] pb-[10vh] sm:pt-[8vh] text-center">
-        <Parallax speed={0.35} className="animate-[fadeUp_1.1s_ease-out]">
-          <img
-            src="/soliris-icon.svg"
-            alt=""
-            aria-hidden="true"
-            className="emblem-spin mx-auto h-40 w-40 sm:h-52 sm:w-52 object-contain drop-shadow-[0_0_40px_rgba(201,162,39,0.25)]"
-          />
-        </Parallax>
+      {/* corps : signature de marque + observatoire mondial */}
+      <main className="relative z-10 mx-auto grid min-h-[calc(100vh-88px)] w-full max-w-7xl items-center gap-6 px-6 pb-16 pt-8 text-center sm:px-10 lg:grid-cols-[0.85fr_1.15fr] lg:text-left">
+        <div className="relative z-20 flex flex-col items-center lg:items-start">
+          <Parallax speed={0.25} className="animate-[fadeUp_1.1s_ease-out]">
+            <img
+              src="/soliris-icon.svg"
+              alt=""
+              aria-hidden="true"
+              className="emblem-spin h-28 w-28 object-contain drop-shadow-[0_0_40px_rgba(201,162,39,0.25)] sm:h-36 sm:w-36"
+            />
+          </Parallax>
 
-        <h1
-          className="brand-mark mt-10 text-[15vw] leading-none text-[#f2ead6] sm:text-[64px] animate-[fadeUp_1.1s_ease-out_0.15s_both]"
-          style={{ letterSpacing: "0.16em" }}
-        >
-          SOLIRIS
-        </h1>
-        <div className="mt-3 text-[11px] tracking-[0.5em] text-[#c9a227] animate-[fadeUp_1.1s_ease-out_0.25s_both]">
-          MARKET
+          <h1
+            className="brand-mark mt-8 text-[15vw] leading-none text-[#f2ead6] sm:text-[64px] animate-[fadeUp_1.1s_ease-out_0.15s_both]"
+            style={{ letterSpacing: "0.16em" }}
+          >
+            SOLIRIS
+          </h1>
+          <div className="mt-3 text-[11px] tracking-[0.5em] text-[#c9a227] animate-[fadeUp_1.1s_ease-out_0.25s_both]">
+            MARKET
+          </div>
+
+          <div className="gold-divider mt-8 w-24 animate-[fadeUp_1.1s_ease-out_0.35s_both]" />
+
+          <p className="brand-serif mt-8 max-w-md text-xl italic text-[#f2ead6]/80 sm:text-2xl animate-[fadeUp_1.1s_ease-out_0.45s_both]">
+            Une lecture claire des marchés, pour ceux qui n'ont pas de temps à perdre.
+          </p>
+
+          <div className="relative z-20 mt-10 flex flex-col items-center gap-5 sm:flex-row sm:gap-4 animate-[fadeUp_1.1s_ease-out_0.55s_both]">
+            <Link href="/dashboard">
+              <button className="btn-sheen border border-[#c9a227]/60 px-10 py-3 text-xs tracking-[0.3em] text-[#c9a227] uppercase hover:text-[#07080a] hover:bg-[#c9a227] hover:border-[#c9a227] hover:shadow-[0_0_36px_rgba(201,162,39,0.35)]">
+                Accéder aux marchés
+              </button>
+            </Link>
+            <Link href="/tarifs">
+              <button className="link-underline px-2 py-3 text-xs tracking-[0.28em] uppercase text-[#f2ead6]/55 hover:text-[#c9a227] tr-control">
+                Voir l'abonnement
+              </button>
+            </Link>
+          </div>
         </div>
 
-        <div className="gold-divider mt-8 w-24 animate-[fadeUp_1.1s_ease-out_0.35s_both]" />
-
-        <p
-          className="brand-serif mt-8 max-w-md text-xl italic text-[#f2ead6]/80 sm:text-2xl animate-[fadeUp_1.1s_ease-out_0.45s_both]"
-        >
-          Une lecture claire des marchés, pour ceux qui n'ont pas de temps à perdre.
-        </p>
-
-        <div className="mt-12 flex flex-col items-center gap-5 sm:flex-row sm:gap-4 animate-[fadeUp_1.1s_ease-out_0.55s_both]">
-          <Link href="/dashboard">
-            <button className="btn-sheen border border-[#c9a227]/60 px-10 py-3 text-xs tracking-[0.3em] text-[#c9a227] uppercase hover:text-[#07080a] hover:bg-[#c9a227] hover:border-[#c9a227] hover:shadow-[0_0_36px_rgba(201,162,39,0.35)]">
-              Accéder aux marchés
-            </button>
-          </Link>
-          <Link href="/tarifs">
-            <button className="link-underline px-2 py-3 text-xs tracking-[0.28em] uppercase text-[#f2ead6]/55 hover:text-[#c9a227] tr-control">
-              Voir l'abonnement
-            </button>
-          </Link>
-        </div>
+        <Reveal as="div" direction="scale" className="relative z-10 mx-auto aspect-square w-full max-w-[590px]">
+          <div className="pointer-events-none absolute inset-[7%] rounded-full border border-[#c9a227]/10 shadow-[0_0_90px_rgba(201,162,39,0.09)]" />
+          <Suspense fallback={null}>
+            <MarketGlobe variant="hero" />
+          </Suspense>
+        </Reveal>
       </main>
 
       {/* piliers de marque */}
