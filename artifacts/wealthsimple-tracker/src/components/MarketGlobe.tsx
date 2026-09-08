@@ -114,7 +114,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
         const offset = new Date().getTimezoneOffset(); // in minutes
         rotationRef.current = -(offset / 60) * 15;
       } else if (!dragRef.current.active) {
-        rotationRef.current += (dt / 1000) * 3; // 120s revolution
+        rotationRef.current += (dt / 1000) * 9; // 40s revolution: visibly alive, still cinematic
       }
 
       rotationRef.current %= 360;
@@ -291,7 +291,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className={`relative mx-auto h-full w-full select-none touch-none ${
+      className={`globe-vitality relative mx-auto h-full w-full select-none touch-none ${
         variant === 'hero' ? 'max-w-[700px] aspect-square' : 'aspect-square max-h-full'
       }`}
       style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
