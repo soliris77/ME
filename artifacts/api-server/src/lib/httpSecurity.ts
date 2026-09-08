@@ -48,6 +48,23 @@ const DEV_ORIGINS = [
   "http://127.0.0.1:8080",
 ];
 
+function replitDevelopmentOrigins(): string[] {
+  if (process.env.NODE_ENV === "production") return [];
+
+  const domains = [
+    process.env.REPLIT_DEV_DOMAIN,
+    ...(process.env.REPLIT_DOMAINS ?? "").split(","),
+  ]
+    .map((domain) => domain?.trim())
+    .filter((domain): domain is string => Boolean(domain));
+
+  return domains.map((domain) =>
+    domain.startsWith("http://") || domain.startsWith("https://")
+      ? domain.replace(/\/$/, "")
+      : `https://${domain.replace(/\/$/, "")}`,
+  );
+}
+
 /** Origines autorisées, résolues une fois au démarrage. */
 export function allowedOrigins(): string[] {
   const configured = (process.env.ALLOWED_ORIGINS ?? "")
@@ -56,7 +73,7 @@ export function allowedOrigins(): string[] {
     .filter(Boolean);
 
   if (process.env.NODE_ENV === "production") return configured;
-  return [...new Set([...configured, ...DEV_ORIGINS])];
+  return [...new Set([...configured, ...DEV_ORIGINS, ...replitDevelopmentOrigins()])];
 }
 
 /**
