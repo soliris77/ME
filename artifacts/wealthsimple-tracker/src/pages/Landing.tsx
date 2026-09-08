@@ -115,6 +115,15 @@ export default function Landing() {
 
         <Reveal as="div" direction="scale" className="relative z-10 mx-auto aspect-square w-full max-w-[590px]">
           <div className="pointer-events-none absolute inset-[7%] rounded-full border border-[#c9a227]/10 shadow-[0_0_90px_rgba(201,162,39,0.09)]" />
+          <div className="orbital-ring" />
+          <div className="pointer-events-none absolute left-1/2 top-[6%] z-20 -translate-x-1/2 text-center">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c9a227]/80">
+              Observatoire mondial
+            </div>
+            <div className="mt-1 text-[9px] tracking-[0.12em] text-[#f2ead6]/45">
+              Faites glisser pour explorer
+            </div>
+          </div>
           <Suspense fallback={null}>
             <MarketGlobe variant="hero" />
           </Suspense>

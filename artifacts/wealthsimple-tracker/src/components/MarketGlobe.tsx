@@ -71,6 +71,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointsRef = useRef<Record<string, HTMLButtonElement | null>>({});
+  const rotationRef = useRef(0);
+  const dragRef = useRef({ active: false, lastX: 0, lastY: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   
   const [states, setStates] = useState<Record<string, ReturnType<typeof getExchangeState>>>(() => {
     const init: any = {};
@@ -90,7 +93,6 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const projection = geoOrthographic().clipAngle(90).precision(0.7);
-    let rot = 0;
     let lastTime = performance.now();
     let reqId: number;
 
@@ -108,12 +110,13 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       const isReduced = prefersReduced.matches;
       if (isReduced) {
         const offset = new Date().getTimezoneOffset(); // in minutes
-        rot = -(offset / 60) * 15;
-      } else {
-        rot += (dt / 1000) * 3; // 120s revolution
+        rotationRef.current = -(offset / 60) * 15;
+      } else if (!dragRef.current.active) {
+        rotationRef.current += (dt / 1000) * 3; // 120s revolution
       }
-      
-      rot = rot % 360;
+
+      rotationRef.current %= 360;
+      const rot = rotationRef.current;
 
       const canvas = canvasRef.current;
       const container = containerRef.current;
@@ -236,6 +239,32 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     return () => cancelAnimationFrame(reqId);
   }, [variant]);
 
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
+    setIsDragging(true);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const deltaX = event.clientX - dragRef.current.lastX;
+    const deltaY = event.clientY - dragRef.current.lastY;
+    rotationRef.current += deltaX * 0.42;
+    dragRef.current.lastX = event.clientX;
+    dragRef.current.lastY = event.clientY;
+    if (Math.abs(deltaX) + Math.abs(deltaY) > 1) event.preventDefault();
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    setIsDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   const getDotClass = (status: ExStatus) => {
     switch(status) {
       case 'open': return 'bg-primary shadow-[0_0_10px_1px_hsl(var(--primary))] motion-safe:animate-pulse';
@@ -247,7 +276,18 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   };
 
   return (
-    <div ref={containerRef} className={`relative w-full h-full mx-auto ${variant === 'hero' ? 'max-w-[700px] aspect-square' : 'w-full aspect-square max-h-full'}`}>
+    <div
+      ref={containerRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className={`relative mx-auto h-full w-full select-none touch-none ${
+        variant === 'hero' ? 'max-w-[700px] aspect-square' : 'aspect-square max-h-full'
+      }`}
+      style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      aria-label="Globe interactif des places boursières. Faites glisser pour le faire tourner."
+    >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
       
       <ul className="sr-only">
