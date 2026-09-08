@@ -1,16 +1,16 @@
 ---
 name: Current task checkpoint
-description: Continents terrestres en relief sur le globe animé
+description: Globe interactif et observatoire mondial animé
 ---
 
 # Tâche en cours
 
-**Instruction utilisateur :** Faire tourner le globe sur lui-même et remplacer les continents pointillés par de la terre en relief.
+**Instruction utilisateur :** Permettre de tourner le globe à la main, ajouter des animations et des scintillements d’étoiles, et lui donner une place utile dans l’expérience.
 **Démarrée le :** 2026-09-08
 
 ## Plan d’exécution
 
-- ✅ FAIT — Étape 1 : Identifier le rendu pointillé à remplacer
-- ✅ FAIT — Étape 2 : Construire des surfaces continentales continues avec relief
-- ✅ FAIT — Étape 3 : Vérifier visuellement la rotation et la lisibilité des terres
-- ✅ FAIT — Étape 4 : Vérifier typecheck, build et performance
+- ✅ FAIT — Étape 1 : Identifier l’emplacement comme observatoire des marchés
+- → EN COURS — Étape 2 : Ajouter rotation manuelle, animations et scintillement spatial
+- ☐ À FAIRE — Étape 3 : Renforcer la valeur informative sur accueil et tableau de bord
+- ☐ À FAIRE — Étape 4 : Vérifier interaction, accessibilité, build et rendu
