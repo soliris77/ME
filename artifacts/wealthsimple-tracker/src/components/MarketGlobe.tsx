@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from 'd3-geo';
+import { feature } from 'topojson-client';
+import land110m from 'world-atlas/land-110m.json';
 
 // Places à couvrir
 const GLOBE_EXCHANGES = [
@@ -59,50 +62,10 @@ function getExchangeState(ex: typeof GLOBE_EXCHANGES[0]) {
   return { status: 'closed' as ExStatus, localTimeStr: timeStr };
 }
 
-const MAP_64x32 = [
-  "                                                                ",
-  "                                                                ",
-  "                                                                ",
-  "                                 ########                       ",
-  "  ##      ######                ###########       ##            ",
-  "  ####   #########             #############    ######          ",
-  " ###### ###########           ########################          ",
-  " ##################           ######################### #       ",
-  " ###################         ##############################     ",
-  "  ##################         ##############################     ",
-  "    ##############           #############################      ",
-  "      ##########              ###########################       ",
-  "       ########               ##########################        ",
-  "        ######                 ########################         ",
-  "         ####                  #####################            ",
-  "          ##                   ###################              ",
-  "          ##                    #################      #        ",
-  "          #                     ###############       ###       ",
-  "                                #############        #####      ",
-  "                                 ###########         #####      ",
-  "               ##                 #########          #####      ",
-  "              ####                 #######            ###       ",
-  "             ######                ######             ###       ",
-  "             ######                 ####               #        ",
-  "              ####                   ##                         ",
-  "               ##                                               ",
-  "                                                                ",
-  "                                                                ",
-  "                                                                ",
-  "                                                                ",
-  "                                                                ",
-  "                                                                ",
-];
-
-const LAND_POINTS = MAP_64x32.flatMap((row, r) => 
-  row.split('').map((char, c) => {
-    if (char === ' ') return null;
-    return {
-      lat: 90 - (r / 31) * 180,
-      lon: -180 + (c / 63) * 360
-    };
-  })
-).filter(Boolean) as {lat: number, lon: number}[];
+// Natural Earth 110m: authentic coastlines at a compact size suitable for this globe.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const WORLD_LAND = feature(land110m as any, (land110m as any).objects.land);
+const GRATICULE = geoGraticule10();
 
 export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' | 'compact' }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +89,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
 
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const projection = geoOrthographic().clipAngle(90).precision(0.7);
     let rot = 0;
     let lastTime = performance.now();
     let reqId: number;
@@ -166,8 +130,12 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       if (!ctx) return;
 
       ctx.clearRect(0, 0, w, h);
-      
       const RADIUS = Math.min(w, h) / 2 * 0.85;
+      projection
+        .translate([w / 2, h / 2])
+        .scale(RADIUS)
+        .rotate([rot, -12, 0]);
+      const path = geoPath(projection, ctx);
 
       // Draw base globe with a restrained atmosphere and dimensional light
       const atmosphere = ctx.createRadialGradient(
@@ -178,7 +146,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       atmosphere.addColorStop(0.68, 'rgba(15, 20, 30, 0.99)');
       atmosphere.addColorStop(1, 'rgba(3, 5, 9, 1)');
       ctx.beginPath();
-      ctx.arc(w/2, h/2, RADIUS, 0, Math.PI*2);
+      path({ type: 'Sphere' });
       ctx.fillStyle = atmosphere;
       ctx.fill();
 
@@ -190,59 +158,72 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      const tilt = 23.5 * Math.PI / 180;
-      
       const now = new Date();
       const utcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
       const sunLon = -(utcHour - 12) * 15;
 
-      const project = (lat: number, lon: number) => {
-        const latR = lat * Math.PI / 180;
-        const lonR = (lon - rot) * Math.PI / 180;
-        const x0 = Math.cos(latR) * Math.sin(lonR);
-        const y0 = Math.sin(latR);
-        const z0 = Math.cos(latR) * Math.cos(lonR);
+      // Subtle geographic grid follows the sphere and reinforces its volume.
+      ctx.save();
+      ctx.beginPath();
+      path({ type: 'Sphere' });
+      ctx.clip();
+      ctx.beginPath();
+      path(GRATICULE);
+      ctx.strokeStyle = 'rgba(212, 167, 44, 0.055)';
+      ctx.lineWidth = variant === 'hero' ? 0.65 : 0.4;
+      ctx.stroke();
 
-        const x1 = x0;
-        const y1 = y0 * Math.cos(tilt) - z0 * Math.sin(tilt);
-        const z1 = y0 * Math.sin(tilt) + z0 * Math.cos(tilt);
-        
-        return {
-          x: w/2 + x1 * RADIUS,
-          y: h/2 - y1 * RADIUS,
-          z: z1
-        };
-      };
+      const sunPoint = projection([sunLon, 10]) ?? [w * 0.35, h * 0.35];
+      const landLight = ctx.createRadialGradient(
+        sunPoint[0], sunPoint[1], RADIUS * 0.03,
+        sunPoint[0], sunPoint[1], RADIUS * 1.75,
+      );
+      landLight.addColorStop(0, 'rgb(130, 124, 78)');
+      landLight.addColorStop(0.42, 'rgb(83, 91, 58)');
+      landLight.addColorStop(0.74, 'rgb(48, 60, 43)');
+      landLight.addColorStop(1, 'rgb(21, 29, 25)');
 
-      // Draw lands
-      const ptRadius = variant === 'hero' ? 1.5 : 1;
-      for (const pt of LAND_POINTS) {
-        const p = project(pt.lat, pt.lon);
-        if (p.z > 0) {
-          let lonDiff = (pt.lon - sunLon) % 360;
-          if (lonDiff > 180) lonDiff -= 360;
-          if (lonDiff < -180) lonDiff += 360;
-          
-          const sunDist = Math.cos(pt.lat * Math.PI / 180) * Math.cos(lonDiff * Math.PI / 180);
-          const brightness = Math.max(0, Math.min(1, sunDist * 3 + 0.3));
-          
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, ptRadius, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(226, 217, 190, ${0.16 + 0.48 * brightness})`;
-          ctx.fill();
-        }
-      }
+      ctx.beginPath();
+      path(WORLD_LAND);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
+      ctx.shadowBlur = variant === 'hero' ? 7 : 3;
+      ctx.shadowOffsetY = variant === 'hero' ? 3 : 1;
+      ctx.fillStyle = landLight;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      ctx.beginPath();
+      path(WORLD_LAND);
+      ctx.strokeStyle = 'rgba(224, 205, 145, 0.34)';
+      ctx.lineWidth = variant === 'hero' ? 0.9 : 0.55;
+      ctx.stroke();
+
+      // Day/night falloff moves independently of the rotating Earth.
+      const night = ctx.createRadialGradient(
+        sunPoint[0], sunPoint[1], RADIUS * 0.12,
+        sunPoint[0], sunPoint[1], RADIUS * 1.85,
+      );
+      night.addColorStop(0, 'rgba(2, 5, 10, 0)');
+      night.addColorStop(0.52, 'rgba(2, 5, 10, 0.08)');
+      night.addColorStop(0.78, 'rgba(2, 5, 10, 0.38)');
+      night.addColorStop(1, 'rgba(2, 5, 10, 0.76)');
+      ctx.fillStyle = night;
+      ctx.fillRect(w / 2 - RADIUS, h / 2 - RADIUS, RADIUS * 2, RADIUS * 2);
+      ctx.restore();
 
       // Update interactive points
+      const center = projection.invert?.([w / 2, h / 2]) ?? [0, 0];
       GLOBE_EXCHANGES.forEach(ex => {
-        const p = project(ex.lat, ex.lon);
+        const p = projection([ex.lon, ex.lat]);
         const el = pointsRef.current[ex.id];
-        if (el) {
-          if (p.z > -0.1) {
+        if (el && p) {
+          const isFront = geoDistance([ex.lon, ex.lat], center) <= Math.PI / 2;
+          if (isFront) {
             el.style.display = 'block';
-            el.style.transform = `translate(-50%, -50%) translate(${p.x}px, ${p.y}px) scale(${p.z < 0 ? 0.7 : 1})`;
-            el.style.opacity = p.z < 0 ? '0.2' : '1';
-            el.style.zIndex = p.z > 0 ? '10' : '1';
+            el.style.transform = `translate(-50%, -50%) translate(${p[0]}px, ${p[1]}px)`;
+            el.style.opacity = '1';
+            el.style.zIndex = '10';
           } else {
             el.style.display = 'none';
           }

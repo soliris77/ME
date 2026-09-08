@@ -1,16 +1,16 @@
 ---
 name: Current task checkpoint
-description: Globe réaliste des places boursières sur fond spatial
+description: Continents terrestres en relief sur le globe animé
 ---
 
 # Tâche en cours
 
-**Instruction utilisateur :** Ajouter un globe terrestre réaliste avec un fond spatial étoilé, selon la spécification SOLIRIS-GLOBE.
+**Instruction utilisateur :** Faire tourner le globe sur lui-même et remplacer les continents pointillés par de la terre en relief.
 **Démarrée le :** 2026-09-08
 
 ## Plan d’exécution
 
-- ✅ FAIT — Étape 1 : Lire la spécification et identifier les emplacements accueil/tableau de bord
-- ✅ FAIT — Étape 2 : Construire le globe, les étoiles, le jour/nuit et les états des places
-- ✅ FAIT — Étape 3 : Intégrer les versions héros et compacte
-- ✅ FAIT — Étape 4 : Vérifier accessibilité, mouvement réduit, performance, build et rendu
+- ✅ FAIT — Étape 1 : Identifier le rendu pointillé à remplacer
+- ✅ FAIT — Étape 2 : Construire des surfaces continentales continues avec relief
+- ✅ FAIT — Étape 3 : Vérifier visuellement la rotation et la lisibilité des terres
+- ✅ FAIT — Étape 4 : Vérifier typecheck, build et performance
