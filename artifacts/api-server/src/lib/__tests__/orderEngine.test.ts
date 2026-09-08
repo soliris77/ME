@@ -110,7 +110,12 @@ const h = vi.hoisted(() => {
 
   return {
     state, db, ordersTable, rejectedSignalsTable, brokerConnectionsTable,
+    pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
     getTradingMode: vi.fn(),
+    getLiveArm: vi.fn().mockResolvedValue({
+      accountId: "acct-1", maxOrderValue: 1_000, dailyLossCap: 500,
+      armedAt: new Date("2026-01-01T00:00:00Z"), expiresAt: new Date("2099-01-01T00:00:00Z"),
+    }),
     placeOrder: vi.fn(),
     listPositions: vi.fn(),
     checkOrderRisk: vi.fn(),
@@ -119,10 +124,12 @@ const h = vi.hoisted(() => {
 
 vi.mock("@workspace/db", () => ({
   db: h.db,
+  pool: h.pool,
   ordersTable: h.ordersTable,
   rejectedSignalsTable: h.rejectedSignalsTable,
   brokerConnectionsTable: h.brokerConnectionsTable,
 }));
+vi.mock("../tradingMode", () => ({ getLiveArm: h.getLiveArm }));
 vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val }),
   and: (...args: unknown[]) => ({ and: args }),
@@ -173,6 +180,10 @@ beforeEach(() => {
   h.state.nextOrderInsertError = null;
   h.state.duplicateRow = null;
   h.getTradingMode.mockReturnValue("paper");
+  h.getLiveArm.mockResolvedValue({
+    accountId: "acct-1", maxOrderValue: 1_000, dailyLossCap: 500,
+    armedAt: new Date("2026-01-01T00:00:00Z"), expiresAt: new Date("2099-01-01T00:00:00Z"),
+  });
   h.checkOrderRisk.mockResolvedValue(riskOk);
 });
 
@@ -355,6 +366,47 @@ describe("submitOrder — prérequis live", () => {
 
     expect(res.status).toBe("rejected");
     if (res.status === "rejected") expect(res.reason).toBe("account_required");
+    expect(h.placeOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe("submitOrder — armement LIVE temporaire", () => {
+  const liveInput = {
+    ...baseInput, accountId: "acct-1",
+    brokerConnection: { snaptradeUserId: "u", snaptradeUserSecret: "s" },
+  };
+
+  beforeEach(() => {
+    h.getTradingMode.mockReturnValue("live");
+    h.listPositions.mockResolvedValue([]);
+  });
+
+  it("sans arm valide, rejette avant toute insertion ou appel courtier", async () => {
+    h.getLiveArm.mockResolvedValue(null);
+    const result = await submitOrder(liveInput);
+    expect(result).toMatchObject({ status: "rejected", reason: "live_not_armed" });
+    expect(h.placeOrder).not.toHaveBeenCalled();
+    expect(orderInserts()).toHaveLength(0);
+  });
+
+  it("refuse un compte différent de celui explicitement armé", async () => {
+    h.getLiveArm.mockResolvedValue({ accountId: "other", maxOrderValue: 1_000, dailyLossCap: 500, armedAt: new Date(), expiresAt: new Date("2099-01-01") });
+    const result = await submitOrder(liveInput);
+    expect(result).toMatchObject({ status: "rejected", reason: "live_arm_account_mismatch" });
+    expect(h.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuse un notionnel au-dessus du plafond armé", async () => {
+    h.getLiveArm.mockResolvedValue({ accountId: "acct-1", maxOrderValue: 199, dailyLossCap: 500, armedAt: new Date(), expiresAt: new Date("2099-01-01") });
+    const result = await submitOrder(liveInput);
+    expect(result).toMatchObject({ status: "rejected", reason: "live_arm_max_order_value_exceeded" });
+    expect(h.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuse après expiration sans jamais appeler l'adaptateur courtier", async () => {
+    h.getLiveArm.mockResolvedValue({ accountId: "acct-1", maxOrderValue: 1_000, dailyLossCap: 500, armedAt: new Date(), expiresAt: new Date(0) });
+    const result = await submitOrder(liveInput);
+    expect(result).toMatchObject({ status: "rejected", reason: "live_arm_expired" });
     expect(h.placeOrder).not.toHaveBeenCalled();
   });
 });

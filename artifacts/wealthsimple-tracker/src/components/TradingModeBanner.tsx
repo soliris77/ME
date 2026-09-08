@@ -11,7 +11,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface TradingModeInfo {
   mode: "paper" | "live";
-  hasCredentials: boolean;
+  hasCredentials?: boolean;
 }
 
 export default function TradingModeBanner() {
@@ -22,7 +22,7 @@ export default function TradingModeBanner() {
     refetchOnWindowFocus: false,
   });
 
-  if (!data || !data.hasCredentials) return null;
+  if (!data || (data.hasCredentials === false)) return null;
 
   if (data.mode === "live") {
     return (

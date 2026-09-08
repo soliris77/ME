@@ -17,13 +17,14 @@
  *   b. Appel à placeOrder() SEULEMENT si l'INSERT a réussi
  *   c. UPDATE de la ligne avec le résultat (status, snaptradeOrderId, errorMessage)
  */
-import { db, ordersTable, rejectedSignalsTable, brokerConnectionsTable } from "@workspace/db";
+import { db, pool, ordersTable, rejectedSignalsTable, brokerConnectionsTable } from "@workspace/db";
 import { and, eq, gte, desc } from "drizzle-orm";
 import { getTradingMode, placeOrder as placeSnaptradeOrder, listPositions } from "./snaptrade";
 import { checkOrderRisk, BrokerPosition } from "./risk";
 import { getRiskSettings } from "./settings";
 import { notifyLargeOrderExecuted } from "./notifications";
 import { logger } from "./logger";
+import { getLiveArm } from "./tradingMode";
 
 export interface SubmitOrderInput {
   signalId: string;
@@ -116,6 +117,39 @@ function mapSnaptradePositions(raw: unknown[]): BrokerPosition[] {
   return positions;
 }
 
+/** Realized live P&L for today's sells using the locally persisted fill ledger.
+ * Unknown external lots are deliberately excluded (the same conservative
+ * behavior as the daily-loss worker); this routine never invents a cost basis. */
+async function getTodayLiveRealizedPnL(accountId: string): Promise<number> {
+  const { rows } = await pool.query<{
+    symbol: string; side: string; quantity: string; filled_quantity: string | null;
+    fill_price: string | null; expected_price: string | null; created_at: Date;
+  }>(`SELECT symbol, side, quantity, filled_quantity, fill_price, expected_price, created_at
+      FROM orders WHERE mode = 'live' AND broker_account_id = $1
+      AND status IN ('filled', 'partially_filled') ORDER BY created_at ASC, id ASC`, [accountId]);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const lots = new Map<string, { quantity: number; cost: number }>();
+  let pnl = 0;
+  for (const row of rows) {
+    const qty = Number(row.filled_quantity ?? row.quantity);
+    const price = Number(row.fill_price ?? row.expected_price);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price <= 0) continue;
+    const lot = lots.get(row.symbol) ?? { quantity: 0, cost: 0 };
+    if (row.side === "BUY") {
+      lot.cost = (lot.cost * lot.quantity + price * qty) / (lot.quantity + qty);
+      lot.quantity += qty;
+    } else {
+      const matched = Math.min(qty, lot.quantity);
+      if (row.created_at >= today) pnl += (price - lot.cost) * matched;
+      lot.quantity = Math.max(0, lot.quantity - qty);
+      if (lot.quantity === 0) lot.cost = 0;
+    }
+    lots.set(row.symbol, lot);
+  }
+  return pnl;
+}
+
 export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderResult> {
   const { signalId, symbol, quantity, accountId, expectedPrice, source, brokerConnection } = input;
 
@@ -153,6 +187,14 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   const mode = getTradingMode();
+
+  // LIVE prerequisites are checked before the temporary arm so callers retain
+  // the explicit, established account/connection errors rather than receiving
+  // a less useful arm-account mismatch.
+  if (mode === "live") {
+    const livePrereq = validateLiveOrderPrerequisites(brokerConnection, accountId);
+    if (livePrereq) return livePrereq;
+  }
 
   // ── 2) Idempotence ──────────────────────────────────────────────────────────
   // SELECT optimiste : couvre la grande majorité des doublons sans toucher au DB lock.
@@ -264,6 +306,42 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     return { status: "rejected", reason: risk.reason, message: risk.message, details: risk.details };
   }
 
+  // ── 4b) Temporary LIVE arm — final authorization before broker dispatch ─────
+  // This is intentionally after quote/risk validation so the cap is checked
+  // against the same notional used for the order, and before any DB reservation
+  // or SnapTrade call. A missing/expired/malformed arm always fails closed.
+  if (mode === "live") {
+    let arm;
+    try {
+      arm = await getLiveArm();
+    } catch (err) {
+      logger.error({ err, signalId }, "orderEngine: unable to read live arm");
+      return { status: "rejected", reason: "live_arm_unavailable", message: "Armement LIVE impossible à vérifier; aucun ordre n'a été envoyé.", details: {} };
+    }
+    if (!arm) {
+      return { status: "rejected", reason: "live_not_armed", message: "Le trading LIVE n'est pas armé; aucun ordre n'a été envoyé.", details: {} };
+    }
+    if (arm.expiresAt.getTime() <= Date.now()) {
+      return { status: "rejected", reason: "live_arm_expired", message: "L'armement LIVE a expiré; réarmez explicitement le compte.", details: { expiresAt: arm.expiresAt.toISOString() } };
+    }
+    if (accountId !== arm.accountId) {
+      return { status: "rejected", reason: "live_arm_account_mismatch", message: "Cet armement LIVE ne couvre pas ce compte.", details: { armedAccountId: arm.accountId } };
+    }
+    if (risk.orderValue > arm.maxOrderValue) {
+      return { status: "rejected", reason: "live_arm_max_order_value_exceeded", message: "La valeur de l'ordre dépasse le plafond de l'armement LIVE.", details: { orderValue: risk.orderValue, maxOrderValue: arm.maxOrderValue } };
+    }
+    let realizedPnL: number;
+    try {
+      realizedPnL = await getTodayLiveRealizedPnL(accountId);
+    } catch (err) {
+      logger.error({ err, signalId, accountId }, "orderEngine: unable to calculate daily live P&L");
+      return { status: "rejected", reason: "live_arm_daily_loss_unavailable", message: "La perte journalière LIVE est impossible à vérifier; aucun ordre n'a été envoyé.", details: {} };
+    }
+    if (-realizedPnL >= arm.dailyLossCap) {
+      return { status: "rejected", reason: "live_arm_daily_loss_cap_reached", message: "La limite de perte journalière de l'armement LIVE est atteinte.", details: { realizedPnL, dailyLossCap: arm.dailyLossCap } };
+    }
+  }
+
   // ── 5a) Mode PAPER ──────────────────────────────────────────────────────────
   if (mode === "paper") {
     try {
@@ -295,8 +373,6 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   // ── 5b) Mode LIVE ───────────────────────────────────────────────────────────
-  const livePrereq = validateLiveOrderPrerequisites(brokerConnection, accountId);
-  if (livePrereq) return livePrereq;
   // Le garde-fou ci-dessus garantit ces deux valeurs (fail closed).
   if (!brokerConnection || !accountId) throw new Error("invariant: connexion courtier et accountId requis après validation live");
 

@@ -43,6 +43,14 @@ export const appSettingsTable = pgTable("app_settings", {
   // Coupe-circuit de perte journalière agrégée — null = désactivé.
   // Si la perte réalisée du jour dépasse ce montant, le kill-switch s'active automatiquement.
   maxDailyLossAmount: text("max_daily_loss_amount"),
+  // Armement LIVE temporaire. Ces valeurs sont volontairement séparées des
+  // réglages généraux : un redémarrage ne doit jamais réarmer implicitement.
+  tradingMode: text("trading_mode").default("paper").notNull(),
+  liveArmAccountId: text("live_arm_account_id"),
+  liveArmMaxOrderValue: text("live_arm_max_order_value"),
+  liveArmDailyLossCap: text("live_arm_daily_loss_cap"),
+  liveArmExpiresAt: timestamp("live_arm_expires_at"),
+  liveArmArmedAt: timestamp("live_arm_armed_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

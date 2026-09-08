@@ -9,6 +9,17 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger";
 
 type Mode = "paper" | "live";
+export const LIVE_ARM_CONFIRMATION = "ARM LIVE TRADING";
+export const MIN_LIVE_ARM_DURATION_MINUTES = 1;
+export const MAX_LIVE_ARM_DURATION_MINUTES = 480;
+
+export interface LiveArm {
+  accountId: string;
+  maxOrderValue: number;
+  dailyLossCap: number;
+  expiresAt: Date;
+  armedAt: Date;
+}
 
 // Valeur en mémoire — initialisée par initTradingMode() au démarrage.
 let _mode: Mode = "paper";
@@ -53,4 +64,43 @@ export async function setTradingMode(mode: Mode): Promise<void> {
   );
   _mode = mode;
   logger.info({ mode }, "tradingMode: mode mis à jour");
+}
+
+/** Reads the arm from storage on every live submission; it must never rely on
+ * process memory because expiry and account scope are safety boundaries. */
+export async function getLiveArm(): Promise<LiveArm | null> {
+  const { rows } = await pool.query<{
+    live_arm_account_id: string | null;
+    live_arm_max_order_value: string | null;
+    live_arm_daily_loss_cap: string | null;
+    live_arm_expires_at: Date | null;
+    live_arm_armed_at: Date | null;
+  }>(`SELECT live_arm_account_id, live_arm_max_order_value, live_arm_daily_loss_cap,
+       live_arm_expires_at, live_arm_armed_at FROM app_settings LIMIT 1`);
+  const arm = rows[0];
+  if (!arm?.live_arm_account_id || !arm.live_arm_expires_at || !arm.live_arm_armed_at) return null;
+  const maxOrderValue = Number(arm.live_arm_max_order_value);
+  const dailyLossCap = Number(arm.live_arm_daily_loss_cap);
+  if (!Number.isFinite(maxOrderValue) || maxOrderValue <= 0 || !Number.isFinite(dailyLossCap) || dailyLossCap <= 0) return null;
+  return { accountId: arm.live_arm_account_id, maxOrderValue, dailyLossCap, expiresAt: new Date(arm.live_arm_expires_at), armedAt: new Date(arm.live_arm_armed_at) };
+}
+
+export async function armLiveTrading(arm: LiveArm): Promise<void> {
+  await pool.query(
+    `UPDATE app_settings SET trading_mode = 'live', live_arm_account_id = $1,
+       live_arm_max_order_value = $2, live_arm_daily_loss_cap = $3,
+       live_arm_expires_at = $4, live_arm_armed_at = $5, updated_at = NOW()`,
+    [arm.accountId, String(arm.maxOrderValue), String(arm.dailyLossCap), arm.expiresAt, arm.armedAt],
+  );
+  _mode = "live";
+}
+
+/** Paper mode clears every arm field so stale authority cannot be reused. */
+export async function disarmLiveTrading(): Promise<void> {
+  await pool.query(
+    `UPDATE app_settings SET trading_mode = 'paper', live_arm_account_id = NULL,
+       live_arm_max_order_value = NULL, live_arm_daily_loss_cap = NULL,
+       live_arm_expires_at = NULL, live_arm_armed_at = NULL, updated_at = NOW()`,
+  );
+  _mode = "paper";
 }

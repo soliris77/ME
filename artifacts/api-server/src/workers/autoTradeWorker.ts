@@ -739,10 +739,9 @@ export function classifyOutcome(l: typeof autoTradeLogsTable.$inferSelect): "win
 
 // ── Second avis IA (hook partagé) ─────────────────────────────────────────────
 // Appelé juste avant submitOrder par les DEUX chemins de soumission (signaux
-// techniques et copy-trading). Auto-contenu et FAIL-OPEN : ne bloque JAMAIS un
-// trade à cause d'une erreur interne — retourne null (= poursuivre) dès que la
-// règle n'a pas activé l'IA ou que l'IA est indisponible. Récupère lui-même les
-// derniers logs de la règle pour donner un contexte historique à l'IA.
+// techniques et copy-trading). Une règle sans second avis retourne null. Quand
+// le second avis est activé, toute erreur interne produit un verdict de blocage
+// afin qu'un garde-fou indisponible n'autorise jamais silencieusement un ordre.
 export async function runAiSecondOpinion(params: {
   rule: typeof autoTradeRulesTable.$inferSelect;
   side: "BUY" | "SELL";
@@ -799,10 +798,11 @@ export async function runAiSecondOpinion(params: {
       source,
     });
   } catch (err) {
-    // Défense en profondeur : getAiSecondOpinion est déjà fail-open, mais on
-    // garantit qu'aucune exception ne remonte au chemin de soumission.
-    logger.warn({ err, ruleId: rule.id }, "aiReview: exception inattendue — fail-open");
-    return null;
+    logger.error({ err, ruleId: rule.id }, "aiReview: exception inattendue — ordre bloqué par sécurité");
+    return {
+      verdict: "block",
+      reason: "Le second avis n'a pas pu être vérifié. Ordre bloqué par sécurité.",
+    };
   }
 }
 
@@ -1462,6 +1462,14 @@ async function runAutoTradeCycle(): Promise<void> {
 }
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Runtime state for diagnostics only.  This deliberately contains no rule,
+ * account, or credential data, and does not start or run a cycle.
+ */
+export function getAutoTradeWorkerStatus(): { running: boolean; cycleInFlight: boolean } {
+  return { running: intervalHandle !== null, cycleInFlight };
+}
 
 export function startAutoTradeWorker(intervalMs = WORKER_INTERVAL_MS): void {
   if (intervalHandle) return;

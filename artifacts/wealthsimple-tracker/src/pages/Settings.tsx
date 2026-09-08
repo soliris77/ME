@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning, KeyRound, Eye, EyeOff, Crown, RefreshCw } from "lucide-react";
+import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning, KeyRound, Eye, EyeOff, Crown, RefreshCw, Activity, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
 import {
   subscriptionLabel,
   useGrantFounder,
@@ -326,6 +326,110 @@ function SubscriptionSection() {
   );
 }
 
+function IntegrationsHealthSection() {
+  const q = useQuery<{ generatedAt: string; overall: string; entries: Record<string, { status: string; configured: boolean; summary: string; metadata?: any }> }>({
+    queryKey: ["integrations-health"],
+    queryFn: () => fetch(`${BASE}/api/integrations/health`).then((r) => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  if (q.isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Chargement de l'état des intégrations…
+      </div>
+    );
+  }
+
+  if (q.isError || !q.data) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
+        <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+        Impossible de charger l'état des intégrations.
+      </div>
+    );
+  }
+
+  const { overall, entries, generatedAt } = q.data;
+  const labels: Record<string, string> = {
+    snaptrade: "SnapTrade (Courtier)",
+    yahoo: "Yahoo Finance (Données)",
+    twilio: "Twilio (SMS)",
+    resend: "Resend (Email)",
+    whop: "Whop (Abonnements)",
+    autoTrader: "Auto-Trader (Moteur)",
+  };
+
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">État global</span>
+          {overall === "ok" ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-500 font-semibold text-xs tracking-wide">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Opérationnel
+            </span>
+          ) : overall === "degraded" ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-500 font-semibold text-xs tracking-wide">
+              <AlertCircle className="w-3.5 h-3.5" /> Dégradé
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-destructive/10 border border-destructive/20 text-destructive font-semibold text-xs tracking-wide">
+              <XCircle className="w-3.5 h-3.5" /> Erreur
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+          <Clock className="w-3.5 h-3.5" />
+          MAJ {new Date(generatedAt).toLocaleTimeString("fr-CA")}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {Object.entries(entries).map(([key, data]) => (
+          <div key={key} className="p-4 rounded-lg bg-background border border-input flex flex-col gap-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <h4 className="font-semibold text-sm">{labels[key] || key}</h4>
+              {data.status === "ok" ? (
+                <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" />
+              ) : data.status === "degraded" ? (
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0" />
+              ) : data.status === "not_configured" ? (
+                <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-destructive shrink-0" />
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {data.summary}
+            </p>
+
+            {data.status === "not_configured" && (
+              <span className="inline-block mt-auto pt-2 text-[10px] text-muted-foreground/70 uppercase tracking-widest font-semibold">
+                Non configuré
+              </span>
+            )}
+            {data.configured && data.status !== "not_configured" && (
+              <span className="inline-block mt-auto pt-2 text-[10px] text-muted-foreground/70 uppercase tracking-widest font-semibold">
+                Configuré
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-[11px] bg-muted/40 border border-input text-muted-foreground">
+        <Activity className="w-4 h-4 shrink-0" />
+        <span className="leading-relaxed">
+          L'état "Configuré" ou "OK" garantit la présence des identifiants et le succès des requêtes de base, mais n'implique pas toujours un test réseau complet (ex: émission réelle d'un SMS ou exécution d'un ordre).
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageMeta("Paramètres — Soliris Market", "Seuils de risque et friction sur les ordres importants.");
   const qc = useQueryClient();
@@ -543,6 +647,20 @@ export default function SettingsPage() {
       </div>
       <div className="mt-4">
         <SubscriptionSection />
+      </div>
+
+      <div className="mt-10">
+        <div className="section-rule mb-4"><span>INTÉGRATIONS & SANTÉ</span></div>
+        <h2 className="text-xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-2.5">
+          <Activity className="w-5 h-5 text-primary" />
+          État du système
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground max-w-xl">
+          Surveille la connectivité et la configuration des différents services externes.
+        </p>
+      </div>
+      <div className="mt-4">
+        <IntegrationsHealthSection />
       </div>
 
       <div className="mt-10">

@@ -219,10 +219,10 @@ async function tryOpenAiOpinion(ctx: AiReviewContext, apiKey: string): Promise<A
  * Second avis. Renvoie TOUJOURS un avis exploitable ({ verdict, reason }) :
  *   - avec OPENAI_API_KEY : tente OpenAI, retombe sur le réviseur local en cas d'échec.
  *   - sans clé : réviseur local directement.
- * Ne renvoie null que si une exception totalement inattendue survient (défense
- * en profondeur ; l'appelant traite alors ce cas en fail-open).
+ * Une exception totalement inattendue produit un verdict de blocage : un
+ * garde-fou défaillant ne doit jamais autoriser silencieusement un ordre.
  */
-export async function getAiSecondOpinion(ctx: AiReviewContext): Promise<AiReviewResult | null> {
+export async function getAiSecondOpinion(ctx: AiReviewContext): Promise<AiReviewResult> {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (apiKey) {
@@ -234,7 +234,10 @@ export async function getAiSecondOpinion(ctx: AiReviewContext): Promise<AiReview
     // Pas de clé → réviseur local gratuit directement.
     return localSecondOpinion(ctx);
   } catch (err) {
-    logger.warn({ err: String(err) }, "aiReview: erreur inattendue — fail-open");
-    return null;
+    logger.error({ err: String(err) }, "aiReview: erreur inattendue — ordre bloqué par sécurité");
+    return {
+      verdict: "block",
+      reason: "Le second avis n'a pas pu être vérifié. Ordre bloqué par sécurité.",
+    };
   }
 }

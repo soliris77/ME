@@ -27,7 +27,10 @@ import {
   invalidateSnaptradeClient,
   cancelBrokerOrder,
 } from "../lib/snaptrade";
-import { getTradingMode, setTradingMode } from "../lib/tradingMode";
+import {
+  getTradingMode, getLiveArm, armLiveTrading, disarmLiveTrading,
+  LIVE_ARM_CONFIRMATION, MIN_LIVE_ARM_DURATION_MINUTES, MAX_LIVE_ARM_DURATION_MINUTES,
+} from "../lib/tradingMode";
 import { getAssetProfiles, getQuotes } from "../lib/yahoo";
 import { submitOrder, OrderValidationError } from "../lib/orderEngine";
 import { getRiskSettings } from "../lib/settings";
@@ -98,28 +101,93 @@ router.get("/broker/credentials", async (_req, res) => {
 
 // ─── GET /api/broker/trading-mode ─────────────────────────────────────────────
 router.get("/broker/trading-mode", async (_req, res) => {
-  const mode = getTradingMode();
-  const creds = await resolveCredentials();
-  const hasCredentials = !!(creds.clientId && creds.consumerKey);
-  return res.json({ mode, hasCredentials });
+  try {
+    const mode = getTradingMode();
+    const creds = await resolveCredentials();
+    const hasCredentials = !!(creds.clientId && creds.consumerKey);
+    const arm = await getLiveArm();
+    // Deliberately only expose non-secret arm state and limits.
+    return res.json({
+      mode,
+      hasCredentials,
+      arm: arm ? {
+        accountId: arm.accountId,
+        maxOrderValue: arm.maxOrderValue,
+        dailyLossCap: arm.dailyLossCap,
+        armedAt: arm.armedAt.toISOString(),
+        expiresAt: arm.expiresAt.toISOString(),
+        active: arm.expiresAt.getTime() > Date.now(),
+      } : null,
+    });
+  } catch (err) {
+    logger.error({ err }, "broker: unable to read trading arm");
+    return res.status(500).json({ error: "Impossible de lire l'armement LIVE." });
+  }
 });
 
 // ─── POST /api/broker/trading-mode ────────────────────────────────────────────
-// Bascule entre paper et live. Requiert confirmation côté client (window.confirm).
+// LIVE is never a durable toggle: it requires an account-scoped, expiring,
+// explicitly confirmed arm. Switching to paper always removes that authority.
 router.post("/broker/trading-mode", async (req, res) => {
   try {
-    const { mode } = req.body as { mode?: string };
+    const { mode, accountId, maxOrderValue, dailyLossCap, durationMinutes, expiresAt, confirmation } = req.body as {
+      mode?: string; accountId?: string; maxOrderValue?: unknown; dailyLossCap?: unknown;
+      durationMinutes?: unknown; expiresAt?: unknown; confirmation?: unknown;
+    };
     if (mode !== "paper" && mode !== "live") {
       return res.status(400).json({ error: "mode doit être 'paper' ou 'live'." });
     }
-    await setTradingMode(mode);
+    if (mode === "paper") {
+      await disarmLiveTrading();
+      await logAudit("trading_mode.change", "Mode de trading changé en PAPER; armement LIVE effacé.", { mode });
+      return res.json({ mode: "paper", arm: null });
+    }
+    if (typeof accountId !== "string" || !accountId.trim()) {
+      return res.status(400).json({ error: "accountId est requis pour armer le mode LIVE." });
+    }
+    const max = typeof maxOrderValue === "number" ? maxOrderValue : Number(maxOrderValue);
+    const loss = typeof dailyLossCap === "number" ? dailyLossCap : Number(dailyLossCap);
+    if (!Number.isFinite(max) || max <= 0 || !Number.isFinite(loss) || loss <= 0) {
+      return res.status(400).json({ error: "maxOrderValue et dailyLossCap doivent être des nombres positifs." });
+    }
+    if (confirmation !== LIVE_ARM_CONFIRMATION) {
+      return res.status(400).json({ error: `confirmation doit être exactement « ${LIVE_ARM_CONFIRMATION} ».`, confirmationRequired: LIVE_ARM_CONFIRMATION });
+    }
+    let expiry: Date;
+    if (durationMinutes !== undefined && expiresAt !== undefined) {
+      return res.status(400).json({ error: "Fournissez durationMinutes ou expiresAt, pas les deux." });
+    }
+    if (durationMinutes !== undefined) {
+      const duration = typeof durationMinutes === "number" ? durationMinutes : Number(durationMinutes);
+      if (!Number.isInteger(duration) || duration < MIN_LIVE_ARM_DURATION_MINUTES || duration > MAX_LIVE_ARM_DURATION_MINUTES) {
+        return res.status(400).json({ error: `durationMinutes doit être un entier entre ${MIN_LIVE_ARM_DURATION_MINUTES} et ${MAX_LIVE_ARM_DURATION_MINUTES}.` });
+      }
+      expiry = new Date(Date.now() + duration * 60_000);
+    } else {
+      expiry = new Date(typeof expiresAt === "string" ? expiresAt : "");
+      const remaining = expiry.getTime() - Date.now();
+      if (!Number.isFinite(expiry.getTime()) || remaining < MIN_LIVE_ARM_DURATION_MINUTES * 60_000 || remaining > MAX_LIVE_ARM_DURATION_MINUTES * 60_000) {
+        return res.status(400).json({ error: `expiresAt doit être entre ${MIN_LIVE_ARM_DURATION_MINUTES} et ${MAX_LIVE_ARM_DURATION_MINUTES} minutes dans le futur.` });
+      }
+    }
+    const conn = await getConnection();
+    if (!conn || conn.status !== "connected") {
+      return res.status(400).json({ error: "Une connexion SnapTrade active est requise pour armer le mode LIVE." });
+    }
+    // Ask SnapTrade rather than trusting a stale cache before granting live authority.
+    const accounts = await listAccounts(conn.snaptradeUserId, conn.snaptradeUserSecret);
+    if (!(accounts as { id?: string }[]).some((account) => account?.id === accountId)) {
+      return res.status(400).json({ error: "accountId ne correspond pas à un compte SnapTrade connecté." });
+    }
+    const armedAt = new Date();
+    await armLiveTrading({ accountId, maxOrderValue: max, dailyLossCap: loss, armedAt, expiresAt: expiry });
     await logAudit(
       "trading_mode.change",
-      `Mode de trading changé en ${mode.toUpperCase()}.`,
-      { mode }
+      "Mode LIVE armé temporairement.",
+      { mode, accountId, maxOrderValue: max, dailyLossCap: loss, armedAt: armedAt.toISOString(), expiresAt: expiry.toISOString() }
     );
-    logger.info({ mode }, "broker: mode de trading mis à jour");
-    return res.json({ mode });
+    logger.warn({ mode, accountId, expiresAt: expiry }, "broker: temporary live trading arm created");
+    return res.json({ mode: "live", arm: { accountId, maxOrderValue: max, dailyLossCap: loss, armedAt: armedAt.toISOString(), expiresAt: expiry.toISOString(), active: true } });
   } catch (err) {
     logger.error({ err }, "broker: erreur lors du changement de mode");
     return res.status(500).json({ error: "Erreur serveur." });

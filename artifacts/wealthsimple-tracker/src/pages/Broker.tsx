@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import {
   ShieldCheck, Loader2, ExternalLink, RefreshCw, CheckCircle2,
   XCircle, LinkIcon, ShieldOff, ShieldAlert, AlertTriangle,
-  Radio, Building2, KeyRound, Wifi, WifiOff, ArrowRight, Save, Eye, EyeOff,
+  Radio, Building2, KeyRound, Wifi, WifiOff, ArrowRight, Save, Eye, EyeOff, Timer
 } from "lucide-react";
 
 import StopOrdersSection from "@/components/StopOrdersSection";
@@ -112,6 +112,31 @@ function AccountBalance({ accountId }: { accountId: string }) {
   );
 }
 
+/* ── Expiry countdown ───────────────────────────────────── */
+function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const end = new Date(expiresAt).getTime();
+    const update = () => {
+      const now = Date.now();
+      const diff = end - now;
+      if (diff <= 0) {
+        setTimeLeft("Expiré");
+        return;
+      }
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${m}m ${s.toString().padStart(2, "0")}s`);
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [expiresAt]);
+
+  return <span className="font-mono text-[11px]">{timeLeft}</span>;
+}
+
 /* ── Main page ──────────────────────────────────────────── */
 export default function BrokerPage() {
   usePageMeta("Courtier — Soliris Market", "Connexion courtier SnapTrade / Wealthsimple.");
@@ -123,10 +148,26 @@ export default function BrokerPage() {
   const [showSecrets, setShowSecrets] = useState(false);
   const [credsSaved, setCredsSaved] = useState(false);
 
+  // ── Formulaire Armement Live ──
+  const [arming, setArming] = useState(false);
+  const [armForm, setArmForm] = useState({
+    accountId: "",
+    maxOrderValue: 1000,
+    dailyLossCap: 50,
+    durationMinutes: 60,
+    confirmation: ""
+  });
+
   const statusQ = useQuery<BrokerStatus>({
     queryKey: ["broker-status"],
     queryFn: () => fetch(`${BASE}/api/broker/status`).then((r) => r.json()),
     refetchInterval: 15_000,
+  });
+
+  const tradingModeQ = useQuery<{ mode: "paper" | "live", arm: { accountId: string, maxOrderValue: number, dailyLossCap: number, armedAt: string, expiresAt: string, active: boolean } | null }>({
+    queryKey: ["trading-mode-details"],
+    queryFn: () => fetch(`${BASE}/api/broker/trading-mode`).then((r) => r.json()),
+    refetchInterval: 10_000,
   });
 
   const accountsQ = useQuery<Account[]>({
@@ -166,7 +207,40 @@ export default function BrokerPage() {
     },
   });
   const resumeMut   = useMutation({ mutationFn: () => fetch(`${BASE}/api/broker/resume`,       { method: "POST" }).then((r) => r.json()), onSuccess: () => qc.invalidateQueries({ queryKey: ["broker-status"] }) });
-  const modeMut     = useMutation({ mutationFn: (m: "paper" | "live") => fetch(`${BASE}/api/broker/trading-mode`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) }).then((r) => r.json()), onSuccess: () => { qc.invalidateQueries({ queryKey: ["broker-status"] }); qc.invalidateQueries({ queryKey: ["trading-mode"] }); } });
+
+  const armLiveMut = useMutation({
+    mutationFn: (data: typeof armForm) =>
+      fetch(`${BASE}/api/broker/trading-mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "live", ...data }),
+      }).then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "Erreur d'activation");
+        return j;
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["broker-status"] });
+      qc.invalidateQueries({ queryKey: ["trading-mode"] });
+      qc.invalidateQueries({ queryKey: ["trading-mode-details"] });
+      setArming(false);
+      setArmForm({ ...armForm, confirmation: "" });
+    }
+  });
+
+  const disarmMut = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/broker/trading-mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "paper" }),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["broker-status"] });
+      qc.invalidateQueries({ queryKey: ["trading-mode"] });
+      qc.invalidateQueries({ queryKey: ["trading-mode-details"] });
+    }
+  });
 
   const s = statusQ.data;
   const step = !s ? 0 : s.status === "not_setup" ? 1 : s.status === "pending" ? 2 : 3;
@@ -206,40 +280,148 @@ export default function BrokerPage() {
 
       {/* ── Mode paper / live ────────────────────────────────── */}
       {s && (
-        <div className="flex items-center justify-between gap-4 rounded-xl px-5 py-4" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-          <div className="flex items-center gap-3">
-            {s.mode === "live" ? (
-              <span className="relative flex h-2.5 w-2.5 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: ACCENT }} />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: ACCENT }} />
-              </span>
-            ) : (
-              <span className="inline-flex h-2.5 w-2.5 rounded-full shrink-0" style={{ background: BORDER }} />
-            )}
-            <div>
-              <div className="text-[10px] tracking-[0.2em] uppercase mb-0.5" style={{ color: MUTED }}>Mode de trading</div>
-              <div className="text-sm font-semibold tracking-wide" style={s.mode === "live" ? { color: ACCENT } : { color: "#E8E9ED" }}>
-                {s.mode === "live" ? "Live — ordres réels" : "Paper — simulation"}
+        <div className="rounded-xl overflow-hidden transition-colors" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-center gap-3">
+              {tradingModeQ.data?.mode === "live" ? (
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: ACCENT }} />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: ACCENT }} />
+                </span>
+              ) : (
+                <span className="inline-flex h-2.5 w-2.5 rounded-full shrink-0" style={{ background: BORDER }} />
+              )}
+              <div>
+                <div className="text-[10px] tracking-[0.2em] uppercase mb-0.5" style={{ color: MUTED }}>Mode de trading</div>
+                <div className="text-sm font-semibold tracking-wide" style={tradingModeQ.data?.mode === "live" ? { color: ACCENT } : { color: "#E8E9ED" }}>
+                  {tradingModeQ.data?.mode === "live" ? "Live — ordres réels" : "Paper — simulation"}
+                </div>
               </div>
             </div>
+
+            {tradingModeQ.data?.mode === "live" ? (
+               <Btn variant="muted" disabled={disarmMut.isPending} onClick={() => disarmMut.mutate()}>
+                 {disarmMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                 Repasser en Paper
+               </Btn>
+            ) : (
+               <Btn variant="gold" disabled={armLiveMut.isPending} onClick={() => setArming(!arming)}>
+                 <ShieldCheck className="w-3.5 h-3.5" />
+                 {arming ? "Annuler l'armement" : "Armer le Live"}
+               </Btn>
+            )}
           </div>
-          <Btn
-            variant={s.mode === "paper" ? "gold" : "muted"}
-            disabled={modeMut.isPending}
-            onClick={() => {
-              const next = s.mode === "paper" ? "live" : "paper";
-              if (next === "live" && !window.confirm("Passer en mode Live ?\n\nLes ordres seront soumis réellement à Wealthsimple. Tu peux repasser en Paper à tout moment.")) return;
-              modeMut.mutate(next);
-            }}
-          >
-            {modeMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : s.mode === "paper" ? <Radio className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-            {s.mode === "paper" ? "Activer le Live" : "Repasser en Paper"}
-          </Btn>
+
+          {/* Active Live Status Bar */}
+          {tradingModeQ.data?.mode === "live" && tradingModeQ.data?.arm && (
+            <div className="border-t px-5 py-3 flex items-center justify-between gap-4 flex-wrap" style={{ borderColor: BORDER, background: "rgba(212,167,44,0.03)" }}>
+               <div className="flex items-center gap-5 text-[11px]" style={{ color: MUTED }}>
+                 <div className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5" /> Compte : <span className="font-mono text-[#E8E9ED]">{accounts.find(a => a.id === tradingModeQ.data.arm?.accountId)?.name || tradingModeQ.data.arm.accountId}</span></div>
+                 <div className="flex items-center gap-2"><ShieldAlert className="w-3.5 h-3.5" /> Max Ordre : <span className="font-mono text-[#E8E9ED]">{tradingModeQ.data.arm.maxOrderValue}$</span></div>
+                 <div className="flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5" /> Max Perte : <span className="font-mono text-[#E8E9ED]">{tradingModeQ.data.arm.dailyLossCap}$</span></div>
+               </div>
+               <div className="flex items-center gap-2 text-[11px] font-semibold" style={{ color: ACCENT }}>
+                 <Timer className="w-3.5 h-3.5" />
+                 <ExpiryCountdown expiresAt={tradingModeQ.data.arm.expiresAt} />
+               </div>
+            </div>
+          )}
+
+          {/* Arming Form Expansion */}
+          {arming && tradingModeQ.data?.mode !== "live" && (
+            <div className="border-t p-5 animate-fadeUp space-y-5" style={{ borderColor: BORDER, background: "rgba(212,167,44,0.02)" }}>
+              <div className="flex items-start gap-3 p-3.5 rounded-lg text-[12px] leading-relaxed" style={{ background: "rgba(212,167,44,0.06)", border: "1px solid rgba(212,167,44,0.25)", color: "#E8E9ED" }}>
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: ACCENT }} />
+                <div>
+                  <strong style={{ color: ACCENT }}>Attention : </strong>
+                  Activer le mode Live ne place aucun ordre immédiatement. Cela arme le système pour une durée limitée. Pendant cette période, le trader automatique (s'il est activé) ou tes actions manuelles soumettront de <strong>vrais ordres</strong> à Wealthsimple.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] mb-1.5 uppercase tracking-[0.15em] font-semibold" style={{ color: MUTED }}>Compte cible</label>
+                  <select
+                    value={armForm.accountId}
+                    onChange={(e) => setArmForm({...armForm, accountId: e.target.value})}
+                    className="w-full rounded-md px-3 py-2.5 text-[12px] outline-none"
+                    style={{ background: BASE_BG, border: `1px solid ${BORDER}`, color: "#E8E9ED" }}
+                  >
+                    <option value="" disabled>Sélectionner un compte</option>
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.name || a.number || a.id}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] mb-1.5 uppercase tracking-[0.15em] font-semibold" style={{ color: MUTED }}>Durée d'armement (min)</label>
+                  <input
+                    type="number" min="1" max="480"
+                    value={armForm.durationMinutes}
+                    onChange={(e) => setArmForm({...armForm, durationMinutes: parseInt(e.target.value) || 0})}
+                    className="w-full rounded-md px-3 py-2.5 text-[12px] outline-none font-mono"
+                    style={{ background: BASE_BG, border: `1px solid ${BORDER}`, color: "#E8E9ED" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] mb-1.5 uppercase tracking-[0.15em] font-semibold" style={{ color: MUTED }}>Valeur Max par Ordre ($)</label>
+                  <input
+                    type="number" min="1"
+                    value={armForm.maxOrderValue}
+                    onChange={(e) => setArmForm({...armForm, maxOrderValue: parseFloat(e.target.value) || 0})}
+                    className="w-full rounded-md px-3 py-2.5 text-[12px] outline-none font-mono"
+                    style={{ background: BASE_BG, border: `1px solid ${BORDER}`, color: "#E8E9ED" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] mb-1.5 uppercase tracking-[0.15em] font-semibold" style={{ color: MUTED }}>Plafond Perte Journalière ($)</label>
+                  <input
+                    type="number" min="1"
+                    value={armForm.dailyLossCap}
+                    onChange={(e) => setArmForm({...armForm, dailyLossCap: parseFloat(e.target.value) || 0})}
+                    className="w-full rounded-md px-3 py-2.5 text-[12px] outline-none font-mono"
+                    style={{ background: BASE_BG, border: `1px solid ${BORDER}`, color: "#E8E9ED" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] mb-1.5 uppercase tracking-[0.15em] font-semibold" style={{ color: MUTED }}>Confirmation de sécurité</label>
+                <div className="text-[11px] mb-2" style={{ color: MUTED }}>Tape <strong style={{ color: "#E8E9ED" }}>ARM LIVE TRADING</strong> pour confirmer l'armement.</div>
+                <input
+                  type="text"
+                  placeholder="ARM LIVE TRADING"
+                  value={armForm.confirmation}
+                  onChange={(e) => setArmForm({...armForm, confirmation: e.target.value})}
+                  className="w-full rounded-md px-3 py-2.5 text-[12px] outline-none font-mono"
+                  style={{ background: BASE_BG, border: `1px solid ${BORDER}`, color: "#E8E9ED" }}
+                />
+              </div>
+
+              {armLiveMut.error && (
+                 <div className="flex items-center gap-2 text-[12px] rounded-lg px-3 py-2.5" style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", color: "#DC2626" }}>
+                   <ShieldOff className="w-4 h-4 shrink-0" />
+                   {armLiveMut.error.message}
+                 </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Btn
+                  variant="gold"
+                  disabled={armLiveMut.isPending || armForm.confirmation !== "ARM LIVE TRADING" || !armForm.accountId || armForm.durationMinutes < 1 || armForm.maxOrderValue <= 0 || armForm.dailyLossCap <= 0}
+                  onClick={() => armLiveMut.mutate(armForm)}
+                >
+                  {armLiveMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                  Armer le système
+                </Btn>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* ── Kill-switch (live seulement) ─────────────────────── */}
-      {s?.mode === "live" && (
+      {tradingModeQ.data?.mode === "live" && s && (
         <div className="rounded-xl px-5 py-4 flex items-center justify-between gap-4" style={{ background: s.halted ? "rgba(220,38,38,0.06)" : SURFACE, border: `1px solid ${s.halted ? "rgba(220,38,38,0.35)" : BORDER}` }}>
           <div className="flex items-start gap-3">
             {s.halted ? <ShieldOff className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#DC2626" }} /> : <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#F59E0B" }} />}
