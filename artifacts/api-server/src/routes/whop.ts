@@ -1,12 +1,42 @@
+/**
+ * /api/whop/* — tarif public et ouverture du paiement.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Ces deux routes sont PUBLIQUES à dessein : la page tarifs doit être lisible
+ * et l'abonnement souscriptible par quelqu'un qui n'a pas encore de session.
+ * Elles étaient jusqu'ici derrière requireAuth, ce qui renvoyait 401 à tout
+ * visiteur : le prix ne s'affichait pas et le bouton « S'abonner » échouait.
+ *
+ * La vérification d'abonnement ne vit PAS ici. L'ancienne /api/whop/verify
+ * acceptait un identifiant d'adhésion fourni par le client — donc n'importe
+ * qui pouvait se déclarer abonné. Elle est remplacée par /api/subscription,
+ * qui n'interroge que Whop et la base. Voir lib/subscription.ts.
+ */
 import { Router } from "express";
 import { getWhopClient } from "../whopClient";
 
 const router = Router();
 
-// Non-sensitive config IDs (not secrets)
-const COMPANY_ID = process.env.WHOP_COMPANY_ID ?? "biz_jWeofD0XtU4iRH";
+// Identifiants de configuration, pas des secrets.
 const PLAN_ID = process.env.WHOP_PLAN_ID ?? "plan_JrkAsnIXuyaK6";
 
+/**
+ * L'URL de retour vient du navigateur : sans contrôle, on offrirait une
+ * redirection ouverte depuis un domaine de paiement — exactement le genre de
+ * lien dont se servent les campagnes d'hameçonnage. On n'accepte donc qu'une
+ * URL du même hôte que la requête.
+ */
+function isSameOrigin(candidate: string, req: { headers: Record<string, unknown>; protocol: string }): boolean {
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "");
+    return host !== "" && url.host === host;
+  } catch {
+    return false;
+  }
+}
+
+// ─── GET /api/whop/plans ───────────────────────────────────────────────────
 router.get("/whop/plans", async (req, res) => {
   try {
     const client = await getWhopClient();
@@ -22,20 +52,25 @@ router.get("/whop/plans", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Failed to fetch Whop plan");
-    return res.status(500).json({ error: "Failed to fetch plan" });
+    // La page tarifs doit rester lisible même si Whop est injoignable : elle
+    // affiche alors son prix de repli plutôt qu'une page en erreur.
+    return res.status(503).json({ error: "Tarif indisponible pour le moment." });
   }
 });
 
+// ─── POST /api/whop/checkout ───────────────────────────────────────────────
 router.post("/whop/checkout", async (req, res) => {
   const { redirectUrl } = req.body as { redirectUrl?: string };
   if (!redirectUrl) {
     return res.status(400).json({ error: "redirectUrl is required" });
   }
+  if (!isSameOrigin(redirectUrl, req)) {
+    req.log.warn({ redirectUrl }, "whop: URL de retour refusée (hôte différent)");
+    return res.status(400).json({ error: "URL de retour invalide." });
+  }
 
   try {
     const client = await getWhopClient();
-
-    // Create a checkout configuration for this session
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const checkout = await (client as any).checkoutConfigurations.create({
       plan_id: PLAN_ID,
@@ -48,28 +83,7 @@ router.post("/whop/checkout", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Failed to create Whop checkout");
-    return res.status(500).json({ error: "Failed to create checkout" });
-  }
-});
-
-router.get("/whop/verify", async (req, res) => {
-  const { membershipId } = req.query as { membershipId?: string };
-  if (!membershipId) {
-    return res.status(400).json({ error: "membershipId required" });
-  }
-
-  try {
-    const client = await getWhopClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const membership = await (client as any).memberships.retrieve(membershipId);
-    const hasAccess =
-      membership?.valid &&
-      membership?.product?.id === "prod_Vm5BtK32mmOY2";
-
-    return res.json({ hasAccess, status: membership?.status ?? "unknown" });
-  } catch (err) {
-    req.log.error({ err }, "Failed to verify Whop membership");
-    return res.status(500).json({ error: "Verification failed" });
+    return res.status(502).json({ error: "Impossible d'ouvrir le paiement pour le moment." });
   }
 });
 

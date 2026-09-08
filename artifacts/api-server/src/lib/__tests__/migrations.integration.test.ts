@@ -18,12 +18,15 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { createRequire } from "node:module";
-import type { Pool } from "pg";
+
+type Pool = typeof import("@workspace/db").pool;
 
 // `pg` est une dépendance de @workspace/db (pas de l'API) — on le résout
 // depuis ce paquet, comme le fait scripts/apply-migrations.mjs.
 const DB_PKG_DIR = path.resolve(__dirname, "../../../../../lib/db");
-const pg = createRequire(path.join(DB_PKG_DIR, "package.json"))("pg") as typeof import("pg");
+const pg = createRequire(path.join(DB_PKG_DIR, "package.json"))("pg") as {
+  Pool: new (options: { connectionString?: string }) => Pool;
+};
 const { Pool } = pg;
 
 const hasDb = Boolean(process.env.DATABASE_URL);
@@ -62,7 +65,7 @@ async function uniqueConstraints(pool: Pool, table: string): Promise<string[]> {
      WHERE contype = 'u' AND conrelid = ($1)::regclass`,
     [`public.${table}`],
   );
-  return rows.map((r) => r.conname).sort();
+  return rows.map((r: { conname: string }) => r.conname).sort();
 }
 
 d("apply-migrations (intégration DB scratch)", () => {

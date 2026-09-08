@@ -13,3 +13,4 @@ export * from "./autoTradeCopyBindings";
 export * from "./push";
 export * from "./notifications";
 export * from "./theses";
+export * from "./subscription";

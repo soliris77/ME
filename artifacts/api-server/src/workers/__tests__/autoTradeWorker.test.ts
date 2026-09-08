@@ -152,6 +152,15 @@ vi.mock("drizzle-orm", () => ({
 vi.mock("../../lib/yahoo", () => ({
   yahooFinance: { chart: h.chart },
   getQuotes: h.getQuotes,
+  ageCotationMs: (quote: { marketTime: string | null }) =>
+    quote.marketTime ? Date.now() - new Date(quote.marketTime).getTime() : null,
+  cotationPerimee: (
+    quote: { marketTime: string | null; marketState: string | null },
+    ageMaxMs: number,
+  ) =>
+    quote.marketState === "REGULAR" &&
+    quote.marketTime !== null &&
+    Date.now() - new Date(quote.marketTime).getTime() > ageMaxMs,
 }));
 vi.mock("../../lib/orderEngine", () => ({ submitOrder: h.submitOrder }));
 vi.mock("../../lib/signals", () => ({
@@ -215,7 +224,7 @@ function makeRule(overrides: Record<string, unknown> = {}) {
 }
 
 function setPrice(symbol: string, price: number) {
-  h.getQuotes.mockResolvedValue([{ symbol, regularMarketPrice: price }]);
+  h.getQuotes.mockResolvedValue([{ symbol, price, marketTime: null, marketState: null }]);
 }
 
 /** Updates qui effacent la position (openEntryPrice: null). */

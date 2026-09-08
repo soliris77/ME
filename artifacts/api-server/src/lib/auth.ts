@@ -145,6 +145,7 @@ export const sessionMiddleware: RequestHandler = session({
 declare module "express-session" {
   interface SessionData {
     authenticated?: boolean;
+    founder?: boolean;
   }
 }
 

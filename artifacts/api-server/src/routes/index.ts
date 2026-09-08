@@ -28,6 +28,8 @@ import { requireAuth } from "../lib/auth";
 import pushRouter from "./push";
 import notificationsRouter from "./notifications";
 import thesesRouter from "./theses";
+import subscriptionRouter from "./subscription";
+import { requirePremium } from "../lib/subscription";
 
 const router: IRouter = Router();
 
@@ -38,6 +40,7 @@ router.use(clientErrorsRouter);
 
 // ─── Routes protégées — 401 immédiat sans session authentifiée ────────────
 router.use(requireAuth);
+router.use(subscriptionRouter);
 router.use(quotesRouter);
 router.use(marketRouter);
 router.use(newsRouter);
@@ -55,11 +58,11 @@ router.use(calendarRouter);
 router.use(learnRouter);
 router.use(notesRouter);
 router.use(metatraderRouter);
-router.use(copyTradingRouter);
+router.use(requirePremium, copyTradingRouter);
 router.use(spotifyRouter);
 router.use(symbolsRouter);
 router.use(agentTasksRouter);
-router.use(autoTraderRouter);
+router.use(requirePremium, autoTraderRouter);
 router.use(dailySummaryRouter);
 router.use(debriefRouter);
 router.use(pushRouter);

@@ -6,6 +6,7 @@ import { logger } from "./lib/logger";
 import { sessionMiddleware } from "./lib/auth";
 import { startCopyTradingSync } from "./lib/integrations/metatrader/sync";
 import { initTradingMode } from "./lib/tradingMode";
+import { corsOptions, verifyOrigin } from "./lib/httpSecurity";
 
 const app: Express = express();
 
@@ -32,12 +33,12 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
 
-app.use("/api", router);
+app.use("/api", verifyOrigin, router);
 
 // Charger le mode de trading depuis la DB au démarrage
 initTradingMode().catch((err) => logger.warn({ err }, "initTradingMode: échec"));

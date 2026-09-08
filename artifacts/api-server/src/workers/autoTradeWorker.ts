@@ -8,7 +8,7 @@
  */
 import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
-import { yahooFinance, getQuotes } from "../lib/yahoo";
+import { yahooFinance, getQuotes, cotationPerimee, ageCotationMs } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
 import type { OHLCPoint } from "../lib/patternDetect";
 import { submitOrder } from "../lib/orderEngine";
@@ -23,6 +23,7 @@ import { isMarketOpen } from "../lib/risk";
 import { computeClosureWarnings } from "../routes/market";
 
 const WORKER_INTERVAL_MS = 60_000;
+const AGE_MAX_COTATION_MS = 5 * 60 * 1000;
 
 export interface ClosureContext {
   /** La bourse du symbole est-elle ouverte en ce moment ? */
@@ -155,16 +156,18 @@ export async function checkProtectiveExits(
   if (rulesWithPositions.length === 0) return;
 
   const symbols = [...new Set(rulesWithPositions.map(r => r.symbol))];
-  let quotesMap: Record<string, { price: number }> = {};
+  const quotesMap: Record<
+    string,
+    { price: number; marketTime: string | null; marketState: string | null }
+  > = {};
   try {
-    const raw = await getQuotes(symbols);
-    // getQuotes returns array — build map
-    if (Array.isArray(raw)) {
-      for (const q of raw as Array<{ symbol?: string; regularMarketPrice?: number }>) {
-        if (q.symbol && q.regularMarketPrice) quotesMap[q.symbol] = { price: q.regularMarketPrice };
-      }
-    } else {
-      quotesMap = raw as Record<string, { price: number }>;
+    for (const q of await getQuotes(symbols)) {
+      if (!q.symbol || !Number.isFinite(q.price) || q.price <= 0) continue;
+      quotesMap[q.symbol] = {
+        price: q.price,
+        marketTime: q.marketTime,
+        marketState: q.marketState,
+      };
     }
   } catch (err) {
     logger.warn({ err }, "autoTradeWorker: getQuotes failed in checkProtectiveExits");
@@ -174,6 +177,15 @@ export async function checkProtectiveExits(
   for (const rule of rulesWithPositions) {
     const quote = quotesMap[rule.symbol];
     if (!quote?.price) continue;
+
+    if (cotationPerimee(quote, AGE_MAX_COTATION_MS)) {
+      const ageMin = Math.round((ageCotationMs(quote) ?? 0) / 60_000);
+      logger.warn(
+        { symbol: rule.symbol, ruleId: rule.id, ageMinutes: ageMin },
+        "autoTradeWorker: cotation perimee marche ouvert — sortie protectrice suspendue",
+      );
+      continue;
+    }
 
     const currentPrice = quote.price;
     const entryPrice = parseFloat(rule.openEntryPrice as string);

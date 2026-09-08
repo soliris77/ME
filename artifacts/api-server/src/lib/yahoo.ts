@@ -35,7 +35,12 @@ export interface FormattedQuote {
   currency: string;
   type: string;
   exchange: string | null;
+  /** Horodatage de notre récupération, pas nécessairement celui du prix. */
   lastUpdated: string;
+  /** Heure à laquelle le marché a produit le prix. */
+  marketTime: string | null;
+  /** REGULAR, PRE, POST, CLOSED… */
+  marketState: string | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,7 +63,39 @@ export function formatQuote(q: any): FormattedQuote {
            ?? (typeof q.exchange === "string" ? q.exchange : null)
            ?? null,
     lastUpdated: new Date().toISOString(),
+    marketTime: lireHeureMarche(q.regularMarketTime),
+    marketState: typeof q.marketState === "string" ? q.marketState : null,
   };
+}
+
+function lireHeureMarche(brut: unknown): string | null {
+  if (brut instanceof Date) return Number.isNaN(brut.getTime()) ? null : brut.toISOString();
+  if (typeof brut === "number" && Number.isFinite(brut)) {
+    const ms = brut < 1e12 ? brut * 1000 : brut;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  if (typeof brut === "string" && brut) {
+    const d = new Date(brut);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  return null;
+}
+
+export function ageCotationMs(q: Pick<FormattedQuote, "marketTime">): number | null {
+  if (!q.marketTime) return null;
+  const t = new Date(q.marketTime).getTime();
+  return Number.isNaN(t) ? null : Date.now() - t;
+}
+
+export function cotationPerimee(
+  q: Pick<FormattedQuote, "marketTime" | "marketState">,
+  ageMaxMs: number,
+): boolean {
+  if (q.marketState !== "REGULAR") return false;
+  const age = ageCotationMs(q);
+  if (age == null) return false;
+  return age > ageMaxMs;
 }
 
 // ─── Asset profiles (secteur / type) — cache serveur 24 h ─────────────────────

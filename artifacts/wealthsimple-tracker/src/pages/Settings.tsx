@@ -2,7 +2,14 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning, KeyRound, Eye, EyeOff, Crown, RefreshCw } from "lucide-react";
+import {
+  subscriptionLabel,
+  useGrantFounder,
+  useRefreshSubscription,
+  useRevokeFounder,
+  useSubscription,
+} from "@/hooks/use-subscription";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -218,6 +225,107 @@ function NotificationsSection() {
   );
 }
 
+function SubscriptionSection() {
+  const { subscription, isLoading, isError } = useSubscription();
+  const refresh = useRefreshSubscription();
+  const grantFounder = useGrantFounder();
+  const revokeFounder = useRevokeFounder();
+  const [founderCode, setFounderCode] = useState("");
+
+  const error =
+    refresh.error?.message ??
+    grantFounder.error?.message ??
+    revokeFounder.error?.message ??
+    (isError ? "L’état d’abonnement est indisponible." : null);
+
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-6 space-y-5">
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Chargement de l’abonnement…
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">État actuel</p>
+              <p className="mt-1 text-lg font-semibold">
+                {subscription.founder ? "Accès fondateur" : subscriptionLabel(subscription.status)}
+              </p>
+              {subscription.inGrace && (
+                <p className="mt-1 text-xs text-amber-500">Paiement en retard — l’accès reste temporairement ouvert.</p>
+              )}
+              {subscription.currentPeriodEnd && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Période actuelle jusqu’au {new Date(subscription.currentPeriodEnd).toLocaleDateString("fr-CA")}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => refresh.mutate()}
+              disabled={refresh.isPending}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-input disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${refresh.isPending ? "animate-spin" : ""}`} />
+              Actualiser
+            </button>
+          </div>
+
+          {subscription.founder ? (
+            <button
+              type="button"
+              onClick={() => revokeFounder.mutate()}
+              disabled={revokeFounder.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md border border-input disabled:opacity-50"
+            >
+              {revokeFounder.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              Refermer l’accès fondateur
+            </button>
+          ) : subscription.founderAvailable ? (
+            <form
+              className="space-y-3 border-t border-card-border pt-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                grantFounder.mutate(founderCode, { onSuccess: () => setFounderCode("") });
+              }}
+            >
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+                Clé fondateur
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="password"
+                  value={founderCode}
+                  onChange={(event) => setFounderCode(event.target.value)}
+                  autoComplete="off"
+                  className="flex-1 px-3 py-2.5 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <button
+                  type="submit"
+                  disabled={!founderCode.trim() || grantFounder.isPending}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                >
+                  {grantFounder.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Ouvrir l’accès
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageMeta("Paramètres — Soliris Market", "Seuils de risque et friction sur les ordres importants.");
   const qc = useQueryClient();
@@ -421,6 +529,20 @@ export default function SettingsPage() {
       </div>
       <div className="mt-4">
         <NotificationsSection />
+      </div>
+
+      <div className="mt-10">
+        <div className="section-rule mb-4"><span>ABONNEMENT</span></div>
+        <h2 className="text-xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-2.5">
+          <Crown className="w-5 h-5 text-primary" />
+          Soliris Premium
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground max-w-xl">
+          Consulte l’état de ton accès, synchronise Whop ou gère l’accès fondateur de cette instance.
+        </p>
+      </div>
+      <div className="mt-4">
+        <SubscriptionSection />
       </div>
 
       <div className="mt-10">
