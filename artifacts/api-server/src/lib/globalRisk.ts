@@ -5,8 +5,8 @@
  * touchés le même jour ? » et « comment mon exposition se répartit ? ».
  *
  * Sources de stops considérées :
- *  - Positions suivies par l'auto-trader (openEntryPrice/openQuantity) avec
- *    stop-loss fixe et/ou trailing stop — même logique que checkProtectiveExits.
+ *  - Positions suivies par l'auto-trader (openEntryPrice/openQuantity), dont le
+ *    risque théorique est calculé à partir du stop fixe et/ou trailing configuré.
  *  - Ordres stop de protection soumis au courtier encore actifs
  *    (orders.orderType = "stop", statut pending/submitted, expectedPrice = stopPrice).
  *
@@ -80,8 +80,9 @@ export interface GlobalRiskResult {
 
 /**
  * Prix stop effectif d'une position auto-trader : le plus haut entre le
- * stop-loss fixe et le trailing stop. Le trailing n'est « armé » que si le
- * plus-haut a dépassé l'entrée (même règle que checkProtectiveExits).
+ * stop-loss fixe configuré et le trailing stop. Le trailing n'est « armé » que
+ * si le plus-haut a dépassé l'entrée. Les sorties fixes sont protégées côté
+ * courtier ; ce calcul sert uniquement à mesurer le risque théorique.
  */
 export function effectiveStopPrice(p: StopPositionInput): number | null {
   if (p.source === "stop_order") return p.stopPrice;

@@ -14,4 +14,5 @@ export * from "./push";
 export * from "./notifications";
 export * from "./theses";
 export * from "./subscription";
+export * from "./protectiveOrders";
 //# sourceMappingURL=index.d.ts.map

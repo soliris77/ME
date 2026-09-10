@@ -275,6 +275,8 @@ export interface PlaceOrderParams {
   timeInForce?: "Day" | "GTC";
   /** Client-side idempotency key (signal ID) */
   clientOrderId?: string;
+  /** Broker-side protection flag where the brokerage API supports it. */
+  reduceOnly?: boolean;
 }
 
 /**
@@ -304,6 +306,7 @@ export async function placeOrder(params: PlaceOrderParams) {
     ...(params.limitPrice != null ? { price: params.limitPrice } : {}),
     ...(params.stopPrice != null ? { stop: params.stopPrice } : {}),
     ...(params.clientOrderId != null ? { client_order_id: params.clientOrderId } : {}),
+    ...(params.reduceOnly != null ? { reduce_only: params.reduceOnly } : {}),
   });
 
   return res.data;

@@ -229,16 +229,16 @@ export declare const subscriptionTable: import("drizzle-orm/pg-core").PgTableWit
     dialect: "pg";
 }>;
 export declare const insertSubscriptionSchema: z.ZodObject<{
+    raw: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
+    active: z.ZodOptional<z.ZodBoolean>;
+    status: z.ZodOptional<z.ZodString>;
     subjectId: z.ZodOptional<z.ZodString>;
     membershipId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     planId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     productId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    status: z.ZodOptional<z.ZodString>;
-    active: z.ZodOptional<z.ZodBoolean>;
     currentPeriodEnd: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
     lastCheckedAt: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
     lastError: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    raw: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>, Record<string, unknown>, z.core.$ZodTypeInternals<Record<string, unknown>, Record<string, unknown>>>>>;
 }, {
     out: {};
     in: {};

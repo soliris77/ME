@@ -47,6 +47,7 @@ function createBrokerAdapter(
         ...(request.stopPrice != null ? { stopPrice: request.stopPrice } : {}),
         timeInForce: request.timeInForce === "gtc" ? "GTC" : "Day",
         clientOrderId: request.clientOrderId,
+        reduceOnly: request.reduceOnly,
       }),
   };
   return new SnapTradeAdapter("snaptrade", port);

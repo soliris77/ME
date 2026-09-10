@@ -1,9 +1,5 @@
 /**
- * Tests des sorties de protection (checkProtectiveExits) et du trailing stop.
- * ─────────────────────────────────────────────────────────────────────────────
- * Invariant critique : l'état de position (openEntryPrice/openQuantity/highWaterMark)
- * ne doit être effacé QUE si la vente est confirmée (accepted ou duplicate).
- * Rejeté ou exception → la position reste suivie, nouvelle tentative au cycle suivant.
+ * Tests du worker auto-trade.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
@@ -152,15 +148,6 @@ vi.mock("drizzle-orm", () => ({
 vi.mock("../../lib/yahoo", () => ({
   yahooFinance: { chart: h.chart },
   getQuotes: h.getQuotes,
-  ageCotationMs: (quote: { marketTime: string | null }) =>
-    quote.marketTime ? Date.now() - new Date(quote.marketTime).getTime() : null,
-  cotationPerimee: (
-    quote: { marketTime: string | null; marketState: string | null },
-    ageMaxMs: number,
-  ) =>
-    quote.marketState === "REGULAR" &&
-    quote.marketTime !== null &&
-    Date.now() - new Date(quote.marketTime).getTime() > ageMaxMs,
 }));
 vi.mock("../../lib/orderEngine", () => ({ submitOrder: h.submitOrder }));
 vi.mock("@workspace/indicators", () => ({
@@ -204,7 +191,7 @@ vi.mock("../../lib/brokerAdapter", () => ({
   }),
 }));
 
-import { checkProtectiveExits, processRule, checkDailyLossCircuitBreaker, maybeNotifyDailyLossWarning, getDailyRealizedPnLStatus } from "../autoTradeWorker";
+import { processRule, checkDailyLossCircuitBreaker, maybeNotifyDailyLossWarning, getDailyRealizedPnLStatus } from "../autoTradeWorker";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function makeRule(overrides: Record<string, unknown> = {}) {
@@ -241,19 +228,6 @@ function makeRule(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function setPrice(symbol: string, price: number) {
-  h.getQuotes.mockResolvedValue([{ symbol, price, marketTime: null, marketState: null }]);
-}
-
-/** Updates qui effacent la position (openEntryPrice: null). */
-const clearingUpdates = () =>
-  h.state.updates.filter(u => u.table === h.rulesTable && u.set.openEntryPrice === null);
-/** Updates du plus-haut (highWaterMark seul). */
-const hwmUpdates = () =>
-  h.state.updates.filter(u =>
-    u.table === h.rulesTable && "highWaterMark" in u.set && !("openEntryPrice" in u.set));
-const exitLogs = () => h.state.inserts.filter(i => i.table === h.logsTable);
-
 beforeEach(() => {
   vi.clearAllMocks();
   h.state.rules.length = 0;
@@ -268,202 +242,6 @@ beforeEach(() => {
   h.state.nextAuditId = 1;
   h.getTradingMode.mockReturnValue("paper");
   h.notifyDailyLossWarning.mockResolvedValue(true);
-});
-
-// ── checkProtectiveExits — confirmation de la vente ───────────────────────────
-describe("checkProtectiveExits — la position n'est effacée que si la vente est confirmée", () => {
-  it("accepted → position effacée, log inséré, vente de la TOTALITÉ", async () => {
-    h.state.rules.push(makeRule()); // entrée 100, SL 5 % → stop 95
-    setPrice("AAPL", 94);
-    h.submitOrder.mockResolvedValue({ status: "accepted", order: { id: 42, mode: "paper" } });
-
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).toHaveBeenCalledOnce();
-    const arg = h.submitOrder.mock.calls[0][0];
-    expect(arg.side).toBe("SELL");
-    expect(arg.quantity).toBe(2); // totalité de la position
-    expect(arg.symbol).toBe("AAPL");
-    // Identifiant STABLE par position : pas de composant aléatoire/horodaté,
-    // pour que l'idempotence de submitOrder fonctionne d'un cycle à l'autre.
-    expect(arg.signalId).toBe(`auto-1-stop_loss-${new Date("2026-07-01T00:00:00Z").getTime()}`);
-
-    expect(clearingUpdates()).toHaveLength(1);
-    expect(clearingUpdates()[0].set).toMatchObject({
-      openEntryPrice: null, openQuantity: null, openSince: null, highWaterMark: null,
-    });
-    expect(exitLogs()).toHaveLength(1);
-    expect(exitLogs()[0].values).toMatchObject({ triggerType: "stop_loss", orderId: 42, side: "SELL" });
-  });
-
-  it("duplicate (ordre sain) → position effacée aussi (déjà soumis à un cycle précédent)", async () => {
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 94);
-    h.submitOrder.mockResolvedValue({ status: "duplicate", order: { status: "submitted" } });
-
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).toHaveBeenCalledOnce(); // pas de re-soumission
-    expect(clearingUpdates()).toHaveLength(1);
-    expect(exitLogs()).toHaveLength(1);
-    expect(exitLogs()[0].values).toMatchObject({ orderId: null });
-  });
-
-  it("accepted mais ordre en ERREUR courtier (mode live) → position CONSERVÉE", async () => {
-    // Contrat réel de submitOrder : en live, un échec de l'appel courtier renvoie
-    // quand même { status: "accepted", order: { status: "error" } }.
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 94);
-    h.submitOrder.mockResolvedValue({
-      status: "accepted",
-      order: { id: 99, mode: "live", status: "error", errorMessage: "SnapTrade 500" },
-    });
-
-    await checkProtectiveExits(null);
-
-    expect(clearingUpdates()).toHaveLength(0); // la vraie position est toujours ouverte
-    expect(exitLogs()).toHaveLength(0);
-  });
-
-  it("duplicate pointant sur un ordre en ERREUR → re-soumission avec id de reprise", async () => {
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 94);
-    h.submitOrder
-      .mockResolvedValueOnce({ status: "duplicate", order: { id: 50, mode: "live", status: "error" } })
-      .mockResolvedValueOnce({ status: "accepted", order: { id: 51, mode: "live", status: "submitted" } });
-
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).toHaveBeenCalledTimes(2);
-    const retryId = h.submitOrder.mock.calls[1][0].signalId as string;
-    const baseId = h.submitOrder.mock.calls[0][0].signalId as string;
-    expect(retryId.startsWith(`${baseId}-r`)).toBe(true); // id de reprise dérivé, unique
-    expect(clearingUpdates()).toHaveLength(1); // la reprise a réussi → position effacée
-    expect(exitLogs()[0].values).toMatchObject({ orderId: 51 });
-  });
-
-  it("duplicate en ERREUR puis reprise aussi en ERREUR → position CONSERVÉE", async () => {
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 94);
-    h.submitOrder
-      .mockResolvedValueOnce({ status: "duplicate", order: { status: "error" } })
-      .mockResolvedValueOnce({ status: "accepted", order: { id: 52, mode: "live", status: "error" } });
-
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).toHaveBeenCalledTimes(2);
-    expect(clearingUpdates()).toHaveLength(0);
-    expect(exitLogs()).toHaveLength(0);
-  });
-
-  it("rejected → position CONSERVÉE, aucun log, nouvelle tentative possible", async () => {
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 94);
-    h.submitOrder.mockResolvedValue({ status: "rejected", reason: "kill_switch", message: "", details: {} });
-
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).toHaveBeenCalledOnce();
-    expect(clearingUpdates()).toHaveLength(0);
-    expect(exitLogs()).toHaveLength(0);
-  });
-
-  it("exception de submitOrder → position CONSERVÉE, aucun log", async () => {
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 94);
-    h.submitOrder.mockRejectedValue(new Error("réseau"));
-
-    await checkProtectiveExits(null);
-
-    expect(clearingUpdates()).toHaveLength(0);
-    expect(exitLogs()).toHaveLength(0);
-  });
-
-  it("échec de getQuotes → aucune action, aucune vente", async () => {
-    h.state.rules.push(makeRule());
-    h.getQuotes.mockRejectedValue(new Error("yahoo down"));
-
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).not.toHaveBeenCalled();
-    expect(h.state.updates).toHaveLength(0);
-  });
-
-  it("pas de position ouverte → rien à faire", async () => {
-    h.state.rules.push(makeRule({ openEntryPrice: null, openQuantity: null }));
-    await checkProtectiveExits(null);
-    expect(h.getQuotes).not.toHaveBeenCalled();
-    expect(h.submitOrder).not.toHaveBeenCalled();
-  });
-});
-
-// ── checkProtectiveExits — déclencheurs ───────────────────────────────────────
-describe("checkProtectiveExits — déclencheurs SL / TP / trailing", () => {
-  it("prix entre stop et target → aucune sortie", async () => {
-    h.state.rules.push(makeRule()); // stop 95, target 110
-    setPrice("AAPL", 100);
-    await checkProtectiveExits(null);
-    expect(h.submitOrder).not.toHaveBeenCalled();
-  });
-
-  it("take-profit atteint → triggerType take_profit", async () => {
-    h.state.rules.push(makeRule());
-    setPrice("AAPL", 111);
-    h.submitOrder.mockResolvedValue({ status: "accepted", order: { id: 1, mode: "paper" } });
-    await checkProtectiveExits(null);
-    expect(exitLogs()[0].values).toMatchObject({ triggerType: "take_profit" });
-  });
-
-  it("trailing : le plus-haut est mis à jour quand le prix monte, sans vendre", async () => {
-    h.state.rules.push(makeRule({ trailingStopPct: "4", takeProfitPct: null, highWaterMark: "100" }));
-    setPrice("AAPL", 108);
-    await checkProtectiveExits(null);
-
-    expect(h.submitOrder).not.toHaveBeenCalled();
-    expect(hwmUpdates()).toHaveLength(1);
-    expect(hwmUpdates()[0].set.highWaterMark).toBe("108");
-  });
-
-  it("trailing : retracement sous le seuil → vente + remise à zéro du plus-haut", async () => {
-    // hwm 110 > entrée 100, trail 4 % → seuil 105.6 ; prix 105 le franchit
-    h.state.rules.push(makeRule({ trailingStopPct: "4", takeProfitPct: null, highWaterMark: "110" }));
-    setPrice("AAPL", 105);
-    h.submitOrder.mockResolvedValue({ status: "accepted", order: { id: 7, mode: "paper" } });
-
-    await checkProtectiveExits(null);
-
-    expect(exitLogs()[0].values).toMatchObject({ triggerType: "trailing_stop" });
-    expect(clearingUpdates()[0].set.highWaterMark).toBeNull();
-  });
-
-  it("trailing non armé (hwm = entrée) : c'est le stop-loss fixe qui sort", async () => {
-    // hwm jamais monté au-dessus de l'entrée → trailing inactif ; prix 94 < stop 95
-    h.state.rules.push(makeRule({ trailingStopPct: "4", highWaterMark: "100" }));
-    setPrice("AAPL", 94);
-    h.submitOrder.mockResolvedValue({ status: "accepted", order: { id: 8, mode: "paper" } });
-
-    await checkProtectiveExits(null);
-
-    expect(exitLogs()[0].values).toMatchObject({ triggerType: "stop_loss" });
-  });
-
-  it("trailing armé prioritaire sur le stop fixe quand les deux sont franchis", async () => {
-    // hwm 120, trail 4 % → seuil 115.2 ; prix 94 franchit trailing ET stop → trailing d'abord
-    h.state.rules.push(makeRule({ trailingStopPct: "4", highWaterMark: "120" }));
-    setPrice("AAPL", 94);
-    h.submitOrder.mockResolvedValue({ status: "accepted", order: { id: 9, mode: "paper" } });
-
-    await checkProtectiveExits(null);
-
-    expect(exitLogs()[0].values).toMatchObject({ triggerType: "trailing_stop" });
-  });
-
-  it("hwm absent en base → repli sur le prix d'entrée (pas de fausse vente)", async () => {
-    h.state.rules.push(makeRule({ trailingStopPct: "4", takeProfitPct: null, stopLossPct: null, highWaterMark: null }));
-    setPrice("AAPL", 97); // 97 ≤ 100×0.96 ? non (96) — et hwm=entrée → non armé
-    await checkProtectiveExits(null);
-    expect(h.submitOrder).not.toHaveBeenCalled();
-  });
 });
 
 // Instant "bourse ouverte" : mercredi 12 août 2026, 11h00 ET (15h00 UTC).

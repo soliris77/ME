@@ -1,0 +1,4 @@
+ALTER TABLE protective_orders
+  ADD COLUMN IF NOT EXISTS failure_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE protective_orders
+  ADD COLUMN IF NOT EXISTS emergency_close_issued BOOLEAN NOT NULL DEFAULT FALSE;

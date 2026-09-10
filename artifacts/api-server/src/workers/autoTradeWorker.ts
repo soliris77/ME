@@ -2,13 +2,13 @@
  * Auto-Trade Worker — Moteur d'automatisation du trading
  * ─────────────────────────────────────────────────────────────────────────────
  * Toutes les 60 secondes :
- *   1. checkProtectiveExits() — surveille les positions ouvertes (SL/TP)
+ *   1. réconciliation des protections côté courtier
  *   2. checkDailyLossCircuitBreaker() — coupe-circuit de perte journalière
  *   3. processRule() — évalue chaque règle active (signal → ordre ou notif)
  */
 import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
-import { yahooFinance, getQuotes, cotationPerimee, ageCotationMs } from "../lib/yahoo";
+import { yahooFinance, getQuotes } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import type { OHLCPoint } from "../lib/patternDetect";
 import { submitOrder } from "../lib/orderEngine";
@@ -23,9 +23,9 @@ import { isMarketOpen } from "../lib/risk";
 import { computeClosureWarnings } from "../routes/market";
 import { resolveBrokerAdapter } from "../lib/brokerAdapter";
 import type { OrderResult } from "@workspace/broker";
+import { protectiveOrderService } from "../lib/protectiveOrders";
 
 const WORKER_INTERVAL_MS = 60_000;
-const AGE_MAX_COTATION_MS = 5 * 60 * 1000;
 
 export interface ClosureContext {
   /** La bourse du symbole est-elle ouverte en ce moment ? */
@@ -137,206 +137,6 @@ async function sendAutoTradeNotification(params: {
     }
   } catch (err) {
     logger.error({ err, symbol }, "autoTradeWorker: notification failed");
-  }
-}
-
-// ── C3 — Surveillance stop-loss / take-profit ─────────────────────────────────
-// Appelée à chaque cycle AVANT processRule(). Ignore cooldown et maxTradesPerDay —
-// une sortie protectrice ne doit pas être bloquée par des garde-fous d'entrée.
-export async function checkProtectiveExits(
-  conn: typeof brokerConnectionsTable.$inferSelect | null,
-): Promise<void> {
-  const allRules = await db.select().from(autoTradeRulesTable)
-    .where(eq(autoTradeRulesTable.enabled, true));
-
-  const rulesWithPositions = allRules.filter(r =>
-    r.openQuantity && parseFloat(r.openQuantity as string) > 0 &&
-    r.openEntryPrice &&
-    (r.stopLossPct || r.takeProfitPct || r.trailingStopPct),
-  );
-
-  if (rulesWithPositions.length === 0) return;
-
-  const symbols = [...new Set(rulesWithPositions.map(r => r.symbol))];
-  const quotesMap: Record<
-    string,
-    { price: number; marketTime: string | null; marketState: string | null }
-  > = {};
-  try {
-    for (const q of await getQuotes(symbols)) {
-      if (!q.symbol || !Number.isFinite(q.price) || q.price <= 0) continue;
-      quotesMap[q.symbol] = {
-        price: q.price,
-        marketTime: q.marketTime,
-        marketState: q.marketState,
-      };
-    }
-  } catch (err) {
-    logger.warn({ err }, "autoTradeWorker: getQuotes failed in checkProtectiveExits");
-    return;
-  }
-
-  for (const rule of rulesWithPositions) {
-    const quote = quotesMap[rule.symbol];
-    if (!quote?.price) continue;
-
-    if (cotationPerimee(quote, AGE_MAX_COTATION_MS)) {
-      const ageMin = Math.round((ageCotationMs(quote) ?? 0) / 60_000);
-      logger.warn(
-        { symbol: rule.symbol, ruleId: rule.id, ageMinutes: ageMin },
-        "autoTradeWorker: cotation perimee marche ouvert — sortie protectrice suspendue",
-      );
-      continue;
-    }
-
-    const currentPrice = quote.price;
-    const entryPrice = parseFloat(rule.openEntryPrice as string);
-    const openQty   = parseFloat(rule.openQuantity as string);
-
-    let triggerType: "stop_loss" | "take_profit" | "trailing_stop" | null = null;
-
-    // ── Trailing stop : mettre à jour le plus-haut, vendre si retracement ─────
-    let hwm = rule.highWaterMark ? parseFloat(rule.highWaterMark as string) : entryPrice;
-    if (rule.trailingStopPct) {
-      if (currentPrice > hwm) {
-        hwm = currentPrice;
-        await db.update(autoTradeRulesTable)
-          .set({ highWaterMark: String(hwm), updatedAt: new Date() })
-          .where(eq(autoTradeRulesTable.id, rule.id));
-      }
-      const trailPrice = hwm * (1 - parseFloat(rule.trailingStopPct as string) / 100);
-      // Le trailing ne se déclenche que si la position est au moins revenue au-dessus
-      // de l'entrée une fois (hwm > entry), sinon le stop-loss fixe fait le travail.
-      if (currentPrice <= trailPrice && hwm > entryPrice) triggerType = "trailing_stop";
-    }
-
-    if (!triggerType && rule.stopLossPct) {
-      const stopPrice = entryPrice * (1 - parseFloat(rule.stopLossPct as string) / 100);
-      if (currentPrice <= stopPrice) triggerType = "stop_loss";
-    }
-    if (!triggerType && rule.takeProfitPct) {
-      const targetPrice = entryPrice * (1 + parseFloat(rule.takeProfitPct as string) / 100);
-      if (currentPrice >= targetPrice) triggerType = "take_profit";
-    }
-    if (!triggerType) continue;
-
-    logger.info(
-      { ruleId: rule.id, symbol: rule.symbol, triggerType, currentPrice, entryPrice },
-      "autoTradeWorker: sortie protectrice déclenchée",
-    );
-
-    // Identifiant STABLE par position (pas de Date.now) : si le processus est
-    // interrompu après la soumission mais avant l'effacement de l'état, le cycle
-    // suivant retombera sur "duplicate" au lieu de vendre une deuxième fois.
-    const positionKey = rule.openSince ? new Date(rule.openSince).getTime() : "x";
-    const signalId = `auto-${rule.id}-${triggerType}-${positionKey}`;
-    const brokerConnection = conn?.status === "connected"
-      ? { snaptradeUserId: conn.snaptradeUserId!, snaptradeUserSecret: conn.snaptradeUserSecret! }
-      : null;
-
-    let orderId: number | undefined;
-    let orderMode: "paper" | "live" = "paper";
-    let sellConfirmed = false;
-    try {
-      const submitExit = (id: string) => submitOrder({
-        signalId: id,
-        symbol: rule.symbol,
-        side: "SELL",
-        quantity: openQty,          // sortir la TOTALITÉ de la position
-        accountId: rule.accountId ?? undefined,
-        expectedPrice: currentPrice,
-        source: "auto-signal",
-        brokerConnection,
-      });
-
-      let result = await submitExit(signalId);
-
-      // En mode live, submitOrder renvoie "duplicate" si le signalId existe déjà.
-      // Si cette tentative précédente a ÉCHOUÉ au courtier (status "error"),
-      // la position est toujours ouverte : re-soumettre avec un id de reprise unique.
-      if (result.status === "duplicate" && (result.order as { status?: string }).status === "error") {
-        logger.warn(
-          { ruleId: rule.id, symbol: rule.symbol, signalId },
-          "autoTradeWorker: tentative de sortie précédente en erreur — nouvelle soumission",
-        );
-        result = await submitExit(`${signalId}-r${Date.now()}`);
-      }
-
-      // Contrat de confirmation : la vente n'est confirmée QUE si l'ordre
-      // renvoyé n'est PAS en erreur. submitOrder peut renvoyer "accepted" avec
-      // un ordre status "error" (échec de l'appel courtier en mode live) :
-      // dans ce cas la position réelle est toujours ouverte, il ne faut JAMAIS
-      // effacer l'état de suivi.
-      const orderRow = (result.status === "accepted" || result.status === "duplicate")
-        ? (result.order as { id?: number; mode?: string; status?: string })
-        : null;
-      if (orderRow && orderRow.status !== "error") {
-        orderId = orderRow.id;
-        orderMode = orderRow.mode === "live" ? "live" : "paper";
-        sellConfirmed = true;
-      } else if (orderRow) {
-        logger.warn(
-          { ruleId: rule.id, symbol: rule.symbol, orderStatus: orderRow.status },
-          "autoTradeWorker: vente protectrice en erreur côté courtier — position conservée, nouvelle tentative au prochain cycle",
-        );
-      } else {
-        const failed = result as { status: string; reason?: string };
-        logger.warn(
-          { ruleId: rule.id, symbol: rule.symbol, status: failed.status, reason: failed.reason },
-          "autoTradeWorker: vente protectrice rejetée — position conservée, nouvelle tentative au prochain cycle",
-        );
-      }
-    } catch (err) {
-      logger.error({ err, ruleId: rule.id }, "autoTradeWorker: submitOrder sortie protectrice échoué — position conservée");
-    }
-
-    // Ne JAMAIS effacer l'état de la position si la vente n'a pas été confirmée :
-    // sinon le suivi SL/TP/trailing s'arrête alors que la position réelle reste ouverte.
-    if (!sellConfirmed) continue;
-
-    // Log en base
-    const slNote  = rule.stopLossPct   ? `Stop : ${(entryPrice * (1 - parseFloat(rule.stopLossPct as string) / 100)).toFixed(2)} $` : "";
-    const tpNote  = rule.takeProfitPct ? `Target : ${(entryPrice * (1 + parseFloat(rule.takeProfitPct as string) / 100)).toFixed(2)} $` : "";
-    const trailNote = rule.trailingStopPct ? `Trail : -${rule.trailingStopPct}% depuis ${hwm.toFixed(2)} $` : "";
-    const exitVerdict =
-      triggerType === "stop_loss"     ? "FORTE VENTE" :
-      triggerType === "trailing_stop" ? "PROTECTION GAINS" : "PRISE DE PROFIT";
-    await db.insert(autoTradeLogsTable).values({
-      ruleId: rule.id,
-      symbol: rule.symbol,
-      side: "SELL",
-      triggerType,
-      signalScore: null,
-      signalVerdict: exitVerdict,
-      price: String(currentPrice),
-      quantity: String(openQty),
-      orderId: orderId ?? null,
-      notificationSent: false,
-      notes: [
-        `Entrée : ${entryPrice.toFixed(2)} $`,
-        triggerType === "stop_loss" ? slNote : triggerType === "trailing_stop" ? trailNote : tpNote,
-      ].filter(Boolean).join(" | "),
-    });
-
-    // Effacer la position (et le plus-haut du trailing)
-    await db.update(autoTradeRulesTable)
-      .set({ openEntryPrice: null, openQuantity: null, openSince: null, highWaterMark: null, updatedAt: new Date() })
-      .where(eq(autoTradeRulesTable.id, rule.id));
-
-    // Notification SMS
-    if (rule.notifyOnSignal) {
-      await sendAutoTradeNotification({
-        symbol: rule.symbol,
-        side: "SELL",
-        verdict: exitVerdict,
-        score: 0,
-        price: currentPrice,
-        quantity: openQty,
-        triggerType,
-        orderMode,
-        closureNote: getClosureContext(rule.symbol).closureNote,
-      }).catch((e) => logger.error({ e }, "autoTradeWorker: notification sortie protectrice échouée"));
-    }
   }
 }
 
@@ -506,6 +306,24 @@ export async function syncLiveOrderFills(
           filledQuantity: rec.filledQuantity != null ? String(rec.filledQuantity) : o.filledQuantity,
         })
         .where(eq(ordersTable.id, o.id));
+      if ((newStatus === "filled" || newStatus === "partially_filled") && o.side === "BUY" && o.brokerAccountId) {
+        const rule = (await db.select().from(autoTradeRulesTable)
+          .where(eq(autoTradeRulesTable.symbol, o.symbol))).find((r) => r.accountId === o.brokerAccountId);
+        if (rule) {
+          try {
+            await protectiveOrderService.protectFilledEntry({
+              accountId: o.brokerAccountId, symbol: o.symbol, parentOrderId: String(o.id),
+              quantity: Number(rec.filledQuantity ?? o.filledQuantity ?? o.quantity),
+              entryPrice: Number(rec.averagePrice ?? o.fillPrice ?? o.expectedPrice),
+              stopLossPct: rule.stopLossPct ? Number(rule.stopLossPct) : null,
+              takeProfitPct: rule.takeProfitPct ? Number(rule.takeProfitPct) : null,
+              adapter: resolveBrokerAdapter({ snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret }),
+            });
+          } catch (error) {
+            logger.error({ error, orderId: o.id }, "autoTradeWorker: failed to install broker protection");
+          }
+        }
+      }
       logger.info(
         { orderId: o.id, symbol: o.symbol, newStatus, executionPrice: rec.averagePrice, filledQuantity: rec.filledQuantity },
         "autoTradeWorker: exécution live synchronisée depuis SnapTrade",
@@ -1436,12 +1254,31 @@ async function runAutoTradeCycle(): Promise<void> {
     resolveConnection(),
   ]);
 
-  // 1. Sorties protectrices (SL/TP/trailing) — toujours vérifiées en premier,
-  // ignorent cooldown/quota. Exécutées avant le coupe-circuit pour que les
-  // pertes réalisées par ces sorties soient comptées dans le même cycle.
-  await checkProtectiveExits(conn).catch((err) =>
-    logger.error({ err }, "autoTradeWorker: checkProtectiveExits échoué"),
-  );
+  // 1. Broker-side protection reconciliation — always before new decisions.
+  // Exécutée avant le coupe-circuit pour que les pertes réalisées par les
+  // protections côté courtier soient comptées dans le même cycle.
+  if (conn?.status === "connected") {
+    try {
+      const adapter = resolveBrokerAdapter({ snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret });
+      const accountIds = [...new Set(rules.map((r) => r.accountId).filter((id): id is string => !!id))];
+      for (const accountId of accountIds) {
+        await protectiveOrderService.reconcile(accountId, adapter);
+        const positions = await adapter.getPositions(accountId);
+        for (const position of positions) {
+          const rule = rules.find((candidate) => candidate.accountId === accountId && candidate.symbol === position.symbol);
+          if (!rule || (!rule.stopLossPct && !rule.takeProfitPct)) continue;
+          await protectiveOrderService.reconcileOpenPosition({
+            accountId, symbol: position.symbol, parentOrderId: `position-${accountId}-${position.symbol}`,
+            quantity: position.quantity, entryPrice: position.averagePrice || position.currentPrice || 0,
+            stopLossPct: rule.stopLossPct ? Number(rule.stopLossPct) : null,
+            takeProfitPct: rule.takeProfitPct ? Number(rule.takeProfitPct) : null, adapter,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "autoTradeWorker: broker protection reconciliation failed");
+    }
+  }
 
   // 2. Coupe-circuit de perte journalière — évalué à chaque cycle, même sans
   // règle active : des pertes peuvent provenir d'ordres manuels, de règles
