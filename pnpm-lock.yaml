@@ -179,6 +179,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/indicators':
+        specifier: workspace:*
+        version: link:../../packages/indicators
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -583,6 +586,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/indicators':
+        specifier: workspace:*
+        version: link:../../packages/indicators
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -710,6 +716,12 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  packages/indicators:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@25.9.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
 
   scripts:
     devDependencies:

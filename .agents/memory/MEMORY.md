@@ -25,3 +25,4 @@
 - [Validation des exercices pratiques](practice-validation.md) — badge « Exercice fait » : critères serveur par slug de leçon + table practice_events pour les outils sans persistance ; garder les slugs alignés avec parcoursContent.ts.
 - [Auto-Trader System](auto-trader-system.md) — tables auto_trade_rules + auto_trade_logs; worker 60s; routes /api/auto-trader/*; page /auto-trader; SMS Twilio sur signal.
 - [Armement temporaire du live](live-trading-arm.md) — le mode live exige toujours un compte, des plafonds positifs et une expiration; paper reste l’état sûr par défaut.
+- [Installation pnpm du workspace](pnpm-workspace-install.md) — un install offline peut échouer sur les métadonnées de dépendances déjà présentes; garder le registre géré comme repli.

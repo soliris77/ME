@@ -2,7 +2,7 @@ import { db, alertsTable, notificationsTable } from "@workspace/db";
 import { eq, and, lt, isNotNull, sql, inArray } from "drizzle-orm";
 import { getQuotes, yahooFinance } from "../lib/yahoo";
 import { sendEmail, alertEmailHtml, patternAlertEmailHtml, signalAlertEmailHtml } from "../lib/emailClient";
-import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
+import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import { sendSms } from "../lib/smsClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { detectCandlePatterns, type OHLCPoint, type CandlePattern } from "../lib/patternDetect";

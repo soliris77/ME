@@ -88,7 +88,7 @@ vi.mock("../../lib/yahoo", () => ({ getQuotes: vi.fn(), yahooFinance: { chart: v
 vi.mock("../../lib/emailClient", () => ({
   sendEmail: vi.fn(), alertEmailHtml: vi.fn(), patternAlertEmailHtml: vi.fn(), signalAlertEmailHtml: vi.fn(),
 }));
-vi.mock("../../lib/signals", () => ({ computeIndicators: vi.fn(), analyzeTradingSignals: vi.fn() }));
+vi.mock("@workspace/indicators", () => ({ computeIndicators: vi.fn(), analyzeTradingSignals: vi.fn() }));
 vi.mock("../../lib/smsClient", () => ({ sendSms: vi.fn() }));
 vi.mock("../../lib/notificationPrefs", () => ({ resolveDestinations: vi.fn() }));
 vi.mock("../../lib/patternDetect", () => ({ detectCandlePatterns: vi.fn() }));

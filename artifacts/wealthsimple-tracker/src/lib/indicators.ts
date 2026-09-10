@@ -158,7 +158,7 @@ function ema(data: number[], period: number): number[] {
   return result;
 }
 
-function rsi(closes: number[], period = 14): (number | undefined)[] {
+function calculateLegacyRsi(closes: number[], period = 14): (number | undefined)[] {
   const result: (number | undefined)[] = new Array(closes.length).fill(undefined);
   if (closes.length < period + 1) return result;
 
@@ -241,7 +241,7 @@ export function computeIndicators(history: OHLCPoint[]): IndicatorPoint[] {
   const signalOffset = macdLineArr.findIndex((v) => !isNaN(v));
   const macdSignalFull = ema(validMacd, 9);
 
-  const rsiArr = rsi(closes, 14);
+  const rsiArr = calculateLegacyRsi(closes, 14);
   const bbArr = bollingerBands(closes, 20, 2);
   const atrArr = computeATRSeries(history, 14);
 

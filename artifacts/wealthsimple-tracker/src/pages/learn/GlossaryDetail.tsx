@@ -6,7 +6,8 @@ import { useGetWatchlist, useGetQuoteHistory } from "@workspace/api-client-react
 import { GLOSSAIRE, GLOSSARY_MISTAKES } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import NotFound from "@/pages/not-found";
-import { computeIndicators, computeOBV, computeMomentum, detectDivergences, type IndicatorPoint, type Divergence, type OHLCPoint } from "@/lib/indicators";
+import { computeIndicators, type IndicatorPoint, type OHLCPoint } from "@workspace/indicators";
+import { computeOBV, computeMomentum, detectDivergences, type Divergence } from "@/lib/indicators";
 
 // Termes du glossaire qui correspondent à des indicateurs numériques calculés
 // en direct — pour ceux-là, on affiche la valeur actuelle plutôt que juste

@@ -7,7 +7,7 @@
  * Modélise les positions longues (score >= minScore) ET short
  * (score <= -minScore) avec SL/TP/trailing inversés pour le short.
  */
-import { computeIndicators, analyzeTradingSignals } from "./signals";
+import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import type { OHLCPoint } from "./patternDetect";
 
 export interface BacktestParams {

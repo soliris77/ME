@@ -5,11 +5,20 @@ import {
   ResponsiveContainer, CartesianGrid, ReferenceLine, ReferenceArea, Area, AreaChart, Brush,
 } from "recharts";
 import {
-  computeIndicators, analyzeTradingSignals, detectCandlePatterns, detectPriceGaps, detectSupportResistance,
+  computeIndicators,
+  analyzeTradingSignals,
+} from "@workspace/indicators";
+import type {
+  IndicatorPoint,
+  OHLCPoint,
+  SignalStrength,
+} from "@workspace/indicators";
+import {
+  detectCandlePatterns, detectPriceGaps, detectSupportResistance,
   getVolatilityInfo, detectMarketStructure, computeFibonacciLevels, detectDivergences, backtestPatterns, predictNextMove,
 } from "@/lib/indicators";
 import type {
-  IndicatorPoint, OHLCPoint, CandlePattern, PriceGap, SRLevel, VolatilityInfo, MarketStructure, FibonacciResult, Divergence, PatternBacktestStat, CandlePrediction, SignalStrength,
+  CandlePattern, PriceGap, SRLevel, VolatilityInfo, MarketStructure, FibonacciResult, Divergence, PatternBacktestStat, CandlePrediction,
 } from "@/lib/indicators";
 import {
   TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart,

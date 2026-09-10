@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const { scoreByClose } = vi.hoisted(() => ({ scoreByClose: new Map<number, number>() }));
 
-vi.mock("../signals", () => ({
+vi.mock("@workspace/indicators", () => ({
   computeIndicators: (h: unknown) => h,
   analyzeTradingSignals: (_data: unknown, close: number) => ({
     score: scoreByClose.get(close) ?? 0,

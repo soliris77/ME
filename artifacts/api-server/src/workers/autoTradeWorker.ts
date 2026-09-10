@@ -9,7 +9,7 @@
 import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { yahooFinance, getQuotes, cotationPerimee, ageCotationMs } from "../lib/yahoo";
-import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
+import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import type { OHLCPoint } from "../lib/patternDetect";
 import { submitOrder } from "../lib/orderEngine";
 import { sendSms } from "../lib/smsClient";

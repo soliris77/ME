@@ -7,7 +7,8 @@ import { useGetWatchlist } from "@workspace/api-client-react";
 import { CANDLES, CANDLE_MISTAKES, CANDLE_RELATED_GLOSSARY, GLOSSAIRE } from "@/data/learnContent";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import NotFound from "@/pages/not-found";
-import { detectCandlePatterns, isIntradayHistory, formatCandleDate, type OHLCPoint } from "@/lib/indicators";
+import { isIntradayHistory, formatCandleDate, type OHLCPoint } from "@workspace/indicators";
+import { detectCandlePatterns } from "@/lib/indicators";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 

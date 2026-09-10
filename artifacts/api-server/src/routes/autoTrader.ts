@@ -19,7 +19,7 @@ import type { OHLCPoint } from "../lib/patternDetect";
 import { getRiskSettings } from "../lib/settings";
 import { getTradingMode } from "../lib/tradingMode";
 import { listPositions } from "../lib/snaptrade";
-import { computeIndicators, analyzeTradingSignals } from "../lib/signals";
+import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import { buildSuggestions, type AdvisorPosition, type AdvisorSignal } from "../lib/ruleAdvisor";
 import {
   computeGlobalRisk, guessCurrency,

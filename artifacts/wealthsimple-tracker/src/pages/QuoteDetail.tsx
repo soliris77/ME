@@ -26,7 +26,7 @@ import {
   CartesianGrid, Brush, ReferenceArea, Customized,
 } from "recharts";
 import TechnicalAnalysis from "@/components/TechnicalAnalysis";
-import { isIntradayHistory, formatCandleDate } from "@/lib/indicators";
+import { isIntradayHistory, formatCandleDate } from "@workspace/indicators";
 import { detectCandlePatterns } from "@/lib/patternDetect";
 import type { CandlePattern } from "@/lib/patternDetect";
 import { useChartNotes, useAddChartNote, useDeleteChartNote } from "@/lib/useChartNotes";

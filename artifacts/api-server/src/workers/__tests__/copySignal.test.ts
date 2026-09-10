@@ -110,7 +110,7 @@ vi.mock("drizzle-orm", () => ({
 }));
 vi.mock("../../lib/yahoo", () => ({ yahooFinance: { chart: h.chart }, getQuotes: h.getQuotes }));
 vi.mock("../../lib/orderEngine", () => ({ submitOrder: h.submitOrder }));
-vi.mock("../../lib/signals", () => ({
+vi.mock("@workspace/indicators", () => ({
   computeIndicators: (x: unknown) => x,
   analyzeTradingSignals: h.analyzeTradingSignals,
 }));

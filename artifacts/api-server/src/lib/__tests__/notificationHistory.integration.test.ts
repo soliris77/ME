@@ -64,7 +64,7 @@ vi.mock("../smsClient", () => ({ sendSms: h.sendSms }));
 vi.mock("../webPush", () => ({ sendPushToAll: h.sendPushToAll }));
 vi.mock("../notificationPrefs", () => ({ resolveDestinations: h.resolveDestinations }));
 vi.mock("../patternDetect", () => ({ detectCandlePatterns: h.detectCandlePatterns }));
-vi.mock("../signals", () => ({
+vi.mock("@workspace/indicators", () => ({
   computeIndicators: h.computeIndicators,
   analyzeTradingSignals: h.analyzeTradingSignals,
 }));

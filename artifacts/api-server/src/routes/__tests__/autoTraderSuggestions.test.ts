@@ -73,7 +73,7 @@ vi.mock("../../lib/globalRisk", () => ({
   computeGlobalRisk: vi.fn(), guessCurrency: () => "USD",
 }));
 vi.mock("../../lib/backtest", () => ({ runBacktest: vi.fn(), WARMUP: 55 }));
-vi.mock("../../lib/signals", () => ({
+vi.mock("@workspace/indicators", () => ({
   computeIndicators: vi.fn(() => []),
   analyzeTradingSignals: vi.fn(() => ({ score: 0, overall: "NEUTRE", signals: [], recommendation: "", beginnerSummary: "" })),
 }));

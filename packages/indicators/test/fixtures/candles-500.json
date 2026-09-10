@@ -1,0 +1,49 @@
+{
+  "count": 500,
+  "startTimestamp": 1704067200000,
+  "intervalMs": 86400000,
+  "initialPrice": 100,
+  "expected": {
+    "direction": "short",
+    "confidence": 0.25,
+    "reasons": [
+      "RSI en zone de surachat",
+      "MACD au-dessus de sa ligne de signal",
+      "Moyennes mobiles en configuration mixte"
+    ],
+    "indicators": {
+      "rsi": 76.19050138795362,
+      "macd": {
+        "line": 0.5182134549153261,
+        "signal": -0.25937650877826,
+        "histogram": 0.7775899636935861
+      },
+      "atr": 2.049408727536334,
+      "supports": [
+        118.74278804602672,
+        116.45484942072443,
+        114.66725794078654
+      ],
+      "resistances": [
+        132.8373677364484
+      ],
+      "fibonacci": {
+        "0.0%": 120.43175166503609,
+        "23.6%": 123.37300238006922,
+        "38.2%": 125.192589686827,
+        "50.0%": 126.66321504434359,
+        "61.8%": 128.13384040186014,
+        "78.6%": 130.22761209730746,
+        "100.0%": 132.89467842365107
+      },
+      "patterns": [],
+      "divergences": [
+        "short:rsi",
+        "short:macd"
+      ],
+      "marketStructure": "range"
+    },
+    "suggestedStopLoss": 131.35661051976908,
+    "suggestedTakeProfit": 123.15897560962375
+  }
+}
