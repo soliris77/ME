@@ -6,8 +6,8 @@
  *   2. checkDailyLossCircuitBreaker() — coupe-circuit de perte journalière
  *   3. processRule() — évalue chaque règle active (signal → ordre ou notif)
  */
-import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable } from "@workspace/db";
-import { eq, and, gte, sql, inArray } from "drizzle-orm";
+import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable, workerHealthTable, protectiveOrdersTable } from "@workspace/db";
+import { eq, and, gte, sql, inArray, desc } from "drizzle-orm";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import type { OHLCPoint } from "../lib/patternDetect";
@@ -20,7 +20,7 @@ import { getTradingMode } from "../lib/tradingMode";
 import { notifyKillSwitchActivated, notifyDailyLossWarning, notifyStaleData } from "../lib/notifications";
 import { getAiSecondOpinion, type AiReviewResult } from "../lib/aiReview";
 import { isMarketOpen } from "../lib/risk";
-import { computeClosureWarnings } from "../routes/market";
+import { computeClosureWarnings } from "../lib/closureWarnings";
 import { resolveBrokerAdapter } from "../lib/brokerAdapter";
 import type { OrderResult } from "@workspace/broker";
 import { protectiveOrderService } from "../lib/protectiveOrders";
@@ -44,6 +44,30 @@ const VALID_TIMEFRAMES: readonly Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "
 const marketDataFeeds = new Map<"equity" | "crypto", MarketDataFeed>();
 const staleDataSince = new Map<number, number>();
 const staleDataNotified = new Set<number>();
+let latestCandleAt: Date | null = null;
+
+export async function getWorkerHealth() {
+  const [row] = await db.select().from(workerHealthTable).where(eq(workerHealthTable.id, 1));
+  return row ?? null;
+}
+
+async function persistWorkerHealth(lastCycleExecutedAt?: Date, killSwitchActive?: boolean) {
+  try {
+    const [conn] = await db.select({ tradingHalted: brokerConnectionsTable.tradingHalted })
+      .from(brokerConnectionsTable).orderBy(desc(brokerConnectionsTable.id)).limit(1);
+    const pending = await db.select({ id: protectiveOrdersTable.id }).from(protectiveOrdersTable)
+      .where(inArray(protectiveOrdersTable.status, ["pending"]));
+    await db.update(workerHealthTable).set({
+      ...(lastCycleExecutedAt ? { lastCycleExecutedAt } : {}),
+      ...(latestCandleAt ? { latestCandleAt } : {}),
+      killSwitchActive: killSwitchActive ?? conn?.tradingHalted ?? false,
+      pendingProtectiveOrderCount: pending.length,
+      updatedAt: new Date(),
+    }).where(eq(workerHealthTable.id, 1));
+  } catch (err) {
+    logger.warn({ err }, "autoTradeWorker: unable to persist worker health");
+  }
+}
 
 /** Runtime injection point for exchange feeds (also keeps tests network-free). */
 export function configureMarketDataFeeds(feeds: Partial<Record<"equity" | "crypto", MarketDataFeed>>): void {
@@ -703,6 +727,11 @@ export async function processRule(
         return;
       }
       const candles = await feed.getCandles(rule.symbol, timeframe, 120);
+      const newest = candles.at(-1);
+      if (newest) {
+        const receivedAt = new Date(newest.timestamp);
+        if (!latestCandleAt || receivedAt > latestCandleAt) latestCandleAt = receivedAt;
+      }
       const last = candles[candles.length - 1];
       if (!last) return;
       const staleReason = staleDataReason(last.timestamp, timeframe, now);
@@ -1366,7 +1395,10 @@ async function runAutoTradeCycle(): Promise<void> {
     logger.error({ err }, "autoTradeWorker: checkDailyLossCircuitBreaker échoué"),
   );
 
-  if (rules.length === 0) return;
+  if (rules.length === 0) {
+    await persistWorkerHealth(new Date());
+    return;
+  }
 
   logger.info({ count: rules.length }, "autoTradeWorker: cycle démarré");
 
@@ -1379,6 +1411,7 @@ async function runAutoTradeCycle(): Promise<void> {
     }
     await new Promise((r) => setTimeout(r, 800));
   }
+  await persistWorkerHealth(new Date());
 }
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;

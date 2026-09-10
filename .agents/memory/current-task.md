@@ -21,6 +21,6 @@ description: Soliris — Lot 1, package partagé @workspace/indicators
 - ✅ FAIT — Étape 9 : Reprendre et terminer le Lot 2 avec les adaptateurs courtier disponibles
 - ✅ FAIT — Étape 10 : Réaliser le Lot 5 — données de marché crypto et planificateur 24/7
 - ✅ FAIT — Étape 11 : Réaliser le Lot 6 — garde-fous et mode dry-run
-- → EN COURS — Étape 12 : Réaliser le Lot 7 — déploiement Reserved VM
+- → EN COURS — Étape 12 : Lot 7 codé et cible Reserved VM configurée — attente des secrets Kraken avant mise en service
 - ☐ À FAIRE — Étape 13 : Reprendre la tâche du globe interactif après le chantier crypto
 - ☐ À FAIRE — Étape 11 : Reprendre la tâche du globe interactif après le chantier crypto

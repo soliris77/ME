@@ -63,3 +63,8 @@ args = "pnpm --filter @workspace/api-server test"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[deployment]
+deploymentTarget = "vm"
+run = ["pnpm", "--filter", "@workspace/api-server", "deploy:worker"]
+build = ["pnpm", "--filter", "@workspace/api-server", "build"]

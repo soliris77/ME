@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
-import { db, autoTradeRulesTable, brokerConnectionsTable } from "@workspace/db";
+import { db, autoTradeRulesTable, brokerConnectionsTable, workerHealthTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { resolveCredentials, getSnaptradeClientAsync } from "../lib/snaptrade";
@@ -9,6 +9,7 @@ import { resolveCred } from "../lib/persistCreds";
 import { isWhopConfigured } from "../whopClient";
 import { getTradingMode } from "../lib/tradingMode";
 import { getAutoTradeWorkerStatus } from "../workers/autoTradeWorker";
+import { databaseLeaseRepository } from "../workers/workerLease";
 
 const router: IRouter = Router();
 const CHECK_TIMEOUT_MS = 3_000;
@@ -41,6 +42,23 @@ async function bounded<T>(operation: Promise<T>): Promise<T | null> {
 router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({ status: "ok" });
   res.json(data);
+});
+
+router.get("/health/worker", async (_req, res) => {
+  const [health, lease] = await Promise.all([
+    db.select().from(workerHealthTable).where(eq(workerHealthTable.id, 1)).then((rows) => rows[0] ?? null),
+    databaseLeaseRepository.status(),
+  ]);
+  return res.json({
+    lastCycleExecutedAt: health?.lastCycleExecutedAt?.toISOString() ?? null,
+    latestCandleAt: health?.latestCandleAt?.toISOString() ?? null,
+    killSwitchActive: health?.killSwitchActive ?? false,
+    pendingProtectiveOrderCount: health?.pendingProtectiveOrderCount ?? 0,
+    lease: {
+      held: Boolean(lease.ownerToken && lease.leaseUntil && lease.leaseUntil > new Date()),
+      leaseUntil: lease.leaseUntil?.toISOString() ?? null,
+    },
+  });
 });
 
 /**

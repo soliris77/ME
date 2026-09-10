@@ -1,7 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startAlertWorker } from "./workers/alertWorker";
-import { startAutoTradeWorker } from "./workers/autoTradeWorker";
 import { startDailySummaryWorker } from "./workers/dailySummaryWorker";
 import { db, brokerConnectionsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
@@ -53,7 +52,6 @@ app.listen(port, (err) => {
 
   const alertIntervalMs = Number(process.env.ALERT_CHECK_INTERVAL_MS ?? "90000");
   startAlertWorker(Number.isFinite(alertIntervalMs) && alertIntervalMs > 0 ? alertIntervalMs : undefined);
-  startAutoTradeWorker();
   startDailySummaryWorker();
 
   // Persiste les credentials depuis env vars → DB si absents en base (premier démarrage)
