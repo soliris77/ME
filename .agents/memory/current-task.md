@@ -1,16 +1,18 @@
 ---
 name: Current task checkpoint
-description: Globe interactif et observatoire mondial animé
+description: Soliris — Lot 1, package partagé @workspace/indicators
 ---
 
 # Tâche en cours
 
-**Instruction utilisateur :** Permettre de tourner le globe à la main, ajouter des animations et des scintillements d’étoiles, et lui donner une place utile dans l’expérience.
-**Démarrée le :** 2026-09-08
+**Instruction utilisateur :** Construire d'abord le nouveau projet crypto de Soliris selon le cahier des charges, puis reprendre la tâche du globe interactif à la fin.
+**Démarrée le :** 2026-09-10
 
-## Plan d’exécution
+## Plan d'exécution
 
-- ✅ FAIT — Étape 1 : Identifier l’emplacement comme observatoire des marchés
-- → EN COURS — Étape 2 : Ajouter rotation manuelle, animations et scintillement spatial
-- ☐ À FAIRE — Étape 3 : Renforcer la valeur informative sur accueil et tableau de bord
-- ☐ À FAIRE — Étape 4 : Vérifier interaction, accessibilité, build et rendu
+- ✅ FAIT — Étape 1 : Recenser les implémentations existantes d'analyse des signaux et leurs différences
+- → EN COURS — Étape 2 : Implémenter @workspace/indicators à partir de la source de vérité validée
+- ☐ À FAIRE — Étape 3 : Migrer le backend et le frontend vers le package partagé, supprimer les copies mortes
+- ☐ À FAIRE — Étape 4 : Ajouter la fixture de parité et les tests du Lot 1
+- ☐ À FAIRE — Étape 5 : Vérifier démarrage, graphiques et auto-trader, puis livrer le Lot 1
+- ☐ À FAIRE — Étape 6 : Reprendre la tâche du globe interactif
