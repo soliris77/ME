@@ -5,7 +5,7 @@
  * Code couleur du risque : vert = dans le plan, ambre = limite proche (≥80 %),
  * rouge = limite atteinte ou coupe-circuit déclenché.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ShieldCheck, ShieldAlert, ShieldQuestion, Gauge, TrendingUp, TrendingDown, ChevronRight, WifiOff } from "lucide-react";
 
@@ -13,6 +13,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface BrokerStatus { halted?: boolean; haltedAt?: string | null }
 interface DailyPnl { realizedPnL: number; maxDailyLossAmount: number | null; mode: string }
+interface RiskSettings { mode: "dry_run" | "live"; killSwitchActive: boolean; accountId: string }
 
 async function fetchJson<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
@@ -23,6 +24,7 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export default function CommandCenter() {
+  const queryClient = useQueryClient();
   const statusQ = useQuery<BrokerStatus>({
     queryKey: ["broker-status"],
     queryFn: () => fetchJson<BrokerStatus>("/api/broker/status"),
@@ -32,6 +34,15 @@ export default function CommandCenter() {
     queryKey: ["auto-trader-daily-pnl"],
     queryFn: () => fetchJson<DailyPnl>("/api/auto-trader/daily-pnl"),
     refetchInterval: 30_000,
+  });
+  const riskQ = useQuery<RiskSettings>({
+    queryKey: ["risk-settings"],
+    queryFn: () => fetchJson<RiskSettings>("/api/auto-trader/risk-settings"),
+    refetchInterval: 30_000,
+  });
+  const kill = useMutation({
+    mutationFn: () => fetch(`${BASE}/api/auto-trader/risk-settings/kill-switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["risk-settings"] }),
   });
 
   // Chargement initial : rien (pas de squelette bruyant).
@@ -64,6 +75,15 @@ export default function CommandCenter() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7 animate-fadeUp">
+      <div className="sm:col-span-3 flex items-center justify-between rounded-xl border border-primary/25 bg-primary/5 px-4 py-2">
+        <div className="flex items-center gap-2">
+          {riskQ.data?.mode === "dry_run" && <span className="rounded-md border border-amber-400/50 bg-amber-400/15 px-2 py-1 text-[10px] font-bold tracking-[0.16em] text-amber-300 animate-pulse">DRY RUN</span>}
+          <span className="text-[11px] text-muted-foreground">{riskQ.data?.killSwitchActive ? "Kill-switch actif — les protections restent en place." : "Garde-fous de risque actifs"}</span>
+        </div>
+        <button type="button" onClick={() => kill.mutate()} disabled={kill.isPending || riskQ.data?.killSwitchActive} className="rounded-lg border border-red-500/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40">
+          {riskQ.data?.killSwitchActive ? "Trading suspendu" : "Activer le kill-switch"}
+        </button>
+      </div>
       {/* P&L réalisé du jour */}
       <Link
         href="/debrief"

@@ -13,6 +13,9 @@
       "path": "../../lib/db"
     },
     {
+      "path": "../../packages/risk"
+    },
+    {
       "path": "../../lib/api-zod"
     },
     {

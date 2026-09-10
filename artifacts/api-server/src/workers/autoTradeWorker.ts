@@ -17,7 +17,7 @@ import { sendEmail } from "../lib/emailClient";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { logger } from "../lib/logger";
 import { getTradingMode } from "../lib/tradingMode";
-import { notifyKillSwitchActivated, notifyDailyLossWarning } from "../lib/notifications";
+import { notifyKillSwitchActivated, notifyDailyLossWarning, notifyStaleData } from "../lib/notifications";
 import { getAiSecondOpinion, type AiReviewResult } from "../lib/aiReview";
 import { isMarketOpen } from "../lib/risk";
 import { computeClosureWarnings } from "../routes/market";
@@ -42,6 +42,8 @@ const OHLC_DAYS = 90;
 const DEFAULT_CRYPTO_TIMEFRAME: Timeframe = "1m";
 const VALID_TIMEFRAMES: readonly Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 const marketDataFeeds = new Map<"equity" | "crypto", MarketDataFeed>();
+const staleDataSince = new Map<number, number>();
+const staleDataNotified = new Set<number>();
 
 /** Runtime injection point for exchange feeds (also keeps tests network-free). */
 export function configureMarketDataFeeds(feeds: Partial<Record<"equity" | "crypto", MarketDataFeed>>): void {
@@ -705,10 +707,19 @@ export async function processRule(
       if (!last) return;
       const staleReason = staleDataReason(last.timestamp, timeframe, now);
       if (staleReason) {
+        const staleAt = staleDataSince.get(rule.id) ?? now.getTime();
+        staleDataSince.set(rule.id, staleAt);
+        if (now.getTime() - staleAt >= 15 * 60_000 && !staleDataNotified.has(rule.id)) {
+          staleDataNotified.add(rule.id);
+          void notifyStaleData(rule.symbol, Math.floor((now.getTime() - staleAt) / 60_000)).catch((error) =>
+            logger.error({ error, ruleId: rule.id }, "stale-data notification failed"));
+        }
         logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: staleReason, timestamp: last.timestamp },
           "autoTradeWorker: refusing decision due to stale market data");
         return;
       }
+      staleDataSince.delete(rule.id);
+      staleDataNotified.delete(rule.id);
       history = candles.map((candle) => ({
         date: new Date(candle.timestamp).toISOString(),
         open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: candle.volume,

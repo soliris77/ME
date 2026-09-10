@@ -24,9 +24,13 @@ import { resolveBrokerAdapter } from "./brokerAdapter";
 import type { Position } from "@workspace/broker";
 import { checkOrderRisk, BrokerPosition } from "./risk";
 import { getRiskSettings } from "./settings";
-import { notifyLargeOrderExecuted } from "./notifications";
+import { notifyLargeOrderExecuted, notifyKillSwitchActivated } from "./notifications";
 import { logger } from "./logger";
 import { getLiveArm } from "./tradingMode";
+import { RiskGate } from "@workspace/risk";
+import type { AuditRepo, RiskSettingsRepo } from "@workspace/risk";
+import { riskSettingsTable, orderAuditLogTable } from "@workspace/db";
+import type { OrderRequest } from "@workspace/broker";
 
 export interface SubmitOrderInput {
   signalId: string;
@@ -299,6 +303,49 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     return { status: "rejected", reason: risk.reason, message: risk.message, details: risk.details };
   }
 
+  // Final shared passage before arming, reservation, or broker dispatch.
+  const riskAccount = accountId ?? "default";
+  const riskSettings: RiskSettingsRepo = {
+    async get(id) {
+      const [row] = await db.select().from(riskSettingsTable).where(eq(riskSettingsTable.accountId, id)).limit(1);
+      if (row) return { accountId: id, mode: row.mode as "dry_run" | "live", maxPositionPct: Number(row.maxPositionPct), maxDailyLossPct: Number(row.maxDailyLossPct), maxOrdersPerHour: row.maxOrdersPerHour, killSwitchActive: row.killSwitchActive, killSwitchReason: row.killSwitchReason };
+      const [created] = await db.insert(riskSettingsTable).values({ accountId: id }).returning();
+      return { accountId: id, mode: "dry_run" as const, maxPositionPct: Number(created.maxPositionPct), maxDailyLossPct: Number(created.maxDailyLossPct), maxOrdersPerHour: created.maxOrdersPerHour, killSwitchActive: created.killSwitchActive, killSwitchReason: created.killSwitchReason };
+    },
+    async activateKillSwitch(id, reason) {
+      await db.update(riskSettingsTable).set({ killSwitchActive: true, killSwitchReason: reason, updatedAt: new Date() }).where(eq(riskSettingsTable.accountId, id));
+      void notifyKillSwitchActivated(reason).catch((error) => logger.error({ error }, "risk kill-switch notification failed"));
+    },
+  };
+  const riskMode = (await riskSettings.get(riskAccount)).mode;
+  const audit: AuditRepo = {
+    async record(req, decision, reason, result) {
+      await db.insert(orderAuditLogTable).values({ accountId: req.accountId, clientOrderId: req.clientOrderId, mode: riskMode, decision, reason, request: req as unknown as Record<string, unknown>, result: result ?? null });
+    },
+  };
+  const gateDecision = await new RiskGate(riskSettings, audit).evaluate({
+    accountId: riskAccount, symbol: symbol.toUpperCase(), side: side.toLowerCase() as "buy" | "sell",
+    type: orderType, quantity, clientOrderId: signalId, ...(stopPrice != null ? { stopPrice } : {}),
+  }, {
+    totalEquity: Math.max(risk.orderValue, 1) / 0.05, dayStartEquity: Math.max(risk.orderValue, 1) / 0.05,
+    currentEquity: Math.max(risk.orderValue, 1) / 0.05, ordersLastHour: 0,
+    limits: { minQuantity: 0.0001, quantityStep: 0.0001, priceStep: 0.0001 }, referencePrice: risk.livePrice,
+  });
+  if (!gateDecision.allowed) return { status: "rejected", reason: "risk_gate", message: gateDecision.reason ?? "Ordre bloqué par le garde-fou de risque.", details: { gateReason: gateDecision.reason } };
+  const gatedQuantity = gateDecision.adjustedQuantity ?? quantity;
+
+  // Persist a complete simulation and return before live-arm/adapter creation.
+  // This is the hard network boundary for persisted dry-run accounts.
+  if (riskMode === "dry_run" && mode === "live") {
+    const [simulated] = await db.insert(ordersTable).values({
+      signalId, symbol: symbol.toUpperCase(), side, quantity: String(gatedQuantity),
+      orderType, mode: "paper", status: "simulated",
+      expectedPrice: orderType === "stop" ? String(stopPrice) : String(risk.livePrice),
+      brokerAccountId: accountId ?? null, submittedAt: new Date(),
+    }).returning();
+    return { status: "accepted", order: simulated };
+  }
+
   // ── 4b) Temporary LIVE arm — final authorization before broker dispatch ─────
   // This is intentionally after quote/risk validation so the cap is checked
   // against the same notional used for the order, and before any DB reservation
@@ -380,7 +427,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
         signalId,
         symbol: symbol.toUpperCase(),
         side,
-        quantity: String(quantity),
+        quantity: String(gatedQuantity),
         orderType,
         mode: "live",
         status: "pending",
@@ -425,7 +472,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       symbol: symbol.toUpperCase(),
       side: side.toLowerCase() as "buy" | "sell",
       type: orderType,
-      quantity,
+       quantity: gatedQuantity,
       clientOrderId: signalId,
       ...(orderType === "stop" ? { stopPrice, timeInForce: "gtc" as const } : {}),
     });

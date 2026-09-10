@@ -86,6 +86,40 @@ export async function notifyKillSwitchActivated(reason?: string): Promise<void> 
   );
 }
 
+/** Critical broker/protection notifications intentionally use the existing
+ * kill-switch preference: deployments predating dedicated event columns still
+ * have a configured, user-selected channel, and never silently fall back to SMS. */
+export async function notifyProtectivePlacementFailure(params: {
+  symbol: string; kind: string; error: string;
+}): Promise<void> {
+  await notify(
+    "killSwitch",
+    `⚠️ Échec de protection — ${params.symbol}`,
+    wrapEmail("⚠️ Échec de placement d'une protection",
+      `<p>La protection <strong>${params.kind}</strong> de ${params.symbol} n'a pas pu être placée.</p><p>${params.error}</p>`),
+    `⚠️ Protection ${params.kind} échouée pour ${params.symbol} : ${params.error}`,
+  );
+}
+
+export async function notifyBrokerAuthenticationError(error: unknown): Promise<void> {
+  const message = String(error);
+  await notify(
+    "killSwitch",
+    "🔐 Erreur d'authentification courtier",
+    wrapEmail("🔐 Erreur d'authentification courtier", `<p>${message}</p>`),
+    `🔐 Authentification courtier échouée : ${message}`,
+  );
+}
+
+export async function notifyStaleData(symbol: string, ageMinutes: number): Promise<void> {
+  await notify(
+    "killSwitch",
+    `⏳ Données périmées — ${symbol}`,
+    wrapEmail("⏳ Données de marché périmées", `<p>Les données de ${symbol} sont périmées depuis ${ageMinutes} minutes.</p>`),
+    `⏳ Données de ${symbol} périmées depuis ${ageMinutes} minutes.`,
+  );
+}
+
 /** Avertissement : la perte du jour approche la limite du coupe-circuit (mêmes canaux que le kill-switch). */
 export async function notifyDailyLossWarning(params: {
   loss: number;

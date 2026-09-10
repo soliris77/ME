@@ -17,7 +17,13 @@ vi.mock("../emailClient", () => ({ sendEmail: h.sendEmail }));
 vi.mock("../smsClient", () => ({ sendSms: h.sendSms }));
 vi.mock("../notificationPrefs", () => ({ resolveDestinations: h.resolveDestinations }));
 
-import { notifyDailyLossWarning } from "../notifications";
+import {
+  notifyDailyLossWarning,
+  notifyKillSwitchActivated,
+  notifyProtectivePlacementFailure,
+  notifyBrokerAuthenticationError,
+  notifyStaleData,
+} from "../notifications";
 
 const bothChannels = {
   email: "a@b.c", phone: "+15551234567", sendEmail: true, sendSms: true,
@@ -72,5 +78,46 @@ describe("notifyDailyLossWarning — contrat de livraison des canaux", () => {
     await expect(notifyDailyLossWarning(params)).resolves.toBe(true);
     expect(h.sendEmail).not.toHaveBeenCalled();
     expect(h.sendSms).not.toHaveBeenCalled();
+  });
+});
+
+describe("Lot 6 acceptance 5 — critical events use the configured email/SMS channel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.resolveDestinations.mockResolvedValue({
+      email: "configured@example.test",
+      phone: "+15550001111",
+      sendEmail: true,
+      sendSms: false,
+    });
+    h.sendEmail.mockResolvedValue(true);
+    h.sendSms.mockResolvedValue(true);
+  });
+
+  it.each([
+    ["kill-switch activation", () => notifyKillSwitchActivated("loss threshold")],
+    ["protective placement failure", () => notifyProtectivePlacementFailure({ symbol: "AAPL", kind: "stop_loss", error: "broker unavailable" })],
+    ["broker authentication error", () => notifyBrokerAuthenticationError(new Error("unauthorized"))],
+    ["stale data", () => notifyStaleData("AAPL", 16)],
+  ])("%s is delivered without a hardcoded destination", async (_event, send) => {
+    await send();
+    expect(h.resolveDestinations).toHaveBeenCalledWith("killSwitch");
+    expect(h.sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "configured@example.test" }));
+    expect(h.sendEmail).not.toHaveBeenCalledWith(expect.objectContaining({ to: "ALERT_NOTIFY_EMAIL" }));
+    expect(h.sendSms).not.toHaveBeenCalled();
+  });
+
+  it("supports the configured SMS channel for every critical event", async () => {
+    h.resolveDestinations.mockResolvedValue({
+      email: null,
+      phone: "+15550002222",
+      sendEmail: false,
+      sendSms: true,
+    });
+
+    await notifyBrokerAuthenticationError("unauthorized");
+
+    expect(h.sendSms).toHaveBeenCalledWith(expect.objectContaining({ to: "+15550002222" }));
+    expect(h.sendEmail).not.toHaveBeenCalled();
   });
 });

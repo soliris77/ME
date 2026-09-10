@@ -42,10 +42,13 @@ const h = vi.hoisted(() => {
   };
   const rejectedSignalsTable = { $inferSelect: undefined };
   const brokerConnectionsTable = { $inferSelect: undefined };
+  const riskSettingsTable = { accountId: Symbol("risk.accountId"), $inferSelect: undefined };
+  const orderAuditLogTable = { $inferSelect: undefined };
 
   const state = {
     connections: [] as Record<string, unknown>[],
     orders: [] as Record<string, unknown>[],
+    riskSettings: [] as Record<string, unknown>[],
     inserts: [] as { table: unknown; values: Record<string, unknown> }[],
     updates: [] as { table: unknown; set: Record<string, unknown> }[],
     /** Si défini, le prochain insert dans ordersTable lève cette erreur. */
@@ -56,7 +59,8 @@ const h = vi.hoisted(() => {
 
   const rowsFor = (table: unknown) =>
     table === brokerConnectionsTable ? state.connections :
-    table === ordersTable ? state.orders : [];
+    table === ordersTable ? state.orders :
+    table === riskSettingsTable ? state.riskSettings : [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const thenable = (rows: unknown[]): any => ({
@@ -109,7 +113,7 @@ const h = vi.hoisted(() => {
   };
 
   return {
-    state, db, ordersTable, rejectedSignalsTable, brokerConnectionsTable,
+    state, db, ordersTable, rejectedSignalsTable, brokerConnectionsTable, riskSettingsTable, orderAuditLogTable,
     pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
     getTradingMode: vi.fn(),
     getLiveArm: vi.fn().mockResolvedValue({
@@ -128,6 +132,8 @@ vi.mock("@workspace/db", () => ({
   ordersTable: h.ordersTable,
   rejectedSignalsTable: h.rejectedSignalsTable,
   brokerConnectionsTable: h.brokerConnectionsTable,
+  riskSettingsTable: h.riskSettingsTable,
+  orderAuditLogTable: h.orderAuditLogTable,
 }));
 vi.mock("../tradingMode", () => ({ getLiveArm: h.getLiveArm, getTradingMode: h.getTradingMode }));
 vi.mock("drizzle-orm", () => ({
@@ -185,6 +191,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.state.connections.length = 0;
   h.state.orders.length = 0;
+  h.state.riskSettings.length = 0;
+  h.state.riskSettings.push({
+    accountId: "acct-1", mode: "live", maxPositionPct: "5",
+    maxDailyLossPct: "2", maxOrdersPerHour: 10, killSwitchActive: false,
+  });
   h.state.inserts.length = 0;
   h.state.updates.length = 0;
   h.state.nextOrderInsertError = null;
@@ -195,6 +206,24 @@ beforeEach(() => {
     armedAt: new Date("2026-01-01T00:00:00Z"), expiresAt: new Date("2099-01-01T00:00:00Z"),
   });
   h.checkOrderRisk.mockResolvedValue(riskOk);
+});
+
+describe("Lot 6 acceptance 6 — persisted dry-run submission is simulated and network-free", () => {
+  it("does not call the adapter and writes a simulated audit row", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.state.riskSettings[0].mode = "dry_run";
+
+    const result = await submitOrder({
+      ...baseInput,
+      accountId: "acct-1",
+      brokerConnection: { snaptradeUserId: "u", snaptradeUserSecret: "s" },
+    });
+
+    expect(result.status).toBe("accepted");
+    expect(h.placeOrder).not.toHaveBeenCalled();
+    expect(orderInserts()[0].values).toMatchObject({ mode: "paper", status: "simulated" });
+    expect(h.state.inserts.some((entry) => entry.table === h.orderAuditLogTable)).toBe(true);
+  });
 });
 
 // ── 0) Kill-switch ────────────────────────────────────────────────────────────

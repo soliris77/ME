@@ -18,6 +18,7 @@
     "@whop/sdk": "^0.0.40",
     "@workspace/api-zod": "workspace:*",
     "@workspace/broker": "workspace:*",
+    "@workspace/risk": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/indicators": "workspace:*",
     "@workspace/market-data": "workspace:*",

@@ -15,3 +15,4 @@ export * from "./notifications";
 export * from "./theses";
 export * from "./subscription";
 export * from "./protectiveOrders";
+export * from "./risk";

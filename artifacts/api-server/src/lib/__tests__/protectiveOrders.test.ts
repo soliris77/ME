@@ -60,7 +60,19 @@ const h = vi.hoisted(() => {
   return { table, state, db };
 });
 
-vi.mock("@workspace/db", () => ({ db: h.db, protectiveOrdersTable: h.table }));
+vi.mock("@workspace/db", () => ({
+  db: h.db,
+  protectiveOrdersTable: h.table,
+  riskSettingsTable: {},
+  orderAuditLogTable: {},
+}));
+vi.mock("@workspace/risk", () => ({
+  RiskGate: class {
+    async evaluate() {
+      return { allowed: true, mode: "live" as const };
+    }
+  },
+}));
 vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val }),
   and: (...items: unknown[]) => ({ and: items }),
@@ -99,10 +111,11 @@ describe("protective order acceptance invariants", () => {
       status: "open", filledQuantity: request.quantity, raw: request,
     }));
     await new ProtectiveOrderService().protectFilledEntry(input(adapter));
-    expect(h.state.rows).toHaveLength(2);
-    expect(h.state.rows.every((row) => row.status === "placed")).toBe(true);
-    expect(h.state.rows[0].siblingId).toBe(h.state.rows[1].id);
-    expect(h.state.rows[1].siblingId).toBe(h.state.rows[0].id);
+    const protections = h.state.rows.filter((row) => row.kind);
+    expect(protections).toHaveLength(2);
+    expect(protections.every((row) => row.status === "placed")).toBe(true);
+    expect(protections[0].siblingId).toBe(protections[1].id);
+    expect(protections[1].siblingId).toBe(protections[0].id);
   });
 
   it("cancels the placed target when the stop fills", async () => {
@@ -129,7 +142,7 @@ describe("protective order acceptance invariants", () => {
       status: "open", filledQuantity: 0, raw: request,
     }));
     await new ProtectiveOrderService().reconcileOpenPosition(input(adapter));
-    expect(h.state.rows).toHaveLength(2);
+    expect(h.state.rows.filter((row) => row.kind)).toHaveLength(2);
     expect(adapter.placeOrder).toHaveBeenCalledTimes(2);
   });
 
@@ -159,11 +172,12 @@ describe("protective order acceptance invariants", () => {
     }));
     const service = new ProtectiveOrderService();
     await service.protectFilledEntry(input(adapter, 2));
-    const ids = h.state.rows.map((row) => row.id);
+    const ids = h.state.rows.filter((row) => row.kind).map((row) => row.id);
     await service.protectFilledEntry(input(adapter, 5));
-    expect(h.state.rows).toHaveLength(2);
-    expect(h.state.rows.map((row) => row.id)).toEqual(ids);
+    const protections = h.state.rows.filter((row) => row.kind);
+    expect(protections).toHaveLength(2);
+    expect(protections.map((row) => row.id)).toEqual(ids);
     expect(adapter.cancelOrder).toHaveBeenCalledTimes(2);
-    expect(h.state.rows.every((row) => row.quantity === "5")).toBe(true);
+    expect(protections.every((row) => row.quantity === "5")).toBe(true);
   });
 });

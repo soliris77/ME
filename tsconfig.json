@@ -7,6 +7,9 @@
       "path": "./packages/broker"
     },
     {
+      "path": "./packages/risk"
+    },
+    {
       "path": "./packages/indicators"
     },
     {

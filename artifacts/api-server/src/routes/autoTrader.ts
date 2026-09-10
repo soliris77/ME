@@ -9,7 +9,7 @@
  * POST   /api/auto-trader/run           — forcer un cycle immédiat (debug)
  */
 import { Router } from "express";
-import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable, autoTradeCopyBindingsTable, followedTradersTable, watchlistTable } from "@workspace/db";
+import { db, autoTradeRulesTable, autoTradeLogsTable, ordersTable, brokerConnectionsTable, autoTradeCopyBindingsTable, followedTradersTable, watchlistTable, riskSettingsTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runAutoTradeCheck, getDailyRealizedPnLStatus } from "../workers/autoTradeWorker";
@@ -27,6 +27,64 @@ import {
 } from "../lib/globalRisk";
 
 const router = Router();
+
+// Account-scoped Lot 6 risk controls.  Kill-switch cancellation explicitly
+// excludes protective stop orders (those are owned by protectiveOrdersTable).
+router.get("/auto-trader/risk-settings", async (req, res) => {
+  try {
+    const accountId = typeof req.query.accountId === "string" ? req.query.accountId : "default";
+    let [settings] = await db.select().from(riskSettingsTable).where(eq(riskSettingsTable.accountId, accountId)).limit(1);
+    if (!settings) [settings] = await db.insert(riskSettingsTable).values({ accountId }).returning();
+    return res.json(settings);
+  } catch (err) { logger.error({ err }, "risk settings read failed"); return res.status(500).json({ error: "Impossible de lire les réglages de risque." }); }
+});
+
+router.put("/auto-trader/risk-settings", async (req, res) => {
+  try {
+    const body = req.body as Record<string, unknown>;
+    const accountId = typeof body.accountId === "string" && body.accountId ? body.accountId : "default";
+    const values = {
+      ...(body.mode === "dry_run" || body.mode === "live" ? { mode: body.mode } : {}),
+      ...(typeof body.maxPositionPct === "number" ? { maxPositionPct: String(body.maxPositionPct) } : {}),
+      ...(typeof body.maxDailyLossPct === "number" ? { maxDailyLossPct: String(body.maxDailyLossPct) } : {}),
+      ...(typeof body.maxOrdersPerHour === "number" ? { maxOrdersPerHour: body.maxOrdersPerHour } : {}),
+      updatedAt: new Date(),
+    };
+    const [updated] = await db.insert(riskSettingsTable).values({ accountId, ...values }).onConflictDoUpdate({ target: riskSettingsTable.accountId, set: values }).returning();
+    return res.json(updated);
+  } catch (err) { logger.error({ err }, "risk settings update failed"); return res.status(400).json({ error: "Réglages de risque invalides." }); }
+});
+
+router.post("/auto-trader/risk-settings/kill-switch", async (req, res) => {
+  try {
+    const accountId = typeof req.body?.accountId === "string" ? req.body.accountId : "default";
+    const reason = typeof req.body?.reason === "string" ? req.body.reason : "activation manuelle";
+    const [settings] = await db.insert(riskSettingsTable).values({ accountId, killSwitchActive: true, killSwitchReason: reason })
+      .onConflictDoUpdate({ target: riskSettingsTable.accountId, set: { killSwitchActive: true, killSwitchReason: reason, updatedAt: new Date() } }).returning();
+    // Only regular open orders are cancelled. Protective broker orders are
+    // represented in protective_orders and are intentionally untouched.
+    const conn = (await db.select().from(brokerConnectionsTable).limit(1))[0];
+    let cancelled = 0;
+    if (conn) {
+      const adapter = resolveBrokerAdapter({ snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret });
+      const open = await db.select().from(ordersTable).where(and(eq(ordersTable.brokerAccountId, accountId), inArray(ordersTable.status, ["pending", "submitted"])));
+      for (const order of open.filter((o) => o.orderType !== "stop" && o.snaptradeOrderId)) {
+        await adapter.cancelOrder(accountId, order.snaptradeOrderId!).catch(() => undefined);
+        cancelled++;
+      }
+    }
+    return res.json({ ...settings, cancelled });
+  } catch (err) { logger.error({ err }, "risk kill switch failed"); return res.status(500).json({ error: "Activation du kill-switch impossible." }); }
+});
+
+router.post("/auto-trader/risk-settings/reactivate", async (req, res) => {
+  try {
+    const accountId = typeof req.body?.accountId === "string" ? req.body.accountId : "default";
+    const [settings] = await db.update(riskSettingsTable).set({ killSwitchActive: false, killSwitchReason: null, updatedAt: new Date() }).where(eq(riskSettingsTable.accountId, accountId)).returning();
+    if (!settings) return res.status(404).json({ error: "Compte de risque introuvable." });
+    return res.json(settings);
+  } catch (err) { logger.error({ err }, "risk reactivation failed"); return res.status(500).json({ error: "Réactivation impossible." }); }
+});
 const VALID_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
 function validateTimeframe(value: unknown): string | null {
   if (value === undefined || value === null) return null;
