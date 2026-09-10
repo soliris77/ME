@@ -10,6 +10,12 @@
       "path": "./packages/indicators"
     },
     {
+      "path": "./packages/market-data"
+    },
+    {
+      "path": "./packages/scheduler"
+    },
+    {
       "path": "./lib/db"
     },
     {

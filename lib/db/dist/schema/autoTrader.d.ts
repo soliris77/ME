@@ -37,6 +37,23 @@ export declare const autoTradeRulesTable: import("drizzle-orm/pg-core").PgTableW
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        timeframe: import("drizzle-orm/pg-core").PgColumn<{
+            name: "timeframe";
+            tableName: "auto_trade_rules";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         name: import("drizzle-orm/pg-core").PgColumn<{
             name: "name";
             tableName: "auto_trade_rules";
@@ -816,6 +833,7 @@ export declare const insertAutoTradeRuleSchema: z.ZodObject<{
     symbol: z.ZodString;
     name: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     quantity: z.ZodOptional<z.ZodString>;
+    timeframe: z.ZodOptional<z.ZodString>;
     enabled: z.ZodOptional<z.ZodBoolean>;
     sideMode: z.ZodOptional<z.ZodString>;
     minScore: z.ZodOptional<z.ZodInt>;

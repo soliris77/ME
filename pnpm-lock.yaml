@@ -185,6 +185,12 @@ importers:
       '@workspace/indicators':
         specifier: workspace:*
         version: link:../../packages/indicators
+      '@workspace/market-data':
+        specifier: workspace:*
+        version: link:../../packages/market-data
+      '@workspace/scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -731,6 +737,38 @@ importers:
         version: 4.1.10(@types/node@25.9.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
 
   packages/indicators:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@25.9.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/market-data:
+    dependencies:
+      '@workspace/broker':
+        specifier: workspace:*
+        version: link:../broker
+      '@workspace/indicators':
+        specifier: workspace:*
+        version: link:../indicators
+      ccxt:
+        specifier: ^4.5.78
+        version: 4.5.78
+      yahoo-finance2:
+        specifier: ^3.10.0
+        version: 3.15.4
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@25.9.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/scheduler:
+    dependencies:
+      '@workspace/indicators':
+        specifier: workspace:*
+        version: link:../indicators
+      '@workspace/market-data':
+        specifier: workspace:*
+        version: link:../market-data
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -3729,6 +3767,7 @@ packages:
   yahoo-finance2@3.15.4:
     resolution: {integrity: sha512-90eOw76iqS//ksQGL4d/VcchbysnpWzFXVuiBtG7uuImlBDdxBA0BtccxCuTvVZDDu1aXm1TqBGc+MPr6wNkyQ==}
     engines: {node: '>=20.0.0'}
+    deprecated: yahoo-finance2 v3 is no longer supported. Upgrade to v4, which requires Node.js 22 or newer.
     hasBin: true
 
   yallist@3.1.1:

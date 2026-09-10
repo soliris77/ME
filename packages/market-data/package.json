@@ -1,0 +1,26 @@
+{
+  "name": "@workspace/market-data",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@workspace/broker": "workspace:*",
+    "@workspace/indicators": "workspace:*",
+    "ccxt": "^4.5.78",
+    "yahoo-finance2": "^3.10.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

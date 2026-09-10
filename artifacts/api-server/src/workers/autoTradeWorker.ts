@@ -24,6 +24,9 @@ import { computeClosureWarnings } from "../routes/market";
 import { resolveBrokerAdapter } from "../lib/brokerAdapter";
 import type { OrderResult } from "@workspace/broker";
 import { protectiveOrderService } from "../lib/protectiveOrders";
+import type { MarketDataFeed, Timeframe } from "@workspace/market-data";
+import { timeframeMs } from "@workspace/market-data";
+import { isStaleCandle } from "@workspace/scheduler";
 
 const WORKER_INTERVAL_MS = 60_000;
 
@@ -36,6 +39,42 @@ export interface ClosureContext {
   closureNote: string | null;
 }
 const OHLC_DAYS = 90;
+const DEFAULT_CRYPTO_TIMEFRAME: Timeframe = "1m";
+const VALID_TIMEFRAMES: readonly Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
+const marketDataFeeds = new Map<"equity" | "crypto", MarketDataFeed>();
+
+/** Runtime injection point for exchange feeds (also keeps tests network-free). */
+export function configureMarketDataFeeds(feeds: Partial<Record<"equity" | "crypto", MarketDataFeed>>): void {
+  for (const assetClass of ["equity", "crypto"] as const) {
+    if (feeds[assetClass]) marketDataFeeds.set(assetClass, feeds[assetClass]!);
+  }
+}
+export function selectMarketDataFeed(assetClass: "equity" | "crypto"): MarketDataFeed | undefined {
+  return marketDataFeeds.get(assetClass);
+}
+
+export function isCryptoSymbol(symbol: string): boolean {
+  return /-(USD|USDT|USDC|EUR|CAD)$/i.test(symbol.trim());
+}
+
+export function cryptoEvaluationAligned(now: Date, timeframe: Timeframe = DEFAULT_CRYPTO_TIMEFRAME): boolean {
+  return now.getTime() % timeframeMs[timeframe] === 0;
+}
+const lastCryptoBoundaryByRule = new Map<number, number>();
+function cryptoEvaluationDue(ruleId: number, now: Date, timeframe: Timeframe = DEFAULT_CRYPTO_TIMEFRAME): boolean {
+  const boundary = Math.floor(now.getTime() / timeframeMs[timeframe]);
+  if (lastCryptoBoundaryByRule.get(ruleId) === boundary) return false;
+  lastCryptoBoundaryByRule.set(ruleId, boundary);
+  return true;
+}
+
+export function staleDataReason(timestamp: number, timeframe: Timeframe, now: Date = new Date()): "stale_data" | null {
+  return isStaleCandle({ timestamp }, timeframe, now) ? "stale_data" : null;
+}
+function ruleTimeframe(rule: { timeframe?: string | null }): Timeframe {
+  return VALID_TIMEFRAMES.includes(rule.timeframe as Timeframe)
+    ? rule.timeframe as Timeframe : DEFAULT_CRYPTO_TIMEFRAME;
+}
 
 async function fetchOHLC(symbol: string, interval: "1d" | "1wk" = "1d", days = OHLC_DAYS): Promise<OHLCPoint[]> {
   const period1 = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -634,6 +673,13 @@ export async function processRule(
   conn: typeof brokerConnectionsTable.$inferSelect | null,
 ): Promise<void> {
   const now = new Date();
+  const configuredAssetClass = (conn as { assetClass?: "equity" | "crypto" } | null)?.assetClass;
+  const assetClass = configuredAssetClass ?? (isCryptoSymbol(rule.symbol) ? "crypto" : "equity");
+  const crypto = assetClass === "crypto";
+  const timeframe = ruleTimeframe(rule);
+  // Crypto is evaluated only at a completed candle boundary. Equity retains the
+  // historical worker cadence and market-hours behavior below.
+  if (crypto && !cryptoEvaluationDue(rule.id, now, timeframe)) return;
 
   // ── Garde-fous d'entrée (cooldown + quota) — partagés avec le copy-trading ──
   const entry = checkRuleEntryGuardrails(rule, now);
@@ -647,8 +693,30 @@ export async function processRule(
 
   // ── Calcul des indicateurs ──────────────────────────────────────────────────
   let history: OHLCPoint[];
+  const feed = selectMarketDataFeed(assetClass);
   try {
-    history = await fetchOHLC(rule.symbol);
+    if (crypto) {
+      if (!feed) {
+        logger.warn({ symbol: rule.symbol }, "autoTradeWorker: crypto feed unavailable");
+        return;
+      }
+      const candles = await feed.getCandles(rule.symbol, timeframe, 120);
+      const last = candles[candles.length - 1];
+      if (!last) return;
+      const staleReason = staleDataReason(last.timestamp, timeframe, now);
+      if (staleReason) {
+        logger.warn({ ruleId: rule.id, symbol: rule.symbol, reason: staleReason, timestamp: last.timestamp },
+          "autoTradeWorker: refusing decision due to stale market data");
+        return;
+      }
+      history = candles.map((candle) => ({
+        date: new Date(candle.timestamp).toISOString(),
+        open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: candle.volume,
+      }));
+    } else {
+      // Deliberately preserve the existing Yahoo implementation for equities.
+      history = await fetchOHLC(rule.symbol);
+    }
   } catch (err) {
     logger.warn({ err, symbol: rule.symbol }, "autoTradeWorker: OHLC fetch failed");
     return;
@@ -683,8 +751,8 @@ export async function processRule(
   // n'est possible. On journalise le signal comme DIFFÉRÉ, sans ordre ni SMS ;
   // le cooldown/quota ne sont pas consommés — le signal sera réévalué à la
   // réouverture s'il tient toujours.
-  const closure = getClosureContext(rule.symbol, now);
-  if (!closure.open) {
+  const closure = crypto ? null : getClosureContext(rule.symbol, now);
+  if (closure && !closure.open) {
     logger.info(
       { ruleId: rule.id, symbol: rule.symbol, side, score: analysis.score, closedMessage: closure.closedMessage },
       "autoTradeWorker: signal différé — bourse fermée",
@@ -875,7 +943,7 @@ export async function processRule(
 
   // ── Notification ─────────────────────────────────────────────────────────────
   if (rule.notifyOnSignal) {
-    await sendAutoTradeNotification({ symbol: rule.symbol, side, verdict: analysis.overall, score: analysis.score, price: currentPrice, quantity, triggerType, orderMode, closureNote: closure.closureNote });
+    await sendAutoTradeNotification({ symbol: rule.symbol, side, verdict: analysis.overall, score: analysis.score, price: currentPrice, quantity, triggerType, orderMode, closureNote: closure?.closureNote });
     notificationSent = true;
   }
 
@@ -894,7 +962,7 @@ export async function processRule(
     notificationSent,
     notes: [
       baseNotes,
-      closure.closureNote ? `⏰ ${closure.closureNote}` : "",
+      closure?.closureNote ? `⏰ ${closure.closureNote}` : "",
     ].filter(Boolean).join(" | "),
     aiVerdict,
     aiReason,

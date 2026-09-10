@@ -8,6 +8,9 @@ import { z } from "zod/v4";
 export const autoTradeRulesTable = pgTable("auto_trade_rules", {
   id: serial("id").primaryKey(),
   symbol: text("symbol").notNull(),
+  // Evaluation candle size. Kept as text for compatibility with existing DB
+  // conventions; the migration constrains it to the supported timeframes.
+  timeframe: text("timeframe").default("1m").notNull(),
   name: text("name"),                              // libellé libre ex: "Apple — achat fort"
 
   enabled: boolean("enabled").default(true).notNull(),

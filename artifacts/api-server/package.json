@@ -20,6 +20,8 @@
     "@workspace/broker": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/indicators": "workspace:*",
+    "@workspace/market-data": "workspace:*",
+    "@workspace/scheduler": "workspace:*",
     "bcryptjs": "^3.0.3",
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",

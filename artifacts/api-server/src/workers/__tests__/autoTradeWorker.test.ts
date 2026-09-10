@@ -2,6 +2,19 @@
  * Tests du worker auto-trade.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { staleDataReason, cryptoEvaluationAligned } from "../autoTradeWorker";
+
+describe("Lot 5 market-data safeguards", () => {
+  it("refuses candles older than two configured periods with stale_data", () => {
+    const now = new Date("2025-01-05T03:00:00.000Z");
+    expect(staleDataReason(now.getTime() - 11 * 60_000, "5m", now)).toBe("stale_data");
+    expect(staleDataReason(now.getTime() - 9 * 60_000, "5m", now)).toBeNull();
+  });
+  it("uses candle boundary alignment for crypto evaluation", () => {
+    expect(cryptoEvaluationAligned(new Date("2025-01-05T03:00:00.000Z"), "5m")).toBe(true);
+    expect(cryptoEvaluationAligned(new Date("2025-01-05T03:02:00.000Z"), "5m")).toBe(false);
+  });
+});
 
 // ── Mocks hissés ──────────────────────────────────────────────────────────────
 const h = vi.hoisted(() => {

@@ -19,5 +19,8 @@ description: Soliris — Lot 1, package partagé @workspace/indicators
 - ✅ FAIT — Étape 7 : Réaliser le Lot 3 — abstraction BrokerAdapter et encapsulation SnapTrade
 - ✅ FAIT — Étape 8 : Réaliser le Lot 4 — adaptateur Kraken via ccxt
 - ✅ FAIT — Étape 9 : Reprendre et terminer le Lot 2 avec les adaptateurs courtier disponibles
-- → EN COURS — Étape 10 : Réaliser le Lot 5, puis les Lots 6 et 7, un à la fois
+- ✅ FAIT — Étape 10 : Réaliser le Lot 5 — données de marché crypto et planificateur 24/7
+- → EN COURS — Étape 11 : Réaliser le Lot 6 — garde-fous et mode dry-run
+- ☐ À FAIRE — Étape 12 : Réaliser le Lot 7 — déploiement Reserved VM
+- ☐ À FAIRE — Étape 13 : Reprendre la tâche du globe interactif après le chantier crypto
 - ☐ À FAIRE — Étape 11 : Reprendre la tâche du globe interactif après le chantier crypto

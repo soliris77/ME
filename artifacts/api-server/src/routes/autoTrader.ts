@@ -27,6 +27,12 @@ import {
 } from "../lib/globalRisk";
 
 const router = Router();
+const VALID_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
+function validateTimeframe(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" && (VALID_TIMEFRAMES as readonly string[]).includes(value)
+    ? null : "timeframe doit être 1m, 5m, 15m, 1h, 4h ou 1d";
+}
 
 /** Retourne le nombre s'il est fini et dans [min, max], sinon undefined. */
 function boundedNumber(v: unknown, min: number, max: number): number | undefined {
@@ -82,17 +88,20 @@ router.post("/auto-trader/rules", async (req, res) => {
       symbol, name, sideMode, minScore, quantity,
       accountId, stopLossPct, takeProfitPct, trailingStopPct,
       sizingMode, riskAmount, confirmWeekly,
-      maxTradesPerDay, notifyOnSignal, cooldownMinutes, aiReview,
+      maxTradesPerDay, notifyOnSignal, cooldownMinutes, aiReview, timeframe,
     } = req.body as Record<string, unknown>;
 
     if (!symbol || typeof symbol !== "string") {
       return res.status(400).json({ error: "symbol requis" });
     }
+    const timeframeError = validateTimeframe(timeframe);
+    if (timeframeError) return res.status(400).json({ error: timeframeError });
     const vErr = validateRuleNumbers(req.body as Record<string, unknown>);
     if (vErr) return res.status(400).json({ error: vErr });
 
     const [rule] = await db.insert(autoTradeRulesTable).values({
       symbol: (symbol as string).toUpperCase(),
+      timeframe: typeof timeframe === "string" ? timeframe : "1m",
       name: typeof name === "string" ? name : null,
       enabled: true,
       sideMode: typeof sideMode === "string" ? sideMode : "both",
@@ -130,10 +139,13 @@ router.put("/auto-trader/rules/:id", async (req, res) => {
       accountId, stopLossPct, takeProfitPct, trailingStopPct,
       sizingMode, riskAmount, confirmWeekly,
       maxTradesPerDay, notifyOnSignal, cooldownMinutes, enabled, aiReview,
+      timeframe,
     } = req.body as Record<string, unknown>;
 
     const vErr = validateRuleNumbers(req.body as Record<string, unknown>);
     if (vErr) return res.status(400).json({ error: vErr });
+    const timeframeError = validateTimeframe(timeframe);
+    if (timeframeError) return res.status(400).json({ error: timeframeError });
 
     const [updated] = await db.update(autoTradeRulesTable).set({
       ...(typeof symbol === "string" && symbol ? { symbol: symbol.toUpperCase() } : {}),
@@ -153,6 +165,7 @@ router.put("/auto-trader/rules/:id", async (req, res) => {
       ...(typeof cooldownMinutes === "number" && { cooldownMinutes }),
       ...(typeof enabled === "boolean" && { enabled }),
       ...(typeof aiReview === "boolean" && { aiReview }),
+      ...(typeof timeframe === "string" && { timeframe }),
       updatedAt: new Date(),
     }).where(eq(autoTradeRulesTable.id, id)).returning();
 
