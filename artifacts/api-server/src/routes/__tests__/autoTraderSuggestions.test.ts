@@ -57,8 +57,10 @@ vi.mock("@workspace/db", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(), desc: vi.fn(() => ({})), and: vi.fn(), inArray: vi.fn(),
 }));
-vi.mock("../../lib/snaptrade", () => ({
-  listPositions: vi.fn(async () => h.positions),
+vi.mock("../../lib/brokerAdapter", () => ({
+  resolveBrokerAdapter: vi.fn(() => ({
+    getPositions: vi.fn(async () => h.positions),
+  })),
 }));
 vi.mock("../../lib/settings", () => ({
   getRiskSettings: vi.fn(async () => ({ maxOrderValue: 5000, maxPortfolioExposure: 25000, largeOrderFrictionPct: 0.5, maxDailyLossAmount: null, updatedAt: "" })),
@@ -120,7 +122,7 @@ describe("GET /api/auto-trader/suggestions — contrat (statut + forme)", () => 
 
   it("position courtier non protégée → au moins une suggestion avec prefill complet", async () => {
     h.connections = [{ id: 1, status: "connected", snaptradeUserId: "u", snaptradeUserSecret: "s", accounts: [{ id: "acc-1" }] }];
-    h.positions = [{ symbol: { symbol: { ticker: "AAPL" } }, units: 10, price: 150 }];
+    h.positions = [{ symbol: "AAPL", quantity: 10, averagePrice: 150, currentPrice: 150, currency: "USD" }];
 
     const { status, body } = await get();
     expect(status).toBe(200);

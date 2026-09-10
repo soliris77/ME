@@ -129,17 +129,27 @@ vi.mock("@workspace/db", () => ({
   rejectedSignalsTable: h.rejectedSignalsTable,
   brokerConnectionsTable: h.brokerConnectionsTable,
 }));
-vi.mock("../tradingMode", () => ({ getLiveArm: h.getLiveArm }));
+vi.mock("../tradingMode", () => ({ getLiveArm: h.getLiveArm, getTradingMode: h.getTradingMode }));
 vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val }),
   and: (...args: unknown[]) => ({ and: args }),
   gte: (col: unknown, val: unknown) => ({ col, val, op: "gte" }),
   desc: (col: unknown) => ({ desc: col }),
 }));
-vi.mock("../snaptrade", () => ({
-  getTradingMode: h.getTradingMode,
-  placeOrder: h.placeOrder,
-  listPositions: h.listPositions,
+vi.mock("../brokerAdapter", () => ({
+  resolveBrokerAdapter: () => ({
+    placeOrder: async (request: Record<string, unknown>) => {
+      const raw = await h.placeOrder(request);
+      return {
+        brokerOrderId: String((raw as Record<string, unknown>).brokerage_order_id ?? ""),
+        clientOrderId: String(request.clientOrderId ?? ""),
+        status: "open",
+        filledQuantity: 0,
+        raw,
+      };
+    },
+    getPositions: h.listPositions,
+  }),
 }));
 vi.mock("../risk", () => ({ checkOrderRisk: h.checkOrderRisk }));
 vi.mock("../settings", () => ({
@@ -430,7 +440,7 @@ describe("submitOrder — mode live nominal", () => {
     });
 
     expect(h.placeOrder).toHaveBeenCalledOnce();
-    expect(h.placeOrder.mock.calls[0][0]).toMatchObject({ clientOrderId: "sig-1", symbol: "AAPL", side: "BUY", quantity: 2 });
+    expect(h.placeOrder.mock.calls[0][0]).toMatchObject({ clientOrderId: "sig-1", symbol: "AAPL", side: "buy", quantity: 2, type: "market" });
     expect(res.status).toBe("accepted");
     const update = h.state.updates.find(u => u.table === h.ordersTable);
     expect(update?.set).toMatchObject({ status: "submitted", snaptradeOrderId: "bo-123", errorMessage: null });
@@ -454,7 +464,7 @@ describe("submitOrder — mode live nominal", () => {
     expect(h.placeOrder).toHaveBeenCalledOnce();
     // GTC obligatoire : un stop de protection "Day" expirerait en fin de séance
     // et laisserait la position sans protection dès le lendemain.
-    expect(h.placeOrder.mock.calls[0][0]).toMatchObject({ side: "SELL", orderType: "Stop", stopPrice: 91.5, timeInForce: "GTC" });
+    expect(h.placeOrder.mock.calls[0][0]).toMatchObject({ side: "sell", type: "stop", stopPrice: 91.5, timeInForce: "gtc" });
     expect(orderInserts()[0].values).toMatchObject({ orderType: "stop", expectedPrice: "91.5", mode: "live" });
     const update = h.state.updates.find(u => u.table === h.ordersTable);
     expect(update?.set).toMatchObject({ status: "submitted", snaptradeOrderId: "bo-stop-1" });

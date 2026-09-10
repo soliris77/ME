@@ -30,6 +30,14 @@ vi.mock("../../lib/snaptrade", () => ({
     },
   }),
 }));
+vi.mock("../../lib/brokerAdapter", () => ({
+  resolveBrokerAdapter: () => ({
+    listOrders: async () => ([
+      { brokerOrderId: "st-disc-buy", clientOrderId: "", status: "filled", averagePrice: 101, filledQuantity: 10, raw: {} },
+      { brokerOrderId: "st-disc-sell", clientOrderId: "", status: "filled", averagePrice: 119.5, filledQuantity: 10, raw: {} },
+    ]),
+  }),
+}));
 
 // Mode live forcé pour que getDisciplineReport déclenche la synchronisation.
 vi.mock("../../lib/tradingMode", () => ({ getTradingMode: () => "live" }));

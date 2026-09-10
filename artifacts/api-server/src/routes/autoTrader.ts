@@ -18,7 +18,7 @@ import { yahooFinance, getQuotes } from "../lib/yahoo";
 import type { OHLCPoint } from "../lib/patternDetect";
 import { getRiskSettings } from "../lib/settings";
 import { getTradingMode } from "../lib/tradingMode";
-import { listPositions } from "../lib/snaptrade";
+import { resolveBrokerAdapter } from "../lib/brokerAdapter";
 import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import { buildSuggestions, type AdvisorPosition, type AdvisorSignal } from "../lib/ruleAdvisor";
 import {
@@ -313,16 +313,19 @@ router.get("/auto-trader/global-risk", async (_req, res) => {
         const raw: unknown[] = [];
         for (const acc of accounts) {
           if (!acc?.id) continue;
-          const positions = await listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, acc.id);
-          raw.push(...(positions as unknown[]));
+          const positions = await resolveBrokerAdapter({
+            snaptradeUserId: conn.snaptradeUserId,
+            snaptradeUserSecret: conn.snaptradeUserSecret,
+          }).getPositions(acc.id);
+          raw.push(...positions);
         }
         exposureRows = raw.map((r) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const p = r as any;
-          const symbol: string = (p?.symbol?.symbol?.ticker ?? p?.symbol?.ticker ?? p?.symbol ?? "").toUpperCase();
-          const units = Number(p?.units ?? p?.quantity ?? 0);
-          const price = Number(p?.price ?? p?.current_price ?? 0);
-          const currency = (p?.symbol?.currency?.code ?? p?.currency ?? "USD").toUpperCase();
+          const symbol: string = String(p?.symbol ?? "").toUpperCase();
+          const units = Number(p?.quantity ?? 0);
+          const price = Number(p?.currentPrice ?? p?.averagePrice ?? 0);
+          const currency = String(p?.currency ?? "USD").toUpperCase();
           return { symbol, value: units * price, currency };
         }).filter((r) => r.symbol && r.value > 0);
         // Courtier joignable mais aucune position (ex. comptes vides) :
@@ -392,15 +395,18 @@ router.get("/auto-trader/suggestions", async (_req, res) => {
         const accounts = (conn.accounts as { id: string }[] | null) ?? [];
         for (const acc of accounts) {
           if (!acc?.id) continue;
-          const raw = await listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, acc.id);
-          for (const r of raw as unknown[]) {
+          const raw = await resolveBrokerAdapter({
+            snaptradeUserId: conn.snaptradeUserId,
+            snaptradeUserSecret: conn.snaptradeUserSecret,
+          }).getPositions(acc.id);
+          for (const r of raw) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const p = r as any;
-            const symbol: string = (p?.symbol?.symbol?.ticker ?? p?.symbol?.ticker ?? p?.symbol ?? "").toUpperCase();
-            const units = Number(p?.units ?? p?.quantity ?? 0);
-            const price = Number(p?.price ?? p?.current_price ?? 0);
+            const symbol: string = String(p?.symbol ?? "").toUpperCase();
+            const units = Number(p?.quantity ?? 0);
+            const price = Number(p?.currentPrice ?? p?.averagePrice ?? 0);
             if (symbol && units > 0 && price > 0) {
-              positions.push({ symbol, value: units * price, price, currency: (p?.symbol?.currency?.code ?? p?.currency ?? "USD").toUpperCase() });
+              positions.push({ symbol, value: units * price, price, currency: String(p?.currency ?? "USD").toUpperCase() });
             }
           }
         }

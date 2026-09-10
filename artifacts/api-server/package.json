@@ -16,6 +16,7 @@
   "dependencies": {
     "@whop/sdk": "^0.0.40",
     "@workspace/api-zod": "workspace:*",
+    "@workspace/broker": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/indicators": "workspace:*",
     "bcryptjs": "^3.0.3",

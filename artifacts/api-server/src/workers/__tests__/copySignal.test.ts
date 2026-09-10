@@ -132,6 +132,23 @@ vi.mock("../../lib/snaptrade", () => ({
     accountInformation: { getUserAccountOrders: h.getUserAccountOrders },
   }),
 }));
+vi.mock("../../lib/brokerAdapter", () => ({
+  resolveBrokerAdapter: () => ({
+    listOrders: async (accountId: string, options?: { days?: number }) => {
+      const response = await h.getUserAccountOrders({
+        userId: "u-1", userSecret: "s-1", accountId, state: "all", ...options,
+      });
+      return (response.data ?? []).map((raw: Record<string, unknown>) => ({
+        brokerOrderId: String(raw.brokerage_order_id ?? raw.id ?? ""),
+        clientOrderId: String(raw.client_order_id ?? ""),
+        status: raw.status === "EXECUTED" ? "filled" : "open",
+        filledQuantity: Number(raw.filled_quantity ?? 0),
+        averagePrice: raw.execution_price as number | undefined,
+        raw,
+      }));
+    },
+  }),
+}));
 
 import { processCopySignal, type CopySignalEvent } from "../autoTradeWorker";
 

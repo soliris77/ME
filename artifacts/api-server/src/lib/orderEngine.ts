@@ -19,7 +19,9 @@
  */
 import { db, pool, ordersTable, rejectedSignalsTable, brokerConnectionsTable } from "@workspace/db";
 import { and, eq, gte, desc } from "drizzle-orm";
-import { getTradingMode, placeOrder as placeSnaptradeOrder, listPositions } from "./snaptrade";
+import { getTradingMode } from "./tradingMode";
+import { resolveBrokerAdapter } from "./brokerAdapter";
+import type { Position } from "@workspace/broker";
 import { checkOrderRisk, BrokerPosition } from "./risk";
 import { getRiskSettings } from "./settings";
 import { notifyLargeOrderExecuted } from "./notifications";
@@ -101,20 +103,15 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 /** Normalise les positions SnapTrade en BrokerPosition[]. */
-function mapSnaptradePositions(raw: unknown[]): BrokerPosition[] {
-  const positions: BrokerPosition[] = [];
-  for (const pos of raw) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p = pos as any;
-    const symbol: string = p?.symbol?.symbol?.ticker ?? p?.symbol?.ticker ?? p?.symbol ?? "";
-    const units = Number(p?.units ?? p?.quantity ?? 0);
-    const price = Number(p?.price ?? p?.current_price ?? 0);
-    const currency = (p?.symbol?.currency?.code ?? p?.currency ?? "USD").toUpperCase();
-    if (symbol && units > 0 && price > 0) {
-      positions.push({ symbol: symbol.toUpperCase(), units, price, currency });
-    }
-  }
-  return positions;
+function mapBrokerPositions(raw: Position[]): BrokerPosition[] {
+  return raw
+    .map((p) => ({
+      symbol: p.symbol.toUpperCase(),
+      units: p.quantity,
+      price: p.currentPrice ?? p.averagePrice,
+      currency: (p.currency ?? "USD").toUpperCase(),
+    }))
+    .filter((p) => p.symbol && p.units > 0 && p.price > 0);
 }
 
 /** Realized live P&L for today's sells using the locally persisted fill ledger.
@@ -264,12 +261,8 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   let brokerPositions: BrokerPosition[] | null = null;
   if (mode === "live" && brokerConnection && accountId) {
     try {
-      const rawPositions = await listPositions(
-        brokerConnection.snaptradeUserId,
-        brokerConnection.snaptradeUserSecret,
-        accountId,
-      );
-      brokerPositions = mapSnaptradePositions(rawPositions as unknown[]);
+      const adapter = resolveBrokerAdapter(brokerConnection);
+      brokerPositions = mapBrokerPositions(await adapter.getPositions(accountId));
     } catch (err) {
       logger.warn({ err, accountId }, "orderEngine: failed to fetch broker positions, falling back to order-based exposure");
     }
@@ -427,22 +420,16 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   try {
-    const result = await placeSnaptradeOrder({
-      userId: brokerConnection.snaptradeUserId,
-      userSecret: brokerConnection.snaptradeUserSecret,
+    const result = await resolveBrokerAdapter(brokerConnection).placeOrder({
       accountId,
       symbol: symbol.toUpperCase(),
-      side,
+      side: side.toLowerCase() as "buy" | "sell",
+      type: orderType,
       quantity,
       clientOrderId: signalId,
-      // Un stop de protection doit survivre à la séance : GTC, sinon un stop
-      // non exécuté expirerait en fin de journée et la position resterait
-      // sans protection dès le lendemain. Si le courtier ne supporte pas GTC,
-      // SnapTrade renvoie une erreur → l'ordre est marqué "error" et affiché
-      // tel quel (jamais de succès supposé).
-      ...(orderType === "stop" ? { orderType: "Stop" as const, stopPrice, timeInForce: "GTC" as const } : {}),
+      ...(orderType === "stop" ? { stopPrice, timeInForce: "gtc" as const } : {}),
     });
-    snaptradeOrderId = extractSnaptradeOrderId(result);
+    snaptradeOrderId = result.brokerOrderId || extractSnaptradeOrderId(result.raw);
     if (!snaptradeOrderId) {
       logger.warn({ signalId, resultKeys: result && typeof result === "object" ? Object.keys(result) : null }, "orderEngine: aucun brokerage_order_id dans la réponse SnapTrade — la synchronisation des fills ne pourra pas rapprocher cet ordre");
     }

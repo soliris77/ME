@@ -189,6 +189,23 @@ export async function listBalances(userId: string, userSecret: string, accountId
   return res.data ?? [];
 }
 
+export async function listOrders(
+  userId: string,
+  userSecret: string,
+  accountId: string,
+  options?: { days?: number },
+) {
+  const client = await getSnaptradeClientAsync();
+  const res = await client.accountInformation.getUserAccountOrders({
+    userId,
+    userSecret,
+    accountId,
+    state: "all",
+    ...(options?.days != null ? { days: options.days } : {}),
+  });
+  return res.data ?? [];
+}
+
 // ─── Connection refresh ───────────────────────────────────────────────────────
 
 /**

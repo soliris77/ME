@@ -21,6 +21,8 @@ import { notifyKillSwitchActivated, notifyDailyLossWarning } from "../lib/notifi
 import { getAiSecondOpinion, type AiReviewResult } from "../lib/aiReview";
 import { isMarketOpen } from "../lib/risk";
 import { computeClosureWarnings } from "../routes/market";
+import { resolveBrokerAdapter } from "../lib/brokerAdapter";
+import type { OrderResult } from "@workspace/broker";
 
 const WORKER_INTERVAL_MS = 60_000;
 const AGE_MAX_COTATION_MS = 5 * 60 * 1000;
@@ -418,12 +420,15 @@ export function mapSnaptradeStatus(status: string | null | undefined): string | 
 // Clés d'appariement d'un enregistrement SnapTrade : selon le courtier, l'ID
 // persisté à la soumission peut être le `brokerage_order_id` OU l'`id` interne
 // SnapTrade. On indexe donc les deux formes pour un rapprochement déterministe.
-export function snaptradeRecordKeys(rec: { brokerage_order_id?: string | null; id?: string | null }): string[] {
+export function brokerOrderRecordKeys(rec: { brokerage_order_id?: string | null; id?: string | null }): string[] {
   const keys: string[] = [];
   if (rec.brokerage_order_id) keys.push(String(rec.brokerage_order_id));
   if (rec.id && String(rec.id) !== String(rec.brokerage_order_id ?? "")) keys.push(String(rec.id));
   return keys;
 }
+
+/** @deprecated Compatibility alias for callers that used the old provider name. */
+export const snaptradeRecordKeys = brokerOrderRecordKeys;
 
 // Fenêtre de requête (en jours) couvrant le plus ancien ordre non résolu,
 // avec marge d'1 jour ; SnapTrade plafonne à 90.
@@ -459,31 +464,28 @@ export async function syncLiveOrderFills(
   const accountIds = [...new Set(submitted.map((o) => o.brokerAccountId).filter((a): a is string => !!a))];
   if (accountIds.length === 0) return;
 
-  const { getSnaptradeClientAsync } = await import("../lib/snaptrade");
-  const client = await getSnaptradeClientAsync();
-
   for (const accountId of accountIds) {
-    let records: Awaited<ReturnType<typeof client.accountInformation.getUserAccountOrders>>["data"];
+    let records: OrderResult[];
     try {
-      const res = await client.accountInformation.getUserAccountOrders({
-        userId: conn.snaptradeUserId,
-        userSecret: conn.snaptradeUserSecret,
-        accountId,
-        state: "all",
+      records = await resolveBrokerAdapter({
+        snaptradeUserId: conn.snaptradeUserId,
+        snaptradeUserSecret: conn.snaptradeUserSecret,
+      }).listOrders(accountId, {
         days: syncWindowDays(
           submitted.reduce<Date | null>((min, o) => (!min || o.createdAt < min ? o.createdAt : min), null),
           new Date(),
         ),
       });
-      records = res.data;
     } catch (err) {
       logger.warn({ err, accountId }, "autoTradeWorker: syncLiveOrderFills — lecture des ordres SnapTrade échouée");
       continue;
     }
 
-    const byBrokerageId = new Map<string, (typeof records extends (infer T)[] | undefined ? T : never)>();
+    const byBrokerageId = new Map<string, (typeof records)[number]>();
     for (const r of records ?? []) {
-      for (const key of snaptradeRecordKeys(r as { brokerage_order_id?: string | null; id?: string | null })) {
+      const raw = r.raw as { brokerage_order_id?: string | null; id?: string | null } | undefined;
+      for (const key of [r.brokerOrderId, ...brokerOrderRecordKeys(raw ?? {})]) {
+        if (!key) continue;
         byBrokerageId.set(key, r);
       }
     }
@@ -492,18 +494,20 @@ export async function syncLiveOrderFills(
       if (o.brokerAccountId !== accountId || !o.snaptradeOrderId) continue;
       const rec = byBrokerageId.get(o.snaptradeOrderId);
       if (!rec) continue;
-      const newStatus = mapSnaptradeStatus(rec.status as string | undefined);
+      const newStatus = ["filled", "partially_filled", "rejected", "cancelled"].includes(rec.status)
+        ? rec.status
+        : null;
       if (!newStatus) continue;
 
       await db.update(ordersTable)
         .set({
           status: newStatus,
-          fillPrice: rec.execution_price != null ? String(rec.execution_price) : o.fillPrice,
-          filledQuantity: rec.filled_quantity != null ? String(rec.filled_quantity) : o.filledQuantity,
+          fillPrice: rec.averagePrice != null ? String(rec.averagePrice) : o.fillPrice,
+          filledQuantity: rec.filledQuantity != null ? String(rec.filledQuantity) : o.filledQuantity,
         })
         .where(eq(ordersTable.id, o.id));
       logger.info(
-        { orderId: o.id, symbol: o.symbol, newStatus, executionPrice: rec.execution_price, filledQuantity: rec.filled_quantity },
+        { orderId: o.id, symbol: o.symbol, newStatus, executionPrice: rec.averagePrice, filledQuantity: rec.filledQuantity },
         "autoTradeWorker: exécution live synchronisée depuis SnapTrade",
       );
     }
