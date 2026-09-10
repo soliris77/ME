@@ -14,6 +14,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "ccxt": "^4.5.78"
+  },
   "devDependencies": {
     "vitest": "^4.1.10"
   }

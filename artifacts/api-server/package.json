@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:daily-loss": "tsx scripts/test-daily-loss.mjs",
-    "test:daily-loss-warning": "tsx scripts/test-daily-loss-warning.mjs"
+    "test:daily-loss-warning": "tsx scripts/test-daily-loss-warning.mjs",
+    "kraken:smoke": "tsx scripts/kraken-smoke.ts"
   },
   "dependencies": {
     "@whop/sdk": "^0.0.40",

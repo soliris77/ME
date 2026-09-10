@@ -1,4 +1,5 @@
 import type { BrokerAdapter, TradingAccount } from "./types";
+import { CcxtAdapter } from "./adapters/ccxt-adapter";
 
 export type AdapterFactory = (account: TradingAccount) => BrokerAdapter;
 
@@ -25,7 +26,15 @@ export function getAdapterForAccount(account: TradingAccount): BrokerAdapter {
 /** The crypto adapter is intentionally not wired until exchange credentials are configured. */
 export function getConfiguredAdapterForAccount(account: TradingAccount): BrokerAdapter {
   if (account.provider === "ccxt") {
-    throw new Error(`Fournisseur ccxt non configuré pour le compte ${account.id}`);
+    const exchangeId = account.exchangeId ?? "kraken";
+    const prefix = account.secretPrefix ?? exchangeId.toUpperCase();
+    const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
+    const apiKey = env[`${prefix}_API_KEY`];
+    const secret = env[`${prefix}_API_SECRET`];
+    if (!apiKey || !secret) {
+      throw new Error(`Identifiants ccxt manquants pour le préfixe ${prefix}`);
+    }
+    return new CcxtAdapter(account.id, { exchangeId, apiKey, secret });
   }
   return getAdapterForAccount(account);
 }
