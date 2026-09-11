@@ -24,6 +24,14 @@ interface BrokerStatus {
   haltedAt?: string | null;
 }
 
+interface KrakenStatus {
+  provider: "kraken";
+  configured: boolean;
+  status: "ready" | "not_configured";
+  tradingMode: "dry_run";
+  ordersRequireRiskGate: boolean;
+}
+
 interface Account {
   id?: string;
   number?: string;
@@ -170,6 +178,12 @@ export default function BrokerPage() {
     refetchInterval: 10_000,
   });
 
+  const krakenQ = useQuery<KrakenStatus>({
+    queryKey: ["kraken-status"],
+    queryFn: () => fetch(`${BASE}/api/broker/kraken-status`).then((r) => r.json()),
+    refetchInterval: 30_000,
+  });
+
   const accountsQ = useQuery<Account[]>({
     queryKey: ["broker-accounts"],
     queryFn: () => fetch(`${BASE}/api/broker/accounts`).then((r) => r.json()),
@@ -271,11 +285,54 @@ export default function BrokerPage() {
       {/* ── En-tête ─────────────────────────────────────────── */}
       <div>
         <div className="section-rule mb-4"><span>COURTIER</span></div>
-        <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em]">Connexion Wealthsimple</h1>
+         <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em]">Courtiers</h1>
         <p className="mt-2 text-sm max-w-xl" style={{ color: MUTED }}>
-          Via SnapTrade, Soliris Market accède à ton compte Wealthsimple pour lire tes positions et, en mode live, soumettre des ordres automatisés.
+           Connecte tes courtiers pour lire tes positions et, en mode live, soumettre des ordres automatisés depuis tes comptes.
         </p>
       </div>
+
+       {/* ── Courtiers disponibles ─────────────────────────────── */}
+       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+         <div className="rounded-xl p-5" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+           <div className="flex items-start justify-between gap-3">
+             <div className="flex items-center gap-3">
+               <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "rgba(212,167,44,0.12)", color: ACCENT }}>
+                 <Building2 className="w-4 h-4" />
+               </div>
+               <div>
+                 <div className="text-sm font-semibold text-[#E8E9ED]">Wealthsimple</div>
+                 <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>Actions · SnapTrade</div>
+               </div>
+             </div>
+             <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: s?.connected ? "#16A34A" : MUTED }}>
+               {s?.connected ? "Connecté" : "À configurer"}
+             </span>
+           </div>
+           <p className="mt-4 text-[11px] leading-relaxed" style={{ color: MUTED }}>
+             Lecture des positions et exécution des ordres actions via ton compte connecté.
+           </p>
+         </div>
+
+         <div className="rounded-xl p-5" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+           <div className="flex items-start justify-between gap-3">
+             <div className="flex items-center gap-3">
+               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#5741D9]/15 text-[#8E7CFF]">
+                 <Radio className="w-4 h-4" />
+               </div>
+               <div>
+                 <div className="text-sm font-semibold text-[#E8E9ED]">Kraken</div>
+                 <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>Crypto · CCXT</div>
+               </div>
+             </div>
+             <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: krakenQ.data?.configured ? "#16A34A" : MUTED }}>
+               {krakenQ.isLoading ? "Vérification…" : krakenQ.data?.configured ? "Configuré" : "À configurer"}
+             </span>
+           </div>
+           <p className="mt-4 text-[11px] leading-relaxed" style={{ color: MUTED }}>
+             Accès crypto séparé. Le mode dry-run reste le défaut et chaque ordre passe par les garde-fous de risque.
+           </p>
+         </div>
+       </div>
 
       {/* ── Mode paper / live ────────────────────────────────── */}
       {s && (

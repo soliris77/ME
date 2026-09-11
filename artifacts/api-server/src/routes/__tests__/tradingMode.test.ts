@@ -22,7 +22,7 @@ vi.mock("@workspace/db", () => ({
           }]),
         }),
       }),
-    },
+    }),
     update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
   },
   brokerConnectionsTable: { id: "id" },

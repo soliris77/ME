@@ -311,6 +311,19 @@ router.get("/broker/status", async (_req, res) => {
   });
 });
 
+// ─── GET /api/broker/kraken-status ────────────────────────────────────────────
+// Présence uniquement : aucune clé ni fragment dérivé d'une clé n'est retourné.
+router.get("/broker/kraken-status", (_req, res) => {
+  const configured = Boolean(process.env.KRAKEN_API_KEY && process.env.KRAKEN_API_SECRET);
+  return res.json({
+    provider: "kraken",
+    configured,
+    status: configured ? "ready" : "not_configured",
+    tradingMode: "dry_run",
+    ordersRequireRiskGate: true,
+  });
+});
+
 // ─── POST /api/broker/sync ────────────────────────────────────────────────────
 // Pull accounts from SnapTrade and store them in the DB.
 router.post("/broker/sync", async (req, res) => {
