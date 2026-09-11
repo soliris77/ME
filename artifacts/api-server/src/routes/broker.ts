@@ -29,7 +29,7 @@ import {
 } from "../lib/snaptrade";
 import {
   getTradingMode, getLiveArm, armLiveTrading, disarmLiveTrading,
-  LIVE_ARM_CONFIRMATION, MIN_LIVE_ARM_DURATION_MINUTES, MAX_LIVE_ARM_DURATION_MINUTES,
+  MIN_LIVE_ARM_DURATION_MINUTES, MAX_LIVE_ARM_DURATION_MINUTES,
 } from "../lib/tradingMode";
 import { getAssetProfiles, getQuotes } from "../lib/yahoo";
 import { submitOrder, OrderValidationError } from "../lib/orderEngine";
@@ -126,13 +126,13 @@ router.get("/broker/trading-mode", async (_req, res) => {
 });
 
 // ─── POST /api/broker/trading-mode ────────────────────────────────────────────
-// LIVE is never a durable toggle: it requires an account-scoped, expiring,
-// explicitly confirmed arm. Switching to paper always removes that authority.
+// LIVE is never a durable toggle: it requires an account-scoped, expiring arm.
+// Switching to paper always removes that authority.
 router.post("/broker/trading-mode", async (req, res) => {
   try {
-    const { mode, accountId, maxOrderValue, dailyLossCap, durationMinutes, expiresAt, confirmation } = req.body as {
+    const { mode, accountId, maxOrderValue, dailyLossCap, durationMinutes, expiresAt } = req.body as {
       mode?: string; accountId?: string; maxOrderValue?: unknown; dailyLossCap?: unknown;
-      durationMinutes?: unknown; expiresAt?: unknown; confirmation?: unknown;
+      durationMinutes?: unknown; expiresAt?: unknown;
     };
     if (mode !== "paper" && mode !== "live") {
       return res.status(400).json({ error: "mode doit être 'paper' ou 'live'." });
@@ -149,9 +149,6 @@ router.post("/broker/trading-mode", async (req, res) => {
     const loss = typeof dailyLossCap === "number" ? dailyLossCap : Number(dailyLossCap);
     if (!Number.isFinite(max) || max <= 0 || !Number.isFinite(loss) || loss <= 0) {
       return res.status(400).json({ error: "maxOrderValue et dailyLossCap doivent être des nombres positifs." });
-    }
-    if (confirmation !== LIVE_ARM_CONFIRMATION) {
-      return res.status(400).json({ error: `confirmation doit être exactement « ${LIVE_ARM_CONFIRMATION} ».`, confirmationRequired: LIVE_ARM_CONFIRMATION });
     }
     let expiry: Date;
     if (durationMinutes !== undefined && expiresAt !== undefined) {

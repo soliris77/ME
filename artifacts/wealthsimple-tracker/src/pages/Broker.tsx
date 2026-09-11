@@ -154,8 +154,7 @@ export default function BrokerPage() {
     accountId: "",
     maxOrderValue: 1000,
     dailyLossCap: 50,
-    durationMinutes: 60,
-    confirmation: ""
+    durationMinutes: 60
   });
 
   const statusQ = useQuery<BrokerStatus>({
@@ -224,7 +223,6 @@ export default function BrokerPage() {
       qc.invalidateQueries({ queryKey: ["trading-mode"] });
       qc.invalidateQueries({ queryKey: ["trading-mode-details"] });
       setArming(false);
-      setArmForm({ ...armForm, confirmation: "" });
     }
   });
 
@@ -385,19 +383,6 @@ export default function BrokerPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] mb-1.5 uppercase tracking-[0.15em] font-semibold" style={{ color: MUTED }}>Confirmation de sécurité</label>
-                <div className="text-[11px] mb-2" style={{ color: MUTED }}>Tape <strong style={{ color: "#E8E9ED" }}>ARM LIVE TRADING</strong> pour confirmer l'armement.</div>
-                <input
-                  type="text"
-                  placeholder="ARM LIVE TRADING"
-                  value={armForm.confirmation}
-                  onChange={(e) => setArmForm({...armForm, confirmation: e.target.value})}
-                  className="w-full rounded-md px-3 py-2.5 text-[12px] outline-none font-mono"
-                  style={{ background: BASE_BG, border: `1px solid ${BORDER}`, color: "#E8E9ED" }}
-                />
-              </div>
-
               {armLiveMut.error && (
                  <div className="flex items-center gap-2 text-[12px] rounded-lg px-3 py-2.5" style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", color: "#DC2626" }}>
                    <ShieldOff className="w-4 h-4 shrink-0" />
@@ -408,7 +393,7 @@ export default function BrokerPage() {
               <div className="flex justify-end pt-2">
                 <Btn
                   variant="gold"
-                  disabled={armLiveMut.isPending || armForm.confirmation !== "ARM LIVE TRADING" || !armForm.accountId || armForm.durationMinutes < 1 || armForm.maxOrderValue <= 0 || armForm.dailyLossCap <= 0}
+                  disabled={armLiveMut.isPending || !armForm.accountId || armForm.durationMinutes < 1 || armForm.maxOrderValue <= 0 || armForm.dailyLossCap <= 0}
                   onClick={() => armLiveMut.mutate(armForm)}
                 >
                   {armLiveMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}

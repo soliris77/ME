@@ -9,7 +9,6 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger";
 
 type Mode = "paper" | "live";
-export const LIVE_ARM_CONFIRMATION = "ARM LIVE TRADING";
 export const MIN_LIVE_ARM_DURATION_MINUTES = 1;
 export const MAX_LIVE_ARM_DURATION_MINUTES = 480;
 
