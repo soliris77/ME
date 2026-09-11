@@ -1,0 +1,32 @@
+Contexte : les paquets @workspace/broker, risk, market-data et scheduler existent et
+leurs tests passent, mais ils ne sont branchés nulle part. registerAdapterFactory n'est
+jamais appelé, getConfiguredAdapterForAccount n'est jamais importé, et orderEngine.ts
+appelle toujours SnapTrade directement. Ce lot raccorde, sans casser le chemin actions.
+
+1. Enregistrer les fabriques au démarrage de l'API : 'snaptrade' vers un SnapTradeAdapter
+   qui enveloppe lib/snaptrade.ts, et 'ccxt' vers le CcxtAdapter. Ajoute un test qui vérifie
+   qu'après le bootstrap les deux fournisseurs résolvent.
+
+2. Faire passer orderEngine.ts par getConfiguredAdapterForAccount(account) au lieu d'appeler
+   SnapTrade. Adapte les tests existants pour injecter un adaptateur factice plutôt que de
+   mocker SnapTrade. Les 293 tests API doivent rester verts.
+
+3. Rendre risk.ts conscient de la classe d'actif. getExchangeForSymbol renvoie UNSUPPORTED
+   pour tout symbole en -USD/-CAD, ce qui rejette 100 % des symboles crypto. Introduis
+   isSymbolTradeable(symbol, assetClass) : pour 'crypto', la validation passe par
+   getMarketLimits() de l'adaptateur, pas par la liste des bourses SnapTrade. Le comportement
+   pour les actions ne change pas.
+
+4. Supprimer le miroir frontend : artifacts/wealthsimple-tracker/src/lib/tradeability.ts est
+   une copie manuelle de la logique de risk.ts. Extrais cette logique dans un paquet partagé
+   et fais importer les deux côtés. Aucune règle de validation ne doit exister en double.
+
+5. Ouvrir l'armement live aux comptes crypto : POST /api/broker/trading-mode exige une
+   connexion SnapTrade et valide l'accountId contre listAccounts() de SnapTrade. Pour un
+   compte ccxt, la vérification doit interroger l'exchange. Garde toutes les autres conditions
+   strictement inchangées : accountId, maxOrderValue, dailyLossCap, expiration 1 à 480
+   minutes, confirmation explicite, audit.
+
+Contraintes : ne touche pas au thème visuel. Ne modifie aucun comportement du chemin actions.
+pnpm -r test doit rester vert à chaque étape. Un commit par point. Si un point t'amène à
+affaiblir une condition de sécurité existante, arrête-toi et demande avant.

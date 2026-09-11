@@ -23,3 +23,4 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 11 : Réaliser le Lot 6 — garde-fous et mode dry-run
 - ✅ FAIT — Étape 12 : Réaliser le Lot 7 — worker séparé, bail PostgreSQL, santé worker et cible Reserved VM
 - ✅ FAIT — Étape 13 : Reprendre et valider le globe interactif après le chantier crypto
+- → EN COURS — Étape 14 : Valider les changements Courtier/Kraken, l’endpoint protégé et l’état du commit final
