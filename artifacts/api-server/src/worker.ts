@@ -6,6 +6,7 @@ import ccxt from "ccxt";
 import { CcxtFeed, YahooFeed } from "@workspace/market-data";
 import { configureMarketDataFeeds } from "./workers/autoTradeWorker";
 import { WorkerLeaseCoordinator, databaseLeaseRepository, type LeaseRepository } from "./workers/workerLease";
+import { startScannerWorker, stopScannerWorker } from "./workers/scannerWorker";
 
 export interface WorkerBootstrapOptions {
   lease?: WorkerLeaseCoordinator;
@@ -26,17 +27,28 @@ export interface WorkerBootstrapOptions {
  * worker entry point never starts a timer merely because it was imported.
  */
 export function startWorker(options: WorkerBootstrapOptions = {}) {
+  // Une seule instance Kraken, partagee par le flux de donnees et le scanner :
+  // deux instances doubleraient la charge sur la meme limite de debit.
+  const exchange = new (ccxt as any).kraken({ enableRateLimit: true });
   configureMarketDataFeeds({
     equity: new YahooFeed(),
-    crypto: new CcxtFeed({ exchange: new (ccxt as any).kraken({ enableRateLimit: true }) }),
+    crypto: new CcxtFeed({ exchange }),
   });
 
   const lease = options.lease ?? new WorkerLeaseCoordinator(
     options.repository ?? databaseLeaseRepository,
     options.ownerToken ?? randomUUID(),
   );
-  const start = options.start ?? startAutoTradeWorker;
-  const stop = options.stop ?? stopAutoTradeWorker;
+  // Le scanner ne tourne que sur le worker qui detient le bail, jamais en double.
+  // Il reste sans effet tant que scanner_settings.enabled vaut false.
+  const start = options.start ?? (() => {
+    startAutoTradeWorker();
+    startScannerWorker(exchange);
+  });
+  const stop = options.stop ?? (() => {
+    stopScannerWorker();
+    stopAutoTradeWorker();
+  });
   const retryMs = options.retryMs ?? 30_000;
   const setIntervalFn = options.setIntervalFn ?? setInterval;
   const clearIntervalFn = options.clearIntervalFn ?? clearInterval;
