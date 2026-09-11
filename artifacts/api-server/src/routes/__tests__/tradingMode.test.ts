@@ -98,6 +98,7 @@ describe("POST /api/broker/trading-mode", () => {
         maxOrderValue: 1_000,
         dailyLossCap: 100,
         durationMinutes: 60,
+        liveAcknowledged: true,
       }),
     });
 
@@ -110,7 +111,7 @@ describe("POST /api/broker/trading-mode", () => {
     });
   });
 
-  it("conserve les contrôles de configuration live", async () => {
+  it("refuse l'activation si la case de risque n'est pas cochée", async () => {
     const response = await fetch(`${base}/broker/trading-mode`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -119,6 +120,8 @@ describe("POST /api/broker/trading-mode", () => {
         accountId: "acct-1",
         maxOrderValue: 1_000,
         dailyLossCap: 100,
+        durationMinutes: 60,
+        liveAcknowledged: false,
       }),
     });
 

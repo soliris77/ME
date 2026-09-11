@@ -130,9 +130,9 @@ router.get("/broker/trading-mode", async (_req, res) => {
 // Switching to paper always removes that authority.
 router.post("/broker/trading-mode", async (req, res) => {
   try {
-    const { mode, accountId, maxOrderValue, dailyLossCap, durationMinutes, expiresAt } = req.body as {
+    const { mode, accountId, maxOrderValue, dailyLossCap, durationMinutes, expiresAt, liveAcknowledged } = req.body as {
       mode?: string; accountId?: string; maxOrderValue?: unknown; dailyLossCap?: unknown;
-      durationMinutes?: unknown; expiresAt?: unknown;
+      durationMinutes?: unknown; expiresAt?: unknown; liveAcknowledged?: unknown;
     };
     if (mode !== "paper" && mode !== "live") {
       return res.status(400).json({ error: "mode doit être 'paper' ou 'live'." });
@@ -149,6 +149,9 @@ router.post("/broker/trading-mode", async (req, res) => {
     const loss = typeof dailyLossCap === "number" ? dailyLossCap : Number(dailyLossCap);
     if (!Number.isFinite(max) || max <= 0 || !Number.isFinite(loss) || loss <= 0) {
       return res.status(400).json({ error: "maxOrderValue et dailyLossCap doivent être des nombres positifs." });
+    }
+    if (liveAcknowledged !== true) {
+      return res.status(400).json({ error: "La confirmation de risque doit être cochée pour armer le mode LIVE." });
     }
     let expiry: Date;
     if (durationMinutes !== undefined && expiresAt !== undefined) {

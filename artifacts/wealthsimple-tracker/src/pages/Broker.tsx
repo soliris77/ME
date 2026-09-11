@@ -154,7 +154,8 @@ export default function BrokerPage() {
     accountId: "",
     maxOrderValue: 1000,
     dailyLossCap: 50,
-    durationMinutes: 60
+    durationMinutes: 60,
+    liveAcknowledged: false
   });
 
   const statusQ = useQuery<BrokerStatus>({
@@ -383,6 +384,18 @@ export default function BrokerPage() {
                 </div>
               </div>
 
+              <label className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 cursor-pointer" style={{ background: "rgba(201,162,39,0.06)", border: `1px solid ${BORDER}` }}>
+                <input
+                  type="checkbox"
+                  checked={armForm.liveAcknowledged}
+                  onChange={(e) => setArmForm({...armForm, liveAcknowledged: e.target.checked})}
+                  className="mt-0.5 accent-[#c9a227]"
+                />
+                <span className="text-[11px] leading-relaxed" style={{ color: MUTED }}>
+                  Oui, je comprends que des ordres réels peuvent être envoyés sur mon compte pendant la durée choisie.
+                </span>
+              </label>
+
               {armLiveMut.error && (
                  <div className="flex items-center gap-2 text-[12px] rounded-lg px-3 py-2.5" style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", color: "#DC2626" }}>
                    <ShieldOff className="w-4 h-4 shrink-0" />
@@ -393,7 +406,7 @@ export default function BrokerPage() {
               <div className="flex justify-end pt-2">
                 <Btn
                   variant="gold"
-                  disabled={armLiveMut.isPending || !armForm.accountId || armForm.durationMinutes < 1 || armForm.maxOrderValue <= 0 || armForm.dailyLossCap <= 0}
+                  disabled={armLiveMut.isPending || !armForm.liveAcknowledged || !armForm.accountId || armForm.durationMinutes < 1 || armForm.maxOrderValue <= 0 || armForm.dailyLossCap <= 0}
                   onClick={() => armLiveMut.mutate(armForm)}
                 >
                   {armLiveMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
