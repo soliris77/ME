@@ -1,5 +1,4 @@
 import type { BrokerAdapter, TradingAccount } from "./types";
-import { CcxtAdapter } from "./adapters/ccxt-adapter";
 
 export type AdapterFactory = (account: TradingAccount) => BrokerAdapter;
 
@@ -34,7 +33,10 @@ export function getConfiguredAdapterForAccount(account: TradingAccount): BrokerA
     if (!apiKey || !secret) {
       throw new Error(`Identifiants ccxt manquants pour le préfixe ${prefix}`);
     }
-    return new CcxtAdapter(account.id, { exchangeId, apiKey, secret });
+    // Credential validation is deliberately performed before consulting the
+    // registry.  The registry remains the sole construction authority.
+    void apiKey;
+    void secret;
   }
   return getAdapterForAccount(account);
 }

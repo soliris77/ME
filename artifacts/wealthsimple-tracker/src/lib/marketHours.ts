@@ -10,7 +10,7 @@
  * (/api/market/hours/:symbol) est la source de vérité pour les fiches détail.
  */
 
-import { getExchangeForSymbol } from "@/lib/tradeability";
+import { getExchangeForSymbol } from "@workspace/tradeability";
 
 export type MarketSessionStatus = "continuous" | "open" | "closed";
 

@@ -20,6 +20,9 @@ import { eq } from "drizzle-orm";
 import { getQuotes } from "./yahoo";
 import { logger } from "./logger";
 import { getRiskSettings } from "./settings";
+import { getExchangeForSymbol as sharedExchangeForSymbol } from "@workspace/tradeability";
+import type { BrokerAdapter } from "@workspace/broker";
+import type { MarketLimits } from "@workspace/broker";
 
 // ─── Configuration (modifiable depuis /parametres, repli sur l'environnement) ──
 export async function getMaxOrderValue(): Promise<number> {
@@ -37,45 +40,34 @@ export async function getMaxPortfolioExposure(): Promise<number> {
 export type Exchange = "TSX" | "NASDAQ_NYSE" | "UNSUPPORTED";
 
 export function getExchangeForSymbol(symbol: string): Exchange {
-  const upper = symbol.toUpperCase();
-
-  // Indices boursiers (^GSPC, ^FTSE, ^N225…)
-  if (upper.startsWith("^")) return "UNSUPPORTED";
-
-  // Futures (GC=F, CL=F…) et Forex (EURUSD=X…)
-  if (upper.endsWith("=F") || upper.endsWith("=X")) return "UNSUPPORTED";
-
-  // Cryptos — Wealthsimple supporte BTC/ETH etc. mais pas via l'API SnapTrade
-  // du même chemin que les actions ; exclus pour l'instant.
-  if (/-USD$|-CAD$|-EUR$|-GBP$/.test(upper)) return "UNSUPPORTED";
-
-  // Bourses canadiennes (TSX, TSXV, NEO, CSE)
-  if (/\.(TO|V|NE|CN)$/.test(upper)) return "TSX";
-
-  // Bourses européennes
-  if (/\.(DE|PA|L|SW|AS|MI|MC|BR|LS|ST|CO|OL|HE|VI|PR|WA|AT|IR|VX|AMS)$/.test(upper)) {
-    return "UNSUPPORTED";
-  }
-
-  // Bourses asiatiques et Pacifique
-  if (/\.(T|KS|KQ|HK|NS|BO|SS|SZ|AX|SI|KL|BK|TW|JK|NZ)$/.test(upper)) {
-    return "UNSUPPORTED";
-  }
-
-  // Afrique / Moyen-Orient
-  if (/\.(JO|TA)$/.test(upper)) return "UNSUPPORTED";
-
-  // Mexique coté localement
-  if (/\.MX$/.test(upper)) return "UNSUPPORTED";
-
-  // Tout le reste est considéré US-coté (NASDAQ/NYSE/NYSE American/OTC)
-  // — couvre les ADR comme BABA, TSM, PBR, VALE qui sont sur NYSE.
-  return "NASDAQ_NYSE";
+  return sharedExchangeForSymbol(symbol);
 }
 
 /** Renvoie true si le symbole est exécutable via Wealthsimple/SnapTrade. */
 export function isSymbolTradeable(symbol: string): boolean {
   return getExchangeForSymbol(symbol) !== "UNSUPPORTED";
+}
+
+/** Crypto tradeability is adapter-owned; equity keeps the historical rule. */
+export async function isSymbolTradeableForAsset(
+  symbol: string,
+  assetClass: "equity" | "crypto",
+  adapter?: Pick<BrokerAdapter, "getMarketLimits">,
+  marketLimits?: MarketLimits,
+): Promise<boolean> {
+  if (assetClass === "equity") return isSymbolTradeable(symbol);
+  if (marketLimits) return Number.isFinite(marketLimits.minQuantity) && marketLimits.minQuantity > 0 &&
+    Number.isFinite(marketLimits.quantityStep) && marketLimits.quantityStep > 0 &&
+    Number.isFinite(marketLimits.priceStep) && marketLimits.priceStep > 0;
+  if (!adapter) return false;
+  try {
+    const limits = await adapter.getMarketLimits(symbol);
+    return Number.isFinite(limits.minQuantity) && limits.minQuantity > 0 &&
+      Number.isFinite(limits.quantityStep) && limits.quantityStep > 0 &&
+      Number.isFinite(limits.priceStep) && limits.priceStep > 0;
+  } catch {
+    return false;
+  }
 }
 
 // ─── Jours fériés boursiers ───────────────────────────────────────────────────
@@ -465,6 +457,9 @@ export interface RiskCheckInput {
    * Si absent ou null, le calcul d'exposition se base sur la table orders.
    */
   brokerPositions?: BrokerPosition[] | null;
+  assetClass?: "equity" | "crypto";
+  adapter?: Pick<BrokerAdapter, "getMarketLimits">;
+  marketLimits?: MarketLimits;
 }
 
 export type RiskCheckResult =
@@ -485,11 +480,16 @@ export type RiskCheckResult =
  *      et Wealthsimple rejette les ventes à découvert de son côté.
  */
 export async function checkOrderRisk(input: RiskCheckInput): Promise<RiskCheckResult> {
-  const { symbol, side, quantity, mode, brokerPositions } = input;
+  const { symbol, side, quantity, mode, brokerPositions, assetClass = "equity", adapter, marketLimits } = input;
 
   // 1) Bourse supportée
   const exchange = getExchangeForSymbol(symbol);
-  if (exchange === "UNSUPPORTED") {
+  if (assetClass === "crypto") {
+    if (!(await isSymbolTradeableForAsset(symbol, assetClass, adapter, marketLimits))) {
+      return { ok: false, reason: "market_limits_unavailable", message: `Limites de marché introuvables pour ${symbol}. Ordre refusé par prudence.`, details: { symbol } };
+    }
+  }
+  if (assetClass !== "crypto" && exchange === "UNSUPPORTED") {
     return {
       ok: false,
       reason: "exchange_not_supported",
@@ -503,7 +503,7 @@ export async function checkOrderRisk(input: RiskCheckInput): Promise<RiskCheckRe
 
   // 2) Heures de marché (week-end + hors session + jours fériés)
   const hours = isMarketOpen(symbol);
-  if (!hours.open) {
+  if (assetClass !== "crypto" && !hours.open) {
     return {
       ok: false,
       reason: "market_closed",

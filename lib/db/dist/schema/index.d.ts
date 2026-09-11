@@ -17,4 +17,6 @@ export * from "./subscription";
 export * from "./protectiveOrders";
 export * from "./risk";
 export * from "./worker";
+export * from "./equity";
+export * from "./marketLimits";
 //# sourceMappingURL=index.d.ts.map

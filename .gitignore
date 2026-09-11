@@ -3,3 +3,8 @@
 # build output (régénéré à chaque démarrage du workflow)
 artifacts/api-server/dist/
 packages/*/dist/
+
+# secrets
+.env
+.env.*
+!.env.example

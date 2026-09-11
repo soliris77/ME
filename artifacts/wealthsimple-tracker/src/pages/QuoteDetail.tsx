@@ -17,7 +17,7 @@ import {
   TrendingUp, TrendingDown, BarChart2, Gauge, StickyNote, Newspaper, ExternalLink,
   Clock, CheckCircle2, XCircle, Calculator,
 } from "lucide-react";
-import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
+import { isTradeableSymbol, nonTradeableReason } from "@workspace/tradeability";
 import TradeModal from "@/components/TradeModal";
 import { PositionCalculator } from "@/components/PositionCalculator";
 import { useToast } from "@/hooks/use-toast";

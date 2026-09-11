@@ -25,6 +25,7 @@ import { asc, inArray } from "drizzle-orm";
 import { getRiskSettings } from "./settings";
 import { getTradingMode } from "./tradingMode";
 import { logger } from "./logger";
+import { resolveAuthoritativeConnection } from "./connectionResolver";
 
 // ─── Types d'entrée (indépendants de la DB pour rester testables) ────────────
 
@@ -374,10 +375,10 @@ export async function getDisciplineReport(): Promise<DisciplineReport> {
   // cycle du worker. Best-effort : un échec de sync ne bloque pas le rapport.
   if (getTradingMode() === "live") {
     try {
-      const [conn] = await db.select().from(brokerConnectionsTable).limit(1);
+      const conn = await resolveAuthoritativeConnection();
       if (conn) {
         const { syncLiveOrderFills } = await import("../workers/autoTradeWorker");
-        await syncLiveOrderFills(conn);
+        await syncLiveOrderFills();
       }
     } catch (err) {
       logger.warn({ err }, "discipline: syncLiveOrderFills échoué — score calculé sur les fills déjà confirmés");

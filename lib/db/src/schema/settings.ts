@@ -47,6 +47,7 @@ export const appSettingsTable = pgTable("app_settings", {
   // réglages généraux : un redémarrage ne doit jamais réarmer implicitement.
   tradingMode: text("trading_mode").default("paper").notNull(),
   liveArmAccountId: text("live_arm_account_id"),
+  liveArmProvider: text("live_arm_provider"),
   liveArmMaxOrderValue: text("live_arm_max_order_value"),
   liveArmDailyLossCap: text("live_arm_daily_loss_cap"),
   liveArmExpiresAt: timestamp("live_arm_expires_at"),

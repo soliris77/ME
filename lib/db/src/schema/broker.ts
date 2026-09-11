@@ -9,8 +9,10 @@ import { z } from "zod/v4";
 export const brokerConnectionsTable = pgTable("broker_connections", {
   id: serial("id").primaryKey(),
   provider: text("provider").default("snaptrade").notNull(),
-  snaptradeUserId: text("snaptrade_user_id").notNull(),
-  snaptradeUserSecret: text("snaptrade_user_secret").notNull(),
+  snaptradeUserId: text("snaptrade_user_id"),
+  snaptradeUserSecret: text("snaptrade_user_secret"),
+  exchangeId: text("exchange_id"),
+  secretPrefix: text("secret_prefix"),
   status: text("status").default("pending").notNull(), // pending | connected | error
   lastSyncedAt: timestamp("last_synced_at"),
   accounts: jsonb("accounts").$type<Record<string, unknown>[]>().default([]),

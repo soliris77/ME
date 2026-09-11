@@ -19,6 +19,13 @@ import type { OHLCPoint } from "../lib/patternDetect";
 import { getRiskSettings } from "../lib/settings";
 import { getTradingMode } from "../lib/tradingMode";
 import { resolveBrokerAdapter } from "../lib/brokerAdapter";
+import { getConfiguredAdapterForAccount } from "@workspace/broker";
+import { resolveAuthoritativeConnection } from "../lib/connectionResolver";
+import { normalizeAccountIdentity } from "../lib/accountIdentity";
+function snapCredentials(conn: { snaptradeUserId: string | null; snaptradeUserSecret: string | null } | null | undefined) {
+  if (!conn?.snaptradeUserId || !conn.snaptradeUserSecret) return null;
+  return { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret };
+}
 import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
 import { buildSuggestions, type AdvisorPosition, type AdvisorSignal } from "../lib/ruleAdvisor";
 import {
@@ -27,12 +34,18 @@ import {
 } from "../lib/globalRisk";
 
 const router = Router();
+async function authoritativeRiskAccount(raw: unknown): Promise<string> {
+  if (typeof raw !== "string" || !raw.trim()) throw new Error("accountId requis");
+  const connection = await resolveAuthoritativeConnection(raw);
+  const provider = connection.provider === "ccxt" ? "ccxt" : "snaptrade";
+  return normalizeAccountIdentity(provider, raw);
+}
 
 // Account-scoped Lot 6 risk controls.  Kill-switch cancellation explicitly
 // excludes protective stop orders (those are owned by protectiveOrdersTable).
 router.get("/auto-trader/risk-settings", async (req, res) => {
   try {
-    const accountId = typeof req.query.accountId === "string" ? req.query.accountId : "default";
+    const accountId = await authoritativeRiskAccount(req.query.accountId);
     let [settings] = await db.select().from(riskSettingsTable).where(eq(riskSettingsTable.accountId, accountId)).limit(1);
     if (!settings) [settings] = await db.insert(riskSettingsTable).values({ accountId }).returning();
     return res.json(settings);
@@ -42,7 +55,7 @@ router.get("/auto-trader/risk-settings", async (req, res) => {
 router.put("/auto-trader/risk-settings", async (req, res) => {
   try {
     const body = req.body as Record<string, unknown>;
-    const accountId = typeof body.accountId === "string" && body.accountId ? body.accountId : "default";
+    const accountId = await authoritativeRiskAccount(body.accountId);
     const values = {
       ...(body.mode === "dry_run" || body.mode === "live" ? { mode: body.mode } : {}),
       ...(typeof body.maxPositionPct === "number" ? { maxPositionPct: String(body.maxPositionPct) } : {}),
@@ -57,19 +70,25 @@ router.put("/auto-trader/risk-settings", async (req, res) => {
 
 router.post("/auto-trader/risk-settings/kill-switch", async (req, res) => {
   try {
-    const accountId = typeof req.body?.accountId === "string" ? req.body.accountId : "default";
+    const accountId = await authoritativeRiskAccount(req.body?.accountId);
     const reason = typeof req.body?.reason === "string" ? req.body.reason : "activation manuelle";
     const [settings] = await db.insert(riskSettingsTable).values({ accountId, killSwitchActive: true, killSwitchReason: reason })
       .onConflictDoUpdate({ target: riskSettingsTable.accountId, set: { killSwitchActive: true, killSwitchReason: reason, updatedAt: new Date() } }).returning();
     // Only regular open orders are cancelled. Protective broker orders are
     // represented in protective_orders and are intentionally untouched.
-    const conn = (await db.select().from(brokerConnectionsTable).limit(1))[0];
+    let conn;
+    try { conn = await resolveAuthoritativeConnection(accountId); } catch { conn = null; }
     let cancelled = 0;
-    if (conn) {
-      const adapter = resolveBrokerAdapter({ snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret });
+    const credentials = snapCredentials(conn);
+    if (credentials || conn?.provider === "ccxt") {
+      const provider = conn?.provider === "ccxt" ? "ccxt" : "snaptrade";
+      const rawAccountId = provider === "ccxt" ? accountId.replace(/^ccxt:/, "") : accountId.replace(/^snaptrade:/, "");
+      const adapter = provider === "ccxt"
+        ? getConfiguredAdapterForAccount({ id: rawAccountId, provider: "ccxt", assetClass: "crypto", exchangeId: conn!.exchangeId ?? "kraken" })
+        : resolveBrokerAdapter(credentials!);
       const open = await db.select().from(ordersTable).where(and(eq(ordersTable.brokerAccountId, accountId), inArray(ordersTable.status, ["pending", "submitted"])));
       for (const order of open.filter((o) => o.orderType !== "stop" && o.snaptradeOrderId)) {
-        await adapter.cancelOrder(accountId, order.snaptradeOrderId!).catch(() => undefined);
+        await adapter.cancelOrder(rawAccountId, order.snaptradeOrderId!).catch(() => undefined);
         cancelled++;
       }
     }
@@ -79,7 +98,7 @@ router.post("/auto-trader/risk-settings/kill-switch", async (req, res) => {
 
 router.post("/auto-trader/risk-settings/reactivate", async (req, res) => {
   try {
-    const accountId = typeof req.body?.accountId === "string" ? req.body.accountId : "default";
+    const accountId = await authoritativeRiskAccount(req.body?.accountId);
     const [settings] = await db.update(riskSettingsTable).set({ killSwitchActive: false, killSwitchReason: null, updatedAt: new Date() }).where(eq(riskSettingsTable.accountId, accountId)).returning();
     if (!settings) return res.status(404).json({ error: "Compte de risque introuvable." });
     return res.json(settings);
@@ -375,19 +394,17 @@ router.get("/auto-trader/global-risk", async (_req, res) => {
     let exposureSource: "broker" | "auto_trader" = "auto_trader";
     let brokerFetchError: string | null = null;
 
-    const [conn] = await db.select().from(brokerConnectionsTable)
-      .orderBy(desc(brokerConnectionsTable.id)).limit(1);
+    let conn;
+    try { conn = await resolveAuthoritativeConnection(); } catch { conn = null; }
 
-    if (conn && conn.status === "connected") {
+    const credentials = snapCredentials(conn);
+    if (conn && conn.status === "connected" && credentials) {
       try {
         const accounts = (conn.accounts as { id: string }[] | null) ?? [];
         const raw: unknown[] = [];
         for (const acc of accounts) {
           if (!acc?.id) continue;
-          const positions = await resolveBrokerAdapter({
-            snaptradeUserId: conn.snaptradeUserId,
-            snaptradeUserSecret: conn.snaptradeUserSecret,
-          }).getPositions(acc.id);
+          const positions = await resolveBrokerAdapter(credentials).getPositions(acc.id);
           raw.push(...positions);
         }
         exposureRows = raw.map((r) => {
@@ -459,17 +476,15 @@ router.get("/auto-trader/suggestions", async (_req, res) => {
 
     // 1) Positions détenues (source de vérité : courtier si connecté).
     const positions: AdvisorPosition[] = [];
-    const [conn] = await db.select().from(brokerConnectionsTable)
-      .orderBy(desc(brokerConnectionsTable.id)).limit(1);
-    if (conn && conn.status === "connected") {
+    let conn;
+    try { conn = await resolveAuthoritativeConnection(); } catch { conn = null; }
+    const credentials = snapCredentials(conn);
+    if (conn && conn.status === "connected" && credentials) {
       try {
         const accounts = (conn.accounts as { id: string }[] | null) ?? [];
         for (const acc of accounts) {
           if (!acc?.id) continue;
-          const raw = await resolveBrokerAdapter({
-            snaptradeUserId: conn.snaptradeUserId,
-            snaptradeUserSecret: conn.snaptradeUserSecret,
-          }).getPositions(acc.id);
+          const raw = await resolveBrokerAdapter(credentials).getPositions(acc.id);
           for (const r of raw) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const p = r as any;

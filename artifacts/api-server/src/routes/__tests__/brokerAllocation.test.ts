@@ -21,6 +21,9 @@ const h = vi.hoisted(() => ({
   getAssetProfiles: vi.fn(),
   getQuotes: vi.fn(),
 }));
+vi.mock("../../lib/connectionResolver", () => ({
+  resolveAuthoritativeConnection: vi.fn(async () => h.connections.find((c) => c.status === "connected" || c.status === "pending") ?? null),
+}));
 
 vi.mock("@workspace/db", () => ({
   db: {
@@ -96,6 +99,7 @@ describe("GET /broker/allocation", () => {
 
   const connectedConn = () => ({
     id: 1,
+    provider: "snaptrade",
     snaptradeUserId: "u",
     snaptradeUserSecret: "s",
     status: "connected",

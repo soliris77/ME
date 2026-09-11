@@ -43,10 +43,14 @@ const h = vi.hoisted(() => {
   const rejectedSignalsTable = { $inferSelect: undefined };
   const brokerConnectionsTable = { $inferSelect: undefined };
   const riskSettingsTable = { accountId: Symbol("risk.accountId"), $inferSelect: undefined };
+  const marketLimitsTable = {
+    accountIdentity: Symbol("market.accountIdentity"), symbol: Symbol("market.symbol"), $inferSelect: undefined,
+  };
   const orderAuditLogTable = { $inferSelect: undefined };
 
   const state = {
     connections: [] as Record<string, unknown>[],
+    marketLimits: [] as Record<string, unknown>[],
     orders: [] as Record<string, unknown>[],
     riskSettings: [] as Record<string, unknown>[],
     inserts: [] as { table: unknown; values: Record<string, unknown> }[],
@@ -60,7 +64,8 @@ const h = vi.hoisted(() => {
   const rowsFor = (table: unknown) =>
     table === brokerConnectionsTable ? state.connections :
     table === ordersTable ? state.orders :
-    table === riskSettingsTable ? state.riskSettings : [];
+    table === riskSettingsTable ? state.riskSettings :
+    table === marketLimitsTable ? state.marketLimits : [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const thenable = (rows: unknown[]): any => ({
@@ -113,7 +118,7 @@ const h = vi.hoisted(() => {
   };
 
   return {
-    state, db, ordersTable, rejectedSignalsTable, brokerConnectionsTable, riskSettingsTable, orderAuditLogTable,
+    state, db, ordersTable, rejectedSignalsTable, brokerConnectionsTable, riskSettingsTable, marketLimitsTable, orderAuditLogTable,
     pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
     getTradingMode: vi.fn(),
     getLiveArm: vi.fn().mockResolvedValue({
@@ -133,6 +138,7 @@ vi.mock("@workspace/db", () => ({
   rejectedSignalsTable: h.rejectedSignalsTable,
   brokerConnectionsTable: h.brokerConnectionsTable,
   riskSettingsTable: h.riskSettingsTable,
+  marketLimitsTable: h.marketLimitsTable,
   orderAuditLogTable: h.orderAuditLogTable,
 }));
 vi.mock("../tradingMode", () => ({ getLiveArm: h.getLiveArm, getTradingMode: h.getTradingMode }));
@@ -143,7 +149,7 @@ vi.mock("drizzle-orm", () => ({
   desc: (col: unknown) => ({ desc: col }),
 }));
 vi.mock("../brokerAdapter", () => ({
-  resolveBrokerAdapter: () => ({
+  getConfiguredAdapterForAccount: () => ({
     placeOrder: async (request: Record<string, unknown>) => {
       const raw = await h.placeOrder(request);
       return {
@@ -155,6 +161,7 @@ vi.mock("../brokerAdapter", () => ({
       };
     },
     getPositions: h.listPositions,
+    getBalances: async () => [{ currency: "USD", free: 100000, total: 100000 }],
   }),
 }));
 vi.mock("../risk", () => ({ checkOrderRisk: h.checkOrderRisk }));
@@ -174,6 +181,20 @@ const baseInput = {
   symbol: "AAPL",
   side: "BUY",
   quantity: 2,
+  adapter: {
+    placeOrder: async (request: Record<string, unknown>) => {
+      const raw = await h.placeOrder(request);
+      return {
+        brokerOrderId: String((raw as Record<string, unknown>).brokerage_order_id ?? ""),
+        clientOrderId: String(request.clientOrderId ?? ""),
+        status: "open" as const,
+        filledQuantity: 0,
+        raw,
+      };
+    },
+    getPositions: h.listPositions,
+    getMarketLimits: vi.fn().mockResolvedValue({ minQuantity: 0.0001, quantityStep: 0.0001, priceStep: 0.01 }),
+  } as any,
 };
 
 const riskOk = { ok: true as const, livePrice: 100, orderValue: 200, currency: "USD" };
@@ -190,6 +211,8 @@ const rejectedInserts = () => h.state.inserts.filter(i => i.table === h.rejected
 beforeEach(() => {
   vi.clearAllMocks();
   h.state.connections.length = 0;
+  h.state.connections.push({ provider: "snaptrade", status: "connected", accounts: [{ id: "acct-1" }], tradingHalted: false });
+  h.state.marketLimits.length = 0;
   h.state.orders.length = 0;
   h.state.riskSettings.length = 0;
   h.state.riskSettings.push({
@@ -201,6 +224,7 @@ beforeEach(() => {
   h.state.nextOrderInsertError = null;
   h.state.duplicateRow = null;
   h.getTradingMode.mockReturnValue("paper");
+  h.listPositions.mockResolvedValue([]);
   h.getLiveArm.mockResolvedValue({
     accountId: "acct-1", maxOrderValue: 1_000, dailyLossCap: 500,
     armedAt: new Date("2026-01-01T00:00:00Z"), expiresAt: new Date("2099-01-01T00:00:00Z"),
@@ -229,7 +253,7 @@ describe("Lot 6 acceptance 6 — persisted dry-run submission is simulated and n
 // ── 0) Kill-switch ────────────────────────────────────────────────────────────
 describe("submitOrder — kill-switch", () => {
   it("kill-switch actif → rejected kill_switch_active, AUCUN appel courtier ni insertion", async () => {
-    h.state.connections.push({ tradingHalted: true, haltedAt: new Date("2026-07-30T12:00:00Z") });
+    h.state.connections[0] = { provider: "snaptrade", status: "connected", accounts: [{ id: "acct-1" }], tradingHalted: true, haltedAt: new Date("2026-07-30T12:00:00Z") };
 
     const res = await submitOrder(baseInput);
 
@@ -245,7 +269,7 @@ describe("submitOrder — kill-switch", () => {
 
   it("kill-switch actif bloque aussi le mode LIVE avec connexion valide", async () => {
     h.getTradingMode.mockReturnValue("live");
-    h.state.connections.push({ tradingHalted: true, haltedAt: null });
+    h.state.connections[0] = { provider: "snaptrade", status: "connected", accounts: [{ id: "acct-1" }], tradingHalted: true, haltedAt: null };
 
     const res = await submitOrder({
       ...baseInput,

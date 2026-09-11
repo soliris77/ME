@@ -20,7 +20,7 @@ import { Link } from "wouter";
 import { formatPrice, formatPercent } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import GlobalRiskPanel from "@/components/GlobalRiskPanel";
-import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
+import { isTradeableSymbol, nonTradeableReason } from "@workspace/tradeability";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 

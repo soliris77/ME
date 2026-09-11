@@ -37,16 +37,18 @@ import { getRiskSettings } from "../lib/settings";
 import { logAudit } from "../lib/audit";
 import { notifyKillSwitchActivated } from "../lib/notifications";
 import { logger } from "../lib/logger";
+import { KRAKEN_ACCOUNT_ID } from "../lib/brokerAdapter";
+import { getConfiguredAdapterForAccount } from "@workspace/broker";
+import { resolveAuthoritativeConnection } from "../lib/connectionResolver";
 const router = Router();
 
 // ─── Helper — retrieve the single broker connection row ───────────────────────
 async function getConnection() {
-  const rows = await db
-    .select()
-    .from(brokerConnectionsTable)
-    .orderBy(desc(brokerConnectionsTable.id))
-    .limit(1);
-  return rows[0] ?? null;
+  try { return await resolveAuthoritativeConnection(); } catch { return null; }
+}
+function snapCredentials(conn: { snaptradeUserId: string | null; snaptradeUserSecret: string | null } | null | undefined) {
+  if (!conn?.snaptradeUserId || !conn.snaptradeUserSecret) throw new Error("Identifiants SnapTrade manquants");
+  return { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret };
 }
 
 // ─── POST /api/broker/credentials ────────────────────────────────────────────
@@ -112,6 +114,7 @@ router.get("/broker/trading-mode", async (_req, res) => {
       hasCredentials,
       arm: arm ? {
         accountId: arm.accountId,
+        provider: arm.provider,
         maxOrderValue: arm.maxOrderValue,
         dailyLossCap: arm.dailyLossCap,
         armedAt: arm.armedAt.toISOString(),
@@ -172,15 +175,28 @@ router.post("/broker/trading-mode", async (req, res) => {
     }
     const conn = await getConnection();
     if (!conn || conn.status !== "connected") {
-      return res.status(400).json({ error: "Une connexion SnapTrade active est requise pour armer le mode LIVE." });
+      return res.status(400).json({ error: "Une connexion courtier active est requise pour armer le mode LIVE." });
     }
-    // Ask SnapTrade rather than trusting a stale cache before granting live authority.
-    const accounts = await listAccounts(conn.snaptradeUserId, conn.snaptradeUserSecret);
-    if (!(accounts as { id?: string }[]).some((account) => account?.id === accountId)) {
-      return res.status(400).json({ error: "accountId ne correspond pas à un compte SnapTrade connecté." });
+    const provider = conn.provider === "ccxt" ? "ccxt" : "snaptrade";
+    if (provider === "ccxt") {
+      if (accountId !== KRAKEN_ACCOUNT_ID) {
+        return res.status(400).json({ error: "accountId ne correspond pas au compte Kraken canonique." });
+      }
+      try {
+        const adapter = getConfiguredAdapterForAccount({ id: KRAKEN_ACCOUNT_ID, provider: "ccxt", assetClass: "crypto", exchangeId: "kraken" });
+        await adapter.getBalances(KRAKEN_ACCOUNT_ID);
+      } catch {
+        return res.status(400).json({ error: "Le compte Kraken n'a pas pu être authentifié." });
+      }
+    } else {
+      // Ask SnapTrade rather than trusting a stale cache before granting live authority.
+      const accounts = await listAccounts(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret);
+      if (!(accounts as { id?: string }[]).some((account) => account?.id === accountId)) {
+        return res.status(400).json({ error: "accountId ne correspond pas à un compte SnapTrade connecté." });
+      }
     }
     const armedAt = new Date();
-    await armLiveTrading({ accountId, maxOrderValue: max, dailyLossCap: loss, armedAt, expiresAt: expiry });
+    await armLiveTrading({ accountId, provider, maxOrderValue: max, dailyLossCap: loss, armedAt, expiresAt: expiry });
     await logAudit(
       "trading_mode.change",
       "Mode LIVE armé temporairement.",
@@ -248,8 +264,8 @@ router.get("/broker/connect-url", async (req, res) => {
       });
     }
     const redirectURI = await getConnectionPortalUrl(
-      conn.snaptradeUserId,
-      conn.snaptradeUserSecret,
+      snapCredentials(conn).snaptradeUserId,
+      snapCredentials(conn).snaptradeUserSecret,
       (req.query.reconnect as string) ?? undefined
     );
     return res.json({ redirectURI });
@@ -331,7 +347,7 @@ router.post("/broker/sync", async (req, res) => {
     const conn = await getConnection();
     if (!conn) return res.status(400).json({ error: "Not set up" });
 
-    const accounts = await listAccounts(conn.snaptradeUserId, conn.snaptradeUserSecret);
+    const accounts = await listAccounts(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret);
 
     await db
       .update(brokerConnectionsTable)
@@ -359,7 +375,7 @@ router.get("/broker/accounts", async (_req, res) => {
 
     // Try live fetch first; fall back to cached if SnapTrade is unavailable
     try {
-      const accounts = await listAccounts(conn.snaptradeUserId, conn.snaptradeUserSecret);
+      const accounts = await listAccounts(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret);
       return res.json(accounts);
     } catch {
       // Return cached accounts from DB
@@ -377,8 +393,8 @@ router.get("/broker/positions/:accountId", async (req, res) => {
     if (!conn) return res.status(400).json({ error: "Not set up" });
 
     const positions = await listPositions(
-      conn.snaptradeUserId,
-      conn.snaptradeUserSecret,
+      snapCredentials(conn).snaptradeUserId,
+      snapCredentials(conn).snaptradeUserSecret,
       req.params.accountId
     );
     return res.json(positions);
@@ -395,8 +411,8 @@ router.get("/broker/balances/:accountId", async (req, res) => {
     if (!conn) return res.status(400).json({ error: "Not set up" });
 
     const balances = await listBalances(
-      conn.snaptradeUserId,
-      conn.snaptradeUserSecret,
+      snapCredentials(conn).snaptradeUserId,
+      snapCredentials(conn).snaptradeUserSecret,
       req.params.accountId
     );
     return res.json(balances);
@@ -414,7 +430,7 @@ router.post("/broker/refresh", async (req, res) => {
     const conn = await getConnection();
     if (!conn) return res.status(400).json({ error: "Not set up" });
 
-    await refreshConnection(conn.snaptradeUserId, conn.snaptradeUserSecret);
+    await refreshConnection(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret);
     await logAudit("broker.refresh", "Rafraîchissement manuel des soldes SnapTrade demandé.");
     logger.info("broker: refresh connexion demandé");
     return res.json({ ok: true, message: "Rafraîchissement demandé — les soldes seront mis à jour dans quelques secondes." });
@@ -475,9 +491,9 @@ router.post("/broker/orders", async (req, res) => {
       source: source ?? "manual",
       orderType: orderType === "stop" ? "stop" : "market",
       stopPrice,
-      brokerConnection: conn
-        ? { snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret }
-        : null,
+      // The order engine selects and authenticates the persisted provider
+      // connection; client requests never carry broker credentials.
+      brokerConnection: conn ? {} : null,
     });
 
     // Ordre refusé par les garde-fous de risque → 422 avec message explicite
@@ -544,7 +560,7 @@ router.post("/broker/halt", async (req, res) => {
       .update(brokerConnectionsTable)
       .set({ tradingHalted: true, haltedAt: new Date() })
       .where(eq(brokerConnectionsTable.id, conn.id));
-    req.log.warn({ userId: conn.snaptradeUserId }, "broker: KILL SWITCH ACTIVATED — all live orders blocked");
+    req.log.warn({ provider: conn.provider }, "broker: KILL SWITCH ACTIVATED — all live orders blocked");
     await logAudit("kill_switch.enable", "Kill-switch activé — tous les nouveaux ordres live sont bloqués.");
     await notifyKillSwitchActivated();
     return res.json({ halted: true, haltedAt: new Date().toISOString(), message: "Trading suspendu. Aucun ordre ne sera soumis au courtier." });
@@ -565,7 +581,7 @@ router.post("/broker/resume", async (req, res) => {
       .update(brokerConnectionsTable)
       .set({ tradingHalted: false, haltedAt: null })
       .where(eq(brokerConnectionsTable.id, conn.id));
-    req.log.info({ userId: conn.snaptradeUserId }, "broker: kill switch deactivated — live orders re-enabled");
+    req.log.info({ provider: conn.provider }, "broker: kill switch deactivated — live orders re-enabled");
     await logAudit("kill_switch.disable", "Kill-switch désactivé — les ordres live sont de nouveau acceptés.");
     return res.json({ halted: false, message: "Trading réactivé. Les ordres live sont à nouveau acceptés." });
   } catch (err) {
@@ -606,8 +622,8 @@ router.get("/broker/allocation", async (req, res) => {
       const accountId = acc.id as string;
       try {
         const [positions, balances] = await Promise.all([
-          listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, accountId),
-          listBalances(conn.snaptradeUserId, conn.snaptradeUserSecret, accountId),
+          listPositions(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret, accountId),
+          listBalances(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret, accountId),
         ]);
         for (const raw of positions as unknown[]) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -772,7 +788,7 @@ router.get("/broker/reconciliation", async (req, res) => {
           : ((conn.accounts as { id: string }[] | null) ?? []);
         for (const acc of accounts) {
           if (!acc?.id) continue;
-          const positions = await listPositions(conn.snaptradeUserId, conn.snaptradeUserSecret, acc.id);
+          const positions = await listPositions(snapCredentials(conn).snaptradeUserId, snapCredentials(conn).snaptradeUserSecret, acc.id);
           brokerPositionsRaw.push(...(positions as unknown[]));
         }
       } catch (err) {
@@ -929,8 +945,8 @@ router.post("/broker/orders/:id/cancel", async (req, res) => {
 
     try {
       await cancelBrokerOrder({
-        userId: conn.snaptradeUserId,
-        userSecret: conn.snaptradeUserSecret,
+        userId: snapCredentials(conn).snaptradeUserId,
+        userSecret: snapCredentials(conn).snaptradeUserSecret,
         accountId: order.brokerAccountId,
         brokerageOrderId: order.snaptradeOrderId,
       });

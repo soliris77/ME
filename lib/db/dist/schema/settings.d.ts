@@ -309,6 +309,23 @@ export declare const appSettingsTable: import("drizzle-orm/pg-core").PgTableWith
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        liveArmProvider: import("drizzle-orm/pg-core").PgColumn<{
+            name: "live_arm_provider";
+            tableName: "app_settings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         liveArmMaxOrderValue: import("drizzle-orm/pg-core").PgColumn<{
             name: "live_arm_max_order_value";
             tableName: "app_settings";

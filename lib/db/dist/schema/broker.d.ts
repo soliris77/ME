@@ -44,7 +44,7 @@ export declare const brokerConnectionsTable: import("drizzle-orm/pg-core").PgTab
             columnType: "PgText";
             data: string;
             driverParam: string;
-            notNull: true;
+            notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
@@ -61,7 +61,41 @@ export declare const brokerConnectionsTable: import("drizzle-orm/pg-core").PgTab
             columnType: "PgText";
             data: string;
             driverParam: string;
-            notNull: true;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        exchangeId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "exchange_id";
+            tableName: "broker_connections";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        secretPrefix: import("drizzle-orm/pg-core").PgColumn<{
+            name: "secret_prefix";
+            tableName: "broker_connections";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
@@ -180,8 +214,10 @@ export declare const brokerConnectionsTable: import("drizzle-orm/pg-core").PgTab
 }>;
 export declare const insertBrokerConnectionSchema: z.ZodObject<{
     provider: z.ZodOptional<z.ZodString>;
-    snaptradeUserId: z.ZodString;
-    snaptradeUserSecret: z.ZodString;
+    snaptradeUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    snaptradeUserSecret: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    exchangeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    secretPrefix: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     status: z.ZodOptional<z.ZodString>;
     lastSyncedAt: z.ZodOptional<z.ZodNullable<z.ZodDate>>;
     accounts: z.ZodOptional<z.ZodNullable<z.ZodType<Record<string, unknown>[], Record<string, unknown>[], z.core.$ZodTypeInternals<Record<string, unknown>[], Record<string, unknown>[]>>>>;

@@ -149,6 +149,7 @@ vi.mock("@workspace/db", () => ({
   brokerConnectionsTable: h.connectionsTable,
   ordersTable: h.ordersTable,
   appSettingsTable: h.settingsTable,
+  riskSettingsTable: h.settingsTable,
   auditLogTable: h.auditLogTable,
 }));
 vi.mock("drizzle-orm", () => ({
@@ -245,6 +246,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.state.rules.length = 0;
   h.state.connections.length = 0;
+  h.state.connections.push({
+    id: 7, provider: "snaptrade", status: "connected",
+    snaptradeUserId: "u-1", snaptradeUserSecret: "s-1",
+    accounts: [{ id: "acc-1" }], tradingHalted: false,
+  });
   h.state.settings.length = 0;
   h.state.orders.length = 0;
   h.state.auditRows.length = 0;
@@ -650,6 +656,7 @@ describe("getDailyRealizedPnLStatus — le coupe-circuit compte les vraies exéc
 
   /** Achat live confirmé hier @100 (qty 10). */
   function seedLiveBuy() {
+    h.state.settings.push({ accountId: "acc-1", mode: "live", maxDailyLossAmount: "100" });
     h.state.orders.push({
       id: 1, symbol: "AAPL", side: "BUY", status: "filled", mode: "live",
       quantity: "10", filledQuantity: "10", fillPrice: "100",

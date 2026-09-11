@@ -60,9 +60,19 @@ import {
   getEarlyCloseDays,
   getExchangeForSymbol,
   isMarketOpen,
+  isSymbolTradeableForAsset,
   type BrokerPosition,
   type RiskCheckInput,
 } from "../risk";
+
+describe("crypto market limits fail closed", () => {
+  it("rejects missing adapter and adapter limit errors", async () => {
+    await expect(isSymbolTradeableForAsset("BTC-USD", "crypto")).resolves.toBe(false);
+    await expect(isSymbolTradeableForAsset("BTC-USD", "crypto", {
+      getMarketLimits: vi.fn().mockRejectedValue(new Error("exchange unavailable")),
+    })).resolves.toBe(false);
+  });
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Mardi 28 juillet 2026, 15:00 UTC = 11:00 ET → NASDAQ/NYSE et TSX ouverts.

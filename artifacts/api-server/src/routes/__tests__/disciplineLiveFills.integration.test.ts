@@ -48,17 +48,25 @@ d("discipline — fills live synchronisés depuis le courtier (intégration DB)"
   let insertedConn = false;
 
   beforeAll(async () => {
-    const { db, ordersTable, brokerConnectionsTable } = await import("@workspace/db");
+    const { db, ordersTable, brokerConnectionsTable, riskSettingsTable } = await import("@workspace/db");
+    await db.insert(riskSettingsTable).values({ accountId: ACCOUNT, mode: "live" }).onConflictDoNothing();
 
     // Connexion courtier requise par la synchronisation (créée si absente).
     const existing = await db.select().from(brokerConnectionsTable).limit(1);
     if (existing.length === 0) {
       await db.insert(brokerConnectionsTable).values({
+        provider: "snaptrade",
         snaptradeUserId: "test-user",
         snaptradeUserSecret: "test-secret",
         status: "connected",
+        accounts: [{ id: ACCOUNT }],
       });
       insertedConn = true;
+    } else {
+      await db.update(brokerConnectionsTable).set({
+        provider: "snaptrade", status: "connected", accounts: [{ id: ACCOUNT }],
+        snaptradeUserId: "test-user", snaptradeUserSecret: "test-secret",
+      });
     }
 
     // Aller-retour live encore "submitted" en base — l'état que laisse

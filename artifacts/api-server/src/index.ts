@@ -6,8 +6,13 @@ import { db, brokerConnectionsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
 import { persistConsumerKeyIfNeeded, resolveCredentials } from "./lib/snaptrade";
 import { persistExternalCredsIfNeeded } from "./lib/persistCreds";
+import { registerBrokerAdapterFactories } from "./lib/brokerAdapter";
 
 const port = Number(process.env["PORT"] ?? "8080");
+
+// Adapter resolution is server-owned and idempotent; no request may register
+// or replace a provider factory.
+registerBrokerAdapterFactories();
 
 /**
  * Vérifie au démarrage si les clés développeur SnapTrade sont présentes (DB ou env).

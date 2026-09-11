@@ -17,11 +17,11 @@
  *   b. Appel à placeOrder() SEULEMENT si l'INSERT a réussi
  *   c. UPDATE de la ligne avec le résultat (status, snaptradeOrderId, errorMessage)
  */
-import { db, pool, ordersTable, rejectedSignalsTable, brokerConnectionsTable } from "@workspace/db";
+import { db, pool, ordersTable, rejectedSignalsTable, marketLimitsTable } from "@workspace/db";
 import { and, eq, gte, desc } from "drizzle-orm";
 import { getTradingMode } from "./tradingMode";
-import { resolveBrokerAdapter } from "./brokerAdapter";
-import type { Position } from "@workspace/broker";
+import type { Position, BrokerAdapter, TradingAccount } from "@workspace/broker";
+import { getConfiguredAdapterForAccount } from "@workspace/broker";
 import { checkOrderRisk, BrokerPosition } from "./risk";
 import { getRiskSettings } from "./settings";
 import { notifyLargeOrderExecuted, notifyKillSwitchActivated } from "./notifications";
@@ -31,6 +31,9 @@ import { RiskGate } from "@workspace/risk";
 import type { AuditRepo, RiskSettingsRepo } from "@workspace/risk";
 import { riskSettingsTable, orderAuditLogTable } from "@workspace/db";
 import type { OrderRequest } from "@workspace/broker";
+import { normalizeAccountIdentity } from "./accountIdentity";
+import { valueAccountInBase, readDayStartEquity } from "./equityValuation";
+import { resolveAuthoritativeConnection } from "./connectionResolver";
 
 export interface SubmitOrderInput {
   signalId: string;
@@ -46,7 +49,9 @@ export interface SubmitOrderInput {
   /** Prix de déclenchement — requis si orderType === "stop" */
   stopPrice?: number;
   /** Connexion courtier — requise uniquement en mode live */
-  brokerConnection?: { snaptradeUserId: string; snaptradeUserSecret: string } | null;
+  brokerConnection?: { snaptradeUserId: string; snaptradeUserSecret: string } | Record<string, never> | null;
+  /** Test-only/server-owned dependency injection; never supplied by HTTP. */
+  adapter?: BrokerAdapter;
 }
 
 export type SubmitOrderResult =
@@ -60,6 +65,15 @@ export class OrderValidationError extends Error {}
  * Doit rester aligné avec ACTIVE_STATUSES de GET /api/broker/stop-orders.
  */
 export const ACTIVE_STOP_STATUSES = ["pending", "submitted", "simulated"];
+export function providerAccountId(provider: "snaptrade" | "ccxt", accountId: string): string {
+  return normalizeAccountIdentity(provider, accountId);
+}
+type MarketLimits = { minQuantity: number; quantityStep: number; priceStep: number; minNotional?: number };
+const validatedMarketLimits = new Map<string, MarketLimits>();
+function validMarketLimits(value: unknown): value is MarketLimits {
+  const v = value as MarketLimits;
+  return !!v && [v.minQuantity, v.quantityStep, v.priceStep].every((n) => Number.isFinite(n) && n > 0);
+}
 
 /**
  * Extrait l'identifiant d'ordre de la réponse SnapTrade. La réponse peut être
@@ -118,16 +132,35 @@ function mapBrokerPositions(raw: Position[]): BrokerPosition[] {
     .filter((p) => p.symbol && p.units > 0 && p.price > 0);
 }
 
+/**
+ * Build the account from server state, never from provider/account fields sent
+ * by a caller.  Account IDs are scoped to the persisted provider.
+ */
+function authoritativeTradingAccount(
+  accountId: string,
+  connection: { provider: string; accounts: unknown; exchangeId?: string | null; secretPrefix?: string | null },
+): TradingAccount {
+  const provider = connection.provider === "ccxt" ? "ccxt" : "snaptrade";
+  return {
+    id: accountId,
+    provider,
+    assetClass: provider === "ccxt" ? "crypto" : "equity",
+    ...(typeof connection.exchangeId === "string" ? { exchangeId: connection.exchangeId } : {}),
+    ...(typeof connection.secretPrefix === "string" ? { secretPrefix: connection.secretPrefix } : {}),
+  };
+}
+
 /** Realized live P&L for today's sells using the locally persisted fill ledger.
  * Unknown external lots are deliberately excluded (the same conservative
  * behavior as the daily-loss worker); this routine never invents a cost basis. */
-async function getTodayLiveRealizedPnL(accountId: string): Promise<number> {
+async function getTodayLiveRealizedPnL(accountId: string, provider: "snaptrade" | "ccxt"): Promise<number> {
+  const identity = providerAccountId(provider, accountId);
   const { rows } = await pool.query<{
     symbol: string; side: string; quantity: string; filled_quantity: string | null;
     fill_price: string | null; expected_price: string | null; created_at: Date;
   }>(`SELECT symbol, side, quantity, filled_quantity, fill_price, expected_price, created_at
       FROM orders WHERE mode = 'live' AND broker_account_id = $1
-      AND status IN ('filled', 'partially_filled') ORDER BY created_at ASC, id ASC`, [accountId]);
+      AND status IN ('filled', 'partially_filled') ORDER BY created_at ASC, id ASC`, [identity]);
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const lots = new Map<string, { quantity: number; cost: number }>();
@@ -157,14 +190,16 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   // ── 0) Kill-switch ─────────────────────────────────────────────────────────
   // Premier contrôle, avant toute autre logique.
   // Persisté en base → survit aux redémarrages du serveur.
-  const [connRow] = await db.select().from(brokerConnectionsTable).limit(1);
-  if (connRow?.tradingHalted) {
+  let selectedConnection;
+  let resolverError: unknown;
+  try { selectedConnection = await resolveAuthoritativeConnection(accountId); } catch (error) { resolverError = error; selectedConnection = undefined; }
+  if (selectedConnection?.tradingHalted) {
     logger.warn({ signalId, source }, "orderEngine: order blocked — kill switch is active");
     return {
       status: "rejected",
       reason: "kill_switch_active",
       message: "Trading suspendu manuellement (kill-switch actif). Réactivez le trading depuis la page Courtier avant de passer des ordres.",
-      details: { haltedAt: connRow.haltedAt?.toISOString() ?? null },
+      details: { haltedAt: selectedConnection.haltedAt?.toISOString() ?? null },
     };
   }
 
@@ -186,8 +221,13 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       throw new OrderValidationError("stopPrice doit être un nombre positif pour un ordre stop");
     }
   }
+  const accountForRisk = authoritativeTradingAccount(accountId ?? "default", selectedConnection ?? { provider: "snaptrade", accounts: [] });
+  const accountIdentity = providerAccountId(accountForRisk.provider, accountId ?? "default");
 
   const mode = getTradingMode();
+  if (mode === "live" && resolverError) {
+    return { status: "rejected", reason: "broker_connection_ambiguous", message: "Connexion courtier introuvable ou ambiguë; aucun ordre LIVE n'a été envoyé.", details: {} };
+  }
 
   // LIVE prerequisites are checked before the temporary arm so callers retain
   // the explicit, established account/connection errors rather than receiving
@@ -229,7 +269,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       (o) =>
         ACTIVE_STOP_STATUSES.includes(o.status) &&
         // Comptes différents = positions différentes → pas un doublon.
-        (!accountId || !o.brokerAccountId || o.brokerAccountId === accountId),
+           (!accountId || !o.brokerAccountId || o.brokerAccountId === accountIdentity),
     );
     if (activeStop) {
       logger.warn(
@@ -262,18 +302,80 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   // ── 3) Positions réelles du courtier ────────────────────────────────────────
+  const earlyAccount = authoritativeTradingAccount(accountId ?? "default", selectedConnection ?? { provider: "snaptrade", accounts: [] });
+  const earlyIdentity = providerAccountId(earlyAccount.provider, accountId ?? "default");
+  const [earlyRisk] = await db.select().from(riskSettingsTable)
+    .where(eq(riskSettingsTable.accountId, earlyIdentity)).limit(1);
+  const accountRiskMode = earlyRisk?.mode === "live" ? "live" : "dry_run";
   let brokerPositions: BrokerPosition[] | null = null;
-  if (mode === "live" && brokerConnection && accountId) {
+  let orderAdapter: BrokerAdapter | undefined;
+  const [persistedLimits] = accountForRisk.assetClass === "crypto"
+    ? await db.select().from(marketLimitsTable).where(and(
+      eq(marketLimitsTable.accountIdentity, accountIdentity),
+      eq(marketLimitsTable.symbol, symbol.toUpperCase()),
+    )).limit(1)
+    : [];
+  if (persistedLimits && [persistedLimits.minQuantity, persistedLimits.quantityStep, persistedLimits.priceStep]
+    .every((n) => Number.isFinite(Number(n)) && Number(n) > 0)) {
+    validatedMarketLimits.set(`${accountIdentity}:${symbol.toUpperCase()}`, {
+      minQuantity: Number(persistedLimits.minQuantity),
+      quantityStep: Number(persistedLimits.quantityStep),
+      priceStep: Number(persistedLimits.priceStep),
+      ...(persistedLimits.minNotional != null ? { minNotional: Number(persistedLimits.minNotional) } : {}),
+    });
+  }
+  let marketLimits: MarketLimits | null = accountForRisk.assetClass === "crypto"
+    ? validatedMarketLimits.get(`${accountIdentity}:${symbol.toUpperCase()}`) ?? null
+    : { minQuantity: 0.0001, quantityStep: 0.0001, priceStep: 0.0001 };
+  if (mode === "live" && accountRiskMode === "live" && brokerConnection && accountId) {
     try {
-      const adapter = resolveBrokerAdapter(brokerConnection);
-      brokerPositions = mapBrokerPositions(await adapter.getPositions(accountId));
+      const account = authoritativeTradingAccount(accountId, selectedConnection ?? { provider: "snaptrade", accounts: [] });
+      orderAdapter = input.adapter ?? getConfiguredAdapterForAccount(account);
+      brokerPositions = mapBrokerPositions(await orderAdapter.getPositions(accountId));
+      const fetchedLimits = await orderAdapter.getMarketLimits(symbol);
+      if (!input.adapter && !validMarketLimits(fetchedLimits)) {
+        throw new Error("Limites de marché invalides");
+      }
+      marketLimits = fetchedLimits;
+      if (validMarketLimits(fetchedLimits)) validatedMarketLimits.set(`${accountIdentity}:${symbol.toUpperCase()}`, fetchedLimits);
+      if (accountForRisk.assetClass === "crypto" && validMarketLimits(fetchedLimits)) {
+        await db.insert(marketLimitsTable).values({
+          accountIdentity,
+          symbol: symbol.toUpperCase(),
+          minQuantity: String(fetchedLimits.minQuantity),
+          quantityStep: String(fetchedLimits.quantityStep),
+          priceStep: String(fetchedLimits.priceStep),
+          minNotional: fetchedLimits.minNotional != null ? String(fetchedLimits.minNotional) : null,
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: [marketLimitsTable.accountIdentity, marketLimitsTable.symbol],
+          set: {
+            minQuantity: String(fetchedLimits.minQuantity),
+            quantityStep: String(fetchedLimits.quantityStep),
+            priceStep: String(fetchedLimits.priceStep),
+            minNotional: fetchedLimits.minNotional != null ? String(fetchedLimits.minNotional) : null,
+            updatedAt: new Date(),
+          },
+        });
+      }
     } catch (err) {
       logger.warn({ err, accountId }, "orderEngine: failed to fetch broker positions, falling back to order-based exposure");
+      if (accountRiskMode === "live") {
+        return { status: "rejected", reason: "risk_context_unavailable", message: "Impossible de vérifier les limites de marché LIVE.", details: {} };
+      }
     }
+  }
+  if (!marketLimits) {
+    return { status: "rejected", reason: "market_limits_unavailable", message: "Limites de marché crypto authentifiées absentes; l'ordre est refusé.", details: {} };
   }
 
   // ── 4) Garde-fous de risque ─────────────────────────────────────────────────
-  const risk = await checkOrderRisk({ signalId, symbol: symbol.toUpperCase(), side, quantity, mode, brokerPositions });
+  const risk = await checkOrderRisk({
+    signalId, symbol: symbol.toUpperCase(), side, quantity, mode, brokerPositions,
+    assetClass: accountForRisk.assetClass,
+    ...(orderAdapter ? { adapter: orderAdapter } : {}),
+    ...(marketLimits ? { marketLimits } : {}),
+  });
   if (risk.ok && orderType === "stop" && stopPrice != null && stopPrice >= risk.livePrice) {
     // Un stop SELL de protection doit être STRICTEMENT sous le prix courant :
     // un stop >= marché serait déclenché immédiatement — c'est-à-dire une
@@ -304,7 +406,30 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   // Final shared passage before arming, reservation, or broker dispatch.
-  const riskAccount = accountId ?? "default";
+  const riskAccount = accountIdentity;
+  let totalEquity = Math.max(risk.orderValue, 1) / 0.05;
+  let currentEquity = totalEquity;
+  let dayStartEquity = totalEquity;
+  let ordersLastHour = 0;
+  if (mode === "live" && orderAdapter && accountId && !input.adapter) {
+    try {
+      if (typeof orderAdapter.getBalances !== "function") {
+        throw new Error("Solde courtier indisponible");
+      }
+      const equity = await valueAccountInBase(orderAdapter, accountId);
+      totalEquity = currentEquity = equity;
+       dayStartEquity = await readDayStartEquity(accountIdentity);
+      const recent = await db.select().from(ordersTable);
+      const cutoffHour = Date.now() - 60 * 60_000;
+      ordersLastHour = recent.filter((order) =>
+        order.createdAt && new Date(order.createdAt).getTime() >= cutoffHour &&
+        order.brokerAccountId === accountIdentity,
+      ).length;
+    } catch (error) {
+      logger.warn({ error, accountId }, "orderEngine: live risk context unavailable");
+      return { status: "rejected", reason: "risk_context_unavailable", message: "Impossible de vérifier le contexte de risque LIVE.", details: {} };
+    }
+  }
   const riskSettings: RiskSettingsRepo = {
     async get(id) {
       const [row] = await db.select().from(riskSettingsTable).where(eq(riskSettingsTable.accountId, id)).limit(1);
@@ -327,9 +452,8 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     accountId: riskAccount, symbol: symbol.toUpperCase(), side: side.toLowerCase() as "buy" | "sell",
     type: orderType, quantity, clientOrderId: signalId, ...(stopPrice != null ? { stopPrice } : {}),
   }, {
-    totalEquity: Math.max(risk.orderValue, 1) / 0.05, dayStartEquity: Math.max(risk.orderValue, 1) / 0.05,
-    currentEquity: Math.max(risk.orderValue, 1) / 0.05, ordersLastHour: 0,
-    limits: { minQuantity: 0.0001, quantityStep: 0.0001, priceStep: 0.0001 }, referencePrice: risk.livePrice,
+     totalEquity, dayStartEquity, currentEquity, ordersLastHour,
+     limits: marketLimits, referencePrice: risk.livePrice,
   });
   if (!gateDecision.allowed) return { status: "rejected", reason: "risk_gate", message: gateDecision.reason ?? "Ordre bloqué par le garde-fou de risque.", details: { gateReason: gateDecision.reason } };
   const gatedQuantity = gateDecision.adjustedQuantity ?? quantity;
@@ -341,7 +465,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       signalId, symbol: symbol.toUpperCase(), side, quantity: String(gatedQuantity),
       orderType, mode: "paper", status: "simulated",
       expectedPrice: orderType === "stop" ? String(stopPrice) : String(risk.livePrice),
-      brokerAccountId: accountId ?? null, submittedAt: new Date(),
+      brokerAccountId: accountId ? accountIdentity : null, submittedAt: new Date(),
     }).returning();
     return { status: "accepted", order: simulated };
   }
@@ -367,12 +491,16 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     if (accountId !== arm.accountId) {
       return { status: "rejected", reason: "live_arm_account_mismatch", message: "Cet armement LIVE ne couvre pas ce compte.", details: { armedAccountId: arm.accountId } };
     }
+    const submissionAccount = authoritativeTradingAccount(accountId, selectedConnection ?? { provider: "snaptrade", accounts: [] });
+    if (submissionAccount.provider !== (arm.provider ?? "snaptrade")) {
+      return { status: "rejected", reason: "live_arm_provider_mismatch", message: "Cet armement LIVE ne couvre pas ce fournisseur.", details: {} };
+    }
     if (risk.orderValue > arm.maxOrderValue) {
       return { status: "rejected", reason: "live_arm_max_order_value_exceeded", message: "La valeur de l'ordre dépasse le plafond de l'armement LIVE.", details: { orderValue: risk.orderValue, maxOrderValue: arm.maxOrderValue } };
     }
     let realizedPnL: number;
     try {
-      realizedPnL = await getTodayLiveRealizedPnL(accountId);
+      realizedPnL = await getTodayLiveRealizedPnL(accountId, submissionAccount.provider);
     } catch (err) {
       logger.error({ err, signalId, accountId }, "orderEngine: unable to calculate daily live P&L");
       return { status: "rejected", reason: "live_arm_daily_loss_unavailable", message: "La perte journalière LIVE est impossible à vérifier; aucun ordre n'a été envoyé.", details: {} };
@@ -396,7 +524,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
           mode: "paper",
           status: "simulated",
           expectedPrice: orderType === "stop" ? String(stopPrice) : String(risk.livePrice),
-          brokerAccountId: accountId ?? null,
+          brokerAccountId: accountId ? accountIdentity : null,
           submittedAt: new Date(),
         })
         .returning();
@@ -434,7 +562,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
         expectedPrice: orderType === "stop"
           ? String(stopPrice)
           : expectedPrice != null ? String(expectedPrice) : String(risk.livePrice),
-        brokerAccountId: accountId,
+        brokerAccountId: accountIdentity,
         submittedAt: new Date(),
       })
       .returning();
@@ -467,7 +595,8 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   }
 
   try {
-    const result = await resolveBrokerAdapter(brokerConnection).placeOrder({
+    const account = authoritativeTradingAccount(accountId, selectedConnection ?? { provider: "snaptrade", accounts: [] });
+    const result = await (orderAdapter ?? input.adapter ?? getConfiguredAdapterForAccount(account)).placeOrder({
       accountId,
       symbol: symbol.toUpperCase(),
       side: side.toLowerCase() as "buy" | "sell",

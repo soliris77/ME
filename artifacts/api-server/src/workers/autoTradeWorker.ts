@@ -6,7 +6,7 @@
  *   2. checkDailyLossCircuitBreaker() — coupe-circuit de perte journalière
  *   3. processRule() — évalue chaque règle active (signal → ordre ou notif)
  */
-import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable, workerHealthTable, protectiveOrdersTable } from "@workspace/db";
+import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, ordersTable, appSettingsTable, auditLogTable, autoTradeCopyBindingsTable, workerHealthTable, protectiveOrdersTable, riskSettingsTable } from "@workspace/db";
 import { eq, and, gte, sql, inArray, desc } from "drizzle-orm";
 import { yahooFinance, getQuotes } from "../lib/yahoo";
 import { computeIndicators, analyzeTradingSignals } from "@workspace/indicators";
@@ -22,13 +22,21 @@ import { getAiSecondOpinion, type AiReviewResult } from "../lib/aiReview";
 import { isMarketOpen } from "../lib/risk";
 import { computeClosureWarnings } from "../lib/closureWarnings";
 import { resolveBrokerAdapter } from "../lib/brokerAdapter";
-import type { OrderResult } from "@workspace/broker";
+import { getConfiguredAdapterForAccount } from "@workspace/broker";
+import type { OrderResult, BrokerAdapter } from "@workspace/broker";
 import { protectiveOrderService } from "../lib/protectiveOrders";
 import type { MarketDataFeed, Timeframe } from "@workspace/market-data";
 import { timeframeMs } from "@workspace/market-data";
+import { normalizeAccountIdentity } from "../lib/accountIdentity";
+import { resolveAuthoritativeConnection } from "../lib/connectionResolver";
 import { isStaleCandle } from "@workspace/scheduler";
+import { valueAccountInBase, captureDayStartEquity } from "../lib/equityValuation";
 
 const WORKER_INTERVAL_MS = 60_000;
+async function ensureWorkerAdapterFactories(): Promise<void> {
+  const module = await import("../lib/brokerAdapter");
+  module.registerBrokerAdapterFactories?.();
+}
 
 export interface ClosureContext {
   /** La bourse du symbole est-elle ouverte en ce moment ? */
@@ -45,6 +53,10 @@ const marketDataFeeds = new Map<"equity" | "crypto", MarketDataFeed>();
 const staleDataSince = new Map<number, number>();
 const staleDataNotified = new Set<number>();
 let latestCandleAt: Date | null = null;
+
+export function isUtcDayStartWindow(now = new Date()): boolean {
+  return now.getUTCHours() === 0 && now.getUTCMinutes() <= 1;
+}
 
 export async function getWorkerHealth() {
   const [row] = await db.select().from(workerHealthTable).where(eq(workerHealthTable.id, 1));
@@ -126,8 +138,7 @@ function isTodayReset(resetAt: Date | null): boolean {
 }
 
 async function resolveConnection() {
-  const [conn] = await db.select().from(brokerConnectionsTable).limit(1);
-  return conn ?? null;
+  try { return await resolveAuthoritativeConnection(); } catch { return null; }
 }
 
 async function sendAutoTradeNotification(params: {
@@ -304,16 +315,21 @@ export function syncWindowDays(oldestCreatedAt: Date | null, now: Date): number 
 }
 
 export async function syncLiveOrderFills(
-  conn: typeof brokerConnectionsTable.$inferSelect,
+  _conn?: typeof brokerConnectionsTable.$inferSelect,
 ): Promise<void> {
-  if (!conn.snaptradeUserId || !conn.snaptradeUserSecret) return;
-
   // Tous les ordres live non terminaux : "submitted" (accepté, fill inconnu)
   // et "partially_filled" (fills incrémentaux — à re-synchroniser jusqu'à
   // l'état terminal pour capter la quantité/le prix final).
   const submitted = await db.select().from(ordersTable)
     .where(and(inArray(ordersTable.status, ["submitted", "partially_filled"]), eq(ordersTable.mode, "live")));
   if (submitted.length === 0) return;
+  const liveSubmitted: typeof submitted = [];
+  for (const order of submitted) {
+    const [setting] = await db.select({ mode: riskSettingsTable.mode }).from(riskSettingsTable)
+      .where(eq(riskSettingsTable.accountId, order.brokerAccountId ?? "")).limit(1);
+    if (setting?.mode === "live") liveSubmitted.push(order);
+  }
+  if (liveSubmitted.length === 0) return;
 
   // Garde-fou : un ordre live sans brokerAccountId ou sans snaptradeOrderId ne
   // peut pas être rapproché — signalé bruyamment (ne devrait jamais arriver :
@@ -326,18 +342,27 @@ export async function syncLiveOrderFills(
     );
   }
 
-  const accountIds = [...new Set(submitted.map((o) => o.brokerAccountId).filter((a): a is string => !!a))];
+  const accountIds = [...new Set(liveSubmitted.map((o) => o.brokerAccountId).filter((a): a is string => !!a))];
   if (accountIds.length === 0) return;
+  const providerAdapters = new Map<string, { adapter: BrokerAdapter; provider: "snaptrade" | "ccxt" }>();
 
   for (const accountId of accountIds) {
     let records: OrderResult[];
+    let providerAdapter: ReturnType<typeof resolveBrokerAdapter> | ReturnType<typeof getConfiguredAdapterForAccount>;
+    let rawAccountId = accountId;
     try {
-      records = await resolveBrokerAdapter({
-        snaptradeUserId: conn.snaptradeUserId,
-        snaptradeUserSecret: conn.snaptradeUserSecret,
-      }).listOrders(accountId, {
+      const accountConnection = await resolveAuthoritativeConnection(accountId);
+      const isCcxt = accountConnection.provider === "ccxt";
+      rawAccountId = isCcxt ? accountId.replace(/^ccxt:/, "") : accountId.replace(/^snaptrade:/, "");
+      providerAdapter = isCcxt
+        ? getConfiguredAdapterForAccount({ id: rawAccountId, provider: "ccxt", assetClass: "crypto", exchangeId: accountConnection.exchangeId ?? "kraken", ...(accountConnection.secretPrefix ? { secretPrefix: accountConnection.secretPrefix } : {}) })
+        : accountConnection.snaptradeUserId && accountConnection.snaptradeUserSecret
+          ? resolveBrokerAdapter({ snaptradeUserId: accountConnection.snaptradeUserId, snaptradeUserSecret: accountConnection.snaptradeUserSecret })
+          : (() => { throw new Error("Identifiants fournisseur manquants"); })();
+      providerAdapters.set(accountId, { adapter: providerAdapter, provider: isCcxt ? "ccxt" : "snaptrade" });
+      records = await providerAdapter.listOrders(rawAccountId, {
         days: syncWindowDays(
-          submitted.reduce<Date | null>((min, o) => (!min || o.createdAt < min ? o.createdAt : min), null),
+          liveSubmitted.reduce<Date | null>((min, o) => (!min || o.createdAt < min ? o.createdAt : min), null),
           new Date(),
         ),
       });
@@ -355,7 +380,7 @@ export async function syncLiveOrderFills(
       }
     }
 
-    for (const o of submitted) {
+    for (const o of liveSubmitted) {
       if (o.brokerAccountId !== accountId || !o.snaptradeOrderId) continue;
       const rec = byBrokerageId.get(o.snaptradeOrderId);
       if (!rec) continue;
@@ -372,8 +397,12 @@ export async function syncLiveOrderFills(
         })
         .where(eq(ordersTable.id, o.id));
       if ((newStatus === "filled" || newStatus === "partially_filled") && o.side === "BUY" && o.brokerAccountId) {
+        const providerInfo = providerAdapters.get(o.brokerAccountId);
+        if (!providerInfo) continue;
+        const ruleIdentity = normalizeAccountIdentity(providerInfo.provider, o.brokerAccountId);
         const rule = (await db.select().from(autoTradeRulesTable)
-          .where(eq(autoTradeRulesTable.symbol, o.symbol))).find((r) => r.accountId === o.brokerAccountId);
+          .where(eq(autoTradeRulesTable.symbol, o.symbol))).find((r) =>
+            r.accountId === ruleIdentity || (r.accountId ? normalizeAccountIdentity(providerInfo.provider, r.accountId) === ruleIdentity : false));
         if (rule) {
           try {
             await protectiveOrderService.protectFilledEntry({
@@ -382,7 +411,7 @@ export async function syncLiveOrderFills(
               entryPrice: Number(rec.averagePrice ?? o.fillPrice ?? o.expectedPrice),
               stopLossPct: rule.stopLossPct ? Number(rule.stopLossPct) : null,
               takeProfitPct: rule.takeProfitPct ? Number(rule.takeProfitPct) : null,
-              adapter: resolveBrokerAdapter({ snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret }),
+               adapter: providerInfo.adapter,
             });
           } catch (error) {
             logger.error({ error, orderId: o.id }, "autoTradeWorker: failed to install broker protection");
@@ -396,6 +425,7 @@ export async function syncLiveOrderFills(
     }
   }
 }
+
 
 // Statuts d'ordre représentant une exécution avérée :
 // - "simulated" : ordre paper enregistré avec expectedPrice (jamais "filled")
@@ -423,7 +453,7 @@ export async function getDailyRealizedPnLStatus(options?: {
   // En mode live : rapprocher d'abord les ordres "submitted" de leurs
   // exécutions réelles côté SnapTrade (status/fillPrice/filledQuantity).
   if (mode === "live" && options?.conn) {
-    await syncLiveOrderFills(options.conn).catch((err) =>
+    await syncLiveOrderFills().catch((err) =>
       logger.warn({ err }, "autoTradeWorker: syncLiveOrderFills échoué — P&L calculé sur les fills déjà confirmés"),
     );
   }
@@ -1357,29 +1387,96 @@ export async function runAutoTradeCheck(): Promise<void> {
 
 /** Corps réel d'un cycle. Ne JAMAIS appeler directement : passer par runAutoTradeCheck (verrou). */
 async function runAutoTradeCycle(): Promise<void> {
-  const [rules, conn] = await Promise.all([
-    db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true)),
-    resolveConnection(),
-  ]);
+  const rules = await db.select().from(autoTradeRulesTable).where(eq(autoTradeRulesTable.enabled, true));
 
   // 1. Broker-side protection reconciliation — always before new decisions.
   // Exécutée avant le coupe-circuit pour que les pertes réalisées par les
   // protections côté courtier soient comptées dans le même cycle.
-  if (conn?.status === "connected") {
+  const accountModes = new Map<string, string>();
+  const accountConnections = new Map<string, { connection: typeof brokerConnectionsTable.$inferSelect; rawAccountId: string; adapter: import("@workspace/broker").BrokerAdapter }>();
+  // Baseline capture is account-scoped, not rule-scoped: a manually traded
+  // account must receive a baseline even when it has no enabled rules.
+  const persistedConnections = await db.select().from(brokerConnectionsTable);
+  for (const connection of persistedConnections) {
+    if (connection.status !== "connected" || !["snaptrade", "ccxt"].includes(connection.provider)) continue;
+    const provider = connection.provider === "ccxt" ? "ccxt" : "snaptrade";
+    const memberships = Array.isArray(connection.accounts) ? connection.accounts : [];
+    for (const membership of memberships) {
+      const entry = membership as Record<string, unknown>;
+      const rawAccountId = String(entry.id ?? entry.accountId ?? "");
+      if (!rawAccountId) {
+        logger.warn({ connectionId: connection.id }, "autoTradeWorker: malformed account membership skipped");
+        continue;
+      }
+      const canonical = normalizeAccountIdentity(provider, rawAccountId);
+      try {
+        const [setting] = await db.select({ mode: riskSettingsTable.mode }).from(riskSettingsTable)
+          .where(eq(riskSettingsTable.accountId, canonical)).limit(1);
+        accountModes.set(canonical, setting?.mode ?? "dry_run");
+        if (setting?.mode !== "live") continue;
+        const adapter = provider === "ccxt"
+          ? getConfiguredAdapterForAccount({
+            id: rawAccountId.replace(/^ccxt:/, ""), provider: "ccxt", assetClass: "crypto",
+            exchangeId: connection.exchangeId ?? "kraken",
+          })
+          : connection.snaptradeUserId && connection.snaptradeUserSecret
+            ? resolveBrokerAdapter({ snaptradeUserId: connection.snaptradeUserId, snaptradeUserSecret: connection.snaptradeUserSecret })
+            : null;
+        if (!adapter) throw new Error("provider credentials unavailable");
+        accountConnections.set(canonical, { connection, rawAccountId, adapter });
+      } catch (err) {
+        logger.warn({ err, connectionId: connection.id, accountId: canonical }, "autoTradeWorker: account baseline eligibility failed closed");
+      }
+    }
+  }
+  for (const accountId of new Set(rules.map((rule) => rule.accountId).filter((id): id is string => Boolean(id)))) {
+    let connection;
+    try { connection = await resolveAuthoritativeConnection(accountId); } catch { continue; }
+    const provider = connection.provider === "ccxt" ? "ccxt" : "snaptrade";
+    const rawAccountId = accountId.replace(/^(ccxt|snaptrade):/, "");
+    const adapter = provider === "ccxt"
+      ? getConfiguredAdapterForAccount({ id: rawAccountId, provider: "ccxt", assetClass: "crypto", exchangeId: connection.exchangeId ?? "kraken" })
+      : connection.snaptradeUserId && connection.snaptradeUserSecret
+        ? resolveBrokerAdapter({ snaptradeUserId: connection.snaptradeUserId, snaptradeUserSecret: connection.snaptradeUserSecret })
+        : null;
+    if (!adapter) continue;
+    accountConnections.set(accountId, { connection, rawAccountId, adapter });
+    const [setting] = await db.select({ mode: riskSettingsTable.mode }).from(riskSettingsTable)
+      .where(eq(riskSettingsTable.accountId, normalizeAccountIdentity(provider, accountId))).limit(1);
+    accountModes.set(accountId, setting?.mode ?? "dry_run");
+  }
+  // Capture the baseline before any reconciliation or risk decisions, but only
+  // in the narrow UTC boundary window. A normal order evaluation never creates
+  // a baseline, and dry-run accounts never call a broker.
+  if (getTradingMode() === "live" && isUtcDayStartWindow()) {
+    for (const [accountId, info] of accountConnections) {
+      if (accountModes.get(accountId) !== "live" || info.connection.status !== "connected") continue;
+      try {
+        const equity = await valueAccountInBase(info.adapter, info.rawAccountId);
+        await captureDayStartEquity(normalizeAccountIdentity(
+          info.connection.provider === "ccxt" ? "ccxt" : "snaptrade", accountId,
+        ), equity);
+      } catch (err) {
+        logger.warn({ err, accountId }, "autoTradeWorker: unable to capture UTC day-start equity");
+      }
+    }
+  }
+  if (getTradingMode() === "live") {
     try {
-      const adapter = resolveBrokerAdapter({ snaptradeUserId: conn.snaptradeUserId, snaptradeUserSecret: conn.snaptradeUserSecret });
-      const accountIds = [...new Set(rules.map((r) => r.accountId).filter((id): id is string => !!id))];
+      const accountIds = [...new Set(rules.map((r) => r.accountId).filter((id): id is string => !!id && accountModes.get(id) === "live"))];
       for (const accountId of accountIds) {
-        await protectiveOrderService.reconcile(accountId, adapter);
-        const positions = await adapter.getPositions(accountId);
+        const info = accountConnections.get(accountId);
+        if (!info || info.connection.status !== "connected") continue;
+        await protectiveOrderService.reconcile(info.rawAccountId, info.adapter);
+        const positions = await info.adapter.getPositions(info.rawAccountId);
         for (const position of positions) {
           const rule = rules.find((candidate) => candidate.accountId === accountId && candidate.symbol === position.symbol);
           if (!rule || (!rule.stopLossPct && !rule.takeProfitPct)) continue;
           await protectiveOrderService.reconcileOpenPosition({
-            accountId, symbol: position.symbol, parentOrderId: `position-${accountId}-${position.symbol}`,
+            accountId: info.rawAccountId, symbol: position.symbol, parentOrderId: `position-${accountId}-${position.symbol}`,
             quantity: position.quantity, entryPrice: position.averagePrice || position.currentPrice || 0,
             stopLossPct: rule.stopLossPct ? Number(rule.stopLossPct) : null,
-            takeProfitPct: rule.takeProfitPct ? Number(rule.takeProfitPct) : null, adapter,
+            takeProfitPct: rule.takeProfitPct ? Number(rule.takeProfitPct) : null, adapter: info.adapter,
           });
         }
       }
@@ -1387,6 +1484,7 @@ async function runAutoTradeCycle(): Promise<void> {
       logger.error({ err }, "autoTradeWorker: broker protection reconciliation failed");
     }
   }
+  const conn = accountConnections.values().next().value?.connection ?? null;
 
   // 2. Coupe-circuit de perte journalière — évalué à chaque cycle, même sans
   // règle active : des pertes peuvent provenir d'ordres manuels, de règles
@@ -1425,6 +1523,7 @@ export function getAutoTradeWorkerStatus(): { running: boolean; cycleInFlight: b
 }
 
 export function startAutoTradeWorker(intervalMs = WORKER_INTERVAL_MS): void {
+  void ensureWorkerAdapterFactories();
   if (intervalHandle) return;
   logger.info({ intervalMs }, "autoTradeWorker: démarré");
 

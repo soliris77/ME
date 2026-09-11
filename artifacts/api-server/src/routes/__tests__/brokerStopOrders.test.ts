@@ -20,6 +20,9 @@ const h = vi.hoisted(() => ({
   connections: [] as Record<string, unknown>[],
   updates: [] as { set: Record<string, unknown> }[],
 }));
+vi.mock("../../lib/connectionResolver", () => ({
+  resolveAuthoritativeConnection: vi.fn(async () => h.connections.find((c) => c.status === "connected" || c.status === "pending") ?? null),
+}));
 
 vi.mock("@workspace/db", () => {
   // Sélecteur minimal : broker_connections (via orderBy/limit sans where) et
@@ -179,7 +182,7 @@ describe("routes ordres stop de protection", () => {
 
     it("ordre live → annulation SnapTrade confirmée puis statut cancelled", async () => {
       h.orders = [stopOrder({ mode: "live", status: "submitted", snaptradeOrderId: "bo-1", brokerAccountId: "acc-1" })];
-      h.connections = [{ id: 1, snaptradeUserId: "u", snaptradeUserSecret: "s", status: "connected" }];
+      h.connections = [{ id: 1, provider: "snaptrade", accounts: [{ id: "acc-1" }], snaptradeUserId: "u", snaptradeUserSecret: "s", status: "connected" }];
       h.cancelBrokerOrder.mockResolvedValue({ ok: true });
       const res = await fetch(`${base}/broker/orders/7/cancel`, { method: "POST" });
       expect(res.status).toBe(200);
@@ -191,7 +194,7 @@ describe("routes ordres stop de protection", () => {
 
     it("refus SnapTrade → 409, PAS de passage local à cancelled", async () => {
       h.orders = [stopOrder({ mode: "live", status: "submitted", snaptradeOrderId: "bo-1", brokerAccountId: "acc-1" })];
-      h.connections = [{ id: 1, snaptradeUserId: "u", snaptradeUserSecret: "s", status: "connected" }];
+      h.connections = [{ id: 1, provider: "snaptrade", accounts: [{ id: "acc-1" }], snaptradeUserId: "u", snaptradeUserSecret: "s", status: "connected" }];
       h.cancelBrokerOrder.mockRejectedValue(new Error("order not cancellable"));
       const res = await fetch(`${base}/broker/orders/7/cancel`, { method: "POST" });
       expect(res.status).toBe(409);

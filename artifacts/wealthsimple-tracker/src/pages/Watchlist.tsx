@@ -20,7 +20,7 @@ import { Link, useLocation } from "wouter";
 import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Bookmark, X, FolderInput, ListPlus, CheckCircle2, XCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { WatchlistItem } from "@workspace/api-client-react";
-import { isTradeableSymbol, nonTradeableReason } from "@/lib/tradeability";
+import { isTradeableSymbol, nonTradeableReason } from "@workspace/tradeability";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, listItemVariants, modalBackdropVariants, modalContentVariants, hoverScale, EASE_PRECISION } from "@/lib/motion";

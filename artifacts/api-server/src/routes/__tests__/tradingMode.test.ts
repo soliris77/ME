@@ -8,6 +8,11 @@ const h = vi.hoisted(() => ({
   getLiveArm: vi.fn(),
   getTradingMode: vi.fn(() => "paper"),
   logAudit: vi.fn(),
+  connection: { status: "connected", provider: "snaptrade", snaptradeUserId: "user-1", snaptradeUserSecret: "secret-1" },
+  adapterBalances: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("../../lib/connectionResolver", () => ({
+  resolveAuthoritativeConnection: vi.fn(async () => h.connection),
 }));
 
 vi.mock("@workspace/db", () => ({
@@ -15,11 +20,7 @@ vi.mock("@workspace/db", () => ({
     select: () => ({
       from: () => ({
         orderBy: () => ({
-          limit: () => Promise.resolve([{
-            status: "connected",
-            snaptradeUserId: "user-1",
-            snaptradeUserSecret: "secret-1",
-          }]),
+          limit: () => Promise.resolve([h.connection]),
         }),
       }),
     }),
@@ -30,6 +31,9 @@ vi.mock("@workspace/db", () => ({
   appSettingsTable: {},
 }));
 vi.mock("drizzle-orm", () => ({ desc: vi.fn(), eq: vi.fn() }));
+vi.mock("@workspace/broker", () => ({
+  getConfiguredAdapterForAccount: () => ({ getBalances: h.adapterBalances }),
+}));
 vi.mock("../../lib/snaptrade", () => ({
   registerSnaptradeUser: vi.fn(),
   getConnectionPortalUrl: vi.fn(),
@@ -81,6 +85,8 @@ describe("POST /api/broker/trading-mode", () => {
   });
 
   beforeEach(() => {
+    h.connection.provider = "snaptrade";
+    h.adapterBalances.mockClear();
     h.armLiveTrading.mockReset();
     h.armLiveTrading.mockResolvedValue(undefined);
     h.listAccounts.mockReset();
@@ -127,5 +133,25 @@ describe("POST /api/broker/trading-mode", () => {
 
     expect(response.status).toBe(400);
     expect(h.armLiveTrading).not.toHaveBeenCalled();
+  });
+
+  it("accepte le compte Kraken canonique après authentification du solde", async () => {
+    h.connection.provider = "ccxt";
+    const response = await fetch(`${base}/broker/trading-mode`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "live", accountId: "kraken", maxOrderValue: 1000, dailyLossCap: 100, durationMinutes: 60, liveAcknowledged: true }),
+    });
+    expect(response.status).toBe(200);
+    expect(h.adapterBalances).toHaveBeenCalledWith("kraken");
+  });
+
+  it("rejette un compte Kraken non canonique", async () => {
+    h.connection.provider = "ccxt";
+    const response = await fetch(`${base}/broker/trading-mode`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "live", accountId: "acct-1", maxOrderValue: 1000, dailyLossCap: 100, durationMinutes: 60, liveAcknowledged: true }),
+    });
+    expect(response.status).toBe(400);
+    expect(h.adapterBalances).not.toHaveBeenCalled();
   });
 });
