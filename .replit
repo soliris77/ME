@@ -31,7 +31,7 @@ expertMode = true
 
 [userenv.shared]
 TRADING_MODE = "paper"
-RESEND_FROM_EMAIL = "Soliris Market <onboarding@resend.dev>"
+RESEND_FROM_EMAIL = "onboarding@resend.dev"
 RESEND_TO_EMAIL = "tambweexauce14@gmail.com"
 
 [nix]
