@@ -25,6 +25,7 @@
     "@workspace/indicators": "workspace:*",
     "@workspace/market-data": "workspace:*",
     "@workspace/risk": "workspace:*",
+    "@workspace/scanner": "workspace:*",
     "@workspace/scheduler": "workspace:*",
     "@workspace/tradeability": "workspace:*",
     "bcryptjs": "^3.0.3",
