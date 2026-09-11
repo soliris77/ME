@@ -200,6 +200,9 @@ importers:
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
+      ccxt:
+        specifier: ^4.5.78
+        version: 4.5.78(protobufjs@7.6.6)
       connect-pg-simple:
         specifier: ^10.0.0
         version: 10.0.0

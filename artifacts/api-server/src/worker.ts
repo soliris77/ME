@@ -2,6 +2,9 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { logger } from "./lib/logger";
 import { startAutoTradeWorker, stopAutoTradeWorker } from "./workers/autoTradeWorker";
+import ccxt from "ccxt";
+import { CcxtFeed, YahooFeed } from "@workspace/market-data";
+import { configureMarketDataFeeds } from "./workers/autoTradeWorker";
 import { WorkerLeaseCoordinator, databaseLeaseRepository, type LeaseRepository } from "./workers/workerLease";
 
 export interface WorkerBootstrapOptions {
@@ -23,6 +26,11 @@ export interface WorkerBootstrapOptions {
  * worker entry point never starts a timer merely because it was imported.
  */
 export function startWorker(options: WorkerBootstrapOptions = {}) {
+  configureMarketDataFeeds({
+    equity: new YahooFeed(),
+    crypto: new CcxtFeed({ exchange: new (ccxt as any).kraken({ enableRateLimit: true }) }),
+  });
+
   const lease = options.lease ?? new WorkerLeaseCoordinator(
     options.repository ?? databaseLeaseRepository,
     options.ownerToken ?? randomUUID(),
