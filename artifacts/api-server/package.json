@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:daily-loss": "tsx scripts/test-daily-loss.mjs",
     "test:daily-loss-warning": "tsx scripts/test-daily-loss-warning.mjs",
-    "kraken:smoke": "tsx scripts/kraken-smoke.ts"
+    "kraken:smoke": "tsx scripts/kraken-smoke.ts",
+    "signals:smoke": "tsx scripts/signal-webhook-smoke.ts"
   },
   "dependencies": {
     "@whop/sdk": "^0.0.40",
