@@ -22,6 +22,8 @@ import symbolsRouter from "./symbols";
 import agentTasksRouter from "./agentTasks";
 import autoTraderRouter from "./autoTrader";
 import dailySummaryRouter from "./dailySummary";
+import scannerRouter from "./scanner";
+import signalsRouter from "./signals";
 import debriefRouter from "./debrief";
 import { requireAuth } from "../lib/auth";
 import pushRouter from "./push";
@@ -62,6 +64,10 @@ router.use(symbolsRouter);
 router.use(agentTasksRouter);
 router.use(requirePremium, autoTraderRouter);
 router.use(dailySummaryRouter);
+// Lots 8 et 9 : pilotage et mesure. Le webhook d'entree des signaux, lui,
+// est monte hors de /api dans app.ts et s'authentifie par signature HMAC.
+router.use(scannerRouter);
+router.use(signalsRouter);
 router.use(debriefRouter);
 router.use(pushRouter);
 
