@@ -27,6 +27,7 @@
     "@workspace/risk": "workspace:*",
     "@workspace/scanner": "workspace:*",
     "@workspace/scheduler": "workspace:*",
+    "@workspace/signals": "workspace:*",
     "@workspace/tradeability": "workspace:*",
     "bcryptjs": "^3.0.3",
     "ccxt": "^4.5.78",
