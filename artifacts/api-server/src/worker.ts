@@ -7,6 +7,7 @@ import { CcxtFeed, YahooFeed } from "@workspace/market-data";
 import { configureMarketDataFeeds } from "./workers/autoTradeWorker";
 import { WorkerLeaseCoordinator, databaseLeaseRepository, type LeaseRepository } from "./workers/workerLease";
 import { startScannerWorker, stopScannerWorker } from "./workers/scannerWorker";
+import { startSignalsWorker, stopSignalsWorker } from "./workers/signalsWorker";
 
 export interface WorkerBootstrapOptions {
   lease?: WorkerLeaseCoordinator;
@@ -44,8 +45,10 @@ export function startWorker(options: WorkerBootstrapOptions = {}) {
   const start = options.start ?? (() => {
     startAutoTradeWorker();
     startScannerWorker(exchange);
+    startSignalsWorker(exchange);
   });
   const stop = options.stop ?? (() => {
+    stopSignalsWorker();
     stopScannerWorker();
     stopAutoTradeWorker();
   });
