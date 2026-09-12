@@ -7,6 +7,7 @@ import { sessionMiddleware } from "./lib/auth";
 import { startCopyTradingSync } from "./lib/integrations/metatrader/sync";
 import { initTradingMode } from "./lib/tradingMode";
 import { corsOptions, verifyOrigin } from "./lib/httpSecurity";
+import signalsWebhookRouter from "./routes/signalsWebhook";
 
 const app: Express = express();
 
@@ -34,6 +35,12 @@ app.use(
   }),
 );
 app.use(cors(corsOptions));
+// Monte AVANT express.json(), et il faut que ca reste ainsi : la signature
+// HMAC des webhooks de signaux porte sur les octets exacts du corps. Un JSON
+// analyse puis re-serialise ne les reproduit pas, et la signature meurt.
+// Cette route s'authentifie par sa signature, pas par la session.
+app.use("/webhooks/signals", signalsWebhookRouter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
