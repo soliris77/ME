@@ -33,6 +33,7 @@ import {
   type AlertState,
 } from "@workspace/scanner";
 import { sendEmail } from "../lib/emailClient";
+import { solirisEmail, emailTable, emailNotice, escapeHtml, BRAND } from "../lib/emailBrand";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { logger } from "../lib/logger";
 
@@ -252,45 +253,28 @@ function buildPorts(exchange: ScannerExchange, timeframe: string): ScanCyclePort
  * et la mention explicite quand la paire est déjà trop étendue pour entrer.
  */
 export function scannerAlertHtml(hits: readonly ScannerHit[]): string {
-  const rows = hits
-    .map((h) => `
-      <tr>
-        <td style="padding:8px 12px;font-weight:600">${escapeHtml(h.symbol)}</td>
-        <td style="padding:8px 12px;text-align:right">${h.score}</td>
-        <td style="padding:8px 12px;text-align:right">${h.rocPct.toFixed(2)} %</td>
-        <td style="padding:8px 12px;text-align:right">${h.volumeRatio.toFixed(1)}×</td>
-        <td style="padding:8px 12px">${escapeHtml(h.reasons.join(", "))}</td>
-      </tr>`)
-    .join("");
+  const rows = hits.map((h) => [
+    `${escapeHtml(h.symbol)}<br><span style="font-weight:400;font-size:11px;color:${BRAND.muted};">${escapeHtml(h.reasons.join(" · ")) || "—"}</span>`,
+    `<strong style="color:${BRAND.goldDeep};">${h.score}</strong>`,
+    `<span style="color:${h.rocPct >= 0 ? BRAND.positive : BRAND.negative};">${h.rocPct >= 0 ? "+" : ""}${h.rocPct.toFixed(2)} %</span>`,
+    `${h.volumeRatio.toFixed(1)}×`,
+  ]);
 
   const extended = hits.filter((h) => h.tooExtended).map((h) => h.symbol);
-  const warning = extended.length > 0
-    ? `<p style="color:#b45309">Déjà étendues, à ne pas poursuivre : ${escapeHtml(extended.join(", "))}.</p>`
-    : "";
 
-  return `
-    <div style="font-family:system-ui,sans-serif;color:#111">
-      <h2 style="margin:0 0 4px">Scanner d'opportunités</h2>
-      <p style="margin:0 0 16px;color:#555">Détection en mode observation. Aucun ordre n'a été passé.</p>
-      <table style="border-collapse:collapse;font-size:14px">
-        <thead>
-          <tr style="background:#f3f4f6;text-align:left">
-            <th style="padding:8px 12px">Paire</th>
-            <th style="padding:8px 12px">Score</th>
-            <th style="padding:8px 12px">1 h</th>
-            <th style="padding:8px 12px">Volume</th>
-            <th style="padding:8px 12px">Motifs</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      ${warning}
-    </div>`;
-}
+  const body = emailTable(["Paire", "Score", "1 h", "Volume"], rows)
+    + (extended.length > 0
+        ? emailNotice(`Déjà étendues, à ne pas poursuivre : ${extended.join(", ")}.`)
+        : "");
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+  return solirisEmail({
+    title: hits.length === 1
+      ? `${hits[0]?.symbol ?? ""} se met à courir`
+      : `${hits.length} paires se mettent à courir`,
+    intro: "Détection en mode observation. Aucun ordre n'a été passé.",
+    bodyHtml: body,
+    footnote: "Le score mesure l'écart au comportement habituel de la paire, pas sa hausse brute.",
+  });
 }
 
 // ── Évaluateur d'horizons ────────────────────────────────────────────────
