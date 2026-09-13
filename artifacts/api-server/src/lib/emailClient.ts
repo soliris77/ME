@@ -1,6 +1,14 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
-import { logoAttachment, LOGO_CONTENT_ID, type EmailAttachment } from "./emailBrand";
+import {
+  logoAttachment,
+  LOGO_CONTENT_ID,
+  solirisEmail,
+  emailNotice,
+  escapeHtml,
+  BRAND,
+  type EmailAttachment,
+} from "./emailBrand";
 
 /** Nom affiche dans la boite de reception du destinataire. */
 const BRAND_NAME = "Soliris Market";
@@ -110,21 +118,24 @@ export function alertEmailHtml(params: {
   currentPrice: number;
 }): string {
   const { symbol, name, condition, targetPrice, currentPrice } = params;
-  const conditionText = condition === "above" ? "est monté au-dessus de" : "est descendu en dessous de";
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">🔔 Alerte de prix déclenchée</h2>
-      <p style="font-size: 16px; color: #333;">
-        <strong>${name ?? symbol} (${symbol})</strong> ${conditionText}
-        <strong>${targetPrice.toFixed(2)} $</strong>.
-      </p>
-      <p style="font-size: 14px; color: #666;">Prix actuel : ${currentPrice.toFixed(2)} $</p>
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoyé par Soliris Market. Cette alerte a été désactivée automatiquement —
-        crée-en une nouvelle si tu veux continuer à suivre ce titre.
-      </p>
-    </div>
-  `;
+  const above = condition === "above";
+  const conditionText = above ? "est monté au-dessus de" : "est descendu en dessous de";
+  const color = above ? BRAND.positive : BRAND.negative;
+
+  const body = `<p style="margin:0;font-size:15px;line-height:1.6;">
+      <strong>${escapeHtml(name ?? symbol)}</strong> <span style="color:${BRAND.muted};">(${escapeHtml(symbol)})</span>
+      ${conditionText} <strong style="color:${color};">${targetPrice.toFixed(2)} $</strong>.
+    </p>
+    <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:${BRAND.muted};">
+      Prix actuel : <strong style="color:${BRAND.text};">${currentPrice.toFixed(2)} $</strong>
+    </p>`
+    + emailNotice("Cette alerte a été désactivée automatiquement — crée-en une nouvelle si tu veux continuer à suivre ce titre.");
+
+  return solirisEmail({
+    title: `${name ?? symbol} ${conditionText} ${targetPrice.toFixed(2)} $`,
+    intro: "Alerte de prix déclenchée.",
+    bodyHtml: body,
+  });
 }
 
 export function signalAlertEmailHtml(params: {
@@ -137,23 +148,26 @@ export function signalAlertEmailHtml(params: {
   const { symbol, name, overall, score, topSignals } = params;
   const isBuy = overall === "ACHAT" || overall === "FORT ACHAT";
   const isSell = overall === "VENTE" || overall === "FORTE VENTE";
-  const tagColor = isBuy ? "#10b981" : isSell ? "#ef4444" : "#6b7280";
-  const signalList = topSignals.map((s) => `<li style="margin: 4px 0;">${s}</li>`).join("");
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">📈 Signal technique composite</h2>
-      <p style="font-size: 16px; color: #333;">
-        <strong>${name ?? symbol} (${symbol})</strong> — signal
-        <strong style="color: ${tagColor}; background: ${tagColor}1a; padding: 2px 8px; border-radius: 4px;">${overall}</strong>
-        (score ${score > 0 ? "+" : ""}${score}).
-      </p>
-      ${signalList ? `<ul style="font-size: 14px; color: #555; padding-left: 20px;">${signalList}</ul>` : ""}
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoyé par Soliris Market. Cette alerte a été désactivée automatiquement.
-        ⚠️ Ce n'est pas un conseil financier.
-      </p>
-    </div>
-  `;
+  const tagColor = isBuy ? BRAND.positive : isSell ? BRAND.negative : BRAND.muted;
+
+  const list = topSignals.length > 0
+    ? `<ul style="margin:14px 0 0;padding-left:18px;font-size:14px;line-height:1.7;color:${BRAND.text};">${topSignals
+        .map((s) => `<li style="margin:4px 0;">${escapeHtml(s)}</li>`)
+        .join("")}</ul>`
+    : "";
+
+  const body = `<p style="margin:0;font-size:15px;line-height:1.6;">
+      <strong>${escapeHtml(name ?? symbol)}</strong> <span style="color:${BRAND.muted};">(${escapeHtml(symbol)})</span> —
+      <strong style="color:${tagColor};">${escapeHtml(overall)}</strong>, score ${score > 0 ? "+" : ""}${score}.
+    </p>${list}`
+    + emailNotice("Cette alerte a été désactivée automatiquement.");
+
+  return solirisEmail({
+    title: `${name ?? symbol} — signal ${overall}`,
+    intro: "Signal technique composite.",
+    bodyHtml: body,
+    footnote: "Le score agrège plusieurs indicateurs ; il ne dit rien du risque de la position.",
+  });
 }
 
 export function patternAlertEmailHtml(params: {
@@ -166,21 +180,20 @@ export function patternAlertEmailHtml(params: {
   howToUse: string;
 }): string {
   const { symbol, name, patternName, signal, strength, description, howToUse } = params;
-  const signalColor = signal === "haussier" ? "#10b981" : signal === "baissier" ? "#ef4444" : "#6b7280";
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #111;">📊 Alerte intelligente déclenchée</h2>
-      <p style="font-size: 16px; color: #333;">
-        <strong>${name ?? symbol} (${symbol})</strong> vient de former un pattern
-        <strong style="color: ${signalColor};">${patternName}</strong>
-        (signal <strong style="color: ${signalColor};">${signal}</strong>, force ${strength}).
-      </p>
-      <p style="font-size: 14px; color: #666;">${description}</p>
-      <p style="font-size: 13px; color: #666; font-style: italic; border-left: 3px solid ${signalColor}; padding-left: 10px;">${howToUse}</p>
-      <p style="font-size: 12px; color: #999; margin-top: 24px;">
-        Envoyé par Soliris Market. Cette alerte a été désactivée automatiquement.
-        ⚠️ Ce n'est pas un conseil financier.
-      </p>
-    </div>
-  `;
+  const signalColor = signal === "haussier" ? BRAND.positive : signal === "baissier" ? BRAND.negative : BRAND.muted;
+
+  const body = `<p style="margin:0;font-size:15px;line-height:1.6;">
+      <strong>${escapeHtml(name ?? symbol)}</strong> <span style="color:${BRAND.muted};">(${escapeHtml(symbol)})</span>
+      vient de former <strong style="color:${signalColor};">${escapeHtml(patternName)}</strong>
+      (signal ${escapeHtml(signal)}, force ${escapeHtml(strength)}).
+    </p>
+    <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:${BRAND.muted};">${escapeHtml(description)}</p>
+    <p style="margin:14px 0 0;padding-left:12px;border-left:3px solid ${signalColor};font-size:13px;line-height:1.6;font-style:italic;color:${BRAND.muted};">${escapeHtml(howToUse)}</p>`
+    + emailNotice("Cette alerte a été désactivée automatiquement.");
+
+  return solirisEmail({
+    title: `${name ?? symbol} — ${patternName}`,
+    intro: "Motif technique détecté.",
+    bodyHtml: body,
+  });
 }
