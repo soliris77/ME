@@ -42,7 +42,7 @@ import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import Pricing from "@/pages/Pricing";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff, Radar } from "lucide-react";
+import { Activity, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff, Radar } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 import { PositionCalculator } from "@/components/PositionCalculator";
@@ -116,6 +116,7 @@ function Nav() {
   const [showCalc, setShowCalc] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [privacy, setPrivacy] = useState(() => localStorage.getItem("privacy") === "on");
+  const [motionOn, setMotionOn] = useState(() => localStorage.getItem("motion") === "full");
   const activeAlertsCount = useActiveAlertsCount();
   const unreadNotifsCount = useUnreadNotificationsCount();
 
@@ -129,6 +130,14 @@ function Nav() {
     document.documentElement.classList.toggle("privacy", privacy);
     localStorage.setItem("privacy", privacy ? "on" : "off");
   }, [privacy]);
+
+  // Mouvement : par defaut on suit prefers-reduced-motion du systeme.
+  // data-motion="full" leve cette reduction pour Soliris seulement — le
+  // reglage systeme et les autres sites ne sont pas touches.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-motion", motionOn ? "full" : "system");
+    localStorage.setItem("motion", motionOn ? "full" : "system");
+  }, [motionOn]);
 
   const links = [
     {
@@ -283,6 +292,14 @@ function Nav() {
             {soundOn ? <Volume2 className="w-4 h-4 flex-shrink-0" /> : <VolumeX className="w-4 h-4 flex-shrink-0" />}
             {soundOn ? "Sons activés" : "Sons désactivés"}
           </button>
+          <button
+            onClick={() => setMotionOn((m) => !m)}
+            title={motionOn ? "Les animations tournent, meme si ton systeme demande de les reduire" : "Les animations suivent le reglage de ton systeme"}
+            className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
+          >
+            <Activity className="w-4 h-4 flex-shrink-0" />
+            {motionOn ? "Mouvement activé" : "Mouvement système"}
+          </button>
           <Link
             href="/conditions-utilisation"
             className="link-underline flex items-center gap-2 px-3 py-2 text-[11px] text-sidebar-foreground/35 hover:text-sidebar-accent-foreground transition-colors w-fit"
@@ -376,7 +393,7 @@ function App() {
   useEffect(() => { initSoundPreference(); }, []);
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={motionOn ? "never" : "user"}>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
