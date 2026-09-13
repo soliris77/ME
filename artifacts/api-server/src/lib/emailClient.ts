@@ -1,6 +1,22 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
 
+/** Nom affiche dans la boite de reception du destinataire. */
+const BRAND_NAME = "Soliris Market";
+const FALLBACK_ADDRESS = "onboarding@resend.dev";
+
+/**
+ * Resend accepte « Nom <adresse> » aussi bien qu'une adresse nue. Quand le
+ * secret ne contient qu'une adresse, la boite de reception affiche le debut
+ * de celle-ci — « onboarding » — au lieu du nom de l'application. On ajoute
+ * donc le nom nous-memes plutot que de dependre du format du secret.
+ */
+export function formatSender(raw: string | undefined): string {
+  const value = (raw ?? "").trim();
+  if (value === "") return `${BRAND_NAME} <${FALLBACK_ADDRESS}>`;
+  return value.includes("<") ? value : `${BRAND_NAME} <${value}>`;
+}
+
 /**
  * Client email via Resend (resend.com).
  *
@@ -39,9 +55,7 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
     return false;
   }
 
-  const from =
-    process.env.RESEND_FROM_EMAIL ??
-    "Soliris Market <onboarding@resend.dev>";
+  const from = formatSender(process.env.RESEND_FROM_EMAIL);
 
   try {
     const client = getClient();
