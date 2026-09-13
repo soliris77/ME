@@ -307,15 +307,22 @@
   from { opacity: 0; transform: scale(0.3); }
   to   { opacity: 1; transform: scale(1);   }
 }
+/* --- Mouvement ---------------------------------------------------
+   Les blocs prefers-reduced-motion de ce fichier figent les animations
+   quand le systeme le demande. Ils sont volontairement portes par
+   :root:not([data-motion="full"]) : la barre laterale permet de forcer
+   le mouvement pour Soliris seulement, sans toucher au reglage systeme
+   ni aux autres sites. L'attribut data-motion est pose sur <html> par
+   App.tsx, et vaut "system" par defaut. */
 @media (prefers-reduced-motion: reduce) {
   /* Désactiver toutes les animations décoratives */
-  .animate-fadeUp { animation: none !important; opacity: 1 !important; transform: none !important; }
+  :root:not([data-motion="full"]) .animate-fadeUp { animation: none !important; opacity: 1 !important; transform: none !important; }
   /* Les animations du radar (radarSweep, radarFadeIn) et de la modale (modalEnter)
-     sont désactivées côté JS via window.matchMedia — cette règle est un filet de sécurité
-     pour les navigateurs qui lisent le CSS mais pas les overrides inline. */
-  [style*="radarSweep"],
-  [style*="radarFadeIn"],
-  [style*="modalEnter"] {
+     :root:not([data-motion="full"]) sont désactivées côté JS via window.matchMedia — cette règle est un filet de sécurité
+     :root:not([data-motion="full"]) pour les navigateurs qui lisent le CSS mais pas les overrides inline. */
+  :root:not([data-motion="full"]) [style*="radarSweep"],
+  :root:not([data-motion="full"]) [style*="radarFadeIn"],
+  :root:not([data-motion="full"]) [style*="modalEnter"] {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
@@ -323,7 +330,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fadeUp { animation: none !important; opacity: 1 !important; transform: none !important; }
+  :root:not([data-motion="full"]) .animate-fadeUp { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
 
 /* ─── Gold particles ─── */
@@ -420,8 +427,8 @@
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .logo-emblem-wrap        { animation: none; }
-  .logo-emblem-wrap::after { display: none; }
+  :root:not([data-motion="full"]) .logo-emblem-wrap { animation: none; }
+  :root:not([data-motion="full"]) .logo-emblem-wrap::after { display: none; }
 }
 
 /* ─── Rolex-inspired interaction language ───
@@ -452,7 +459,7 @@
   transform: scale(0.975);
 }
 @media (prefers-reduced-motion: reduce) {
-  .btn-sheen::before { display: none; }
+  :root:not([data-motion="full"]) .btn-sheen::before { display: none; }
 }
 
 /* Underline reveal — refined link/nav hover, grows from the center outward */
@@ -485,7 +492,7 @@
   animation: revealUp 0.9s var(--ease-precision) forwards;
 }
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; animation: none !important; transform: none !important; }
+  :root:not([data-motion="full"]) .reveal { opacity: 1; animation: none !important; transform: none !important; }
 }
 
 /* Refined card lift — slower, more precise than the default market-card hover */
@@ -749,10 +756,10 @@
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .space-starfield, .space-starfield::before, .space-starfield::after, .orbital-ring, .globe-vitality {
+  :root:not([data-motion="full"]) .space-starfield, :root:not([data-motion="full"]) .space-starfield::before, :root:not([data-motion="full"]) .space-starfield::after, :root:not([data-motion="full"]) .orbital-ring, :root:not([data-motion="full"]) .globe-vitality {
     animation: none !important;
   }
-  .globe-halo { animation: none !important; display: none !important; }
+  :root:not([data-motion="full"]) .globe-halo { animation: none !important; display: none !important; }
 }
 
 /* ─── Premium foundation ─────────────────────────────────────────────────── */
@@ -784,13 +791,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tr-control,
-  .market-card,
-  .lux-card {
+  :root:not([data-motion="full"]) .tr-control,
+  :root:not([data-motion="full"]) .market-card,
+  :root:not([data-motion="full"]) .lux-card {
     transition: border-color 180ms linear, color 180ms linear, background-color 180ms linear !important;
   }
-  .market-card:hover,
-  .lux-card:hover {
+  :root:not([data-motion="full"]) .market-card:hover,
+  :root:not([data-motion="full"]) .lux-card:hover {
     transform: none !important;
   }
 }
@@ -930,29 +937,29 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gold-sweep,
-  .draw-stroke,
-  .skeleton-premium,
-  .live-dot,
-  .ticker-track,
-  .pulse-alert,
-  .logo-emblem-wrap {
+  :root:not([data-motion="full"]) .gold-sweep,
+  :root:not([data-motion="full"]) .draw-stroke,
+  :root:not([data-motion="full"]) .skeleton-premium,
+  :root:not([data-motion="full"]) .live-dot,
+  :root:not([data-motion="full"]) .ticker-track,
+  :root:not([data-motion="full"]) .pulse-alert,
+  :root:not([data-motion="full"]) .logo-emblem-wrap {
     animation: none !important;
   }
-  .draw-stroke { stroke-dashoffset: 0 !important; }
-  .market-card,
-  .lux-card,
-  .card-hover-depth,
-  .interactive-surface {
+  :root:not([data-motion="full"]) .draw-stroke { stroke-dashoffset: 0 !important; }
+  :root:not([data-motion="full"]) .market-card,
+  :root:not([data-motion="full"]) .lux-card,
+  :root:not([data-motion="full"]) .card-hover-depth,
+  :root:not([data-motion="full"]) .interactive-surface {
     transition: border-color var(--dur-fast) linear !important;
   }
-  .market-card:hover,
-  .lux-card:hover,
-  .card-hover-depth:hover,
-  .interactive-surface:hover {
+  :root:not([data-motion="full"]) .market-card:hover,
+  :root:not([data-motion="full"]) .lux-card:hover,
+  :root:not([data-motion="full"]) .card-hover-depth:hover,
+  :root:not([data-motion="full"]) .interactive-surface:hover {
     transform: none !important;
   }
-  .tr-control, .tr-surface { transition-duration: 1ms !important; }
+  :root:not([data-motion="full"]) .tr-control, :root:not([data-motion="full"]) .tr-surface { transition-duration: 1ms !important; }
 }
 
 @layer utilities {
