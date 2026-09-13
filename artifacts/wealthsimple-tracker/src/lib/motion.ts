@@ -391,3 +391,61 @@ export const goldGlowVariants: Variants = {
     }
   }
 };
+
+// --- Preference de mouvement ---------------------------------------
+//
+// prefers-reduced-motion reste la valeur par defaut. Quand la personne
+// demande explicitement le mouvement dans la barre laterale, on pose
+// data-motion="full" sur <html> : le CSS leve alors ses blocs de
+// reduction, et MotionConfig passe de "user" a "never". Rien n'est
+// change sur le systeme ni sur les autres sites.
+//
+// Le module lit la valeur au chargement, avant le premier rendu, pour
+// qu'aucun composant ne demarre sur une valeur fausse.
+
+export type MotionPreference = "system" | "full";
+
+const MOTION_KEY = "motion";
+const motionListeners = new Set<(value: MotionPreference) => void>();
+
+function readStoredMotion(): MotionPreference {
+  try {
+    return localStorage.getItem(MOTION_KEY) === "full" ? "full" : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function applyMotion(value: MotionPreference): void {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-motion", value);
+}
+
+let motionPreference: MotionPreference =
+  typeof document === "undefined" ? "system" : readStoredMotion();
+applyMotion(motionPreference);
+
+/** Vrai quand la personne a demande le mouvement malgre le reglage systeme. */
+export function isMotionForced(): boolean {
+  return motionPreference === "full";
+}
+
+/** Change la preference, l'applique au document et la retient. */
+export function setMotionForced(forced: boolean): void {
+  motionPreference = forced ? "full" : "system";
+  applyMotion(motionPreference);
+  try {
+    localStorage.setItem(MOTION_KEY, motionPreference);
+  } catch {
+    // stockage indisponible : la preference vaut pour cette session
+  }
+  for (const listener of motionListeners) listener(motionPreference);
+}
+
+/** S'abonne aux changements. Renvoie la fonction de desabonnement. */
+export function subscribeMotion(
+  listener: (value: MotionPreference) => void,
+): () => void {
+  motionListeners.add(listener);
+  return () => { motionListeners.delete(listener); };
+}
