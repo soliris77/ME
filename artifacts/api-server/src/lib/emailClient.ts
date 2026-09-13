@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
+import { logoAttachment, LOGO_CONTENT_ID, type EmailAttachment } from "./emailBrand";
 
 /** Nom affiche dans la boite de reception du destinataire. */
 const BRAND_NAME = "Soliris Market";
@@ -36,6 +37,8 @@ interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
+  /** Pieces jointes. Le logo Soliris s'ajoute tout seul, voir resolveAttachments. */
+  attachments?: readonly EmailAttachment[];
 }
 
 let _resend: Resend | null = null;
@@ -48,7 +51,27 @@ function getClient(): Resend {
   return _resend;
 }
 
-export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
+/**
+ * Les pieces jointes reellement envoyees.
+ *
+ * Le logo n'est joint que si le HTML y fait reference : les gabarits Soliris
+ * le font, un courriel en texte simple non. Personne n'a donc a y penser a
+ * l'appel, et rien d'inutile ne part.
+ */
+function resolveAttachments(
+  html: string,
+  extra: readonly EmailAttachment[] | undefined,
+): EmailAttachment[] {
+  const files = extra ? [...extra] : [];
+  const referenced = html.includes("cid:" + LOGO_CONTENT_ID);
+  if (referenced && !files.some((f) => f.contentId === LOGO_CONTENT_ID)) {
+    const logo = logoAttachment();
+    if (logo !== null) files.push(logo);
+  }
+  return files;
+}
+
+export async function sendEmail({ to, subject, html, attachments }: SendEmailParams): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     logger.warn({ to, subject }, "emailClient: RESEND_API_KEY absent — email ignoré");
@@ -59,7 +82,12 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
 
   try {
     const client = getClient();
-    const { error } = await client.emails.send({ from, to, subject, html });
+    const files = resolveAttachments(html, attachments);
+    const { error } = await client.emails.send(
+      files.length > 0
+        ? { from, to, subject, html, attachments: files }
+        : { from, to, subject, html },
+    );
     if (error) {
       logger.error({ to, subject, error }, "emailClient: Resend a refusé l'envoi");
       return false;
