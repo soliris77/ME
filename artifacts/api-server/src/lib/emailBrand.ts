@@ -2,16 +2,22 @@
  * Identité visuelle des courriels Soliris.
  *
  * Un seul endroit décide de quoi ont l'air les courriels, pour qu'ils se
- * ressemblent tous et ressemblent au site : fond sombre, or, sérif espacé.
+ * ressemblent tous et ressemblent au site.
  *
- * Pourquoi pas d'image de logo : les clients de messagerie les plus utilisés
- * bloquent les `data:` en <img> et ne rendent pas le SVG. Une image réelle
- * suppose donc soit une URL publique jointe à un domaine vérifié, soit une
- * pièce jointe en ligne. Le monogramme ci-dessous est dessiné en HTML : il
- * s'affiche partout, sans dépendre du réseau ni d'un domaine.
+ * Le logo est la vraie image du site (soliris-logo.png), envoyée en pièce
+ * jointe « en ligne » et référencée par `cid:`. C'est la seule façon de
+ * montrer le logo tel quel : les clients de messagerie bloquent les `data:`
+ * en <img> et ne rendent pas le SVG, et une URL publique supposerait un
+ * domaine vérifié. Si le fichier est introuvable, on retombe sur un
+ * mot-marque en texte — le courriel part quand même.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 export const BRAND = {
+  /** Fond du logo, échantillonné dans soliris-logo.png — le bandeau doit être exactement de cette couleur pour que l'image s'y fonde. */
+  maroon: "#3A0910",
   /** Or du logo, repris de --sidebar-primary (42 70% 52%). */
   gold: "#DAA72F",
   /** Or plus profond, repris de --primary (42 70% 44%) — traits et accents. */
@@ -27,6 +33,55 @@ export const BRAND = {
 
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const SERIF = "Georgia, 'Times New Roman', Times, serif";
+
+/** Identifiant de la pièce jointe du logo, partagé avec emailClient. */
+export const LOGO_CONTENT_ID = "soliris-logo";
+
+/** Dimensions réelles de soliris-logo.png : 1200 × 367. */
+const LOGO_WIDTH = 240;
+const LOGO_HEIGHT = 73;
+
+export interface EmailAttachment {
+  filename: string;
+  /** Contenu encodé en base64. */
+  content: string;
+  contentType: string;
+  contentId: string;
+}
+
+/**
+ * Chemins où chercher le logo, depuis le dossier du service (artifacts/api-server).
+ * Le premier qui existe gagne ; le fichier n'est lu qu'une fois.
+ */
+const LOGO_CANDIDATES = [
+  "../wealthsimple-tracker/public/soliris-logo.png",
+  "../wealthsimple-tracker/dist/public/soliris-logo.png",
+  "assets/soliris-logo.png",
+  "../../artifacts/wealthsimple-tracker/public/soliris-logo.png",
+];
+
+let logoCache: EmailAttachment | null | undefined;
+
+/** Le logo en pièce jointe, ou null s'il est introuvable. Lu une seule fois. */
+export function logoAttachment(): EmailAttachment | null {
+  if (logoCache !== undefined) return logoCache;
+  for (const candidate of LOGO_CANDIDATES) {
+    try {
+      const bytes = readFileSync(resolve(process.cwd(), candidate));
+      logoCache = {
+        filename: "soliris-logo.png",
+        content: bytes.toString("base64"),
+        contentType: "image/png",
+        contentId: LOGO_CONTENT_ID,
+      };
+      return logoCache;
+    } catch {
+      // chemin suivant
+    }
+  }
+  logoCache = null;
+  return logoCache;
+}
 
 export interface SolirisEmailParams {
   /** Titre affiché en haut du contenu. */
@@ -54,11 +109,9 @@ export function solirisEmail({ title, intro, bodyHtml, footnote }: SolirisEmailP
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${BRAND.paper};border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
 
-        <!-- Bandeau de marque -->
-        <tr><td style="background:${BRAND.ink};padding:30px 24px 26px;text-align:center;">
-          ${monogram()}
-          <div style="font-family:${SERIF};color:${BRAND.gold};font-size:21px;letter-spacing:0.40em;font-weight:600;margin-top:14px;text-indent:0.40em;">SOLIRIS</div>
-          <div style="font-family:${SERIF};color:rgba(255,255,255,0.34);font-size:9px;letter-spacing:0.52em;margin-top:7px;text-indent:0.52em;">MARKET</div>
+        <!-- Bandeau de marque : fond exactement au ton du logo, pour que l'image s'y fonde -->
+        <tr><td style="background:${BRAND.maroon};padding:26px 24px 24px;text-align:center;">
+          ${brandMark()}
         </td></tr>
 
         <!-- Filet or -->
@@ -87,23 +140,34 @@ export function solirisEmail({ title, intro, bodyHtml, footnote }: SolirisEmailP
 }
 
 /**
- * Monogramme hexagonal, dessiné en CSS. Un hexagone or sur fond sombre avec
- * le S du logo — reconnaissable, et aucun octet d'image à charger.
+ * Le logo du site. Image réelle quand le fichier est là, mot-marque en
+ * texte sinon — et dans les deux cas quelque chose s'affiche si le client
+ * bloque les images (l'attribut alt).
  */
-function monogram(): string {
-  return `<div style="width:54px;height:54px;margin:0 auto;background:${BRAND.ink};border:2px solid ${BRAND.goldDeep};border-radius:14px;text-align:center;line-height:50px;">
-    <span style="font-family:${SERIF};font-size:26px;color:${BRAND.gold};font-weight:600;line-height:50px;">S</span>
-  </div>`;
+function brandMark(): string {
+  if (logoAttachment() !== null) {
+    return `<img src="cid:${LOGO_CONTENT_ID}" alt="Soliris Market" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display:block;margin:0 auto;width:${LOGO_WIDTH}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`;
+  }
+  return `<div style="font-family:${SERIF};color:#F0E6D2;font-size:26px;letter-spacing:0.06em;font-weight:400;">Soliris</div>
+    <div style="font-family:${FONT};color:#7FA8E8;font-size:11px;letter-spacing:0.42em;margin-top:6px;text-indent:0.42em;font-weight:600;">MARKET</div>`;
 }
 
-/** Table simple, lisible sur mobile comme sur bureau. */
+/**
+ * Table simple, lisible sur mobile comme sur bureau.
+ *
+ * Les colonnes de droite portent une marge à gauche : sans elle, deux
+ * nombres alignés à droite se touchent presque (le pourcentage et le volume
+ * finissaient collés).
+ */
 export function emailTable(headers: readonly string[], rows: readonly (readonly string[])[]): string {
+  const pad = (i: number) => (i === 0 ? "0 14px 8px 0" : "0 0 8px 18px");
+  const padCell = (i: number) => (i === 0 ? "10px 14px 10px 0" : "10px 0 10px 18px");
   const head = headers
-    .map((h, i) => `<th style="text-align:${i === 0 ? "left" : "right"};padding:0 0 8px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.muted};font-weight:700;border-bottom:1px solid ${BRAND.hairline};">${escapeHtml(h)}</th>`)
+    .map((h, i) => `<th style="text-align:${i === 0 ? "left" : "right"};padding:${pad(i)};font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.muted};font-weight:700;border-bottom:1px solid ${BRAND.hairline};white-space:nowrap;">${escapeHtml(h)}</th>`)
     .join("");
   const body = rows
     .map((row) => `<tr>${row
-      .map((cell, i) => `<td style="text-align:${i === 0 ? "left" : "right"};padding:10px 0;font-size:14px;color:${BRAND.text};border-bottom:1px solid ${BRAND.hairline};${i === 0 ? "font-weight:600;" : "font-variant-numeric:tabular-nums;"}">${cell}</td>`)
+      .map((cell, i) => `<td style="text-align:${i === 0 ? "left" : "right"};padding:${padCell(i)};font-size:14px;color:${BRAND.text};border-bottom:1px solid ${BRAND.hairline};${i === 0 ? "font-weight:600;" : "font-variant-numeric:tabular-nums;white-space:nowrap;"}">${cell}</td>`)
       .join("")}</tr>`)
     .join("");
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
