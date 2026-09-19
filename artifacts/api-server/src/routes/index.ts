@@ -7,6 +7,7 @@ import watchlistRouter from "./watchlist";
 import alertsRouter from "./alerts";
 import whopRouter from "./whop";
 import brokerRouter from "./broker";
+import portfolioRouter from "./portfolio";
 import authRouter from "./auth";
 import settingsRouter from "./settings";
 import notificationPreferencesRouter from "./notificationPreferences";
@@ -51,6 +52,8 @@ router.use(notificationsRouter);
 router.use(thesesRouter);
 router.use(whopRouter);
 router.use(brokerRouter);
+// Lecture seule : positions, prix moyen payé, gain latent. Aucun ordre.
+router.use(portfolioRouter);
 router.use(settingsRouter);
 router.use(notificationPreferencesRouter);
 router.use(auditRouter);
