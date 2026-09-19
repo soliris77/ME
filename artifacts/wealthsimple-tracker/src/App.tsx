@@ -24,6 +24,7 @@ import AuditLogPage from "@/pages/AuditLog";
 import ReconciliationPage from "@/pages/Reconciliation";
 import PerformancePage from "@/pages/Performance";
 import OrdersPage from "@/pages/Orders";
+import PortefeuillePage from "@/pages/Portefeuille";
 import ComparePage from "@/pages/Compare";
 import CorrelationPage from "@/pages/Correlation";
 import CalendarPage from "@/pages/Calendar";
@@ -42,7 +43,7 @@ import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import Pricing from "@/pages/Pricing";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Activity, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff, Radar } from "lucide-react";
+import { Activity, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff, Radar, Wallet } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 import { isMotionForced, setMotionForced, subscribeMotion } from "@/lib/motion";
@@ -161,6 +162,7 @@ function Nav() {
     {
       group: "Performance & Suivi",
       items: [
+        { href: "/portefeuille", label: "Portefeuille", icon: Wallet },
         { href: "/performance", label: "Performance", icon: LineChart },
         { href: "/comparer", label: "Comparer", icon: GitCompare },
         { href: "/correlation", label: "Corrélation", icon: Grid3x3 },
@@ -412,6 +414,7 @@ function App() {
               <Route path="/watchlist" component={wrap("Portefeuille suivi", Watchlist)} />
               <Route path="/alerts" component={wrap("Alertes prix", Alerts)} />
               <Route path="/journal" component={wrap("Journal des marchés", MarketNewsJournal)} />
+              <Route path="/portefeuille" component={wrap("Portefeuille", PortefeuillePage)} />
               <Route path="/performance" component={wrap("Performance", PerformancePage)} />
               <Route path="/comparer" component={wrap("Comparer", ComparePage)} />
               <Route path="/correlation" component={wrap("Corrélation", CorrelationPage)} />
