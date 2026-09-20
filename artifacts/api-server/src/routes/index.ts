@@ -8,6 +8,7 @@ import alertsRouter from "./alerts";
 import whopRouter from "./whop";
 import brokerRouter from "./broker";
 import portfolioRouter from "./portfolio";
+import plansRouter from "./plans";
 import authRouter from "./auth";
 import settingsRouter from "./settings";
 import notificationPreferencesRouter from "./notificationPreferences";
@@ -54,6 +55,9 @@ router.use(whopRouter);
 router.use(brokerRouter);
 // Lecture seule : positions, prix moyen payé, gain latent. Aucun ordre.
 router.use(portfolioRouter);
+// Plans à cours limité et achats récurrents. N'envoie rien de lui-même :
+// tout passe par submitOrder, et seule la route run-due déclenche un passage.
+router.use(plansRouter);
 router.use(settingsRouter);
 router.use(notificationPreferencesRouter);
 router.use(auditRouter);
