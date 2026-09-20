@@ -21,6 +21,7 @@ import copyTradingRouter from "./copyTrading";
 import symbolsRouter from "./symbols";
 import agentTasksRouter from "./agentTasks";
 import autoTraderRouter from "./autoTrader";
+import perpsRouter from "./perps";
 import dailySummaryRouter from "./dailySummary";
 import scannerRouter from "./scanner";
 import signalsRouter from "./signals";
@@ -63,6 +64,8 @@ router.use(requirePremium, copyTradingRouter);
 router.use(symbolsRouter);
 router.use(agentTasksRouter);
 router.use(requirePremium, autoTraderRouter);
+// Lot 10 : contrats perpetuels a levier. Double serrure interne.
+router.use(requirePremium, perpsRouter);
 router.use(dailySummaryRouter);
 // Lots 8 et 9 : pilotage et mesure. Le webhook d'entree des signaux, lui,
 // est monte hors de /api dans app.ts et s'authentifie par signature HMAC.

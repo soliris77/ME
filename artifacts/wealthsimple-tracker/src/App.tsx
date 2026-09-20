@@ -33,6 +33,7 @@ import CopyTradingSettingsPage from "@/pages/CopyTradingSettings";
 import AgentTasksPage from "@/pages/AgentTasks";
 import AutoTraderPage from "@/pages/AutoTrader";
 import ScannerPage from "@/pages/Scanner";
+import PerpsPage from "@/pages/Perps";
 import DebriefPage from "@/pages/Debrief";
 import ApiStatusModal from "@/components/ApiStatusModal";
 import GoldParticles from "@/components/GoldParticles";
@@ -42,7 +43,38 @@ import Login from "@/pages/Login";
 import SetupPassword from "@/pages/SetupPassword";
 import Pricing from "@/pages/Pricing";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { Activity, Bell, Bookmark, LayoutDashboard, Moon, Sun, Search, BookOpen, Settings, Newspaper, Building2, LogOut, ScrollText, Scale, LineChart, Receipt, GitCompare, Grid3x3, CalendarDays, CalendarCheck, Copy, Volume2, VolumeX, Bot, Cpu, Calculator, Eye, EyeOff, Radar } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  BookOpen,
+  Bookmark,
+  Bot,
+  Building2,
+  Calculator,
+  CalendarCheck,
+  CalendarDays,
+  Copy,
+  Cpu,
+  Eye,
+  EyeOff,
+  Gauge,
+  GitCompare,
+  Grid3x3,
+  LayoutDashboard,
+  LineChart,
+  LogOut,
+  Moon,
+  Newspaper,
+  Radar,
+  Receipt,
+  Scale,
+  ScrollText,
+  Search,
+  Settings,
+  Sun,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
 import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
 import { isMotionForced, setMotionForced, subscribeMotion } from "@/lib/motion";
@@ -153,6 +185,7 @@ function Nav() {
         { href: "/ordres", label: "Journal des ordres", icon: Receipt },
         { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
         { href: "/scanner", label: "Scanner & Signaux", icon: Radar },
+  { href: "/perps", label: "Perps & levier", icon: Gauge },
         { href: "/copy-trading", label: "Copy Trading", icon: Copy },
         { href: "/agent-tasks", label: "Tâches agent", icon: Bot },
         { href: "/courtier", label: "Courtier", icon: Building2 },
@@ -423,6 +456,7 @@ function App() {
               <Route path="/agent-tasks" component={wrap("Tâches d'agent", AgentTasksPage)} />
               <Route path="/auto-trader" component={wrap("Auto-Trader", AutoTraderPage)} />
             <Route path="/scanner" component={wrap("Scanner & Signaux", ScannerPage)} />
+          <Route path="/perps" component={wrap("Perps & levier", PerpsPage)} />
               <Route path="/parametres" component={wrap("Paramètres", SettingsPage)} />
               <Route path="/copy-trading/decouvrir" component={wrap("Découvrir des traders", CopyTradingDiscoverPage)} />
               <Route path="/copy-trading/parametres/:id" component={wrap("Paramètres trader", CopyTradingSettingsPage)} />

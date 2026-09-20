@@ -19,3 +19,4 @@ export * from "./risk";
 export * from "./worker";
 export * from "./equity";
 export * from "./marketLimits";
+export * from "./perps";

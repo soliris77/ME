@@ -19,12 +19,14 @@
     "signals:smoke": "tsx scripts/signal-webhook-smoke.ts"
   },
   "dependencies": {
+    "@gmx-io/sdk": "^1.8.2",
     "@whop/sdk": "^0.0.40",
     "@workspace/api-zod": "workspace:*",
     "@workspace/broker": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/indicators": "workspace:*",
     "@workspace/market-data": "workspace:*",
+    "@workspace/perps": "workspace:*",
     "@workspace/risk": "workspace:*",
     "@workspace/scanner": "workspace:*",
     "@workspace/scheduler": "workspace:*",

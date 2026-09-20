@@ -8,6 +8,7 @@ import { configureMarketDataFeeds } from "./workers/autoTradeWorker";
 import { WorkerLeaseCoordinator, databaseLeaseRepository, type LeaseRepository } from "./workers/workerLease";
 import { startScannerWorker, stopScannerWorker } from "./workers/scannerWorker";
 import { startSignalsWorker, stopSignalsWorker } from "./workers/signalsWorker";
+import { startPerpsWorker, stopPerpsWorker } from "./workers/perpsWorker";
 
 export interface WorkerBootstrapOptions {
   lease?: WorkerLeaseCoordinator;
@@ -46,8 +47,10 @@ export function startWorker(options: WorkerBootstrapOptions = {}) {
     startAutoTradeWorker();
     startScannerWorker(exchange);
     startSignalsWorker(exchange);
+    startPerpsWorker();
   });
   const stop = options.stop ?? (() => {
+    stopPerpsWorker();
     stopSignalsWorker();
     stopScannerWorker();
     stopAutoTradeWorker();
