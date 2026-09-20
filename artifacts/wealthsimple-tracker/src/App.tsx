@@ -1,4 +1,10 @@
-import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter";
+import {
+  Switch,
+  Route,
+  Router as WouterRouter,
+  Link,
+  useLocation,
+} from "wouter";
 import { MotionConfig } from "framer-motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -24,6 +30,7 @@ import AuditLogPage from "@/pages/AuditLog";
 import ReconciliationPage from "@/pages/Reconciliation";
 import PerformancePage from "@/pages/Performance";
 import OrdersPage from "@/pages/Orders";
+import PortefeuillePage from "@/pages/Portefeuille";
 import ComparePage from "@/pages/Compare";
 import CorrelationPage from "@/pages/Correlation";
 import CalendarPage from "@/pages/Calendar";
@@ -45,6 +52,8 @@ import Pricing from "@/pages/Pricing";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import {
   Activity,
+  Repeat,
+  Wallet,
   Bell,
   BookOpen,
   Bookmark,
@@ -76,7 +85,11 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
-import { initSoundPreference, setSoundEnabled, isSoundEnabled } from "@/lib/sounds";
+import {
+  initSoundPreference,
+  setSoundEnabled,
+  isSoundEnabled,
+} from "@/lib/sounds";
 import { isMotionForced, setMotionForced, subscribeMotion } from "@/lib/motion";
 import { PositionCalculator } from "@/components/PositionCalculator";
 import { useQuery } from "@tanstack/react-query";
@@ -118,7 +131,8 @@ function useActiveAlertsCount() {
 function useUnreadNotificationsCount() {
   const { data } = useQuery<{ count: number }>({
     queryKey: ["nav-notifications-unread"],
-    queryFn: () => fetch(`${BASE_URL}/api/notifications/unread-count`).then((r) => r.json()),
+    queryFn: () =>
+      fetch(`${BASE_URL}/api/notifications/unread-count`).then((r) => r.json()),
     refetchInterval: 30_000,
     staleTime: 20_000,
     retry: false,
@@ -148,7 +162,9 @@ function Nav() {
   const [showApi, setShowApi] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
-  const [privacy, setPrivacy] = useState(() => localStorage.getItem("privacy") === "on");
+  const [privacy, setPrivacy] = useState(
+    () => localStorage.getItem("privacy") === "on",
+  );
   const [motionOn, setMotionOn] = useState(isMotionForced);
   const activeAlertsCount = useActiveAlertsCount();
   const unreadNotifsCount = useUnreadNotificationsCount();
@@ -166,7 +182,10 @@ function Nav() {
 
   // La preference vit dans lib/motion : on suit ses changements, d'ou
   // qu'ils viennent.
-  useEffect(() => subscribeMotion((value) => setMotionOn(value === "full")), []);
+  useEffect(
+    () => subscribeMotion((value) => setMotionOn(value === "full")),
+    [],
+  );
 
   const links = [
     {
@@ -177,7 +196,7 @@ function Nav() {
         { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
         { href: "/journal", label: "Journal des marchés", icon: Newspaper },
         { href: "/calendrier", label: "Calendrier éco", icon: CalendarDays },
-      ]
+      ],
     },
     {
       group: "Trading & Exécution",
@@ -185,21 +204,22 @@ function Nav() {
         { href: "/ordres", label: "Journal des ordres", icon: Receipt },
         { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
         { href: "/scanner", label: "Scanner & Signaux", icon: Radar },
-  { href: "/perps", label: "Perps & levier", icon: Gauge },
+        { href: "/perps", label: "Perps & levier", icon: Gauge },
         { href: "/copy-trading", label: "Copy Trading", icon: Copy },
         { href: "/agent-tasks", label: "Tâches agent", icon: Bot },
         { href: "/courtier", label: "Courtier", icon: Building2 },
-      ]
+      ],
     },
     {
       group: "Performance & Suivi",
       items: [
+        { href: "/portefeuille", label: "Portefeuille", icon: Wallet },
         { href: "/performance", label: "Performance", icon: LineChart },
         { href: "/comparer", label: "Comparer", icon: GitCompare },
         { href: "/correlation", label: "Corrélation", icon: Grid3x3 },
         { href: "/debrief", label: "Débriefing", icon: CalendarCheck },
         { href: "/reconciliation", label: "Réconciliation", icon: Scale },
-      ]
+      ],
     },
     {
       group: "Système",
@@ -208,13 +228,13 @@ function Nav() {
         { href: "/apprendre", label: "Apprendre", icon: BookOpen },
         { href: "/audit", label: "Audit", icon: ScrollText },
         { href: "/parametres", label: "Paramètres", icon: Settings },
-      ]
-    }
+      ],
+    },
   ];
 
   return (
     <>
-      {showApi  && <ApiStatusModal onClose={() => setShowApi(false)} />}
+      {showApi && <ApiStatusModal onClose={() => setShowApi(false)} />}
       {showCalc && <PositionCalculator onClose={() => setShowCalc(false)} />}
       <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-30 shadow-2xl">
         {/* Logo */}
@@ -224,8 +244,12 @@ function Nav() {
               <SolirisMark />
             </div>
             <div className="leading-none">
-              <div className="brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">SOLIRIS</div>
-              <div className="text-sidebar-foreground/40 text-[9px] tracking-[0.38em] mt-0.5">MARKET</div>
+              <div className="brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">
+                SOLIRIS
+              </div>
+              <div className="text-sidebar-foreground/40 text-[9px] tracking-[0.38em] mt-0.5">
+                MARKET
+              </div>
             </div>
           </div>
         </div>
@@ -246,11 +270,15 @@ function Nav() {
                       key={href}
                       href={href}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-300 ease-out ${
-                        active ? "bg-sidebar-primary/10 text-sidebar-primary shadow-[inset_2px_0_0_0_hsl(var(--sidebar-primary))]" : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        active
+                          ? "bg-sidebar-primary/10 text-sidebar-primary shadow-[inset_2px_0_0_0_hsl(var(--sidebar-primary))]"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       }`}
                     >
                       <span className="relative flex-shrink-0">
-                        <Icon className={`w-4 h-4 transition-colors ${active ? "text-sidebar-primary" : "opacity-70"}`} />
+                        <Icon
+                          className={`w-4 h-4 transition-colors ${active ? "text-sidebar-primary" : "opacity-70"}`}
+                        />
                         {isAlerts && activeAlertsCount > 0 && (
                           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-[8px] font-bold text-primary-foreground flex items-center justify-center leading-none animate-pulse">
                             {activeAlertsCount > 9 ? "9+" : activeAlertsCount}
@@ -286,7 +314,12 @@ function Nav() {
             Taille de position
           </button>
           <button
-            onClick={() => { import("@/lib/sounds").then(({ playSound }) => playSound("toggle")); setShowApi(true); }}
+            onClick={() => {
+              import("@/lib/sounds").then(({ playSound }) =>
+                playSound("toggle"),
+              );
+              setShowApi(true);
+            }}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             <Settings className="w-4 h-4 flex-shrink-0" />
@@ -297,14 +330,22 @@ function Nav() {
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
             title="Floute les soldes et montants sensibles (partage d'écran, lieu public)"
           >
-            {privacy ? <Eye className="w-4 h-4 flex-shrink-0" /> : <EyeOff className="w-4 h-4 flex-shrink-0" />}
+            {privacy ? (
+              <Eye className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <EyeOff className="w-4 h-4 flex-shrink-0" />
+            )}
             {privacy ? "Afficher les montants" : "Masquer les montants"}
           </button>
           <button
             onClick={() => setDark((d) => !d)}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
-            {dark ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
+            {dark ? (
+              <Sun className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Moon className="w-4 h-4 flex-shrink-0" />
+            )}
             {dark ? "Mode clair" : "Mode sombre"}
           </button>
           <button
@@ -314,17 +355,27 @@ function Nav() {
               setSoundOn(next);
               // Jouer un son de confirmation si on vient d'activer
               if (next) {
-                import("@/lib/sounds").then(({ playSound }) => playSound("toggle"));
+                import("@/lib/sounds").then(({ playSound }) =>
+                  playSound("toggle"),
+                );
               }
             }}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
-            {soundOn ? <Volume2 className="w-4 h-4 flex-shrink-0" /> : <VolumeX className="w-4 h-4 flex-shrink-0" />}
+            {soundOn ? (
+              <Volume2 className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <VolumeX className="w-4 h-4 flex-shrink-0" />
+            )}
             {soundOn ? "Sons activés" : "Sons désactivés"}
           </button>
           <button
             onClick={() => setMotionForced(!motionOn)}
-            title={motionOn ? "Les animations tournent, meme si ton systeme demande de les reduire" : "Les animations suivent le reglage de ton systeme"}
+            title={
+              motionOn
+                ? "Les animations tournent, meme si ton systeme demande de les reduire"
+                : "Les animations suivent le reglage de ton systeme"
+            }
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             <Activity className="w-4 h-4 flex-shrink-0" />
@@ -344,7 +395,6 @@ function Nav() {
             Déconnexion
           </button>
         </div>
-
       </aside>
     </>
   );
@@ -420,63 +470,162 @@ function wrap(name: string, Page: React.ComponentType) {
 
 function App() {
   // Lire la préférence son une seule fois au montage (avant toute interaction)
-  useEffect(() => { initSoundPreference(); }, []);
+  useEffect(() => {
+    initSoundPreference();
+  }, []);
 
   // MotionConfig doit suivre la bascule, qui vit dans Nav.
   const [motionOn, setMotionOn] = useState(isMotionForced);
-  useEffect(() => subscribeMotion((value) => setMotionOn(value === "full")), []);
+  useEffect(
+    () => subscribeMotion((value) => setMotionOn(value === "full")),
+    [],
+  );
 
   return (
     <MotionConfig reducedMotion={motionOn ? "never" : "user"}>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Switch>
-              <Route path="/" component={Landing} />
-              <Route path="/setup" component={SetupPassword} />
-              <Route path="/login" component={Login} />
-              <Route path="/pricing" component={Pricing} />
-              <Route path="/tarifs" component={Pricing} />
-              <Route path="/conditions-utilisation" component={ConditionsUtilisation} />
-              <Route path="/courtier" component={wrap("Courtier", BrokerPage)} />
-              <Route path="/dashboard" component={wrap("Tableau de bord", Dashboard)} />
-              <Route path="/search" component={wrap("Recherche", SearchPage)} />
-              <Route path="/watchlist" component={wrap("Portefeuille suivi", Watchlist)} />
-              <Route path="/alerts" component={wrap("Alertes prix", Alerts)} />
-              <Route path="/journal" component={wrap("Journal des marchés", MarketNewsJournal)} />
-              <Route path="/performance" component={wrap("Performance", PerformancePage)} />
-              <Route path="/comparer" component={wrap("Comparer", ComparePage)} />
-              <Route path="/correlation" component={wrap("Corrélation", CorrelationPage)} />
-              <Route path="/calendrier" component={wrap("Calendrier économique", CalendarPage)} />
-              <Route path="/ordres" component={wrap("Journal des ordres", OrdersPage)} />
-              <Route path="/debrief" component={wrap("Débriefing quotidien", DebriefPage)} />
-              <Route path="/reconciliation" component={wrap("Réconciliation", ReconciliationPage)} />
-              <Route path="/audit" component={wrap("Journal d'audit", AuditLogPage)} />
-              <Route path="/agent-tasks" component={wrap("Tâches d'agent", AgentTasksPage)} />
-              <Route path="/auto-trader" component={wrap("Auto-Trader", AutoTraderPage)} />
-            <Route path="/scanner" component={wrap("Scanner & Signaux", ScannerPage)} />
-          <Route path="/perps" component={wrap("Perps & levier", PerpsPage)} />
-              <Route path="/parametres" component={wrap("Paramètres", SettingsPage)} />
-              <Route path="/copy-trading/decouvrir" component={wrap("Découvrir des traders", CopyTradingDiscoverPage)} />
-              <Route path="/copy-trading/parametres/:id" component={wrap("Paramètres trader", CopyTradingSettingsPage)} />
-              <Route path="/copy-trading" component={wrap("Copy Trading", CopyTradingPage)} />
-              <Route path="/apprendre/parcours/:slug" component={wrap("Leçon", LessonDetail)} />
-              <Route path="/apprendre/chandeliers/:slug" component={wrap("Chandeliers", CandleDetail)} />
-              <Route path="/apprendre/strategies/:slug" component={wrap("Stratégies", StrategyDetail)} />
-              <Route path="/apprendre/glossaire/:slug" component={wrap("Glossaire", GlossaryDetail)} />
-              <Route path="/apprendre/:tab" component={wrap("Apprendre", Learn)} />
-              <Route path="/apprendre" component={wrap("Apprendre", Learn)} />
-              <Route path="/quote/:symbol" component={wrap("Fiche du titre", QuoteDetail)} />
-              <Route component={wrap("Page introuvable", NotFound)} />
-            </Switch>
-          </WouterRouter>
-          <AuthedCommandPalette />
-          <AlertNotificationWatcher />
-          <Toaster />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Switch>
+                <Route path="/" component={Landing} />
+                <Route path="/setup" component={SetupPassword} />
+                <Route path="/login" component={Login} />
+                <Route path="/pricing" component={Pricing} />
+                <Route path="/tarifs" component={Pricing} />
+                <Route
+                  path="/conditions-utilisation"
+                  component={ConditionsUtilisation}
+                />
+                <Route
+                  path="/courtier"
+                  component={wrap("Courtier", BrokerPage)}
+                />
+                <Route
+                  path="/dashboard"
+                  component={wrap("Tableau de bord", Dashboard)}
+                />
+                <Route
+                  path="/search"
+                  component={wrap("Recherche", SearchPage)}
+                />
+                <Route
+                  path="/watchlist"
+                  component={wrap("Portefeuille suivi", Watchlist)}
+                />
+                <Route
+                  path="/alerts"
+                  component={wrap("Alertes prix", Alerts)}
+                />
+                <Route
+                  path="/journal"
+                  component={wrap("Journal des marchés", MarketNewsJournal)}
+                />
+                <Route
+                  path="/portefeuille"
+                  component={wrap("Portefeuille", PortefeuillePage)}
+                />
+                <Route
+                  path="/performance"
+                  component={wrap("Performance", PerformancePage)}
+                />
+                <Route
+                  path="/comparer"
+                  component={wrap("Comparer", ComparePage)}
+                />
+                <Route
+                  path="/correlation"
+                  component={wrap("Corrélation", CorrelationPage)}
+                />
+                <Route
+                  path="/calendrier"
+                  component={wrap("Calendrier économique", CalendarPage)}
+                />
+                <Route
+                  path="/ordres"
+                  component={wrap("Journal des ordres", OrdersPage)}
+                />
+                <Route
+                  path="/debrief"
+                  component={wrap("Débriefing quotidien", DebriefPage)}
+                />
+                <Route
+                  path="/reconciliation"
+                  component={wrap("Réconciliation", ReconciliationPage)}
+                />
+                <Route
+                  path="/audit"
+                  component={wrap("Journal d'audit", AuditLogPage)}
+                />
+                <Route
+                  path="/agent-tasks"
+                  component={wrap("Tâches d'agent", AgentTasksPage)}
+                />
+                <Route
+                  path="/auto-trader"
+                  component={wrap("Auto-Trader", AutoTraderPage)}
+                />
+                <Route
+                  path="/scanner"
+                  component={wrap("Scanner & Signaux", ScannerPage)}
+                />
+                <Route
+                  path="/perps"
+                  component={wrap("Perps & levier", PerpsPage)}
+                />
+                <Route
+                  path="/parametres"
+                  component={wrap("Paramètres", SettingsPage)}
+                />
+                <Route
+                  path="/copy-trading/decouvrir"
+                  component={wrap(
+                    "Découvrir des traders",
+                    CopyTradingDiscoverPage,
+                  )}
+                />
+                <Route
+                  path="/copy-trading/parametres/:id"
+                  component={wrap("Paramètres trader", CopyTradingSettingsPage)}
+                />
+                <Route
+                  path="/copy-trading"
+                  component={wrap("Copy Trading", CopyTradingPage)}
+                />
+                <Route
+                  path="/apprendre/parcours/:slug"
+                  component={wrap("Leçon", LessonDetail)}
+                />
+                <Route
+                  path="/apprendre/chandeliers/:slug"
+                  component={wrap("Chandeliers", CandleDetail)}
+                />
+                <Route
+                  path="/apprendre/strategies/:slug"
+                  component={wrap("Stratégies", StrategyDetail)}
+                />
+                <Route
+                  path="/apprendre/glossaire/:slug"
+                  component={wrap("Glossaire", GlossaryDetail)}
+                />
+                <Route
+                  path="/apprendre/:tab"
+                  component={wrap("Apprendre", Learn)}
+                />
+                <Route path="/apprendre" component={wrap("Apprendre", Learn)} />
+                <Route
+                  path="/quote/:symbol"
+                  component={wrap("Fiche du titre", QuoteDetail)}
+                />
+                <Route component={wrap("Page introuvable", NotFound)} />
+              </Switch>
+            </WouterRouter>
+            <AuthedCommandPalette />
+            <AlertNotificationWatcher />
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </MotionConfig>
   );
 }
@@ -484,11 +633,16 @@ function App() {
 export default App;
 
 function alertNotificationBody(a: {
-  alertType?: string; symbol: string; patternSignal?: string | null;
-  condition?: string | null; targetPrice?: number | null;
+  alertType?: string;
+  symbol: string;
+  patternSignal?: string | null;
+  condition?: string | null;
+  targetPrice?: number | null;
 }) {
-  if (a.alertType === "pattern") return `Pattern ${a.patternSignal || "détecté"} sur ${a.symbol}`;
-  if (a.alertType === "signal") return `Signal technique ${a.patternSignal || "composite"} sur ${a.symbol}`;
+  if (a.alertType === "pattern")
+    return `Pattern ${a.patternSignal || "détecté"} sur ${a.symbol}`;
+  if (a.alertType === "signal")
+    return `Signal technique ${a.patternSignal || "composite"} sur ${a.symbol}`;
   const dir = a.condition === "above" ? "au-dessus" : "en dessous";
   const target = a.targetPrice != null ? ` de ${a.targetPrice} $` : "";
   return `${a.symbol} est passé ${dir}${target}`;
@@ -503,11 +657,19 @@ function AlertNotificationWatcher() {
     const check = async () => {
       if (Notification.permission !== "granted") return;
       try {
-        const res = await fetch(`${BASE_URL}/api/alerts`, { credentials: "same-origin" });
+        const res = await fetch(`${BASE_URL}/api/alerts`, {
+          credentials: "same-origin",
+        });
         if (!res.ok) return;
         const alerts: {
-          id: number; active: boolean; triggeredAt?: string | null; symbol: string;
-          alertType?: string; patternSignal?: string | null; condition?: string | null; targetPrice?: number | null;
+          id: number;
+          active: boolean;
+          triggeredAt?: string | null;
+          symbol: string;
+          alertType?: string;
+          patternSignal?: string | null;
+          condition?: string | null;
+          targetPrice?: number | null;
         }[] = await res.json();
         if (!Array.isArray(alerts)) return;
 
@@ -516,7 +678,9 @@ function AlertNotificationWatcher() {
         // Premier passage : on mémorise l'existant sans notifier (évite une
         // rafale de notifications historiques).
         const firstRun = raw == null;
-        const seen = new Set<number>(firstRun ? [] : (JSON.parse(raw) as number[]));
+        const seen = new Set<number>(
+          firstRun ? [] : (JSON.parse(raw) as number[]),
+        );
         const fresh = firstRun ? [] : triggered.filter((a) => !seen.has(a.id));
 
         for (const a of fresh) {
@@ -531,14 +695,25 @@ function AlertNotificationWatcher() {
             // Notification persistante via le SW si dispo (reste cliquable,
             // redirige vers /alerts via le handler notificationclick du SW)
             const reg = await navigator.serviceWorker?.ready;
-            if (reg) await reg.showNotification(title, { ...options, data: { url: "/alerts" } });
+            if (reg)
+              await reg.showNotification(title, {
+                ...options,
+                data: { url: "/alerts" },
+              });
             else new Notification(title, options);
           } catch {
-            try { new Notification(title, options); } catch { /* plateforme sans notifications */ }
+            try {
+              new Notification(title, options);
+            } catch {
+              /* plateforme sans notifications */
+            }
           }
         }
 
-        localStorage.setItem(NOTIFIED_IDS_KEY, JSON.stringify(triggered.map((a) => a.id)));
+        localStorage.setItem(
+          NOTIFIED_IDS_KEY,
+          JSON.stringify(triggered.map((a) => a.id)),
+        );
       } catch {
         /* hors-ligne ou API indisponible — on réessaie au prochain tick */
       }
