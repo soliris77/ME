@@ -34,7 +34,7 @@ export function GlobeObservatoire({
   vitesse,
   className,
   commandes,
-}: Props): JSX.Element {
+}: Props) {
   const toileRef = useRef<HTMLCanvasElement | null>(null);
   const globeRef = useRef<Globe | null>(null);
   const [indisponible, setIndisponible] = useState(false);
