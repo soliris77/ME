@@ -88,6 +88,15 @@ interface StateResponse {
   arming: ArmingStatus;
 }
 
+interface HyperliquidBalance {
+  venue: "hyperliquid";
+  usdcBalance: number;
+  availableMarginUsd: number;
+  openPositions: number;
+  walletAddress: string | null;
+  updatedAt: string;
+}
+
 interface DecisionRow {
   id: number;
   symbol: string;
@@ -126,6 +135,14 @@ const pct = (fraction: number, digits = 2): string =>
   `${(fraction * 100).toFixed(digits)} %`;
 
 const usd = (value: number): string => `${value.toFixed(2)} $`;
+const usdc = (value: number): string =>
+  `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+
+function shortAddress(address: string | null): string {
+  if (!address) return "Adresse non disponible";
+  if (address.length <= 14) return address;
+  return `${address.slice(0, 7)}…${address.slice(-5)}`;
+}
 
 /** Les champs numériques modifiables, avec ce qu'ils veulent dire. */
 const FIELDS: ReadonlyArray<{
@@ -168,6 +185,15 @@ export default function PerpsPage() {
     queryKey: ["perps-state", venue],
     queryFn: () =>
       fetch(`${BASE}/api/perps/state?venue=${venue}`).then(jsonOrThrow) as Promise<StateResponse>,
+  });
+
+  const balanceQ = useQuery<HyperliquidBalance>({
+    queryKey: ["hyperliquid-balance"],
+    queryFn: () =>
+      fetch(`${BASE}/api/perps/balance?venue=hyperliquid`).then(jsonOrThrow) as Promise<HyperliquidBalance>,
+    enabled: venue === "hyperliquid",
+    refetchInterval: 10_000,
+    staleTime: 5_000,
   });
 
   const decisionsQ = useQuery<{ decisions: DecisionRow[] }>({
@@ -329,6 +355,48 @@ export default function PerpsPage() {
           </button>
         ))}
       </div>
+
+      {venue === "hyperliquid" && (
+        <div className="surface-glass rounded-xl p-6 md:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Solde Hyperliquid
+              </p>
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground/95">
+                {balanceQ.isLoading
+                  ? "Lecture…"
+                  : balanceQ.data
+                    ? usdc(balanceQ.data.usdcBalance)
+                    : "Indisponible"}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {balanceQ.data
+                  ? `Marge disponible : ${usdc(balanceQ.data.availableMarginUsd)}`
+                  : balanceQ.error instanceof Error
+                    ? balanceQ.error.message
+                    : "Le solde sera lu depuis Hyperliquid."}
+              </p>
+            </div>
+            <div className="text-right text-xs text-muted-foreground">
+              <p>{balanceQ.data ? `${balanceQ.data.openPositions} position(s) ouverte(s)` : "—"}</p>
+              <p className="mt-1">
+                {balanceQ.data
+                  ? `Actualisé à ${new Date(balanceQ.data.updatedAt).toLocaleTimeString("fr-CA")}`
+                  : "Actualisation automatique toutes les 10 s"}
+              </p>
+              {balanceQ.data?.walletAddress && (
+                <p className="mt-1 font-mono">{shortAddress(balanceQ.data.walletAddress)}</p>
+              )}
+            </div>
+          </div>
+          {balanceQ.isFetching && !balanceQ.isLoading && (
+            <p className="mt-4 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Actualisation…
+            </p>
+          )}
+        </div>
+      )}
 
       {/* - Ce que chaque plateforme coûte, aux mêmes réglages - */}
       {(venuesQ.data?.venues.length ?? 0) > 1 && (

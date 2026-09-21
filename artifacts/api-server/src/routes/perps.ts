@@ -82,6 +82,56 @@ router.get("/perps/state", async (req, res) => {
 });
 
 /**
+ * Solde Hyperliquid en lecture seule.
+ *
+ * Cette route ne passe jamais par `placeOrder`, `arm` ou `handleCandidate`.
+ * Elle ne renvoie que les chiffres de compte et l'adresse publique.
+ */
+router.get("/perps/balance", async (req, res) => {
+  try {
+    const venue = asVenueId(venueOf(req.query));
+    if (venue !== "hyperliquid") {
+      res.status(400).json({ error: "Le solde temps réel est disponible pour Hyperliquid uniquement." });
+      return;
+    }
+
+    const adapter = venueAdapter(venue);
+    if (!adapter.credentialsPresent()) {
+      res.status(503).json({ error: "Les identifiants Hyperliquid ne sont pas configurés." });
+      return;
+    }
+
+    const account = adapter.create();
+    if (!account) {
+      res.status(503).json({ error: "Le compte Hyperliquid est indisponible." });
+      return;
+    }
+
+    const state = await account.getAccountState();
+    if (
+      !Number.isFinite(state.equityUsd) ||
+      state.equityUsd < 0 ||
+      !Number.isFinite(state.availableMarginUsd) ||
+      state.availableMarginUsd < 0
+    ) {
+      throw new Error("Solde Hyperliquid invalide");
+    }
+
+    res.json({
+      venue,
+      usdcBalance: state.equityUsd,
+      availableMarginUsd: state.availableMarginUsd,
+      openPositions: state.positions.length,
+      walletAddress: adapter.publicAddress(),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error({ err: error }, "perps: lecture du solde Hyperliquid impossible");
+    res.status(502).json({ error: "Impossible de lire le solde Hyperliquid." });
+  }
+});
+
+/**
  * Les deux plateformes côte à côte, sur les mêmes réglages.
  *
  * C'est la route qui répond « laquelle vaut le coup ? » par des chiffres
