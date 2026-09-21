@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import ObservatoryHero from "@/components/ObservatoryHero";
+import type { GlobeSelection } from "@/components/MarketGlobe";
 
 const OBSERVATORY_READINGS = [
   {
@@ -35,6 +36,7 @@ const OBSERVATORY_READINGS = [
 
 export default function Observatory() {
   const [isImmersive, setIsImmersive] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<GlobeSelection | null>(null);
 
   useEffect(() => {
     if (!isImmersive) return;
@@ -72,6 +74,7 @@ export default function Observatory() {
             variant="page"
             isImmersive={isImmersive}
             onToggleImmersive={() => setIsImmersive((value) => !value)}
+            onSelectionChange={setSelectedNode}
           />
 
           {!isImmersive && (
@@ -97,6 +100,23 @@ export default function Observatory() {
                   changer de perspective.
                 </p>
               </div>
+              <div className="mt-5 border-t border-border/50 pt-4" aria-live="polite">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+                  Lecture liée au globe
+                </div>
+                {selectedNode ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                    <span className="font-medium text-foreground">{selectedNode.name}</span>
+                    <span className={selectedNode.status === "open" ? "text-teal-300" : "text-muted-foreground"}>
+                      {selectedNode.status === "open" ? "Ouvert" : "Fermé"}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Sélectionnez un nœud pour relier cette fiche à la lecture mondiale.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
@@ -109,7 +129,9 @@ export default function Observatory() {
                     <Icon className="h-3.5 w-3.5" />
                     {label}
                   </div>
-                  <h3 className="mt-3 text-sm font-semibold text-foreground">{title}</h3>
+                  <h3 className="mt-3 text-sm font-semibold text-foreground">
+                    {label === "Relais actif" && selectedNode ? `${selectedNode.location} · ${title}` : title}
+                  </h3>
                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{text}</p>
                 </article>
               ))}

@@ -20,6 +20,14 @@ const HOLIDAYS: Record<string, string[]> = {};
 
 type ExStatus = 'open' | 'closed' | 'pre' | 'post' | 'holiday';
 
+export type GlobeSelection = {
+  id: string;
+  name: string;
+  location: string;
+  status: ExStatus;
+  localTime: string;
+};
+
 const STATUS_LABELS: Record<ExStatus, string> = {
   open: "Ouvert",
   closed: "Fermé",
@@ -172,9 +180,11 @@ const GRATICULE = geoGraticule10();
 export default function MarketGlobe({
   variant = 'compact',
   interactive = true,
+  onSelectionChange,
 }: {
   variant?: 'hero' | 'compact';
   interactive?: boolean;
+  onSelectionChange?: (selection: GlobeSelection) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -248,7 +258,7 @@ export default function MarketGlobe({
         const offset = new Date().getTimezoneOffset(); // in minutes
         rotationRef.current = -(offset / 60) * 15;
       } else if (!dragRef.current.active && autoRotateRef.current) {
-        rotationRef.current += (dt / 1000) * 9; // 40s revolution: visibly alive, still cinematic
+         rotationRef.current += (dt / 1000) * 3.5; // ~103s revolution: slow, global and cinematic
       }
 
       rotationRef.current %= 360;
@@ -617,6 +627,20 @@ export default function MarketGlobe({
     scheduleAutoResume();
   };
 
+  const handleRecenter = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    clearResumeTimer();
+    rotationRef.current = 0;
+    clickWaveRef.current = { targetId: null, startedAt: 0 };
+    if (userPausedRef.current) {
+      autoRotateRef.current = false;
+      setRotationMode('paused');
+    } else {
+      autoRotateRef.current = true;
+      setRotationMode('auto');
+    }
+  };
+
   const handleToggleRotation = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     clearResumeTimer();
@@ -636,13 +660,20 @@ export default function MarketGlobe({
       ? { targetId: id, startedAt: performance.now() }
       : { targetId: null, startedAt: 0 };
     setSelectedExchangeId(id);
+    onSelectionChange?.({
+      id: exchange.id,
+      name: exchange.name,
+      location: exchange.location,
+      status: states[id]?.status ?? 'closed',
+      localTime: states[id]?.localTimeStr ?? '—',
+    });
     setRotationMode('manual');
     scheduleAutoResume();
   };
 
   const getDotClass = (status: ExStatus) => {
     switch(status) {
-      case 'open': return 'bg-primary shadow-[0_0_10px_1px_hsl(var(--primary))] motion-safe:animate-pulse';
+      case 'open': return 'bg-primary shadow-[0_0_10px_1px_hsl(var(--primary))]';
       case 'pre':
       case 'post': return 'bg-primary/40';
       case 'closed':
@@ -708,7 +739,7 @@ export default function MarketGlobe({
         ))}
       </ul>
 
-      {GLOBE_EXCHANGES.map(ex => {
+      {GLOBE_EXCHANGES.map((ex, index) => {
         const st = states[ex.id];
         if (!st) return null;
         
@@ -727,8 +758,13 @@ export default function MarketGlobe({
             aria-label={`${ex.location}, ${ex.name}, ${st.localTimeStr} heure locale, ${STATUS_LABELS[st.status]}`}
              aria-pressed={selectedExchangeId === ex.id}
           >
-             <div className={`globe-market-point rounded-full transition-all duration-500 ease-in-out relative ${st.status === 'open' ? 'globe-market-point-open' : ''} ${variant === 'hero' ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${getDotClass(st.status)}`}>
-               {st.status === 'open' && <div className="globe-halo" />}
+             <div
+               className={`globe-market-point rounded-full transition-all duration-500 ease-in-out relative ${st.status === 'open' ? 'globe-market-point-open' : ''} ${variant === 'hero' ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${getDotClass(st.status)}`}
+               style={{ animationDelay: `${(index % 6) * 0.42}s` }}
+             >
+                {st.status === 'open' && (
+                  <div className="globe-halo" style={{ animationDelay: `${(index % 6) * 0.42}s` }} />
+                )}
             </div>
             
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max bg-card/95 border border-border/50 shadow-xl backdrop-blur-md rounded-md px-3 py-2 text-xs opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none transition-opacity z-50">
@@ -850,28 +886,41 @@ export default function MarketGlobe({
               </div>
             )}
           </div>
-          <div className="pointer-events-none absolute bottom-[15%] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/20 bg-background/45 px-2.5 py-1 text-[8px] uppercase tracking-[0.18em] text-primary/75 backdrop-blur-sm">
+          <div className="globe-control-console absolute bottom-[5%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-primary/25 bg-background/72 p-1 shadow-xl backdrop-blur-md" role="group" aria-label="Contrôles du globe">
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleToggleRotation}
+              className="globe-control-button"
+              aria-label={autoRotateRef.current ? 'Mettre la rotation en pause' : 'Reprendre la rotation automatique'}
+            >
+              {autoRotateRef.current ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              <span className="hidden sm:inline">{autoRotateRef.current ? 'Pause' : 'Auto'}</span>
+            </button>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleRotateButton}
+              className="globe-control-button"
+              aria-label="Tourner le globe"
+            >
+              <RotateCw className="h-3 w-3" />
+              <span className="hidden sm:inline">Tourner</span>
+            </button>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleRecenter}
+              className="globe-control-button"
+              aria-label="Recentrer le globe"
+            >
+              <LocateFixed className="h-3 w-3" />
+              <span className="hidden sm:inline">Recentrer</span>
+            </button>
+          </div>
+          <div className="pointer-events-none absolute bottom-[1.5%] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap text-[8px] uppercase tracking-[0.18em] text-primary/60">
             {rotationMode === 'manual' ? 'Vue sélectionnée' : rotationMode === 'paused' ? 'Rotation en pause' : 'Rotation automatique'}
           </div>
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleToggleRotation}
-            className="absolute bottom-[15%] right-[4%] z-30 flex items-center gap-1.5 rounded-full border border-primary/25 bg-background/65 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-primary shadow-lg backdrop-blur-md transition-all hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label={autoRotateRef.current ? 'Mettre la rotation en pause' : 'Reprendre la rotation automatique'}
-          >
-            {autoRotateRef.current ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-            {autoRotateRef.current ? 'Pause' : 'Reprendre'}
-          </button>
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleRotateButton}
-            className="absolute bottom-[7%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/35 bg-background/65 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary shadow-lg backdrop-blur-md transition-all hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <RotateCw className="h-3 w-3" />
-            Tourner le globe
-          </button>
         </>
       )}
     </div>

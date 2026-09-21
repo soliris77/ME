@@ -41,6 +41,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 2 : Rendre les signaux causaux, limiter les ondulations aux places ouvertes et reprendre la rotation après inactivité
 - ✅ FAIT — Étape 3 : Ajouter un mode immersif avec sortie Escape, transitions d’entrée et libellés honnêtes sur les calendriers locaux
 
+## Troisième passe — finition du centre d’observation mondial
+
+- ✅ FAIT — Étape 1 : Ralentir la rotation, rééquilibrer la composition et regrouper les contrôles dans une console flottante
+- ✅ FAIT — Étape 2 : Décaler les pulsations des places ouvertes, supprimer les mouvements décoratifs permanents et conserver le scan lié aux actualisations
+- ✅ FAIT — Étape 3 : Relier la sélection du globe au panneau principal et aux cartes de lecture inférieures
+
 ## Globe au survol, lune 3D et curseur Soliris — accueil/site
 
 - ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés

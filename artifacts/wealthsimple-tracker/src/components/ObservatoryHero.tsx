@@ -17,6 +17,7 @@ import {
   EXCHANGES,
   getExchangeOpenStatus,
 } from "@/lib/marketHours";
+import type { GlobeSelection } from "@/components/MarketGlobe";
 
 const MarketGlobe = lazy(() => import("@/components/MarketGlobe"));
 
@@ -78,14 +79,17 @@ export default function ObservatoryHero({
   variant = "dashboard",
   isImmersive = false,
   onToggleImmersive,
+  onSelectionChange,
 }: {
   variant?: ObservatoryHeroVariant;
   isImmersive?: boolean;
   onToggleImmersive?: () => void;
+  onSelectionChange?: (selection: GlobeSelection) => void;
 }) {
   const snapshot = useObservatorySnapshot();
   const isDashboard = variant === "dashboard";
   const isActive = snapshot.openCount > 0;
+  const [selectedNode, setSelectedNode] = useState<GlobeSelection | null>(null);
   const updateLabel = useMemo(
     () =>
       new Intl.DateTimeFormat("fr-FR", {
@@ -111,15 +115,15 @@ export default function ObservatoryHero({
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.24em] text-primary">
               <Sparkles className="h-3.5 w-3.5" />
-              Centre de vision Soliris
+               Vision globale · Soliris
             </div>
             <div className="observatory-hero-status">
               <span className="observatory-hero-status-dot" />
               {isActive ? "Séances actives" : "Veille mondiale"}
             </div>
           </div>
-          <h2 id="observatory-hero-title" className="mt-4 font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
-            Observatoire
+           <h2 id="observatory-hero-title" className="mt-4 font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
+             OBSERVATOIRE MONDIAL
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Une lecture globale des fuseaux, des séances et des relais en cours.
@@ -154,6 +158,7 @@ export default function ObservatoryHero({
 
       <div className="relative z-10 grid gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
         <div className={`observatory-hero-visual ${isDashboard ? "observatory-hero-visual-preview" : ""}`}>
+           <div className="observatory-hero-stars pointer-events-none" aria-hidden="true" />
           <div className="observatory-hero-visual-label">
             <span className="flex items-center gap-2">
               <Radio className="h-3.5 w-3.5 text-primary" />
@@ -165,7 +170,14 @@ export default function ObservatoryHero({
           </div>
           <div className="observatory-hero-globe">
             <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Chargement de la visualisation…</div>}>
-              <MarketGlobe variant="hero" interactive={!isDashboard} />
+               <MarketGlobe
+                 variant="hero"
+                 interactive={!isDashboard}
+                onSelectionChange={isDashboard ? undefined : (selection) => {
+                  setSelectedNode(selection);
+                  onSelectionChange?.(selection);
+                }}
+               />
             </Suspense>
           </div>
           <div className="observatory-hero-visual-footer">
@@ -232,6 +244,24 @@ export default function ObservatoryHero({
               tone="gold"
             />
           </div>
+
+          {selectedNode && !isDashboard && (
+            <div className="observatory-selected-node border-b border-primary/15 px-5 py-4 sm:px-6" aria-live="polite">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+                Point de vue sélectionné
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-3">
+                <div className="text-sm font-semibold text-foreground">{selectedNode.name}</div>
+                <div className="font-mono text-[10px] text-muted-foreground">{selectedNode.localTime}</div>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
+                <span>{selectedNode.location}</span>
+                <span className={selectedNode.status === "open" ? "text-teal-300" : "text-primary/75"}>
+                  {selectedNode.status === "open" ? "Ouvert" : selectedNode.status === "holiday" ? "Fermé · férié" : "Fermé"}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="p-5 sm:p-6">
             <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary/80">
