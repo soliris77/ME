@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Survol lunaire, fiches de marché et pensées tournantes — accueil Soliris
+
+- → EN COURS — Étape 1 : Ajouter 300 pensées éditoriales et la rotation de l’accroche
+- ☐ À FAIRE — Étape 2 : Afficher les informations au survol et la lune suiveuse
+- ☐ À FAIRE — Étape 3 : Vérifier le typecheck, le rendu et les interactions
+
 ## Globe encyclopédique adaptatif — accueil Soliris
 
 - ✅ FAIT — Étape 1 : Ajouter les profils encyclopédiques et la phase mondiale calculée
