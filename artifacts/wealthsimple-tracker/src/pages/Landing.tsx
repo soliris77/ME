@@ -38,22 +38,7 @@ export default function Landing() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
       <div className="observatory-backdrop pointer-events-none fixed inset-0" aria-hidden="true" />
-      <div className="space-starfield pointer-events-none fixed inset-0" aria-hidden="true" />
-      {/* fond : vignette dorée très douce, pas d'image importée */}
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 55% at 50% 32%, rgba(201,162,39,0.14), transparent 65%), radial-gradient(ellipse 120% 80% at 50% 100%, rgba(201,162,39,0.05), transparent 60%)",
-        }}
-      />
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.018]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 3px)",
-        }}
-      />
+      <div className="aurora-sky pointer-events-none fixed inset-0" aria-hidden="true" />
 
       {/* en-tête minimal */}
       <header className="relative z-10 flex items-center justify-between px-6 py-6 sm:px-10">
@@ -123,9 +108,6 @@ export default function Landing() {
           <div className="pointer-events-none absolute left-1/2 top-[6%] z-20 -translate-x-1/2 text-center">
             <div className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c9a227]/80">
               Observatoire mondial
-            </div>
-            <div className="mt-1 rounded-full border border-[#c9a227]/25 bg-[#07080a]/50 px-3 py-1 text-[9px] tracking-[0.12em] text-[#f2ead6]/65 backdrop-blur-sm">
-              Glissez pour faire tourner
             </div>
           </div>
           <Suspense fallback={null}>
