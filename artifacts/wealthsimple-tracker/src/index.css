@@ -223,6 +223,68 @@
     linear-gradient(135deg, #07080a 0%, #0a0d15 54%, #11090d 100%);
 }
 
+/* Illustrations d'accueil : composition lente et GPU-friendly derrière le globe. */
+.celestial-welcome-backdrop {
+  z-index: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #09090c;
+}
+
+.celestial-welcome-layer {
+  position: absolute;
+  inset: -8%;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  will-change: transform, opacity;
+}
+
+.celestial-welcome-layer-color {
+  background-image: url("/celestial-welcome-color.jpg");
+  filter: saturate(0.78) contrast(1.08);
+  opacity: 0.42;
+  animation: celestialWelcomeColor 28s ease-in-out infinite alternate;
+}
+
+.celestial-welcome-layer-mono {
+  background-image: url("/celestial-welcome-mono.jpg");
+  filter: contrast(1.12) brightness(0.9);
+  mix-blend-mode: screen;
+  opacity: 0.12;
+  animation: celestialWelcomeMono 28s ease-in-out 1s infinite alternate;
+}
+
+.celestial-welcome-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 6, 10, 0.94) 0%, rgba(5, 6, 10, 0.72) 29%, rgba(5, 6, 10, 0.38) 58%, rgba(5, 6, 10, 0.68) 100%),
+    linear-gradient(180deg, rgba(5, 6, 10, 0.5) 0%, rgba(5, 6, 10, 0.08) 38%, rgba(5, 6, 10, 0.76) 100%);
+}
+
+@keyframes celestialWelcomeColor {
+  0% {
+    opacity: 0.34;
+    transform: scale(1.04) translate3d(1%, 0, 0);
+  }
+  100% {
+    opacity: 0.55;
+    transform: scale(1.12) translate3d(-2%, -1%, 0);
+  }
+}
+
+@keyframes celestialWelcomeMono {
+  0% {
+    opacity: 0.06;
+    transform: scale(1.1) translate3d(-1%, 1%, 0);
+  }
+  100% {
+    opacity: 0.24;
+    transform: scale(1.04) translate3d(2%, -1%, 0);
+  }
+}
+
 /* Ciel atmosphérique de la page d'accueil : profondeur, brume et lumière,
    sans texture d'étoiles pour laisser la Terre dominer la scène. */
 .aurora-sky {
@@ -299,6 +361,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .celestial-welcome-layer {
+    animation: none;
+  }
+
   :root:not([data-motion="full"]) .aurora-sky::before {
     animation: none;
   }

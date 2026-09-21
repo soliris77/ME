@@ -38,6 +38,11 @@ export default function Landing() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
       <div className="observatory-backdrop pointer-events-none fixed inset-0" aria-hidden="true" />
+      <div className="celestial-welcome-backdrop pointer-events-none fixed inset-0" aria-hidden="true">
+        <div className="celestial-welcome-layer celestial-welcome-layer-color" />
+        <div className="celestial-welcome-layer celestial-welcome-layer-mono" />
+        <div className="celestial-welcome-veil" />
+      </div>
       <div className="aurora-sky pointer-events-none fixed inset-0" aria-hidden="true" />
 
       {/* en-tête minimal */}
