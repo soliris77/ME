@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Refonte de la lune orbitale — accueil Soliris
+
+- → EN COURS — Étape 1 : Transformer la lune en sphère céleste 3D avec volume et éclairage
+- ☐ À FAIRE — Étape 2 : Agrandir et éloigner l’orbite autour du globe
+- ☐ À FAIRE — Étape 3 : Vérifier le rendu, le typecheck et la réduction des mouvements
+
 ## Globe au survol, lune 3D et curseur Soliris — accueil/site
 
 - ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés
