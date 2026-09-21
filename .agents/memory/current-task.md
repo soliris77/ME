@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Affinage du branding des emails
+
+- ✅ FAIT — Étape 22 : Utiliser la bannière complète Soliris et renforcer les textes dorés
+- ✅ FAIT — Étape 23 : Ajouter le badge/logo Hyperliquid aux rapports concernés et vérifier l’envoi
+
 ## Restauration du rapport email de sentiment
 
 - ✅ FAIT — Étape 20 : Rebrancher le bilan email sur le gabarit Soliris avec logo et style du site

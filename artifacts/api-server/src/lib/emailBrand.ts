@@ -36,6 +36,7 @@ const SERIF = "Georgia, 'Times New Roman', Times, serif";
 
 /** Identifiant de la pièce jointe du logo, partagé avec emailClient. */
 export const LOGO_CONTENT_ID = "soliris-logo";
+export const HYPERLIQUID_CONTENT_ID = "hyperliquid-logo";
 
 /** Dimensions réelles de soliris-logo.png : 1200 × 367. */
 const LOGO_WIDTH = 240;
@@ -56,11 +57,20 @@ export interface EmailAttachment {
 const LOGO_CANDIDATES = [
   "../wealthsimple-tracker/public/soliris-logo.png",
   "../wealthsimple-tracker/dist/public/soliris-logo.png",
+  "artifacts/wealthsimple-tracker/public/soliris-logo.png",
+  "public/soliris-logo.png",
   "assets/soliris-logo.png",
   "../../artifacts/wealthsimple-tracker/public/soliris-logo.png",
 ];
 
+const HYPERLIQUID_LOGO_CANDIDATES = [
+  "assets/hyperliquid-logo.png",
+  "artifacts/api-server/assets/hyperliquid-logo.png",
+  "../../artifacts/api-server/assets/hyperliquid-logo.png",
+];
+
 let logoCache: EmailAttachment | null | undefined;
+let hyperliquidLogoCache: EmailAttachment | null | undefined;
 
 /** Le logo en pièce jointe, ou null s'il est introuvable. Lu une seule fois. */
 export function logoAttachment(): EmailAttachment | null {
@@ -83,6 +93,27 @@ export function logoAttachment(): EmailAttachment | null {
   return logoCache;
 }
 
+/** Icône Hyperliquid, jointe uniquement aux rapports qui utilisent ce marché. */
+export function hyperliquidLogoAttachment(): EmailAttachment | null {
+  if (hyperliquidLogoCache !== undefined) return hyperliquidLogoCache;
+  for (const candidate of HYPERLIQUID_LOGO_CANDIDATES) {
+    try {
+      const bytes = readFileSync(resolve(process.cwd(), candidate));
+      hyperliquidLogoCache = {
+        filename: "hyperliquid-logo.png",
+        content: bytes.toString("base64"),
+        contentType: "image/png",
+        contentId: HYPERLIQUID_CONTENT_ID,
+      };
+      return hyperliquidLogoCache;
+    } catch {
+      // chemin suivant
+    }
+  }
+  hyperliquidLogoCache = null;
+  return hyperliquidLogoCache;
+}
+
 export interface SolirisEmailParams {
   /** Titre affiché en haut du contenu. */
   title: string;
@@ -92,6 +123,8 @@ export interface SolirisEmailParams {
   bodyHtml: string;
   /** Mention discrète en pied de courriel. */
   footnote?: string;
+  /** Affiche la provenance Hyperliquid pour les rapports de marchés perpétuels. */
+  venue?: "hyperliquid";
 }
 
 /**
@@ -100,7 +133,7 @@ export interface SolirisEmailParams {
  * Tout est en styles en ligne et en tableaux : c'est la seule chose sur
  * laquelle les clients de messagerie s'accordent encore.
  */
-export function solirisEmail({ title, intro, bodyHtml, footnote }: SolirisEmailParams): string {
+export function solirisEmail({ title, intro, bodyHtml, footnote, venue }: SolirisEmailParams): string {
   return `<!doctype html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head>
@@ -119,10 +152,10 @@ export function solirisEmail({ title, intro, bodyHtml, footnote }: SolirisEmailP
 
         <!-- Contenu -->
         <tr><td style="padding:28px 26px 8px;">
-          <h1 style="margin:0;font-family:${FONT};font-size:18px;line-height:1.35;color:${BRAND.text};font-weight:700;">${escapeHtml(title)}</h1>
-          ${intro ? `<p style="margin:8px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${BRAND.muted};">${escapeHtml(intro)}</p>` : ""}
+          <h1 style="margin:0;font-family:${FONT};font-size:18px;line-height:1.35;color:${BRAND.goldDeep};font-weight:700;">${escapeHtml(title)}</h1>
+          ${intro ? `<p style="margin:8px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${BRAND.goldDeep};">${escapeHtml(intro)}</p>` : ""}
         </td></tr>
-        <tr><td style="padding:18px 26px 26px;font-family:${FONT};color:${BRAND.text};">${bodyHtml}</td></tr>
+        <tr><td style="padding:18px 26px 26px;font-family:${FONT};color:${BRAND.text};">${venue === "hyperliquid" ? hyperliquidBadge() : ""}${bodyHtml}</td></tr>
 
         <!-- Pied -->
         <tr><td style="border-top:1px solid ${BRAND.hairline};padding:18px 26px 24px;">
@@ -148,8 +181,23 @@ function brandMark(): string {
   if (logoAttachment() !== null) {
     return `<img src="cid:${LOGO_CONTENT_ID}" alt="Soliris Market" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display:block;margin:0 auto;width:${LOGO_WIDTH}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`;
   }
-  return `<div style="font-family:${SERIF};color:#F0E6D2;font-size:26px;letter-spacing:0.06em;font-weight:400;">Soliris</div>
-    <div style="font-family:${FONT};color:#7FA8E8;font-size:11px;letter-spacing:0.42em;margin-top:6px;text-indent:0.42em;font-weight:600;">MARKET</div>`;
+  return `<div style="font-family:${SERIF};color:${BRAND.gold};font-size:28px;letter-spacing:0.06em;font-weight:700;">Soliris</div>
+    <div style="font-family:${FONT};color:${BRAND.gold};font-size:11px;letter-spacing:0.42em;margin-top:6px;text-indent:0.42em;font-weight:700;">MARKET</div>`;
+}
+
+function hyperliquidBadge(): string {
+  if (hyperliquidLogoAttachment() === null) return "";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #D8D0B8;border-radius:8px;background:#FFFCF4;">
+    <tr>
+      <td style="padding:8px 10px 8px 8px;vertical-align:middle;">
+        <img src="cid:${HYPERLIQUID_CONTENT_ID}" alt="Hyperliquid" width="28" height="28" style="display:block;width:28px;height:28px;border:0;border-radius:6px;">
+      </td>
+      <td style="padding:8px 12px 8px 0;font-family:${FONT};font-size:12px;line-height:1.35;color:${BRAND.goldDeep};font-weight:700;">
+        Marchés disponibles sur Hyperliquid<br>
+        <span style="font-size:11px;color:${BRAND.muted};font-weight:400;">Données publiques de marchés perpétuels</span>
+      </td>
+    </tr>
+  </table>`;
 }
 
 /**
@@ -163,11 +211,11 @@ export function emailTable(headers: readonly string[], rows: readonly (readonly 
   const pad = (i: number) => (i === 0 ? "0 14px 8px 0" : "0 0 8px 18px");
   const padCell = (i: number) => (i === 0 ? "10px 14px 10px 0" : "10px 0 10px 18px");
   const head = headers
-    .map((h, i) => `<th style="text-align:${i === 0 ? "left" : "right"};padding:${pad(i)};font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.muted};font-weight:700;border-bottom:1px solid ${BRAND.hairline};white-space:nowrap;">${escapeHtml(h)}</th>`)
+    .map((h, i) => `<th style="text-align:${i === 0 ? "left" : "right"};padding:${pad(i)};font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.goldDeep};font-weight:700;border-bottom:1px solid ${BRAND.hairline};white-space:nowrap;">${escapeHtml(h)}</th>`)
     .join("");
   const body = rows
     .map((row) => `<tr>${row
-      .map((cell, i) => `<td style="text-align:${i === 0 ? "left" : "right"};padding:${padCell(i)};font-size:14px;color:${BRAND.text};border-bottom:1px solid ${BRAND.hairline};${i === 0 ? "font-weight:600;" : "font-variant-numeric:tabular-nums;white-space:nowrap;"}">${cell}</td>`)
+      .map((cell, i) => `<td style="text-align:${i === 0 ? "left" : "right"};padding:${padCell(i)};font-size:14px;color:${i === 0 ? BRAND.goldDeep : BRAND.text};border-bottom:1px solid ${BRAND.hairline};${i === 0 ? "font-weight:600;" : "font-variant-numeric:tabular-nums;white-space:nowrap;"}">${cell}</td>`)
       .join("")}</tr>`)
     .join("");
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
@@ -175,7 +223,7 @@ export function emailTable(headers: readonly string[], rows: readonly (readonly 
 
 /** Encadré d'avertissement discret, ton ambre. */
 export function emailNotice(text: string): string {
-  return `<p style="margin:18px 0 0;padding:11px 13px;background:#FFF8E8;border-left:3px solid ${BRAND.goldDeep};border-radius:0 6px 6px 0;font-size:12px;line-height:1.6;color:#7A5B10;">${escapeHtml(text)}</p>`;
+  return `<p style="margin:18px 0 0;padding:11px 13px;background:#FFF8E8;border-left:3px solid ${BRAND.goldDeep};border-radius:0 6px 6px 0;font-size:12px;line-height:1.6;color:${BRAND.goldDeep};">${escapeHtml(text)}</p>`;
 }
 
 export function escapeHtml(value: string): string {

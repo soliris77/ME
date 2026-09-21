@@ -282,6 +282,7 @@ export function scannerAlertHtml(hits: readonly ScannerHit[]): string {
     intro: "Détection en mode observation. Aucun ordre n'a été passé.",
     bodyHtml: body,
     footnote: "Le score mesure l'écart au comportement habituel de la paire, pas sa hausse brute.",
+    venue: "hyperliquid",
   });
 }
 
