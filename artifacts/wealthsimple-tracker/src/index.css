@@ -249,10 +249,24 @@
 
 .celestial-welcome-layer-mono {
   background-image: url("/celestial-welcome-mono-uhd.webp");
-  filter: contrast(1.12) brightness(0.9);
+  filter: contrast(1.14) brightness(1.02);
   mix-blend-mode: screen;
-  opacity: 0.14;
+  opacity: 0.2;
   animation: celestialWelcomeMono 28s ease-in-out 1s infinite alternate;
+}
+
+.celestial-welcome-layer-mono::after {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background:
+    radial-gradient(ellipse at 40% 28%, rgba(255, 250, 221, 0.2), transparent 24%),
+    radial-gradient(ellipse at 69% 56%, rgba(207, 224, 255, 0.14), transparent 28%),
+    radial-gradient(ellipse at 28% 78%, rgba(255, 224, 154, 0.1), transparent 24%);
+  filter: blur(26px);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  animation: celestialMonoGleam 11s ease-in-out infinite alternate;
 }
 
 .celestial-welcome-light {
@@ -357,6 +371,19 @@
   animation: celestialSpark 6.2s ease-in-out 0.9s infinite;
 }
 
+.celestial-welcome-mist {
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 52% 24%, rgba(255, 236, 185, 0.08), transparent 24%),
+    radial-gradient(ellipse at 70% 78%, rgba(108, 160, 218, 0.08), transparent 28%);
+  filter: blur(34px);
+  mix-blend-mode: screen;
+  opacity: 0.4;
+  animation: celestialMist 18s ease-in-out infinite alternate;
+}
+
 @keyframes celestialWelcomeColor {
   0% {
     opacity: 0.34;
@@ -376,6 +403,21 @@
   100% {
     opacity: 0.24;
     transform: scale(1.04) translate3d(2%, -1%, 0);
+  }
+}
+
+@keyframes celestialMonoGleam {
+  0% {
+    opacity: 0.22;
+    transform: translate3d(-3%, 2%, 0) scale(0.94);
+  }
+  55% {
+    opacity: 0.7;
+    transform: translate3d(1%, -1%, 0) scale(1.03);
+  }
+  100% {
+    opacity: 0.38;
+    transform: translate3d(4%, 2%, 0) scale(1.08);
   }
 }
 
@@ -449,6 +491,17 @@
   }
 }
 
+@keyframes celestialMist {
+  0% {
+    opacity: 0.18;
+    transform: translate3d(-2%, 1%, 0) scale(0.96);
+  }
+  100% {
+    opacity: 0.58;
+    transform: translate3d(3%, -2%, 0) scale(1.06);
+  }
+}
+
 .observatory-stage-glow {
   background:
     radial-gradient(circle at 50% 50%, rgba(201, 162, 39, 0.16) 0%, rgba(64, 81, 116, 0.13) 34%, transparent 70%);
@@ -460,11 +513,15 @@
   :root:not([data-motion="full"]) .celestial-welcome-layer {
     animation: none;
   }
+  :root:not([data-motion="full"]) .celestial-welcome-layer-mono::after {
+    animation: none;
+  }
   :root:not([data-motion="full"]) .celestial-welcome-light {
     animation: none;
   }
   :root:not([data-motion="full"]) .celestial-welcome-rim,
-  :root:not([data-motion="full"]) .celestial-welcome-spark {
+  :root:not([data-motion="full"]) .celestial-welcome-spark,
+  :root:not([data-motion="full"]) .celestial-welcome-mist {
     animation: none;
   }
 }
