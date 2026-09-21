@@ -1,0 +1,577 @@
+Je veux maintenant améliorer complètement la section « Statut de marché » du dashboard de Soliris Market.
+
+L’Observatoire vient d’être amélioré et possède maintenant une forte présence visuelle. Le « Statut de marché » doit donc être conçu pour s’intégrer parfaitement à cette nouvelle expérience.
+
+IMPORTANT :
+Ne crée pas une section visuellement indépendante ou qui semble provenir d’un autre design system.
+
+Le Statut de marché doit donner l’impression d’être un élément natif de Soliris Market et fonctionner comme un complément logique de l’Observatoire.
+
+━━━━━━━━━━━━━━━━━━━━
+
+1. OBJECTIF
+   ━━━━━━━━━━━━━━━━━━━━
+
+Le but du module est de répondre immédiatement à quatre questions :
+
+1. Quel est le statut actuel du marché ?
+2. Pourquoi ce statut est-il affiché ?
+3. Depuis quand ce statut est-il valable ?
+4. Quand aura lieu le prochain changement important ?
+
+L’utilisateur doit pouvoir comprendre l’état du marché en 2 à 3 secondes.
+
+Ne surcharge pas le module.
+
+━━━━━━━━━━━━━━━━━━━━
+2. HIÉRARCHIE VISUELLE
+━━━━━━━━━━━━━━━━━━━━
+
+Le statut principal doit être l’information la plus visible.
+
+Structure recommandée :
+
+STATUT DU MARCHÉ
+
+● MARCHÉ OUVERT
+
+Ou :
+
+● MARCHÉ FERMÉ
+
+Puis :
+
+« Le marché est actuellement ouvert »
+
+et éventuellement :
+
+« Prochaine fermeture : XX:XX »
+
+La valeur principale doit être beaucoup plus visible que les informations secondaires.
+
+━━━━━━━━━━━━━━━━━━━━
+3. INDICATEUR D’ÉTAT
+━━━━━━━━━━━━━━━━━━━━
+
+Crée un indicateur visuel très propre.
+
+Exemple :
+
+● OUVERT
+
+Le point doit pouvoir avoir une animation extrêmement subtile lorsqu'il représente un état actif.
+
+IMPORTANT :
+Ne fais pas clignoter le point de façon agressive.
+
+L'animation doit plutôt ressembler à une respiration lumineuse très légère.
+
+Lorsque le marché est fermé :
+
+● FERMÉ
+
+Lorsque l'état est inconnu :
+
+● STATUT INDISPONIBLE
+
+Lorsque les données sont en cours de récupération :
+
+● VÉRIFICATION...
+
+━━━━━━━━━━━━━━━━━━━━
+4. NE PAS INVENTER LE STATUT
+━━━━━━━━━━━━━━━━━━━━
+
+Le statut doit être déterminé à partir des données réelles disponibles dans l’application ou de la source de marché réellement utilisée par Soliris Market.
+
+Ne déduis pas simplement l'état à partir de l'heure locale du navigateur si cela ne correspond pas au marché concerné.
+
+Identifie clairement :
+
+* quel marché est surveillé ;
+* quel fuseau horaire est utilisé ;
+* quelle source fournit le statut ;
+* quand les données ont été mises à jour.
+
+Si l'application ne dispose pas encore d'une source fiable, construis le composant pour pouvoir recevoir cette donnée proprement plutôt que d'afficher une information inventée.
+
+━━━━━━━━━━━━━━━━━━━━
+5. NOM DU MARCHÉ
+━━━━━━━━━━━━━━━━━━━━
+
+Le module doit identifier clairement le marché concerné.
+
+Par exemple :
+
+MARCHÉ
+NYSE
+
+ou
+
+MARCHÉ
+NASDAQ
+
+ou le marché réellement utilisé par Soliris Market.
+
+Ne laisse jamais l'utilisateur deviner quel marché est concerné.
+
+━━━━━━━━━━━━━━━━━━━━
+6. INFORMATIONS SECONDAIRES
+━━━━━━━━━━━━━━━━━━━━
+
+Sous le statut principal, affiche uniquement les informations utiles.
+
+Par exemple :
+
+Marché
+NYSE
+
+Statut
+Ouvert
+
+Fuseau horaire
+Eastern Time
+
+Dernière vérification
+19:04:32
+
+Prochain événement
+Fermeture à 20:00
+
+Adapte évidemment ces informations au marché réellement suivi.
+
+━━━━━━━━━━━━━━━━━━━━
+7. COMPTE À REBOURS
+━━━━━━━━━━━━━━━━━━━━
+
+Si les données disponibles le permettent, ajoute un compte à rebours discret.
+
+Exemple :
+
+FERMETURE DANS
+
+00:47:18
+
+Lorsque le marché est fermé :
+
+RÉOUVERTURE DANS
+
+14:32:05
+
+Le compte à rebours doit être dynamique.
+
+Il doit être synchronisé avec l'heure réelle.
+
+IMPORTANT :
+Ne crée pas un compte à rebours fictif simplement pour produire une animation.
+
+Si l'information n'est pas disponible, affiche plutôt :
+
+« Prochaine session : — »
+
+━━━━━━━━━━━━━━━━━━━━
+8. TIMELINE DE SESSION
+━━━━━━━━━━━━━━━━━━━━
+
+Ajoute éventuellement une petite timeline horizontale.
+
+Exemple :
+
+Ouverture ━━━━━━━●━━━━━━ Fermeture
+
+avec le point représentant la position actuelle dans la session.
+
+Cela permet de comprendre immédiatement où se trouve le marché dans son cycle.
+
+La timeline doit rester minimaliste.
+
+━━━━━━━━━━━━━━━━━━━━
+9. INTÉGRATION AVEC L’OBSERVATOIRE
+━━━━━━━━━━━━━━━━━━━━
+
+Le Statut de marché doit visuellement dialoguer avec l’Observatoire.
+
+Il ne doit pas essayer de lui voler la vedette.
+
+L'Observatoire = vision globale.
+
+Statut de marché = état opérationnel.
+
+Utilise donc une hiérarchie claire :
+
+OBSERVATOIRE
+→ vision et contexte
+
+STATUT DE MARCHÉ
+→ état actuel et temporalité
+
+Les deux modules doivent partager :
+
+* même système de bordures ;
+* même rayon de coins ;
+* même typographie ;
+* même logique d'espacement ;
+* même profondeur ;
+* même langage d'animation ;
+* mêmes principes de couleurs.
+
+━━━━━━━━━━━━━━━━━━━━
+10. COULEURS
+━━━━━━━━━━━━━━━━━━━━
+
+Ne choisis pas les couleurs arbitrairement.
+
+Réutilise le système visuel existant de Soliris Market.
+
+Pour l'état :
+
+OUVERT
+→ couleur positive déjà utilisée par l'application
+
+FERMÉ
+→ couleur neutre ou d'état fermé
+
+ATTENTION
+→ couleur d'avertissement existante
+
+ERREUR
+→ couleur d'erreur existante
+
+IMPORTANT :
+Ne transforme pas toute la carte en vert lorsque le marché est ouvert.
+
+Utilise plutôt la couleur d'état comme accent.
+
+Exemple :
+
+● OUVERT
+
+avec un léger halo autour du point et une petite accentuation du texte.
+
+Le reste de la carte doit conserver l'identité visuelle générale du dashboard.
+
+━━━━━━━━━━━━━━━━━━━━
+11. DESIGN PREMIUM
+━━━━━━━━━━━━━━━━━━━━
+
+Je veux un résultat élégant et sophistiqué.
+
+Le module peut utiliser :
+
+* glassmorphism léger si cohérent avec le reste ;
+* profondeur subtile ;
+* bordure fine ;
+* arrière-plan légèrement différencié ;
+* lumière d'accent ;
+* micro-animation ;
+* transitions fluides.
+
+Mais évite :
+
+* gros effets néon ;
+* gradients excessifs ;
+* animations permanentes ;
+* couleurs saturées partout ;
+* cartes trop épaisses ;
+* informations minuscules.
+
+L'élégance doit venir de la précision du design.
+
+━━━━━━━━━━━━━━━━━━━━
+12. INTERACTION
+━━━━━━━━━━━━━━━━━━━━
+
+Ajoute une interaction permettant d'obtenir davantage d'informations sans surcharger la carte.
+
+Par exemple :
+
+[ Voir les détails ]
+
+Au clic, ouvrir un panneau ou une fenêtre contenant :
+
+* marché concerné ;
+* statut ;
+* heures de session ;
+* fuseau horaire ;
+* prochaine ouverture ;
+* prochaine fermeture ;
+* dernière synchronisation ;
+* source des données.
+
+Le panneau doit reprendre exactement le design de Soliris Market.
+
+━━━━━━━━━━━━━━━━━━━━
+13. SOURCE ET FIABILITÉ
+━━━━━━━━━━━━━━━━━━━━
+
+Ajoute discrètement une indication de fraîcheur des données.
+
+Par exemple :
+
+Mis à jour il y a 12 s
+
+ou :
+
+Dernière synchronisation : 19:04:32
+
+Si une source externe est utilisée, indique-la dans les détails plutôt que de surcharger la carte principale.
+
+Le but est que l'utilisateur sache si le statut est récent.
+
+━━━━━━━━━━━━━━━━━━━━
+14. ÉTATS UI
+━━━━━━━━━━━━━━━━━━━━
+
+Implémente proprement tous les états :
+
+LOADING
+→ Vérification du statut...
+
+OPEN
+→ Marché ouvert
+
+CLOSED
+→ Marché fermé
+
+PRE-MARKET
+→ Pré-ouverture
+
+AFTER-HOURS
+→ Après séance
+
+HOLIDAY
+→ Marché fermé — jour férié
+
+HALTED / SUSPENDED
+→ Marché temporairement suspendu
+
+UNKNOWN
+→ Statut indisponible
+
+ERROR
+→ Impossible de récupérer le statut
+
+Adapte la liste aux données réellement disponibles.
+
+Ne montre jamais un statut précis si l'application ne possède pas l'information nécessaire pour l'affirmer.
+
+━━━━━━━━━━━━━━━━━━━━
+15. PRÉ-MARCHÉ ET APRÈS-MARCHÉ
+━━━━━━━━━━━━━━━━━━━━
+
+Si le marché concerné possède des sessions avant et après les heures normales, ne réduis pas tout à :
+
+OUVERT / FERMÉ.
+
+Utilise des états distincts lorsque la source de données les permet.
+
+Par exemple :
+
+● PRÉ-MARCHÉ
+
+ou
+
+● APRÈS-MARCHÉ
+
+Cela rendra le module beaucoup plus utile.
+
+━━━━━━━━━━━━━━━━━━━━
+16. RESPONSIVE
+━━━━━━━━━━━━━━━━━━━━
+
+Desktop :
+
+┌────────────────────────────────────┐
+│ STATUT DU MARCHÉ        ● OUVERT   │
+│                                    │
+│ NYSE                                │
+│                                    │
+│ Fermeture dans                     │
+│ 00:47:18                           │
+│                                    │
+│ ━━━━━━━━━━━●━━━━━━━━━━             │
+│                                    │
+│ Dernière vérification : 19:04      │
+└────────────────────────────────────┘
+
+Sur tablette, réorganise les informations sans réduire excessivement le texte.
+
+Sur mobile :
+
+STATUT DU MARCHÉ
+
+● OUVERT
+
+NYSE
+
+Fermeture dans
+00:47:18
+
+━━━━━━━━●━━━━━━
+
+Dernière mise à jour
+19:04:32
+
+Tout doit rester lisible sans scroll horizontal.
+
+━━━━━━━━━━━━━━━━━━━━
+17. MICRO-ANIMATIONS
+━━━━━━━━━━━━━━━━━━━━
+
+Ajoute seulement quelques animations :
+
+* apparition lors du chargement ;
+* transition lors d'un changement de statut ;
+* légère pulsation du point actif ;
+* transition du compte à rebours ;
+* animation de la timeline.
+
+Les animations doivent respecter prefers-reduced-motion.
+
+Si l'utilisateur préfère réduire les animations, désactive les effets non essentiels.
+
+━━━━━━━━━━━━━━━━━━━━
+18. ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━
+
+Construis le module comme un composant indépendant.
+
+Par exemple :
+
+MarketStatus
+├── MarketStatusHeader
+├── MarketState
+├── MarketCountdown
+├── MarketTimeline
+├── MarketMetadata
+├── MarketDetails
+└── MarketStatusSkeleton
+
+Adapte évidemment cette architecture à celle du projet existant.
+
+Le composant doit recevoir les données plutôt que contenir toute la logique métier directement dans l'interface.
+
+━━━━━━━━━━━━━━━━━━━━
+19. LOGIQUE MÉTIER
+━━━━━━━━━━━━━━━━━━━━
+
+Sépare clairement :
+
+DONNÉES
+→ récupération du statut
+
+LOGIQUE
+→ détermination de l'état
+
+PRÉSENTATION
+→ affichage du statut
+
+Cela permettra de modifier ultérieurement la source de données sans devoir reconstruire toute l'interface.
+
+━━━━━━━━━━━━━━━━━━━━
+20. ACCESSIBILITÉ
+━━━━━━━━━━━━━━━━━━━━
+
+Le statut ne doit jamais être communiqué uniquement par la couleur.
+
+Par exemple, ne fais pas uniquement :
+
+🟢
+
+Utilise :
+
+● OUVERT
+
+Le texte doit rester compréhensible sans distinguer les couleurs.
+
+Ajoute également des labels accessibles aux éléments interactifs.
+
+━━━━━━━━━━━━━━━━━━━━
+21. PERFORMANCE
+━━━━━━━━━━━━━━━━━━━━
+
+Le compte à rebours ne doit pas provoquer des rerenders inutiles de toute la page.
+
+Isole la logique temporelle dans le composant concerné.
+
+Optimise les animations.
+
+Évite les timers multiples inutiles.
+
+━━━━━━━━━━━━━━━━━━━━
+22. COHÉRENCE AVEC LE RESTE DU DASHBOARD
+━━━━━━━━━━━━━━━━━━━━
+
+Après avoir créé le module, compare-le visuellement avec :
+
+* l'Observatoire ;
+* le header ;
+* les autres cartes ;
+* les graphiques ;
+* les boutons ;
+* les menus.
+
+Le module doit avoir l'impression d'appartenir au même produit.
+
+Ne crée pas une nouvelle esthétique uniquement pour cette section.
+
+━━━━━━━━━━━━━━━━━━━━
+23. PAS DE DONNÉES FICTIVES
+━━━━━━━━━━━━━━━━━━━━
+
+C'est une règle importante.
+
+Ne simule pas :
+
+* le statut ;
+* les horaires ;
+* le compte à rebours ;
+* les données de marché ;
+* les timestamps.
+
+Si les données ne sont pas disponibles, indique clairement leur absence.
+
+━━━━━━━━━━━━━━━━━━━━
+24. TEST FINAL
+━━━━━━━━━━━━━━━━━━━━
+
+Après implémentation :
+
+1. Vérifie que le statut affiché correspond aux données réelles.
+2. Vérifie les changements d'état.
+3. Vérifie le compte à rebours.
+4. Vérifie les fuseaux horaires.
+5. Vérifie les sessions pré-marché et après-marché si disponibles.
+6. Vérifie les erreurs réseau.
+7. Vérifie le loading.
+8. Vérifie le responsive.
+9. Vérifie l'accessibilité.
+10. Vérifie la console.
+11. Vérifie que l'Observatoire n'a pas été affecté.
+12. Vérifie que les autres fonctionnalités du dashboard fonctionnent toujours.
+
+━━━━━━━━━━━━━━━━━━━━
+25. OBJECTIF FINAL
+━━━━━━━━━━━━━━━━━━━━
+
+Le résultat doit être immédiatement compréhensible :
+
+OBSERVATOIRE
+→ « Voici ce qui se passe. »
+
+STATUT DE MARCHÉ
+→ « Voici exactement dans quel état se trouve le marché maintenant. »
+
+Le Statut de marché doit être :
+
+* précis ;
+* élégant ;
+* compact ;
+* fiable ;
+* dynamique ;
+* cohérent avec l'Observatoire ;
+* parfaitement intégré au dashboard.
+
+Je veux que tu modifies réellement le projet et que tu vérifies le résultat final dans l'interface.
+
+Ne te contente pas de me décrire les modifications : implémente-les directement.
