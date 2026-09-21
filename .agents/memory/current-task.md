@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Restauration du rapport email de sentiment
+
+- ✅ FAIT — Étape 20 : Rebrancher le bilan email sur le gabarit Soliris avec logo et style du site
+- → EN COURS — Étape 21 : Vérifier le rendu HTML, les tests et le workflow API
+
 ## Vérification Hyperliquid — scanner, signaux et marchés publics
 
 - ✅ FAIT — Étape 17 : Ajouter le flux public Hyperliquid et normaliser les symboles scanner/signaux

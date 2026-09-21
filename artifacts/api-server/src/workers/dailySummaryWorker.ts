@@ -15,6 +15,7 @@ import { db, autoTradeRulesTable, autoTradeLogsTable, brokerConnectionsTable, or
 import { eq, and, gte } from "drizzle-orm";
 import { sendSms } from "../lib/smsClient";
 import { sendEmail } from "../lib/emailClient";
+import { solirisEmail, emailTable, escapeHtml, BRAND } from "../lib/emailBrand";
 import { resolveDestinations } from "../lib/notificationPrefs";
 import { getQuotes } from "../lib/yahoo";
 import { logger } from "../lib/logger";
@@ -183,17 +184,36 @@ export async function sendDailySummary(): Promise<void> {
     const dateStr2 = new Date().toLocaleDateString("fr-CA", {
       timeZone: "America/Toronto", weekday: "short", month: "short", day: "numeric",
     });
-    const htmlBody = `
-      <div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;">
-        <h2 style="color:#111;">📊 Soliris — Bilan ${dateStr2}</h2>
-        <p style="font-size:14px;color:${killSwitchActive ? "#dc2626" : "#16a34a"};">
-          ${killSwitchActive ? "🔴 Kill-switch : <strong>ACTIF</strong>" : "🟢 Kill-switch : inactif"}
-        </p>
-        <pre style="font-size:13px;color:#333;white-space:pre-wrap;background:#f9f9f9;padding:12px;border-radius:6px;">${body}</pre>
-        <p style="font-size:11px;color:#999;margin-top:16px;">
-          Envoyé par Soliris Market. ⚠️ Pas un conseil financier.
-        </p>
-      </div>`;
+    const triggerParts: string[] = [];
+    if (orderTriggers > 0) triggerParts.push(`${orderTriggers} ordre${orderTriggers > 1 ? "s" : ""}`);
+    if (notifTriggers > 0) triggerParts.push(`${notifTriggers} notification${notifTriggers > 1 ? "s" : ""}`);
+    if (slTriggers > 0) triggerParts.push(`${slTriggers} stop-loss`);
+    if (tpTriggers > 0) triggerParts.push(`${tpTriggers} take-profit`);
+
+    const positionRows = positionLines.map((line) => [
+      escapeHtml(line.replace(/^•\s*/, "")),
+    ]);
+    const statusLabel = killSwitchActive
+      ? `<strong style="color:${BRAND.negative};">ACTIF</strong>`
+      : `<strong style="color:${BRAND.positive};">Inactif</strong>`;
+    const reportRows = [
+      ["Sécurité", `Kill-switch : ${statusLabel}`],
+      ["Ordres", escapeHtml(`${totalOrders} (${autoOrders} auto, ${manualOrders} manuel${manualOrders > 1 ? "s" : ""}${liveOrders > 0 ? `, ${liveOrders} live` : ""})`)],
+      ["Auto-trader", escapeHtml(triggerParts.length > 0 ? triggerParts.join(" · ") : "Aucun déclenchement")],
+      ["Positions", escapeHtml(positionLines.length > 0 ? `${positionLines.length} ouverte${positionLines.length > 1 ? "s" : ""}` : "Aucune")],
+    ];
+    const positionsHtml = positionRows.length > 0
+      ? `<div style="margin-top:24px;">
+          <p style="margin:0 0 10px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.muted};font-weight:700;">Positions ouvertes</p>
+          ${emailTable(["Position"], positionRows)}
+        </div>`
+      : "";
+    const htmlBody = solirisEmail({
+      title: `Bilan du ${dateStr2}`,
+      intro: "Résumé de l’activité de Soliris Market.",
+      bodyHtml: emailTable(["Indicateur", "Valeur"], reportRows) + positionsHtml,
+      footnote: "Les informations présentées sont indicatives et ne constituent pas un conseil financier.",
+    });
     const emailSent = await sendEmail({
       to: prefs.email!,
       subject: `📊 Soliris — Bilan ${dateStr2}`,
