@@ -169,7 +169,13 @@ function getExchangeState(ex: typeof GLOBE_EXCHANGES[0]) {
 const WORLD_LAND = feature(land110m as any, (land110m as any).objects.land);
 const GRATICULE = geoGraticule10();
 
-export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' | 'compact' }) {
+export default function MarketGlobe({
+  variant = 'compact',
+  interactive = true,
+}: {
+  variant?: 'hero' | 'compact';
+  interactive?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointsRef = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -182,6 +188,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   });
   const activityIdsRef = useRef<string[]>([]);
   const selectedExchangeIdRef = useRef<string | null>(null);
+  const pointerInsideRef = useRef(false);
   const autoRotateRef = useRef(true);
   const [isDragging, setIsDragging] = useState(false);
   const [rotationMode, setRotationMode] = useState<'auto' | 'manual' | 'paused'>('auto');
@@ -248,6 +255,86 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
 
       ctx.clearRect(0, 0, w, h);
       const RADIUS = Math.min(w, h) / 2 * 0.85;
+       const moonAngle = (time / 11000) * Math.PI * 2 - Math.PI / 2;
+       const moonOrbitX = RADIUS * 1.08;
+       const moonOrbitY = RADIUS * 0.58;
+       const moonDepth = Math.sin(moonAngle);
+       const moonX = w / 2 + Math.cos(moonAngle) * moonOrbitX;
+       const moonY = h / 2 + Math.sin(moonAngle) * moonOrbitY;
+       const moonRadius = RADIUS * (0.085 + ((moonDepth + 1) / 2) * 0.035);
+
+       const drawMoon = () => {
+         if (!pointerInsideRef.current || !interactive) return;
+         ctx.save();
+         const glow = ctx.createRadialGradient(
+           moonX,
+           moonY,
+           moonRadius * 0.5,
+           moonX,
+           moonY,
+           moonRadius * 2.8,
+         );
+         glow.addColorStop(0, 'rgba(245, 224, 157, 0.3)');
+         glow.addColorStop(0.45, 'rgba(112, 160, 186, 0.13)');
+         glow.addColorStop(1, 'rgba(112, 160, 186, 0)');
+         ctx.fillStyle = glow;
+         ctx.beginPath();
+         ctx.arc(moonX, moonY, moonRadius * 2.8, 0, Math.PI * 2);
+         ctx.fill();
+
+         ctx.beginPath();
+         ctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
+         ctx.clip();
+         const light = ctx.createRadialGradient(
+           moonX - moonRadius * 0.35,
+           moonY - moonRadius * 0.4,
+           moonRadius * 0.05,
+           moonX,
+           moonY,
+           moonRadius * 1.15,
+         );
+         light.addColorStop(0, 'rgba(255, 247, 205, 1)');
+         light.addColorStop(0.5, 'rgba(190, 179, 137, 0.98)');
+         light.addColorStop(0.82, 'rgba(111, 103, 79, 0.96)');
+         light.addColorStop(1, 'rgba(35, 34, 29, 1)');
+         ctx.fillStyle = light;
+         ctx.fillRect(moonX - moonRadius, moonY - moonRadius, moonRadius * 2, moonRadius * 2);
+
+         const craterPhase = time / 1600;
+         const craters = [
+           [-0.26, -0.22, 0.13],
+           [0.2, -0.02, 0.18],
+           [-0.08, 0.28, 0.1],
+           [0.34, 0.3, 0.08],
+         ];
+         craters.forEach(([x, y, size], index) => {
+           const rotation = craterPhase * 0.08 + index;
+           const craterX = moonX + (x * Math.cos(rotation) - y * Math.sin(rotation)) * moonRadius;
+           const craterY = moonY + (x * Math.sin(rotation) + y * Math.cos(rotation)) * moonRadius;
+           ctx.fillStyle = 'rgba(72, 67, 52, 0.36)';
+           ctx.beginPath();
+           ctx.arc(craterX, craterY, moonRadius * size, 0, Math.PI * 2);
+           ctx.fill();
+           ctx.strokeStyle = 'rgba(255, 241, 185, 0.18)';
+           ctx.lineWidth = Math.max(0.5, moonRadius * 0.025);
+           ctx.stroke();
+         });
+         ctx.restore();
+       };
+
+       if (pointerInsideRef.current && interactive) {
+         ctx.save();
+         ctx.beginPath();
+         ctx.ellipse(w / 2, h / 2, moonOrbitX, moonOrbitY, 0, 0, Math.PI * 2);
+         ctx.strokeStyle = 'rgba(224, 197, 119, 0.25)';
+         ctx.lineWidth = variant === 'hero' ? 1 : 0.6;
+         ctx.setLineDash([3, 8]);
+         ctx.stroke();
+         ctx.setLineDash([]);
+         ctx.restore();
+       }
+       if (pointerInsideRef.current && moonDepth < 0) drawMoon();
+
       projection
         .translate([w / 2, h / 2])
         .scale(RADIUS)
@@ -328,6 +415,8 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       ctx.fillStyle = night;
       ctx.fillRect(w / 2 - RADIUS, h / 2 - RADIUS, RADIUS * 2, RADIUS * 2);
       ctx.restore();
+
+       if (pointerInsideRef.current && moonDepth >= 0) drawMoon();
 
       // Update interactive points
       const center = projection.invert?.([w / 2, h / 2]) ?? [0, 0];
