@@ -89,6 +89,13 @@ export interface HyperliquidExchange {
   setLeverage(leverage: number, symbol?: string, params?: unknown): Promise<unknown>;
 }
 
+export interface HyperliquidBalanceSnapshot {
+  readonly perpsTotalUsd: number;
+  readonly perpsAvailableUsd: number;
+  readonly spotTotalUsd: number;
+  readonly spotAvailableUsd: number;
+}
+
 export interface HyperliquidVenueOptions {
   /** Injecté par les tests. En production, on le construit depuis ccxt. */
   readonly exchange?: HyperliquidExchange;
@@ -116,6 +123,10 @@ function optionalNum(value: unknown): number | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
+}
+
+function usdcBalanceValue(balance: unknown, field: "total" | "free"): number {
+  return num(path(balance, "USDC", field) ?? path(balance, field, "USDC"));
 }
 
 function pick(source: unknown, key: string): unknown {
@@ -241,16 +252,15 @@ export class HyperliquidVenue implements PerpsVenue {
 
   async getAccountState(): Promise<PerpAccountState> {
     const [balance, rawPositions] = await Promise.all([
-      this.exchange.fetchBalance(),
+      // Hyperliquid peut avoir un compte Spot et un compte Perps séparés.
+      // `fetchBalance()` sans type peut choisir le Spot quand la marge unifiée
+      // est activée, ce qui ferait apparaître une marge Perps à zéro.
+      this.exchange.fetchBalance({ type: "swap", enableUnifiedMargin: false }),
       this.exchange.fetchPositions(),
     ]);
 
-    const equityUsd = num(
-      path(balance, "USDC", "total") ?? path(balance, "total", "USDC"),
-    );
-    const availableMarginUsd = num(
-      path(balance, "USDC", "free") ?? path(balance, "free", "USDC"),
-    );
+    const equityUsd = usdcBalanceValue(balance, "total");
+    const availableMarginUsd = usdcBalanceValue(balance, "free");
 
     const positions: PerpPosition[] = [];
     for (const raw of rawPositions) {
@@ -259,6 +269,27 @@ export class HyperliquidVenue implements PerpsVenue {
     }
 
     return { equityUsd, availableMarginUsd, positions };
+  }
+
+  /**
+   * Lit les deux sous-comptes sans les confondre.
+   *
+   * Le compte affiché dans l'interface Hyperliquid peut contenir des USDC
+   * Spot alors que la marge Perps est vide, ou l'inverse. Retourner les deux
+   * valeurs rend ce cas explicite au lieu de présenter un zéro ambigu.
+   */
+  async getBalanceSnapshot(): Promise<HyperliquidBalanceSnapshot> {
+    const [perps, spot] = await Promise.all([
+      this.exchange.fetchBalance({ type: "swap", enableUnifiedMargin: false }),
+      this.exchange.fetchBalance({ type: "spot" }),
+    ]);
+
+    return {
+      perpsTotalUsd: usdcBalanceValue(perps, "total"),
+      perpsAvailableUsd: usdcBalanceValue(perps, "free"),
+      spotTotalUsd: usdcBalanceValue(spot, "total"),
+      spotAvailableUsd: usdcBalanceValue(spot, "free"),
+    };
   }
 
   async getMarketMeta(symbol: string): Promise<PerpMarketMeta> {

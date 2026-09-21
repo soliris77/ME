@@ -91,7 +91,10 @@ interface StateResponse {
 interface HyperliquidBalance {
   venue: "hyperliquid";
   usdcBalance: number;
+  perpsUsdc: number;
+  spotUsdc: number;
   availableMarginUsd: number;
+  spotAvailableUsd: number;
   openPositions: number;
   walletAddress: string | null;
   updatedAt: string;
@@ -372,11 +375,17 @@ export default function PerpsPage() {
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
                 {balanceQ.data
-                  ? `Marge disponible : ${usdc(balanceQ.data.availableMarginUsd)}`
+                  ? `Perps : ${usdc(balanceQ.data.perpsUsdc)} · Spot : ${usdc(balanceQ.data.spotUsdc)}`
                   : balanceQ.error instanceof Error
                     ? balanceQ.error.message
                     : "Le solde sera lu depuis Hyperliquid."}
               </p>
+              {balanceQ.data && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Marge Perps disponible : {usdc(balanceQ.data.availableMarginUsd)} · Spot disponible :{" "}
+                  {usdc(balanceQ.data.spotAvailableUsd)}
+                </p>
+              )}
             </div>
             <div className="text-right text-xs text-muted-foreground">
               <p>{balanceQ.data ? `${balanceQ.data.openPositions} position(s) ouverte(s)` : "—"}</p>

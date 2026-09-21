@@ -27,3 +27,4 @@
 - [Armement temporaire du live](live-trading-arm.md) — le mode live exige toujours un compte, des plafonds positifs et une expiration; paper reste l’état sûr par défaut.
 - [Installation pnpm du workspace](pnpm-workspace-install.md) — un install offline peut échouer sur les métadonnées de dépendances déjà présentes; garder le registre géré comme repli.
 - [Transition des ordres protecteurs](protective-orders-transition.md) — conserver la protection actions actuelle jusqu’à ce que BrokerAdapter et Kraken permettent son remplacement complet.
+- [Hyperliquid balance accounts](hyperliquid-balance-accounts.md) — lire Spot et Perps séparément; le `fetchBalance()` implicite de CCXT peut choisir Spot.

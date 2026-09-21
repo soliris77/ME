@@ -41,8 +41,8 @@ function fakeExchange(overrides: Partial<HyperliquidExchange> = {}): {
         precision: { amount: 0.001, price: 0.1 },
       };
     },
-    async fetchBalance() {
-      record("fetchBalance");
+    async fetchBalance(...args: unknown[]) {
+      record("fetchBalance", ...args);
       return { USDC: { total: 1000, free: 800 } };
     },
     async fetchPositions() {
@@ -168,12 +168,16 @@ describe("identifiants", () => {
 
 describe("HyperliquidVenue", () => {
   it("lit le capital et la marge disponible", async () => {
-    const { exchange } = fakeExchange();
+    const { exchange, calls } = fakeExchange();
     const venue = new HyperliquidVenue({ exchange });
     const state = await venue.getAccountState();
     expect(state.equityUsd).toBe(1000);
     expect(state.availableMarginUsd).toBe(800);
     expect(state.positions).toEqual([]);
+    expect(calls.find((call) => call.name === "fetchBalance")?.args[0]).toEqual({
+      type: "swap",
+      enableUnifiedMargin: false,
+    });
   });
 
   it("ignore les positions de taille nulle", async () => {

@@ -29,6 +29,7 @@ import {
   recentDecisions,
 } from "../lib/perpsService";
 import { venueAdapter } from "../lib/perpsVenueRegistry";
+import { HyperliquidVenue } from "../lib/hyperliquidVenue";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -102,25 +103,33 @@ router.get("/perps/balance", async (req, res) => {
     }
 
     const account = adapter.create();
-    if (!account) {
+    if (!(account instanceof HyperliquidVenue)) {
       res.status(503).json({ error: "Le compte Hyperliquid est indisponible." });
       return;
     }
 
-    const state = await account.getAccountState();
+    const [balances, state] = await Promise.all([
+      account.getBalanceSnapshot(),
+      account.getAccountState(),
+    ]);
     if (
-      !Number.isFinite(state.equityUsd) ||
-      state.equityUsd < 0 ||
-      !Number.isFinite(state.availableMarginUsd) ||
-      state.availableMarginUsd < 0
+      !Number.isFinite(balances.perpsTotalUsd) ||
+      balances.perpsTotalUsd < 0 ||
+      !Number.isFinite(balances.spotTotalUsd) ||
+      balances.spotTotalUsd < 0 ||
+      !Number.isFinite(balances.perpsAvailableUsd) ||
+      balances.perpsAvailableUsd < 0
     ) {
       throw new Error("Solde Hyperliquid invalide");
     }
 
     res.json({
       venue,
-      usdcBalance: state.equityUsd,
-      availableMarginUsd: state.availableMarginUsd,
+      usdcBalance: balances.perpsTotalUsd + balances.spotTotalUsd,
+      perpsUsdc: balances.perpsTotalUsd,
+      spotUsdc: balances.spotTotalUsd,
+      availableMarginUsd: balances.perpsAvailableUsd,
+      spotAvailableUsd: balances.spotAvailableUsd,
       openPositions: state.positions.length,
       walletAddress: adapter.publicAddress(),
       updatedAt: new Date().toISOString(),
