@@ -44,6 +44,12 @@ export default function Landing() {
         <div className="celestial-welcome-light celestial-welcome-light-gold" />
         <div className="celestial-welcome-light celestial-welcome-light-blue" />
         <div className="celestial-welcome-veil" />
+        <div className="celestial-welcome-rim celestial-welcome-rim-left" />
+        <div className="celestial-welcome-rim celestial-welcome-rim-right" />
+        <div className="celestial-welcome-rim celestial-welcome-rim-lower" />
+        <div className="celestial-welcome-spark celestial-welcome-spark-a" />
+        <div className="celestial-welcome-spark celestial-welcome-spark-b" />
+        <div className="celestial-welcome-spark celestial-welcome-spark-c" />
       </div>
 
       {/* en-tête minimal */}

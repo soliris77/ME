@@ -241,14 +241,14 @@
 }
 
 .celestial-welcome-layer-color {
-  background-image: url("/celestial-welcome-color-enhanced.jpg");
+  background-image: url("/celestial-welcome-color-uhd.webp");
   filter: saturate(0.78) contrast(1.08);
   opacity: 0.5;
   animation: celestialWelcomeColor 28s ease-in-out infinite alternate;
 }
 
 .celestial-welcome-layer-mono {
-  background-image: url("/celestial-welcome-mono-enhanced.jpg");
+  background-image: url("/celestial-welcome-mono-uhd.webp");
   filter: contrast(1.12) brightness(0.9);
   mix-blend-mode: screen;
   opacity: 0.14;
@@ -288,6 +288,73 @@
   background:
     linear-gradient(90deg, rgba(5, 6, 10, 0.9) 0%, rgba(5, 6, 10, 0.56) 31%, rgba(5, 6, 10, 0.24) 62%, rgba(5, 6, 10, 0.56) 100%),
     linear-gradient(180deg, rgba(5, 6, 10, 0.42) 0%, rgba(5, 6, 10, 0.02) 42%, rgba(5, 6, 10, 0.68) 100%);
+}
+
+.celestial-welcome-rim {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: blur(18px);
+  will-change: transform, opacity;
+}
+
+.celestial-welcome-rim-left {
+  top: 7%;
+  left: 7%;
+  width: 34vw;
+  height: 51vh;
+  background: radial-gradient(ellipse at 73% 48%, rgba(255, 204, 87, 0.46), rgba(221, 150, 41, 0.12) 22%, transparent 65%);
+  animation: celestialRimLeft 8s ease-in-out infinite alternate;
+}
+
+.celestial-welcome-rim-right {
+  top: 5%;
+  right: 4%;
+  width: 38vw;
+  height: 48vh;
+  background: radial-gradient(ellipse at 28% 51%, rgba(255, 215, 112, 0.4), rgba(204, 145, 40, 0.1) 24%, transparent 68%);
+  animation: celestialRimRight 10s ease-in-out 1.4s infinite alternate;
+}
+
+.celestial-welcome-rim-lower {
+  right: 14%;
+  bottom: -4%;
+  width: 48vw;
+  height: 37vh;
+  background: radial-gradient(ellipse at 46% 38%, rgba(255, 188, 58, 0.28), rgba(191, 124, 32, 0.08) 30%, transparent 72%);
+  filter: blur(24px);
+  animation: celestialRimLower 12s ease-in-out 0.8s infinite alternate;
+}
+
+.celestial-welcome-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 236, 166, 0.95) 0 16%, rgba(244, 184, 61, 0.7) 38%, transparent 74%);
+  box-shadow: 0 0 14px 5px rgba(242, 180, 54, 0.25);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+.celestial-welcome-spark-a {
+  top: 21%;
+  left: 31%;
+  animation: celestialSpark 5.5s ease-in-out infinite;
+}
+
+.celestial-welcome-spark-b {
+  top: 29%;
+  right: 27%;
+  animation: celestialSpark 7s ease-in-out 1.8s infinite reverse;
+}
+
+.celestial-welcome-spark-c {
+  bottom: 25%;
+  right: 38%;
+  animation: celestialSpark 6.2s ease-in-out 0.9s infinite;
 }
 
 @keyframes celestialWelcomeColor {
@@ -334,6 +401,54 @@
   }
 }
 
+@keyframes celestialRimLeft {
+  0% {
+    opacity: 0.36;
+    transform: translate3d(-2%, 1%, 0) scale(0.94);
+  }
+  100% {
+    opacity: 0.82;
+    transform: translate3d(3%, -2%, 0) scale(1.08);
+  }
+}
+
+@keyframes celestialRimRight {
+  0% {
+    opacity: 0.28;
+    transform: translate3d(2%, -1%, 0) scale(0.96);
+  }
+  100% {
+    opacity: 0.72;
+    transform: translate3d(-3%, 2%, 0) scale(1.07);
+  }
+}
+
+@keyframes celestialRimLower {
+  0% {
+    opacity: 0.22;
+    transform: translate3d(3%, 1%, 0) scale(0.94);
+  }
+  100% {
+    opacity: 0.64;
+    transform: translate3d(-2%, -3%, 0) scale(1.08);
+  }
+}
+
+@keyframes celestialSpark {
+  0%, 100% {
+    opacity: 0.08;
+    transform: translate3d(0, 6px, 0) scale(0.55);
+  }
+  45% {
+    opacity: 0.95;
+    transform: translate3d(5px, -4px, 0) scale(1.25);
+  }
+  70% {
+    opacity: 0.28;
+    transform: translate3d(10px, -11px, 0) scale(0.75);
+  }
+}
+
 .observatory-stage-glow {
   background:
     radial-gradient(circle at 50% 50%, rgba(201, 162, 39, 0.16) 0%, rgba(64, 81, 116, 0.13) 34%, transparent 70%);
@@ -346,6 +461,10 @@
     animation: none;
   }
   :root:not([data-motion="full"]) .celestial-welcome-light {
+    animation: none;
+  }
+  :root:not([data-motion="full"]) .celestial-welcome-rim,
+  :root:not([data-motion="full"]) .celestial-welcome-spark {
     animation: none;
   }
 }
