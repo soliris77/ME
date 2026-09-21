@@ -41,9 +41,10 @@ export default function Landing() {
       <div className="celestial-welcome-backdrop pointer-events-none fixed inset-0" aria-hidden="true">
         <div className="celestial-welcome-layer celestial-welcome-layer-color" />
         <div className="celestial-welcome-layer celestial-welcome-layer-mono" />
+        <div className="celestial-welcome-light celestial-welcome-light-gold" />
+        <div className="celestial-welcome-light celestial-welcome-light-blue" />
         <div className="celestial-welcome-veil" />
       </div>
-      <div className="aurora-sky pointer-events-none fixed inset-0" aria-hidden="true" />
 
       {/* en-tête minimal */}
       <header className="relative z-10 flex items-center justify-between px-6 py-6 sm:px-10">
@@ -105,11 +106,7 @@ export default function Landing() {
         </div>
 
         <Reveal as="div" direction="scale" className="observatory-stage relative z-10 mx-auto aspect-square w-full max-w-[590px]">
-          <div className="pointer-events-none absolute inset-[7%] rounded-full border border-[#c9a227]/10 shadow-[0_0_90px_rgba(201,162,39,0.09)]" />
           <div className="observatory-stage-glow pointer-events-none absolute inset-[12%] rounded-full" />
-          <div className="observatory-stage-orbit observatory-stage-orbit-a pointer-events-none absolute inset-[3%] rounded-full" />
-          <div className="observatory-stage-orbit observatory-stage-orbit-b pointer-events-none absolute inset-[9%] rounded-full" />
-          <div className="orbital-ring" />
           <div className="pointer-events-none absolute left-1/2 top-[6%] z-20 -translate-x-1/2 text-center">
             <div className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c9a227]/80">
               Observatoire mondial
