@@ -1,0 +1,350 @@
+Je veux que tu transformes l’« Observatoire » de Soliris Market en une fonctionnalité majeure et visuellement spectaculaire du dashboard.
+
+IMPORTANT :
+Ne te contente pas d’ajouter une simple carte ou un nouveau bloc.
+Je veux que l’Observatoire devienne l’un des éléments centraux de l’expérience utilisateur, avec une identité visuelle forte, premium, moderne et immédiatement compréhensible.
+
+Avant de modifier le code :
+
+1. Analyse l’interface actuelle du dashboard.
+2. Identifie les couleurs, la typographie, les espacements, les composants existants et le système de design déjà utilisé.
+3. Réutilise le design system existant lorsque c’est pertinent afin que l’Observatoire semble avoir toujours fait partie de Soliris Market.
+4. Vérifie la structure actuelle du projet afin de ne pas casser les fonctionnalités existantes.
+5. Ne supprime aucune fonctionnalité existante sans raison.
+6. Fais des modifications propres, modulaires et maintenables.
+
+━━━━━━━━━━━━━━━━━━━━
+
+1. POSITIONNEMENT DE L’OBSERVATOIRE
+   ━━━━━━━━━━━━━━━━━━━━
+
+L’Observatoire doit être présenté comme le « centre de vision » de Soliris Market.
+
+Il doit immédiatement donner l’impression que l’utilisateur dispose d’une vue globale, intelligente et sophistiquée de son environnement.
+
+Je veux éviter l’impression d’un simple dashboard rempli de cartes.
+
+L’Observatoire doit avoir :
+
+* une présence visuelle forte ;
+* une hiérarchie claire ;
+* une animation subtile ;
+* une excellente lisibilité ;
+* une sensation de profondeur ;
+* une apparence premium ;
+* une vraie utilité fonctionnelle.
+
+Il doit être évident en quelques secondes que c’est une zone importante du produit.
+
+━━━━━━━━━━━━━━━━━━━━
+2. PLACEMENT DANS LE DASHBOARD
+━━━━━━━━━━━━━━━━━━━━
+
+Place l’Observatoire dans une position très visible du dashboard.
+
+Idéalement :
+
+* après le header principal ;
+* avant les informations secondaires ;
+* avec une largeur importante ;
+* avec suffisamment d’espace autour pour qu’il respire.
+
+Ne l’enfouis pas dans une page secondaire.
+
+L’utilisateur doit pouvoir le voir rapidement dès son arrivée sur le dashboard.
+
+Utilise une hiérarchie du type :
+
+HEADER
+↓
+INTRODUCTION / CONTEXTE
+↓
+OBSERVATOIRE — SECTION PRINCIPALE
+↓
+INDICATEURS / INFORMATIONS SECONDAIRES
+↓
+AUTRES MODULES
+
+L’Observatoire doit être visuellement plus important que les cartes secondaires.
+
+━━━━━━━━━━━━━━━━━━━━
+3. HERO VISUEL
+━━━━━━━━━━━━━━━━━━━━
+
+Crée un véritable « Observatory Hero ».
+
+Il doit comporter :
+
+* un titre fort : « Observatoire »
+* un sous-titre expliquant clairement sa fonction
+* un indicateur d’état en temps réel
+* une zone de visualisation principale
+* plusieurs informations contextuelles
+* une sensation de profondeur et de mouvement
+
+Le titre peut être accompagné d’un petit indicateur du type :
+
+● SYSTÈME ACTIF
+
+ou
+
+● SURVEILLANCE ACTIVE
+
+L’indicateur doit être animé très subtilement.
+
+Pas de clignotement agressif.
+
+━━━━━━━━━━━━━━━━━━━━
+4. VISUALISATION CENTRALE
+━━━━━━━━━━━━━━━━━━━━
+
+La visualisation principale doit être la pièce maîtresse.
+
+Je veux quelque chose qui évoque un observatoire technologique :
+
+* grille élégante ;
+* points de données ;
+* lignes de connexion ;
+* halos subtils ;
+* éléments orbitaux ;
+* données dynamiques ;
+* profondeur visuelle ;
+* mouvement extrêmement léger.
+
+Évite absolument l’effet « gadget ».
+
+La visualisation doit rester élégante et professionnelle.
+
+Elle peut ressembler à un mélange entre :
+
+* centre de contrôle ;
+* carte de données ;
+* radar futuriste ;
+* observatoire numérique.
+
+Mais elle doit rester cohérente avec Soliris Market.
+
+━━━━━━━━━━━━━━━━━━━━
+5. EFFET « WOW »
+━━━━━━━━━━━━━━━━━━━━
+
+L’objectif est que l’utilisateur se dise immédiatement :
+
+« C’est quoi ça ? »
+
+puis :
+
+« Je veux comprendre ce que je regarde. »
+
+Pour obtenir cet effet, utilise :
+
+* profondeur ;
+* lumière ;
+* micro-animations ;
+* transitions fluides ;
+* gradients subtils ;
+* glow très maîtrisé ;
+* particules ou points de données ;
+* éléments qui réagissent au survol.
+
+IMPORTANT :
+Le résultat doit rester professionnel.
+
+Pas de surcharge.
+Pas de couleurs criardes.
+Pas d’animations constantes qui distraient l’utilisateur.
+
+Le « wow » doit venir de la qualité de conception, pas d’une accumulation d’effets.
+
+━━━━━━━━━━━━━━━━━━━━
+6. DONNÉES
+━━━━━━━━━━━━━━━━━━━━
+
+L’Observatoire doit afficher de vraies informations provenant des données déjà disponibles dans l’application lorsque c’est possible.
+
+Ne crée pas de fausses données présentées comme réelles.
+
+Si certaines données ne sont pas encore disponibles :
+
+* crée une architecture prête à les recevoir ;
+* utilise des états « en attente », « indisponible » ou « aucune donnée » ;
+* ne simule pas une donnée réelle sans l’indiquer.
+
+Chaque information affichée doit avoir une utilité.
+
+━━━━━━━━━━━━━━━━━━━━
+7. PANNEAU D’INFORMATIONS
+━━━━━━━━━━━━━━━━━━━━
+
+À côté ou sous la visualisation principale, ajoute un panneau d’informations.
+
+Il peut contenir par exemple :
+
+ÉTAT GLOBAL
+● Actif
+
+ACTIVITÉ
+valeur dynamique
+
+TENDANCE
+valeur dynamique
+
+DERNIÈRE MISE À JOUR
+timestamp
+
+SIGNAL
+niveau actuel
+
+Ces informations doivent être très lisibles.
+
+Utilise une hiérarchie typographique claire :
+petit label → grande valeur → contexte.
+
+━━━━━━━━━━━━━━━━━━━━
+8. INTERACTIONS
+━━━━━━━━━━━━━━━━━━━━
+
+L’Observatoire doit être interactif.
+
+Ajoute notamment :
+
+HOVER :
+
+* légère élévation ;
+* modification subtile de la lumière ;
+* affichage d’informations supplémentaires ;
+* curseur approprié.
+
+CLICK :
+Lorsqu’un élément important est sélectionné, afficher davantage d’informations dans un panneau, drawer ou modal élégant.
+
+ANIMATION :
+Les données peuvent apparaître progressivement.
+
+Les transitions doivent être rapides et fluides.
+
+Évite les animations longues.
+
+━━━━━━━━━━━━━━━━━━━━
+9. MODE IMMERSIF
+━━━━━━━━━━━━━━━━━━━━
+
+Ajoute si possible un bouton :
+
+« Ouvrir l’Observatoire »
+
+qui permet d’agrandir la visualisation.
+
+Dans ce mode :
+
+* l’Observatoire occupe presque tout l’écran ;
+* le reste de l’interface devient secondaire ;
+* la visualisation devient plus détaillée ;
+* l’utilisateur peut revenir facilement au dashboard.
+
+Cela doit donner l’impression d’entrer dans un véritable centre d’observation.
+
+━━━━━━━━━━━━━━━━━━━━
+10. DESIGN
+━━━━━━━━━━━━━━━━━━━━
+
+Je veux un design :
+
+* premium ;
+* futuriste mais sobre ;
+* élégant ;
+* technologique ;
+* lisible ;
+* cohérent ;
+* sophistiqué.
+
+Utilise :
+
+* bordures fines ;
+* ombres très légères ;
+* gradients subtils ;
+* transparence maîtrisée ;
+* profondeur ;
+* grands espaces ;
+* typographie nette.
+
+Évite :
+
+* trop de bordures ;
+* trop de couleurs ;
+* gros effets néon ;
+* animations agressives ;
+* texte minuscule ;
+* cartes identiques répétées ;
+* surcharge visuelle.
+
+━━━━━━━━━━━━━━━━━━━━
+11. RESPONSIVE
+━━━━━━━━━━━━━━━━━━━━
+
+L’Observatoire doit être parfaitement responsive.
+
+Desktop :
+→ grande visualisation + panneau d’informations.
+
+Tablette :
+→ visualisation légèrement réduite + informations réorganisées.
+
+Mobile :
+→ visualisation verticale ;
+→ informations sous forme de sections compactes ;
+→ interactions tactiles ;
+→ aucun élément qui déborde de l’écran.
+
+Teste réellement les différentes tailles d’écran.
+
+━━━━━━━━━━━━━━━━━━━━
+12. ACCESSIBILITÉ
+━━━━━━━━━━━━━━━━━━━━
+
+Respecte :
+
+* contraste suffisant ;
+* tailles de texte lisibles ;
+* navigation clavier lorsque pertinente ;
+* états focus ;
+* labels accessibles ;
+* réduction des animations si l’utilisateur préfère réduire les mouvements.
+
+L’esthétique ne doit jamais sacrifier la lisibilité.
+
+━━━━━━━━━━━━━━━━━━━━
+13. PERFORMANCE
+━━━━━━━━━━━━━━━━━━━━
+
+Très important :
+
+Les animations doivent être optimisées.
+
+Évite :
+
+* boucles JavaScript inutiles ;
+* calculs lourds à chaque frame ;
+* composants qui se rerendent inutilement ;
+* effets qui ralentissent le dashboard.
+
+Privilégie :
+
+* CSS lorsque possible ;
+* SVG/canvas seulement lorsque réellement nécessaire ;
+* animations GPU-friendly ;
+* composants isolés.
+
+L’Observatoire doit rester fluide.
+
+━━━━━━━━━━━━━━━━━━━━
+14. ARCHITECTURE DU CODE
+━━━━━━━━━━━━━━━━━━━━
+
+Crée l’Observatoire comme un composant indépendant et réutilisable.
+
+Par exemple :
+
+Observatory
+├── ObservatoryHeader
+├── ObservatoryV

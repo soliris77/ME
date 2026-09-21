@@ -229,6 +229,7 @@ export default function MarketGlobe({
       lastTime = time;
 
       const isReduced = prefersReduced.matches;
+       const animationTime = isReduced ? 0 : time;
       if (isReduced) {
         const offset = new Date().getTimezoneOffset(); // in minutes
         rotationRef.current = -(offset / 60) * 15;
@@ -255,7 +256,7 @@ export default function MarketGlobe({
 
       ctx.clearRect(0, 0, w, h);
       const RADIUS = Math.min(w, h) / 2 * 0.85;
-       const moonAngle = (time / 11000) * Math.PI * 2 - Math.PI / 2;
+       const moonAngle = (animationTime / 11000) * Math.PI * 2 - Math.PI / 2;
        const moonOrbitX = RADIUS * 1.08;
        const moonOrbitY = RADIUS * 0.58;
        const moonDepth = Math.sin(moonAngle);
@@ -300,7 +301,7 @@ export default function MarketGlobe({
          ctx.fillStyle = light;
          ctx.fillRect(moonX - moonRadius, moonY - moonRadius, moonRadius * 2, moonRadius * 2);
 
-         const craterPhase = time / 1600;
+         const craterPhase = animationTime / 1600;
          const craters = [
            [-0.26, -0.22, 0.13],
            [0.2, -0.02, 0.18],
@@ -425,7 +426,7 @@ export default function MarketGlobe({
        // This is intentionally based on session state, not an invented volume.
        const wave = clickWaveRef.current;
        const leader = GLOBE_EXCHANGES.find((exchange) => exchange.id === wave.targetId);
-       const waveAge = (time - wave.startedAt) / 1000;
+        const waveAge = isReduced ? 0 : (time - wave.startedAt) / 1000;
        if (leader && waveAge >= 0 && waveAge < 4) {
          const leaderPoint = projection([leader.lon, leader.lat]);
          if (leaderPoint) {

@@ -1282,7 +1282,9 @@
     animation: none !important;
     transition: none;
   }
-  :root:not([data-motion="full"]) .globe-moon-orbiter,
+  :root:not([data-motion="full"]) .globe-market-point-open,
+  :root:not([data-motion="full"]) .globe-market-point-open::before,
+  :root:not([data-motion="full"]) .globe-market-point-open::after,
   :root:not([data-motion="full"]) .globe-live-dock::before,
   :root:not([data-motion="full"]) .globe-live-dock::after {
     animation: none !important;
