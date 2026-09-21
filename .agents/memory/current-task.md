@@ -23,6 +23,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 2 : Centraliser le hero réutilisable avec visualisation, statut réel de séance, métriques et CTA immersif
 - ✅ FAIT — Étape 3 : Ajouter la profondeur visuelle, le responsive et le guide de lecture sans inventer de données
 
+## Statut de marché — module opérationnel du dashboard
+
+- ✅ FAIT — Étape 1 : Ajouter un statut principal lisible avec marché sélectionné, état, heure locale et fraîcheur
+- ✅ FAIT — Étape 2 : Ajouter compte à rebours réel, timeline de session, détails accessibles et source explicite
+- ✅ FAIT — Étape 3 : Vérifier le typecheck, le format, le démarrage du workflow et les routes accessibles
+
 ## Globe au survol, lune 3D et curseur Soliris — accueil/site
 
 - ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés

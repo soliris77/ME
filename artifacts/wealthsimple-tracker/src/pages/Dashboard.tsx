@@ -13,9 +13,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  getUSMarketStatus,
-  getNextMarketEvent,
-  getSymbolMarketStatus,
   EXCHANGES,
   getExchangeOpenStatus,
   getExchangeNextEvent,
@@ -33,6 +30,7 @@ import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Sparkline } from "@/components/Sparkline";
 import { PageTransition } from "@/components/PageTransition";
 import ObservatoryHero from "@/components/ObservatoryHero";
+import MarketStatusPanel from "@/components/MarketStatusPanel";
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -452,6 +450,7 @@ function MarketStatusSection() {
   return (
     <div className="mb-7">
       <SectionRule title="Statut des marchés" />
+      <MarketStatusPanel />
 
       {/* ── H24 : Crypto · Forex · Futures ──────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
