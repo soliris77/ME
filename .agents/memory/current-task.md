@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Wallpaper animé 4K — Anneau spatial et astéroïdes
+
+- ✅ FAIT — Étape 1 : Créer une version UHD 3840 × 2160 à partir de l’image verticale
+- ✅ FAIT — Étape 2 : Remplacer l’asset du wallpaper et vérifier le cadrage
+- ✅ FAIT — Étape 3 : Vérifier le workflow et le rendu final
+
 ## Wallpaper animé 4K — L'Ange et la dernière envolée
 
 - ✅ FAIT — Étape 1 : Corriger le wallpaper au format UHD standard 3840 × 2160
