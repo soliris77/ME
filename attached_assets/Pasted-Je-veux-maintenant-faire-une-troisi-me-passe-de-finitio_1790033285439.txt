@@ -1,0 +1,680 @@
+Je veux maintenant faire une troisième passe de finition extrêmement poussée sur l'OBSERVATOIRE MONDIAL de Soliris Market.
+
+J'ai inspecté visuellement la version actuelle.
+
+La base est déjà très réussie :
+- globe imposant ;
+- palette sombre/or ;
+- atmosphère premium ;
+- titre OBSERVATOIRE MONDIAL ;
+- grille du globe ;
+- rotation automatique ;
+- bouton tourner le globe ;
+- bouton pause ;
+- éléments de données ;
+- cartes inférieures.
+
+NE RECONSTRUIS PAS L'OBSERVATOIRE DEPUIS ZÉRO.
+
+Je veux conserver l'identité actuelle et l'améliorer de manière beaucoup plus sophistiquée.
+
+L'objectif est maintenant de passer de :
+
+« beau globe futuriste »
+
+à :
+
+« véritable centre d'observation mondial premium ».
+
+==================================================
+1. PRINCIPALE PRIORITÉ : LE GLOBE
+==================================================
+
+Le globe doit rester le centre visuel de l'Observatoire.
+
+Mais actuellement il occupe tellement d'espace qu'il domine presque complètement l'interface.
+
+Rééquilibre sa taille et sa position afin qu'il reste spectaculaire tout en laissant suffisamment d'espace aux informations et aux contrôles.
+
+Le globe doit sembler immense sans donner l'impression qu'il déborde accidentellement de l'interface.
+
+Conserve la sensation immersive actuelle.
+
+Ne réduis PAS brutalement le globe.
+
+Je veux simplement améliorer sa composition.
+
+==================================================
+2. COMPOSITION MONDIALE
+==================================================
+
+L'Observatoire s'appelle :
+
+OBSERVATOIRE MONDIAL
+
+Il faut donc renforcer cette sensation de vision mondiale.
+
+Le globe ne doit pas rester visuellement bloqué sur l'Amérique du Nord.
+
+La rotation automatique doit progressivement faire découvrir différentes zones du monde.
+
+La rotation doit être :
+
+- très lente ;
+- élégante ;
+- parfaitement fluide ;
+- naturelle ;
+- sans à-coups.
+
+Lorsque l'utilisateur ne fait rien, le globe continue son mouvement doucement.
+
+Lorsqu'il interagit avec le globe :
+→ ralentir ou arrêter temporairement la rotation.
+
+Après quelques secondes d'inactivité :
+→ reprendre doucement.
+
+==================================================
+3. PROFONDEUR DU GLOBE
+==================================================
+
+Améliore considérablement la profondeur visuelle du globe.
+
+Si la technologie actuelle le permet sans dégrader les performances, crée plusieurs couches :
+
+1. arrière-plan étoilé très discret ;
+2. halo atmosphérique ;
+3. globe ;
+4. grille latitude/longitude ;
+5. continents ;
+6. points de données ;
+7. connexions ;
+8. ombre du globe ;
+9. légère lumière atmosphérique sur le bord.
+
+Le globe doit donner l'impression d'être réellement sphérique.
+
+Évite cependant les effets exagérés.
+
+Je veux du réalisme stylisé et premium, pas un effet « jeu vidéo ».
+
+==================================================
+4. ATMOSPHÈRE
+==================================================
+
+Ajoute une atmosphère subtile autour du globe.
+
+Elle doit être particulièrement visible sur les contours.
+
+Utilise un halo très léger.
+
+Le halo doit :
+
+- renforcer la profondeur ;
+- séparer le globe du fond ;
+- donner une sensation de volume.
+
+Il ne doit pas transformer le globe en boule néon.
+
+==================================================
+5. JOUR / NUIT
+==================================================
+
+Si techniquement possible et cohérent avec les données disponibles, ajoute une légère séparation jour/nuit sur le globe.
+
+La partie éclairée doit être légèrement plus lisible.
+
+La partie sombre doit rester visible mais plus discrète.
+
+Cela donnerait immédiatement une sensation beaucoup plus sophistiquée.
+
+IMPORTANT :
+
+Ne prétends pas afficher une heure réelle ou une position réelle du soleil si aucune donnée ou logique fiable n'est utilisée.
+
+Si ce système n'est pas suffisamment fiable, utilise simplement un éclairage artistique statique.
+
+==================================================
+6. POINTS DE DONNÉES
+==================================================
+
+Les points visibles actuellement doivent sembler avoir une fonction.
+
+Ne mets pas simplement des points lumineux aléatoires.
+
+Lorsqu'une vraie donnée peut être représentée :
+
+POINT
+→ petite impulsion
+→ halo
+→ éventuellement information
+
+Exemple :
+
+●
+
+puis une petite onde :
+
+◉
+◎
+○
+
+puis retour à :
+
+●
+
+L'animation doit être rare et subtile.
+
+Tous les points ne doivent surtout pas pulser simultanément.
+
+==================================================
+7. ACTIVITÉ
+==================================================
+
+Ajoute une notion de « vie » au globe.
+
+Certaines zones peuvent avoir :
+
+- une pulsation ;
+- une petite lumière ;
+- une connexion ;
+- une information contextuelle.
+
+Mais uniquement si cela correspond à de vraies données.
+
+NE JAMAIS présenter des données fictives comme des données réelles.
+
+Si les données réelles ne sont pas disponibles :
+→ garder les éléments purement décoratifs clairement séparés des informations réelles.
+
+==================================================
+8. CONNEXIONS MONDIALES
+==================================================
+
+Si les données de Soliris permettent de représenter des relations géographiques, ajoute des arcs très fins entre certains points.
+
+Les arcs doivent apparaître progressivement :
+
+POINT A
+    \
+     \
+      \____ POINT B
+
+Puis disparaître doucement.
+
+Ne transforme surtout pas le globe en réseau de lignes permanent.
+
+Il faut que les connexions soient rares.
+
+==================================================
+9. SYSTÈME DE SCAN
+==================================================
+
+Ajoute une animation de scan extrêmement subtile.
+
+Le scan doit donner la sensation que l'Observatoire analyse actuellement le globe.
+
+Il peut prendre la forme :
+
+- d'une lumière très fine ;
+- d'un balayage ;
+- d'une onde ;
+- d'un léger changement d'éclairage.
+
+Le scan ne doit PAS tourner constamment.
+
+Il peut être déclenché :
+
+- au chargement ;
+- lors d'une actualisation ;
+- lorsqu'une nouvelle donnée arrive.
+
+==================================================
+10. ANIMATION D'ENTRÉE
+==================================================
+
+Améliore l'entrée de l'Observatoire.
+
+La séquence doit être très courte.
+
+0-250 ms
+→ fond et structure
+
+250-600 ms
+→ globe
+
+600-900 ms
+→ titre et informations
+
+900-1200 ms
+→ indicateurs
+
+1200 ms+
+→ état normal
+
+Après l'entrée :
+TOUT DOIT SE CALMER.
+
+Ne laisse pas l'interface constamment en mouvement.
+
+==================================================
+11. CONTRÔLES DU GLOBE
+==================================================
+
+Les contrôles actuels :
+
+ROTATION AUTOMATIQUE
+PAUSE
+TOURNER LE GLOBE
+
+fonctionnent, mais leur placement sur le globe casse légèrement la composition.
+
+Réorganise-les dans une petite zone de contrôle flottante.
+
+Cette zone peut être :
+
+- en bas du globe ;
+- dans un coin ;
+- ou sous le globe.
+
+Elle doit rester discrète.
+
+Je veux une interface de contrôle ressemblant davantage à une console premium qu'à plusieurs boutons posés sur la carte.
+
+Par exemple :
+
+[ ⟳ AUTO ] [ II PAUSE ] [ ⌖ RECENTRER ]
+
+Mais adapte cela au design existant.
+
+==================================================
+12. CONTROLES AVANCÉS
+==================================================
+
+Si pertinent, ajoute :
+
++
+−
+⌖
+⟳
+
+avec :
+
++
+→ zoom
+
+−
+→ dézoom
+
+⌖
+→ recentrer
+
+⟳
+→ rotation automatique
+
+Ces contrôles doivent rester extrêmement discrets.
+
+==================================================
+13. INTERACTION SOURIS
+==================================================
+
+Le globe doit réagir subtilement à la souris.
+
+Lorsqu'on approche du globe :
+
+→ légère variation de lumière.
+
+Lorsqu'on survole un point réel :
+
+→ mise en évidence.
+
+Lorsqu'on clique :
+
+→ affichage des informations.
+
+Lorsqu'on fait glisser :
+
+→ possibilité de faire tourner le globe si le moteur actuel le permet.
+
+Le mouvement doit être naturel.
+
+==================================================
+14. PANNEAU D'INFORMATION
+==================================================
+
+Je veux créer un lien plus fort entre le globe et les informations.
+
+Lorsqu'un élément est sélectionné :
+
+le globe reste au centre
+
+et une petite information contextuelle apparaît.
+
+Exemple :
+
+ZONE ACTIVE
+
+Nom
+Valeur
+Statut
+Dernière mise à jour
+
+Cette information doit être élégante et compacte.
+
+Ne crée pas une énorme modal.
+
+==================================================
+15. HIÉRARCHIE VISUELLE
+==================================================
+
+La hiérarchie doit être :
+
+1. GLOBE
+2. INFORMATION PRINCIPALE
+3. ÉVÉNEMENTS
+4. STATISTIQUES
+5. CONTRÔLES
+
+Tout ne doit pas avoir la même luminosité.
+
+Le globe doit être le centre de gravité.
+
+==================================================
+16. TITRE
+==================================================
+
+Le titre :
+
+OBSERVATOIRE MONDIAL
+
+est actuellement bien placé.
+
+Conserve son style général.
+
+Mais améliore légèrement son intégration.
+
+Il doit sembler appartenir à l'Observatoire plutôt qu'être simplement posé au-dessus.
+
+Tu peux éventuellement ajouter une petite ligne secondaire très discrète :
+
+VISION GLOBALE
+ou
+SURVEILLANCE MONDIALE
+
+uniquement si cela améliore réellement la composition.
+
+Ne surcharge pas.
+
+==================================================
+17. CARTES INFÉRIEURES
+==================================================
+
+Les éléments comme :
+
+PRÉCISION
+
+VIGILANCE
+
+doivent être intégrés à l'Observatoire.
+
+Ils ne doivent pas ressembler à des cartes totalement indépendantes.
+
+Améliore :
+
+- alignement ;
+- espacements ;
+- bordures ;
+- profondeur ;
+- cohérence avec le globe.
+
+Leur présence doit compléter le globe.
+
+==================================================
+18. LIEN ENTRE OBSERVATOIRE ET DONNÉES
+==================================================
+
+Je veux que l'utilisateur comprenne :
+
+« Le globe montre le contexte mondial. »
+
+« Les cartes donnent les indicateurs importants. »
+
+Créer donc une relation visuelle entre les deux.
+
+Par exemple :
+
+un événement sur le globe
+→ peut mettre en évidence une information dans la partie inférieure.
+
+Et inversement :
+
+une information sélectionnée
+→ peut mettre en évidence une zone du globe.
+
+Cette interaction serait très importante pour rendre l'Observatoire réellement intelligent.
+
+==================================================
+19. EFFETS LUMINEUX
+==================================================
+
+Conserve la palette sombre/or actuelle.
+
+Je ne veux PAS ajouter une multitude de couleurs.
+
+Utilise principalement :
+
+- noir profond ;
+- bleu/noir très discret ;
+- or ;
+- vert/olive déjà présent si nécessaire.
+
+Les couleurs doivent rester cohérentes avec Soliris Market.
+
+Le glow doit être beaucoup plus subtil qu'un effet néon.
+
+==================================================
+20. PARTICULES
+==================================================
+
+Les particules d'arrière-plan actuelles peuvent être conservées.
+
+Mais elles doivent être :
+
+- rares ;
+- lentes ;
+- très discrètes.
+
+Certaines peuvent avoir une petite variation de luminosité.
+
+Ne transforme pas le fond en pluie de particules.
+
+==================================================
+21. MODE IMMERSIF
+==================================================
+
+Le bouton d'ouverture de l'Observatoire doit permettre une expérience immersive.
+
+Lorsque l'utilisateur clique :
+
+→ transition fluide
+
+→ globe plus grand
+
+→ interface secondaire réduite
+
+→ informations supplémentaires
+
+→ contrôles
+
+→ retour facile au dashboard
+
+Le mode immersif doit donner l'impression d'entrer dans un véritable centre d'observation.
+
+==================================================
+22. PERFORMANCE
+==================================================
+
+IMPORTANT :
+
+L'esthétique ne doit jamais dégrader les performances.
+
+Vérifie :
+
+- FPS ;
+- rerenders ;
+- timers ;
+- animations ;
+- WebGL/Canvas/SVG si utilisés ;
+- mémoire ;
+- responsive.
+
+Optimise autant que nécessaire.
+
+Privilégie les animations CSS lorsque cela suffit.
+
+==================================================
+23. MOBILE
+==================================================
+
+Sur mobile :
+
+le globe doit rester beau.
+
+Mais il ne doit pas prendre tout l'écran.
+
+Les contrôles doivent devenir tactiles.
+
+Les interactions hover doivent avoir une alternative tactile.
+
+Les cartes inférieures doivent rester lisibles.
+
+Aucun débordement horizontal.
+
+==================================================
+24. ACCESSIBILITÉ
+==================================================
+
+Respecte :
+
+- contraste ;
+- focus ;
+- navigation clavier ;
+- labels accessibles ;
+- information non dépendante uniquement de la couleur ;
+- prefers-reduced-motion.
+
+Lorsque prefers-reduced-motion est activé :
+→ réduire fortement les animations du globe.
+
+==================================================
+25. RÈGLE FONDAMENTALE
+==================================================
+
+NE PAS AJOUTER DES EFFETS POUR AJOUTER DES EFFETS.
+
+Chaque animation doit avoir une fonction :
+
+Rotation
+→ mouvement global
+
+Halo
+→ profondeur
+
+Point
+→ information
+
+Pulsation
+→ activité
+
+Arc
+→ connexion
+
+Scan
+→ actualisation
+
+Transition
+→ navigation
+
+Cela doit être la philosophie de tout l'Observatoire.
+
+==================================================
+26. TEST FINAL
+==================================================
+
+Une fois terminé, inspecte visuellement l'ensemble.
+
+Vérifie :
+
+- globe ;
+- titre ;
+- profondeur ;
+- contrôles ;
+- informations ;
+- cartes inférieures ;
+- animations ;
+- responsive ;
+- performance.
+
+Puis pose-toi :
+
+« Est-ce que cela ressemble à une véritable fonctionnalité premium de Soliris Market, ou simplement à un globe futuriste ? »
+
+Si cela ressemble encore à un simple globe futuriste, continue à améliorer l'intégration fonctionnelle.
+
+==================================================
+27. IMPORTANT : CONSERVER CE QUI FONCTIONNE
+==================================================
+
+Ne supprime pas les éléments réussis de la version actuelle.
+
+Conserve notamment l'identité :
+
+- sombre ;
+- or ;
+- élégante ;
+- mondiale ;
+- technologique.
+
+Améliore la composition au lieu de repartir de zéro.
+
+==================================================
+OBJECTIF FINAL
+==================================================
+
+Je veux que l'Observatoire donne cette impression :
+
+L'utilisateur arrive.
+
+Il voit un globe mondial vivant.
+
+Il comprend immédiatement qu'il s'agit du centre de vision de Soliris Market.
+
+Le globe bouge lentement.
+
+Quelques signaux apparaissent.
+
+Les informations sont liées au globe.
+
+Les contrôles sont discrets.
+
+Les cartes inférieures complètent la visualisation.
+
+Tout respire.
+
+Rien n'est excessif.
+
+Le résultat doit être :
+
+PREMIUM
+IMMERSIF
+INTELLIGENT
+ÉLÉGANT
+LISIBLE
+FLUIDE
+PERFORMANT
+
+Je veux que tu modifies directement le projet existant.
+
+Ne me donne pas uniquement une description.
+
+Inspecte d'abord le code actuel, implémente les améliorations, lance l'application, vérifie le résultat et corrige les problèmes avant de terminer.
