@@ -32,11 +32,18 @@ const PILLARS = [
 
 export default function Landing() {
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const [quoteSecondsRemaining, setQuoteSecondsRemaining] = useState(30);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setQuoteIndex((current) => (current + 1) % INVESTOR_QUOTES.length);
-    }, 30_000);
+      setQuoteSecondsRemaining((current) => {
+        if (current <= 1) {
+          setQuoteIndex((quote) => (quote + 1) % INVESTOR_QUOTES.length);
+          return 30;
+        }
+        return current - 1;
+      });
+    }, 1_000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -164,8 +171,11 @@ export default function Landing() {
                 Pensée inspirée de {currentQuote.author}
               </span>
             </div>
-            <div className="mt-2 text-[8px] uppercase tracking-[0.18em] text-[#f2ead6]/35">
-              Une nouvelle pensée toutes les 30 secondes · {INVESTOR_QUOTES.length} regards
+            <div className="mt-3 flex items-center gap-2 text-[8px] uppercase tracking-[0.18em] text-[#f2ead6]/45">
+              <span className="rounded-full border border-[#c9a227]/55 bg-[#c9a227]/10 px-2 py-1 font-mono text-[10px] font-semibold tabular-nums tracking-[0.12em] text-[#c9a227] shadow-[0_0_16px_rgba(201,162,39,0.18)]">
+                00:{String(quoteSecondsRemaining).padStart(2, "0")}
+              </span>
+              <span>Prochaine pensée</span>
             </div>
           </div>
 

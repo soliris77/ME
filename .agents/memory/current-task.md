@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Compteur doré des pensées — accueil Soliris
+
+- ✅ FAIT — Étape 1 : Remplacer le texte de fréquence par un compte à rebours de 30 secondes
+- ✅ FAIT — Étape 2 : Vérifier le typecheck et le rendu de l’accueil
+
 ## Survol lunaire, fiches de marché et pensées tournantes — accueil Soliris
 
 - ✅ FAIT — Étape 1 : Ajouter 300 pensées éditoriales et la rotation de l’accroche
