@@ -3,8 +3,6 @@ import { logger } from "./logger";
 import {
   logoAttachment,
   LOGO_CONTENT_ID,
-  animatedLogoAttachment,
-  ANIMATED_LOGO_CONTENT_ID,
   hyperliquidLogoAttachment,
   HYPERLIQUID_CONTENT_ID,
   solirisEmail,
@@ -75,11 +73,6 @@ function resolveAttachments(
   extra: readonly EmailAttachment[] | undefined,
 ): EmailAttachment[] {
   const files = extra ? [...extra] : [];
-  const referencesAnimatedLogo = html.includes("cid:" + ANIMATED_LOGO_CONTENT_ID);
-  if (referencesAnimatedLogo && !files.some((f) => f.contentId === ANIMATED_LOGO_CONTENT_ID)) {
-    const logo = animatedLogoAttachment();
-    if (logo !== null) files.push(logo);
-  }
   const referenced = html.includes("cid:" + LOGO_CONTENT_ID);
   if (referenced && !files.some((f) => f.contentId === LOGO_CONTENT_ID)) {
     const logo = logoAttachment();

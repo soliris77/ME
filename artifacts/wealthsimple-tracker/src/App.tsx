@@ -244,7 +244,7 @@ function Nav() {
               <SolirisMark />
             </div>
             <div className="leading-none">
-              <div className="brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">
+              <div data-static-gold className="brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">
                 SOLIRIS
               </div>
               <div className="text-sidebar-foreground/40 text-[9px] tracking-[0.38em] mt-0.5">

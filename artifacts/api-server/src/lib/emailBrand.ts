@@ -55,7 +55,6 @@ const GOLD_SHIMMER_CSS = `<style>
 
 /** Identifiant de la pièce jointe du logo, partagé avec emailClient. */
 export const LOGO_CONTENT_ID = "soliris-logo";
-export const ANIMATED_LOGO_CONTENT_ID = "soliris-logo-animated";
 export const HYPERLIQUID_CONTENT_ID = "hyperliquid-logo";
 
 /** Dimensions réelles de soliris-logo.png : 1200 × 367. */
@@ -83,12 +82,6 @@ const LOGO_CANDIDATES = [
   "../../artifacts/wealthsimple-tracker/public/soliris-logo.png",
 ];
 
-const ANIMATED_LOGO_CANDIDATES = [
-  "assets/soliris-logo-animated.gif",
-  "artifacts/api-server/assets/soliris-logo-animated.gif",
-  "../../artifacts/api-server/assets/soliris-logo-animated.gif",
-];
-
 const HYPERLIQUID_LOGO_CANDIDATES = [
   "assets/hyperliquid-logo.png",
   "artifacts/api-server/assets/hyperliquid-logo.png",
@@ -96,7 +89,6 @@ const HYPERLIQUID_LOGO_CANDIDATES = [
 ];
 
 let logoCache: EmailAttachment | null | undefined;
-let animatedLogoCache: EmailAttachment | null | undefined;
 let hyperliquidLogoCache: EmailAttachment | null | undefined;
 
 /** Le logo en pièce jointe, ou null s'il est introuvable. Lu une seule fois. */
@@ -118,27 +110,6 @@ export function logoAttachment(): EmailAttachment | null {
   }
   logoCache = null;
   return logoCache;
-}
-
-/** Bannière GIF animée : premier frame = vraie bannière, suivants = reflet doré. */
-export function animatedLogoAttachment(): EmailAttachment | null {
-  if (animatedLogoCache !== undefined) return animatedLogoCache;
-  for (const candidate of ANIMATED_LOGO_CANDIDATES) {
-    try {
-      const bytes = readFileSync(resolve(process.cwd(), candidate));
-      animatedLogoCache = {
-        filename: "soliris-logo-animated.gif",
-        content: bytes.toString("base64"),
-        contentType: "image/gif",
-        contentId: ANIMATED_LOGO_CONTENT_ID,
-      };
-      return animatedLogoCache;
-    } catch {
-      // chemin suivant
-    }
-  }
-  animatedLogoCache = null;
-  return animatedLogoCache;
 }
 
 /** Icône Hyperliquid, jointe uniquement aux rapports qui utilisent ce marché. */
@@ -226,9 +197,6 @@ export function solirisEmail({ title, intro, bodyHtml, footnote, venue }: Soliri
  * bloque les images (l'attribut alt).
  */
 function brandMark(): string {
-  if (animatedLogoAttachment() !== null) {
-    return `<img src="cid:${ANIMATED_LOGO_CONTENT_ID}" alt="Soliris Market" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display:block;margin:0 auto;width:${LOGO_WIDTH}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`;
-  }
   if (logoAttachment() !== null) {
     return `<img src="cid:${LOGO_CONTENT_ID}" alt="Soliris Market" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display:block;margin:0 auto;width:${LOGO_WIDTH}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`;
   }

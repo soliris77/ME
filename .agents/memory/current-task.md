@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Animation des textes dorés uniquement
+
+- ✅ FAIT — Étape 28 : Retirer l’animation de la bannière et cibler les textes dorés
+- ✅ FAIT — Étape 29 : Vérifier le site, les emails et les builds
+
 ## Animation email compatible avec les clients de messagerie
 
 - ✅ FAIT — Étape 26 : Remplacer l’animation CSS par un GIF animé embarqué

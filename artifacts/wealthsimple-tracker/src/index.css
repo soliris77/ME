@@ -214,6 +214,50 @@
   letter-spacing: 0.18em;
 }
 
+/* ─── Reflet doré sur les textes d'accent, jamais sur les images ─── */
+@keyframes solirisGoldTextShimmer {
+  0% { background-position: -180% center; }
+  100% { background-position: 180% center; }
+}
+
+:where(
+  .text-primary,
+  .text-sidebar-primary,
+  [class*="text-primary/"],
+  [class*="text-sidebar-primary/"],
+  [class*="text-amber-"]
+):not(button):not(svg):not([data-static-gold]) {
+  color: hsl(var(--primary));
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--primary) / 0.72) 0%,
+    hsl(var(--sidebar-primary)) 34%,
+    #fff1a8 50%,
+    hsl(var(--sidebar-primary)) 66%,
+    hsl(var(--primary) / 0.72) 100%
+  );
+  background-size: 220% auto;
+  background-position: -180% center;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: solirisGoldTextShimmer 4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .text-primary,
+    .text-sidebar-primary,
+    [class*="text-primary/"],
+    [class*="text-sidebar-primary/"],
+    [class*="text-amber-"]
+  ):not(button):not(svg):not([data-static-gold]) {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
 /* ─── Gold divider ─── */
 .gold-divider {
   height: 1px;
