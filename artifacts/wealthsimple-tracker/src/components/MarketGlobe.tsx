@@ -186,6 +186,11 @@ export default function MarketGlobe({
     targetId: null,
     startedAt: 0,
   });
+  const pointerPositionRef = useRef({ x: 0, y: 0 });
+  const resumeTimerRef = useRef<number | null>(null);
+  const scanStartedAtRef = useRef(0);
+  const lastDrawAtRef = useRef(0);
+  const userPausedRef = useRef(false);
   const activityIdsRef = useRef<string[]>([]);
   const selectedExchangeIdRef = useRef<string | null>(null);
   const pointerInsideRef = useRef(false);
@@ -203,12 +208,19 @@ export default function MarketGlobe({
   });
 
   useEffect(() => {
+    scanStartedAtRef.current = performance.now();
     const id = setInterval(() => {
       const next: any = {};
       GLOBE_EXCHANGES.forEach(ex => next[ex.id] = getExchangeState(ex));
       setStates(next);
+      scanStartedAtRef.current = performance.now();
     }, 60000);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      if (resumeTimerRef.current !== null) {
+        window.clearTimeout(resumeTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -229,7 +241,9 @@ export default function MarketGlobe({
       lastTime = time;
 
       const isReduced = prefersReduced.matches;
-       const animationTime = isReduced ? 0 : time;
+      if (!interactive && time - lastDrawAtRef.current < 1000 / 30) return;
+      lastDrawAtRef.current = time;
+      const animationTime = isReduced ? 0 : time;
       if (isReduced) {
         const offset = new Date().getTimezoneOffset(); // in minutes
         rotationRef.current = -(offset / 60) * 15;
@@ -246,14 +260,18 @@ export default function MarketGlobe({
 
       const w = container.clientWidth;
       const h = container.clientHeight;
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const pixelWidth = Math.max(1, Math.round(w * dpr));
+      const pixelHeight = Math.max(1, Math.round(h * dpr));
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
       }
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       const RADIUS = Math.min(w, h) / 2 * 0.85;
        const moonAngle = (animationTime / 11000) * Math.PI * 2 - Math.PI / 2;
@@ -366,6 +384,12 @@ export default function MarketGlobe({
       const now = new Date();
       const utcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
       const sunLon = -(utcHour - 12) * 15;
+      const pointerLightX = pointerInsideRef.current
+        ? Math.max(w * 0.18, Math.min(w * 0.82, pointerPositionRef.current.x))
+        : w * 0.42;
+      const pointerLightY = pointerInsideRef.current
+        ? Math.max(h * 0.18, Math.min(h * 0.82, pointerPositionRef.current.y))
+        : h * 0.36;
 
       // Subtle geographic grid follows the sphere and reinforces its volume.
       ctx.save();
@@ -379,9 +403,15 @@ export default function MarketGlobe({
       ctx.stroke();
 
       const sunPoint = projection([sunLon, 10]) ?? [w * 0.35, h * 0.35];
+      const lightPoint = pointerInsideRef.current
+        ? [
+            sunPoint[0] * 0.82 + pointerLightX * 0.18,
+            sunPoint[1] * 0.82 + pointerLightY * 0.18,
+          ]
+        : sunPoint;
       const landLight = ctx.createRadialGradient(
-        sunPoint[0], sunPoint[1], RADIUS * 0.03,
-        sunPoint[0], sunPoint[1], RADIUS * 1.75,
+        lightPoint[0], lightPoint[1], RADIUS * 0.03,
+        lightPoint[0], lightPoint[1], RADIUS * 1.75,
       );
       landLight.addColorStop(0, 'rgb(130, 124, 78)');
       landLight.addColorStop(0.42, 'rgb(83, 91, 58)');
@@ -416,6 +446,23 @@ export default function MarketGlobe({
       ctx.fillStyle = night;
       ctx.fillRect(w / 2 - RADIUS, h / 2 - RADIUS, RADIUS * 2, RADIUS * 2);
       ctx.restore();
+
+       const scanAge = isReduced ? Infinity : (time - scanStartedAtRef.current) / 1000;
+       if (variant === 'hero' && scanAge >= 0 && scanAge < 1.8) {
+         const scanProgress = scanAge / 1.8;
+         const scanY = h / 2 - RADIUS + scanProgress * RADIUS * 2;
+         ctx.save();
+         ctx.beginPath();
+         path({ type: 'Sphere' });
+         ctx.clip();
+         const scanGradient = ctx.createLinearGradient(0, scanY - 10, 0, scanY + 10);
+         scanGradient.addColorStop(0, 'rgba(201, 162, 39, 0)');
+         scanGradient.addColorStop(0.5, 'rgba(242, 210, 126, 0.2)');
+         scanGradient.addColorStop(1, 'rgba(201, 162, 39, 0)');
+         ctx.fillStyle = scanGradient;
+         ctx.fillRect(w / 2 - RADIUS, scanY - 10, RADIUS * 2, 20);
+         ctx.restore();
+       }
 
        if (pointerInsideRef.current && moonDepth >= 0) drawMoon();
 
@@ -483,11 +530,38 @@ export default function MarketGlobe({
 
     reqId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(reqId);
-  }, [variant]);
+  }, [interactive, variant]);
+
+  const clearResumeTimer = () => {
+    if (resumeTimerRef.current !== null) {
+      window.clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
+  };
+
+  const scheduleAutoResume = () => {
+    if (!interactive || userPausedRef.current) return;
+    clearResumeTimer();
+    resumeTimerRef.current = window.setTimeout(() => {
+      autoRotateRef.current = true;
+      setRotationMode('auto');
+      resumeTimerRef.current = null;
+    }, 4200);
+  };
+
+  const updatePointerPosition = (event: React.PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    pointerPositionRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
     if (event.button !== 0) return;
+    clearResumeTimer();
+    updatePointerPosition(event);
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
     pointerTravelRef.current = 0;
@@ -496,14 +570,16 @@ export default function MarketGlobe({
     setRotationMode('manual');
   };
 
-  const handlePointerEnter = () => {
+  const handlePointerEnter = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
+    updatePointerPosition(event);
     pointerInsideRef.current = true;
     setIsPointerInside(true);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
+    updatePointerPosition(event);
     if (!dragRef.current.active) return;
     const deltaX = event.clientX - dragRef.current.lastX;
     const deltaY = event.clientY - dragRef.current.lastY;
@@ -525,13 +601,9 @@ export default function MarketGlobe({
     if (!dragRef.current.active) return;
     dragRef.current.active = false;
     setIsDragging(false);
-    if (pointerTravelRef.current < 8) {
-      const targetId =
-        activityIdsRef.current[0] ??
-        selectedExchangeIdRef.current ??
-        'nyse';
-      clickWaveRef.current = { targetId, startedAt: performance.now() };
-    }
+    // Empty-surface clicks only pause/reposition the globe; a signal is
+    // emitted by focusExchange after an explicit node selection.
+    scheduleAutoResume();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -542,12 +614,15 @@ export default function MarketGlobe({
     rotationRef.current += 72;
     autoRotateRef.current = false;
     setRotationMode('manual');
+    scheduleAutoResume();
   };
 
   const handleToggleRotation = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    clearResumeTimer();
     const next = !autoRotateRef.current;
     autoRotateRef.current = next;
+    userPausedRef.current = !next;
     setRotationMode(next ? 'auto' : 'paused');
   };
 
@@ -557,9 +632,12 @@ export default function MarketGlobe({
     if (!exchange) return;
     rotationRef.current = -exchange.lon;
     autoRotateRef.current = false;
-    clickWaveRef.current = { targetId: id, startedAt: performance.now() };
+    clickWaveRef.current = states[id]?.status === 'open'
+      ? { targetId: id, startedAt: performance.now() }
+      : { targetId: null, startedAt: 0 };
     setSelectedExchangeId(id);
     setRotationMode('manual');
+    scheduleAutoResume();
   };
 
   const getDotClass = (status: ExStatus) => {
@@ -577,9 +655,7 @@ export default function MarketGlobe({
     .filter((row): row is { exchange: typeof GLOBE_EXCHANGES[number]; state: ReturnType<typeof getExchangeState> } => Boolean(row.state));
   const openMarkets = marketRows.filter(({ state }) => state.status === 'open');
   const visibleMarkets = marketRows.filter(({ state }) => state.status === 'open' || state.status === 'pre' || state.status === 'post');
-  activityIdsRef.current = openMarkets.length > 0
-    ? openMarkets.map(({ exchange }) => exchange.id)
-    : visibleMarkets.map(({ exchange }) => exchange.id);
+  activityIdsRef.current = openMarkets.map(({ exchange }) => exchange.id);
   selectedExchangeIdRef.current = selectedExchangeId;
   const selectedExchange = GLOBE_EXCHANGES.find((exchange) => exchange.id === selectedExchangeId);
   const selectedState = selectedExchangeId ? states[selectedExchangeId] : undefined;
@@ -616,9 +692,19 @@ export default function MarketGlobe({
     >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 
-      <ul className="sr-only">
+      <ul className="sr-only" aria-label="Sélectionner une place boursière">
         {GLOBE_EXCHANGES.map(ex => (
-          <li key={ex.id}>{ex.location}, {ex.name}, {states[ex.id]?.localTimeStr} heure locale, {STATUS_LABELS[states[ex.id]?.status]}</li>
+          <li key={ex.id}>
+            <button
+              type="button"
+              onFocus={() => setHoveredExchangeId(ex.id)}
+              onBlur={() => setHoveredExchangeId(null)}
+              onClick={(event) => focusExchange(ex.id, event)}
+              aria-pressed={selectedExchangeId === ex.id}
+            >
+              {ex.location}, {ex.name}, {states[ex.id]?.localTimeStr} heure locale, {STATUS_LABELS[states[ex.id]?.status]}
+            </button>
+          </li>
         ))}
       </ul>
 
@@ -635,8 +721,11 @@ export default function MarketGlobe({
             onPointerDown={(event) => event.stopPropagation()}
             onMouseEnter={() => setHoveredExchangeId(ex.id)}
             onMouseLeave={() => setHoveredExchangeId(null)}
+             onFocus={() => setHoveredExchangeId(ex.id)}
+             onBlur={() => setHoveredExchangeId(null)}
             onClick={(event) => focusExchange(ex.id, event)}
             aria-label={`${ex.location}, ${ex.name}, ${st.localTimeStr} heure locale, ${STATUS_LABELS[st.status]}`}
+             aria-pressed={selectedExchangeId === ex.id}
           >
              <div className={`globe-market-point rounded-full transition-all duration-500 ease-in-out relative ${st.status === 'open' ? 'globe-market-point-open' : ''} ${variant === 'hero' ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${getDotClass(st.status)}`}>
                {st.status === 'open' && <div className="globe-halo" />}
@@ -661,7 +750,6 @@ export default function MarketGlobe({
           <div
             className={`globe-hover-panel absolute left-[1%] top-[13%] z-30 w-[188px] rounded-xl border border-primary/25 bg-background/72 p-3 text-left shadow-2xl backdrop-blur-md sm:left-[2%] sm:w-[208px] ${isPointerInside ? 'globe-hover-panel-visible' : ''}`}
             aria-live="polite"
-            aria-hidden={!isPointerInside}
           >
             <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-primary/85">
               <Sparkles className="h-3 w-3" />
@@ -708,7 +796,7 @@ export default function MarketGlobe({
               </div>
             )}
           </div>
-          <div className={`globe-hover-panel globe-live-dock absolute bottom-[21%] right-[2%] z-30 w-[174px] rounded-xl border border-primary/30 bg-background/75 p-2.5 text-left shadow-2xl backdrop-blur-md sm:right-[3%] sm:w-[198px] sm:p-3 ${isPointerInside ? 'globe-hover-panel-visible' : ''}`} aria-hidden={!isPointerInside}>
+          <div className={`globe-hover-panel globe-live-dock absolute bottom-[21%] right-[2%] z-30 w-[174px] rounded-xl border border-primary/30 bg-background/75 p-2.5 text-left shadow-2xl backdrop-blur-md sm:right-[3%] sm:w-[198px] sm:p-3 ${isPointerInside ? 'globe-hover-panel-visible' : ''}`} aria-live="polite">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Marchés en direct</span>
               <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
@@ -731,7 +819,11 @@ export default function MarketGlobe({
                   onPointerDown={(event) => event.stopPropagation()}
                   onMouseEnter={() => setHoveredExchangeId(exchange.id)}
                   onMouseLeave={() => setHoveredExchangeId(null)}
+                  onFocus={() => setHoveredExchangeId(exchange.id)}
+                  onBlur={() => setHoveredExchangeId(null)}
                   onClick={(event) => focusExchange(exchange.id, event)}
+                  tabIndex={isPointerInside ? 0 : -1}
+                  aria-pressed={selectedExchangeId === exchange.id}
                   className={`rounded-full border px-2 py-1 text-[9px] font-medium transition-colors ${
                     selectedExchangeId === exchange.id
                       ? 'border-primary/70 bg-primary/15 text-primary'

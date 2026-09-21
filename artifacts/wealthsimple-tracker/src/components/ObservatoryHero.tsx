@@ -7,6 +7,8 @@ import {
   Clock3,
   Gauge,
   Layers3,
+  Maximize2,
+  Minimize2,
   Radio,
   ShieldCheck,
   Sparkles,
@@ -74,8 +76,12 @@ function Metric({
 
 export default function ObservatoryHero({
   variant = "dashboard",
+  isImmersive = false,
+  onToggleImmersive,
 }: {
   variant?: ObservatoryHeroVariant;
+  isImmersive?: boolean;
+  onToggleImmersive?: () => void;
 }) {
   const snapshot = useObservatorySnapshot();
   const isDashboard = variant === "dashboard";
@@ -100,8 +106,8 @@ export default function ObservatoryHero({
       <div className="observatory-hero-glow observatory-hero-glow-gold pointer-events-none" aria-hidden="true" />
       <div className="observatory-hero-glow observatory-hero-glow-blue pointer-events-none" aria-hidden="true" />
 
-      <div className="relative z-10 flex flex-col gap-6 border-b border-primary/15 px-5 py-5 sm:px-7 sm:py-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <div className="observatory-hero-heading relative z-10 flex flex-col gap-6 border-b border-primary/15 px-5 py-5 sm:px-7 sm:py-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="observatory-hero-heading-copy">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.24em] text-primary">
               <Sparkles className="h-3.5 w-3.5" />
@@ -109,7 +115,7 @@ export default function ObservatoryHero({
             </div>
             <div className="observatory-hero-status">
               <span className="observatory-hero-status-dot" />
-              {isActive ? "Surveillance active" : "Veille mondiale"}
+              {isActive ? "Séances actives" : "Veille mondiale"}
             </div>
           </div>
           <h2 id="observatory-hero-title" className="mt-4 font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
@@ -121,13 +127,29 @@ export default function ObservatoryHero({
           </p>
         </div>
 
-        <Link
-          href="/observatoire"
-          className="group inline-flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-primary/[0.08] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary transition-all hover:border-primary/75 hover:bg-primary/[0.16] hover:shadow-[0_0_28px_hsl(var(--primary)/0.16)]"
-        >
-          {isDashboard ? "Ouvrir l’Observatoire" : "Entrer dans la salle"}
-          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </Link>
+        {isDashboard ? (
+          <Link
+            href="/observatoire"
+            className="observatory-hero-cta group inline-flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-primary/[0.08] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary transition-all hover:border-primary/75 hover:bg-primary/[0.16] hover:shadow-[0_0_28px_hsl(var(--primary)/0.16)]"
+          >
+            Ouvrir l’Observatoire
+            <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggleImmersive}
+            className="observatory-hero-cta group inline-flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-primary/[0.08] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary transition-all hover:border-primary/75 hover:bg-primary/[0.16] hover:shadow-[0_0_28px_hsl(var(--primary)/0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-pressed={isImmersive}
+          >
+            {isImmersive ? "Réduire l’Observatoire" : "Mode immersif"}
+            {isImmersive ? (
+              <Minimize2 className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
+            )}
+          </button>
+        )}
       </div>
 
       <div className="relative z-10 grid gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
@@ -174,8 +196,8 @@ export default function ObservatoryHero({
                   places ouvertes maintenant
                 </div>
               </div>
-              <div className="rounded-full border border-teal-300/30 bg-teal-300/[0.08] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-teal-200">
-                Temps réel
+              <div className="rounded-full border border-primary/30 bg-primary/[0.08] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
+                Horaires locaux
               </div>
             </div>
           </div>
@@ -191,22 +213,22 @@ export default function ObservatoryHero({
             <Metric
               icon={ShieldCheck}
               label="Signal"
-              value="FIABLE"
-              context="données de séance, sans estimation"
+              value="CALENDRIER"
+              context="horaires locaux calculés ici"
               tone="gold"
             />
             <Metric
               icon={Clock3}
-              label="Mise à jour"
+              label="Calcul local"
               value={updateLabel}
-              context="heure UTC de la dernière lecture"
+              context="horodatage de calcul en UTC"
               tone="muted"
             />
             <Metric
               icon={ChevronRight}
               label="Prochaine lecture"
               value="30 s"
-              context="actualisation automatique du statut"
+              context="nouveau calcul des séances"
               tone="gold"
             />
           </div>
@@ -217,16 +239,20 @@ export default function ObservatoryHero({
             </div>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               {isDashboard
-                ? "Un aperçu vivant du système. Ouvrez l’Observatoire pour faire tourner la Terre, sélectionner un nœud et suivre les ondulations du relais actif."
-                : "Les ondulations partent du relais actuellement ouvert et se distribuent vers les autres nœuds actifs. Elles décrivent une séance, pas une prédiction de prix."}
+                ? "Un aperçu vivant du calendrier mondial. Ouvrez l’Observatoire pour faire tourner la Terre, sélectionner une place et lire les séances ouvertes."
+                : isActive
+                  ? "Les ondulations de lecture partent d’une place actuellement ouverte et se distribuent vers les autres places ouvertes. Elles décrivent une séance, pas une prédiction de prix."
+                  : "Aucune place n’est actuellement ouverte dans le calendrier observé. Le prochain relais se prépare hors champ."}
             </p>
-            <Link
-              href="/observatoire"
-              className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary transition-colors hover:text-foreground"
-            >
-              Voir les instruments
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
+            {isDashboard && (
+              <Link
+                href="/observatoire"
+                className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary transition-colors hover:text-foreground"
+              >
+                Voir les instruments
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
           </div>
         </aside>
       </div>

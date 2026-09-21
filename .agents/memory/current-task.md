@@ -35,6 +35,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 2 : Donner à Forex, matières premières et crypto un langage distinct de disponibilité continue
 - ✅ FAIT — Étape 3 : Clarifier que « fermé » signifie hors séance, avec prochaine séance visible et sans fausse erreur
 
+## Deuxième passe — signature visuelle de l’Observatoire
+
+- ✅ FAIT — Étape 1 : Renforcer le globe comme centre visuel avec réponse douce au pointeur, DPR Canvas et scan ponctuel
+- ✅ FAIT — Étape 2 : Rendre les signaux causaux, limiter les ondulations aux places ouvertes et reprendre la rotation après inactivité
+- ✅ FAIT — Étape 3 : Ajouter un mode immersif avec sortie Escape, transitions d’entrée et libellés honnêtes sur les calendriers locaux
+
 ## Globe au survol, lune 3D et curseur Soliris — accueil/site
 
 - ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés

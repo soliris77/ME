@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -33,9 +34,25 @@ const OBSERVATORY_READINGS = [
 ];
 
 export default function Observatory() {
+  const [isImmersive, setIsImmersive] = useState(false);
+
+  useEffect(() => {
+    if (!isImmersive) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsImmersive(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isImmersive]);
+
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background">
+      <div className={`observatory-page-shell min-h-screen bg-background ${isImmersive ? "observatory-page-shell-immersive" : ""}`}>
         <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-10 lg:py-7">
           <header className="mb-5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary/80">
@@ -51,9 +68,14 @@ export default function Observatory() {
             </Link>
           </header>
 
-          <ObservatoryHero variant="page" />
+          <ObservatoryHero
+            variant="page"
+            isImmersive={isImmersive}
+            onToggleImmersive={() => setIsImmersive((value) => !value)}
+          />
 
-          <section className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_1.9fr]">
+          {!isImmersive && (
+            <section className="observatory-context mt-6 grid gap-4 lg:grid-cols-[1.1fr_1.9fr]">
             <div className="observatory-context-panel rounded-2xl border border-primary/20 bg-card/60 p-5 sm:p-6">
               <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary">
                 <Info className="h-3.5 w-3.5" />
@@ -92,7 +114,8 @@ export default function Observatory() {
                 </article>
               ))}
             </div>
-          </section>
+            </section>
+          )}
         </div>
       </div>
     </PageTransition>
