@@ -4,13 +4,16 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
 import {
   Activity,
+  Clock3,
   Gauge,
   Loader2,
   Lock,
   Power,
   Save,
+  ShieldCheck,
   ShieldAlert,
   Unlock,
+  WalletCards,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -86,6 +89,20 @@ interface StateResponse {
   config: PerpsConfig;
   day: DayState;
   arming: ArmingStatus;
+}
+
+interface TradingModeDetails {
+  mode: "paper" | "live";
+  persistedMode?: "paper" | "live";
+  arm: {
+    accountId: string;
+    provider: string;
+    maxOrderValue: number;
+    dailyLossCap: number;
+    armedAt: string;
+    expiresAt: string;
+    active: boolean;
+  } | null;
 }
 
 interface HyperliquidBalance {
@@ -205,6 +222,13 @@ export default function PerpsPage() {
       fetch(`${BASE}/api/perps/decisions?limit=25&venue=${venue}`).then(jsonOrThrow) as Promise<{
         decisions: DecisionRow[];
       }>,
+  });
+
+  const tradingModeQ = useQuery<TradingModeDetails>({
+    queryKey: ["trading-mode-details"],
+    queryFn: () =>
+      fetch(`${BASE}/api/broker/trading-mode`).then(jsonOrThrow) as Promise<TradingModeDetails>,
+    refetchInterval: 10_000,
   });
 
   const venuesQ = useQuery<{ venues: VenueRow[] }>({
@@ -333,7 +357,7 @@ export default function PerpsPage() {
   const armed = config.mode === "armed";
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
       {error && (
         <div className="flex items-start gap-3 rounded-lg px-4 py-3 text-sm bg-destructive/10 border border-destructive/25 text-destructive">
           <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
@@ -341,39 +365,103 @@ export default function PerpsPage() {
         </div>
       )}
 
+      <header className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-6 shadow-[0_24px_70px_-42px_hsl(var(--primary)/.55)] md:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-24 w-72 bg-primary/5 blur-3xl" />
+        <div className="relative">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-2xl">
+              <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.28em] text-primary">
+                <span className="h-px w-8 bg-primary/60" />
+                Risk desk · Perpétuels
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+                Perps <span className="text-primary">&amp; levier</span>
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                Dimensionne chaque position, vérifie son coût et garde l’exécution derrière
+                deux serrures indépendantes.
+              </p>
+            </div>
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] ${
+              tradingModeQ.data?.mode === "live" && tradingModeQ.data.arm?.active
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border/70 bg-background/40 text-muted-foreground"
+            }`}>
+              <span className={`h-2 w-2 rounded-full ${
+                tradingModeQ.data?.mode === "live" && tradingModeQ.data.arm?.active
+                  ? "bg-primary shadow-[0_0_12px_hsl(var(--primary)/.8)]"
+                  : "bg-muted-foreground/40"
+              }`} />
+              {tradingModeQ.data?.mode === "live" && tradingModeQ.data.arm?.active
+                ? "Live global armé"
+                : "Live global verrouillé"}
+            </div>
+          </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <HeroMetric
+              icon={<WalletCards className="h-4 w-4" />}
+              label="Capital connecté"
+              value={balanceQ.data ? usdc(balanceQ.data.usdcBalance) : "Lecture…"}
+              detail={balanceQ.data ? `${balanceQ.data.openPositions} position(s) ouverte(s)` : "Hyperliquid"}
+            />
+            <HeroMetric
+              icon={<Gauge className="h-4 w-4" />}
+              label="Risque par trade"
+              value={pct(config.riskFraction, 2)}
+              detail={`plafond ${config.maxLeverage}× par position`}
+            />
+            <HeroMetric
+              icon={<ShieldCheck className="h-4 w-4" />}
+              label="Sécurité Perps"
+              value={armed ? "Armé" : "Observation"}
+              detail={config.enabled ? "worker actif" : "worker arrêté"}
+              accent={armed}
+            />
+          </div>
+        </div>
+      </header>
 
       {/* - Choix de la plateforme - */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">Marché d’exécution</p>
+          <p className="mt-1 text-sm text-muted-foreground">Chaque plateforme conserve ses propres réglages et son propre journal.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card/40 p-1">
         {(venuesQ.data?.venues ?? []).map((v) => (
           <button
             key={v.venue}
             onClick={() => setVenue(v.venue)}
-            className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${
+            className={`tr-control rounded-lg px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
               venue === v.venue
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "border border-border/60 text-muted-foreground hover:border-border hover:bg-muted/30"
+                ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-10px_hsl(var(--primary)/.9)]"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
             }`}
           >
             {v.label}
           </button>
         ))}
+        </div>
       </div>
 
       {venue === "hyperliquid" && (
-        <div className="surface-glass rounded-xl p-6 md:p-8">
+        <div className="surface-glass interactive-surface rounded-2xl p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/.8)]" />
                 Solde Hyperliquid
               </p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground/95">
+              <p className="mt-2 font-mono text-4xl font-semibold tracking-tight text-foreground/95">
                 {balanceQ.isLoading
                   ? "Lecture…"
                   : balanceQ.data
                     ? usdc(balanceQ.data.usdcBalance)
                     : "Indisponible"}
               </p>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs text-muted-foreground">
                 {balanceQ.data
                   ? `Perps : ${usdc(balanceQ.data.perpsUsdc)} · Spot : ${usdc(balanceQ.data.spotUsdc)}`
                   : balanceQ.error instanceof Error
@@ -381,13 +469,17 @@ export default function PerpsPage() {
                     : "Le solde sera lu depuis Hyperliquid."}
               </p>
               {balanceQ.data && (
-                <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                   Marge Perps disponible : {usdc(balanceQ.data.availableMarginUsd)} · Spot disponible :{" "}
                   {usdc(balanceQ.data.spotAvailableUsd)}
                 </p>
               )}
             </div>
             <div className="text-right text-xs text-muted-foreground">
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/30 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em]">
+                <Clock3 className="h-3 w-3" />
+                temps réel
+              </div>
               <p>{balanceQ.data ? `${balanceQ.data.openPositions} position(s) ouverte(s)` : "—"}</p>
               <p className="mt-1">
                 {balanceQ.data
@@ -528,7 +620,7 @@ export default function PerpsPage() {
         {/* — Ce qui empêche d'armer — */}
         {!arming.ok && (
           <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
               Avant de pouvoir armer
             </p>
             <ul className="space-y-1">
@@ -557,7 +649,7 @@ export default function PerpsPage() {
       </div>
 
       {/* — Réglages — */}
-      <div className="surface-glass rounded-xl p-6 md:p-8 space-y-6">
+      <div className="surface-glass rounded-2xl p-6 md:p-8 space-y-6">
         <div className="flex items-center justify-between gap-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             Plafonds
@@ -589,7 +681,7 @@ export default function PerpsPage() {
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, [field.key]: e.target.value }))
                 }
-                className="w-full rounded-md border border-border/60 bg-transparent px-3 py-2 text-sm"
+                className="field-premium w-full rounded-lg border border-border/60 bg-background/25 px-3 py-2.5 text-sm transition-colors"
               />
               <span className="block text-[10px] text-muted-foreground">{field.hint}</span>
             </label>
@@ -598,7 +690,7 @@ export default function PerpsPage() {
       </div>
 
       {/* — Essai à blanc — */}
-      <div className="surface-glass rounded-xl p-6 md:p-8 space-y-5">
+      <div className="surface-glass rounded-2xl p-6 md:p-8 space-y-5">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           Essai à blanc
         </p>
@@ -674,7 +766,7 @@ export default function PerpsPage() {
       </div>
 
       {/* — Journal — */}
-      <div className="surface-glass rounded-xl p-6 md:p-8 space-y-4">
+      <div className="surface-glass rounded-2xl p-6 md:p-8 space-y-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           Dernières décisions
         </p>
@@ -740,6 +832,33 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function HeroMetric({
+  icon,
+  label,
+  value,
+  detail,
+  accent = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${
+      accent ? "border-primary/30 bg-primary/8" : "border-border/55 bg-background/20"
+    }`}>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className={accent ? "text-primary" : "text-muted-foreground"}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+      </div>
+      <p className="mt-2 font-mono text-lg font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
 function SimField({
   label,
   value,
@@ -755,7 +874,7 @@ function SimField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-border/60 bg-transparent px-3 py-2 text-sm"
+        className="field-premium w-full rounded-lg border border-border/60 bg-background/25 px-3 py-2.5 text-sm transition-colors"
       />
     </label>
   );

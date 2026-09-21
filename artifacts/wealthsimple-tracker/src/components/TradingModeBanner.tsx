@@ -11,6 +11,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface TradingModeInfo {
   mode: "paper" | "live";
+  arm?: { active: boolean } | null;
   hasCredentials?: boolean;
 }
 
@@ -24,7 +25,7 @@ export default function TradingModeBanner() {
 
   if (!data || (data.hasCredentials === false)) return null;
 
-  if (data.mode === "live") {
+  if (data.mode === "live" && data.arm?.active === true) {
     return (
       <div className="relative z-20 flex items-center justify-center gap-2.5 px-4 py-1.5"
         style={{ background: "linear-gradient(90deg, transparent, rgba(201,160,64,0.08) 30%, rgba(201,160,64,0.08) 70%, transparent)", borderBottom: "1px solid rgba(201,160,64,0.2)" }}>
@@ -35,6 +36,18 @@ export default function TradingModeBanner() {
         </span>
         <span className="text-[10px] font-medium tracking-[0.28em] uppercase" style={{ color: "#c9a040" }}>
           Live · Ordres réels actifs
+        </span>
+      </div>
+    );
+  }
+
+  if (data.mode === "paper" && data.arm && !data.arm.active) {
+    return (
+      <div className="relative z-20 flex items-center justify-center gap-2.5 px-4 py-1.5"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(212,167,44,0.06) 30%, rgba(212,167,44,0.06) 70%, transparent)", borderBottom: "1px solid rgba(212,167,44,0.16)" }}>
+        <span className="inline-flex h-1.5 w-1.5 rounded-full shrink-0" style={{ background: "#c9a040" }} />
+        <span className="text-[10px] font-medium tracking-[0.24em] uppercase" style={{ color: "#c9a040" }}>
+          Live verrouillé · armement requis
         </span>
       </div>
     );

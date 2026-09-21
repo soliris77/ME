@@ -34,6 +34,13 @@ export async function initTradingMode(): Promise<void> {
     if (rows.length > 0) {
       _mode = rows[0].trading_mode === "live" ? "live" : "paper";
       logger.info({ mode: _mode }, "tradingMode: chargé depuis la DB");
+      if (_mode === "live") {
+        const arm = await getLiveArm();
+        if (!arm || arm.expiresAt.getTime() <= Date.now()) {
+          await disarmLiveTrading();
+          logger.warn("tradingMode: armement LIVE absent ou expiré — retour forcé en PAPER");
+        }
+      }
       return;
     }
 
@@ -83,7 +90,10 @@ export async function getLiveArm(): Promise<LiveArm | null> {
   const maxOrderValue = Number(arm.live_arm_max_order_value);
   const dailyLossCap = Number(arm.live_arm_daily_loss_cap);
   if (!Number.isFinite(maxOrderValue) || maxOrderValue <= 0 || !Number.isFinite(dailyLossCap) || dailyLossCap <= 0) return null;
-  return { accountId: arm.live_arm_account_id, provider: arm.live_arm_provider as "snaptrade" | "ccxt", maxOrderValue, dailyLossCap, expiresAt: new Date(arm.live_arm_expires_at), armedAt: new Date(arm.live_arm_armed_at) };
+  const expiresAt = new Date(arm.live_arm_expires_at);
+  const armedAt = new Date(arm.live_arm_armed_at);
+  if (!Number.isFinite(expiresAt.getTime()) || !Number.isFinite(armedAt.getTime())) return null;
+  return { accountId: arm.live_arm_account_id, provider: arm.live_arm_provider as "snaptrade" | "ccxt", maxOrderValue, dailyLossCap, expiresAt, armedAt };
 }
 
 export async function armLiveTrading(arm: LiveArm): Promise<void> {

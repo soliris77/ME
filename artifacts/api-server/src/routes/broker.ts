@@ -104,13 +104,15 @@ router.get("/broker/credentials", async (_req, res) => {
 // ─── GET /api/broker/trading-mode ─────────────────────────────────────────────
 router.get("/broker/trading-mode", async (_req, res) => {
   try {
-    const mode = getTradingMode();
+    const persistedMode = getTradingMode();
     const creds = await resolveCredentials();
     const hasCredentials = !!(creds.clientId && creds.consumerKey);
     const arm = await getLiveArm();
+    const armActive = persistedMode === "live" && arm !== null && arm.expiresAt.getTime() > Date.now();
     // Deliberately only expose non-secret arm state and limits.
     return res.json({
-      mode,
+      mode: armActive ? "live" : "paper",
+      persistedMode,
       hasCredentials,
       arm: arm ? {
         accountId: arm.accountId,
@@ -119,7 +121,7 @@ router.get("/broker/trading-mode", async (_req, res) => {
         dailyLossCap: arm.dailyLossCap,
         armedAt: arm.armedAt.toISOString(),
         expiresAt: arm.expiresAt.toISOString(),
-        active: arm.expiresAt.getTime() > Date.now(),
+        active: armActive,
       } : null,
     });
   } catch (err) {

@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   getLiveArm: vi.fn(),
   getTradingMode: vi.fn(() => "paper"),
+  resolveCredentials: vi.fn(),
   logAudit: vi.fn(),
   connection: { status: "connected", provider: "snaptrade", snaptradeUserId: "user-1", snaptradeUserSecret: "secret-1" },
   adapterBalances: vi.fn().mockResolvedValue([]),
@@ -42,7 +43,7 @@ vi.mock("../../lib/snaptrade", () => ({
   listBalances: vi.fn(),
   refreshConnection: vi.fn(),
   getSnaptradeClientAsync: vi.fn(),
-  resolveCredentials: vi.fn(),
+  resolveCredentials: h.resolveCredentials,
   invalidateSnaptradeClient: vi.fn(),
   cancelBrokerOrder: vi.fn(),
 }));
@@ -89,9 +90,53 @@ describe("POST /api/broker/trading-mode", () => {
     h.adapterBalances.mockClear();
     h.armLiveTrading.mockReset();
     h.armLiveTrading.mockResolvedValue(undefined);
+    h.getTradingMode.mockReturnValue("paper");
+    h.getLiveArm.mockReset();
+    h.getLiveArm.mockResolvedValue(null);
+    h.resolveCredentials.mockReset();
+    h.resolveCredentials.mockResolvedValue({ clientId: "client-1", consumerKey: "key-1" });
     h.listAccounts.mockReset();
     h.listAccounts.mockResolvedValue([{ id: "acct-1" }]);
     h.logAudit.mockReset();
+  });
+
+  it("expose PAPER quand le mode persistant LIVE n'a plus d'armement actif", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.getLiveArm.mockResolvedValue({
+      accountId: "acct-1",
+      provider: "snaptrade",
+      maxOrderValue: 1_000,
+      dailyLossCap: 100,
+      armedAt: new Date("2026-09-21T18:00:00.000Z"),
+      expiresAt: new Date("2026-09-21T18:30:00.000Z"),
+    });
+
+    const response = await fetch(`${base}/broker/trading-mode`);
+    const payload = await response.json() as { mode: string; persistedMode: string; arm: { active: boolean } };
+
+    expect(response.status).toBe(200);
+    expect(payload.mode).toBe("paper");
+    expect(payload.persistedMode).toBe("live");
+    expect(payload.arm.active).toBe(false);
+  });
+
+  it("expose LIVE seulement avec un armement encore actif", async () => {
+    h.getTradingMode.mockReturnValue("live");
+    h.getLiveArm.mockResolvedValue({
+      accountId: "acct-1",
+      provider: "snaptrade",
+      maxOrderValue: 1_000,
+      dailyLossCap: 100,
+      armedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    });
+
+    const response = await fetch(`${base}/broker/trading-mode`);
+    const payload = await response.json() as { mode: string; arm: { active: boolean } };
+
+    expect(response.status).toBe(200);
+    expect(payload.mode).toBe("live");
+    expect(payload.arm.active).toBe(true);
   });
 
   it("arme le mode live sans exiger de confirmation écrite", async () => {

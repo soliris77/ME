@@ -25,3 +25,4 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 13 : Reprendre et valider le globe interactif après le chantier crypto
 - → EN COURS — Étape 14 : Valider les changements Courtier/Kraken, l’endpoint protégé et l’état du commit final
 - ✅ FAIT — Étape 15 : Corriger l’affichage du solde Hyperliquid en séparant les comptes Spot et Perps
+- ✅ FAIT — Étape 16 : Refaire Perps & levier et sécuriser l’affichage/validation du mode Live
