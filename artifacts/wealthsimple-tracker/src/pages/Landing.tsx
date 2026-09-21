@@ -42,12 +42,13 @@ export default function Landing() {
         <div className="celestial-welcome-layer celestial-welcome-layer-color" />
         <div className="celestial-welcome-layer celestial-welcome-layer-mono" />
         <div className="celestial-welcome-light celestial-welcome-light-gold" />
-        <div className="celestial-welcome-light celestial-welcome-light-blue" />
+        <div className="celestial-welcome-light celestial-welcome-light-ember" />
         <div className="celestial-welcome-mist" />
         <div className="celestial-welcome-veil" />
         <div className="celestial-welcome-rim celestial-welcome-rim-left" />
         <div className="celestial-welcome-rim celestial-welcome-rim-right" />
         <div className="celestial-welcome-rim celestial-welcome-rim-lower" />
+        <div className="celestial-welcome-embers" />
         <div className="celestial-welcome-spark celestial-welcome-spark-a" />
         <div className="celestial-welcome-spark celestial-welcome-spark-b" />
         <div className="celestial-welcome-spark celestial-welcome-spark-c" />
