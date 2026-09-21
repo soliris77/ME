@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import land110m from 'world-atlas/land-110m.json';
-import { RotateCw } from 'lucide-react';
+import { Clock3, LocateFixed, Pause, Play, RotateCw } from 'lucide-react';
 
 // Places à couvrir
 const GLOBE_EXCHANGES = [
@@ -74,8 +74,10 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const pointsRef = useRef<Record<string, HTMLButtonElement | null>>({});
   const rotationRef = useRef(0);
   const dragRef = useRef({ active: false, lastX: 0, lastY: 0 });
+  const autoRotateRef = useRef(true);
   const [isDragging, setIsDragging] = useState(false);
-  const [rotationMode, setRotationMode] = useState<'auto' | 'manual'>('auto');
+  const [rotationMode, setRotationMode] = useState<'auto' | 'manual' | 'paused'>('auto');
+  const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(null);
   
   const [states, setStates] = useState<Record<string, ReturnType<typeof getExchangeState>>>(() => {
     const init: any = {};
@@ -113,7 +115,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       if (isReduced) {
         const offset = new Date().getTimezoneOffset(); // in minutes
         rotationRef.current = -(offset / 60) * 15;
-      } else if (!dragRef.current.active) {
+      } else if (!dragRef.current.active && autoRotateRef.current) {
         rotationRef.current += (dt / 1000) * 9; // 40s revolution: visibly alive, still cinematic
       }
 
@@ -246,6 +248,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
     setIsDragging(true);
+    autoRotateRef.current = false;
     setRotationMode('manual');
   };
 
@@ -271,6 +274,24 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const handleRotateButton = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     rotationRef.current += 72;
+    autoRotateRef.current = false;
+    setRotationMode('manual');
+  };
+
+  const handleToggleRotation = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const next = !autoRotateRef.current;
+    autoRotateRef.current = next;
+    setRotationMode(next ? 'auto' : 'paused');
+  };
+
+  const focusExchange = (id: string, event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.stopPropagation();
+    const exchange = GLOBE_EXCHANGES.find((item) => item.id === id);
+    if (!exchange) return;
+    rotationRef.current = -exchange.lon;
+    autoRotateRef.current = false;
+    setSelectedExchangeId(id);
     setRotationMode('manual');
   };
 
@@ -283,6 +304,19 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       case 'holiday': return 'bg-muted-foreground/40';
     }
   };
+
+  const marketRows = GLOBE_EXCHANGES
+    .map((exchange) => ({ exchange, state: states[exchange.id] }))
+    .filter((row): row is { exchange: typeof GLOBE_EXCHANGES[number]; state: ReturnType<typeof getExchangeState> } => Boolean(row.state));
+  const openMarkets = marketRows.filter(({ state }) => state.status === 'open');
+  const visibleMarkets = marketRows.filter(({ state }) => state.status === 'open' || state.status === 'pre' || state.status === 'post');
+  const selectedExchange = GLOBE_EXCHANGES.find((exchange) => exchange.id === selectedExchangeId);
+  const selectedState = selectedExchangeId ? states[selectedExchangeId] : undefined;
+  const utcLabel = new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date());
 
   return (
     <div
@@ -315,6 +349,8 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
             ref={el => { pointsRef.current[ex.id] = el; }}
             className="absolute top-0 left-0 group outline-none cursor-pointer"
             style={{ display: 'none' }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => focusExchange(ex.id, event)}
             aria-label={`${ex.location}, ${ex.name}, ${st.localTimeStr} heure locale, ${STATUS_LABELS[st.status]}`}
           >
             <div className={`rounded-full transition-all duration-500 ease-in-out relative ${variant === 'hero' ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${getDotClass(st.status)}`}>
@@ -334,9 +370,64 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
 
       {variant === 'hero' && (
         <>
-          <div className="pointer-events-none absolute bottom-[15%] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/20 bg-background/45 px-2.5 py-1 text-[8px] uppercase tracking-[0.18em] text-primary/75 backdrop-blur-sm">
-            {rotationMode === 'manual' ? 'Rotation manuelle active' : 'Rotation automatique'}
+          <div className="absolute right-[2%] top-[13%] z-30 w-[165px] rounded-xl border border-primary/20 bg-background/65 p-2.5 text-left shadow-2xl backdrop-blur-md sm:right-[3%] sm:top-[14%] sm:w-[190px] sm:p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Marchés en direct</span>
+              <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.35)]" />
+                {openMarkets.length}/{GLOBE_EXCHANGES.length}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+              <Clock3 className="h-3 w-3 text-primary/70" />
+              UTC {utcLabel}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {visibleMarkets.slice(0, 4).map(({ exchange, state }) => (
+                <button
+                  key={exchange.id}
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => focusExchange(exchange.id, event)}
+                  className={`rounded-full border px-2 py-1 text-[9px] font-medium transition-colors ${
+                    selectedExchangeId === exchange.id
+                      ? 'border-primary/70 bg-primary/15 text-primary'
+                      : 'border-border/60 bg-background/40 text-muted-foreground hover:border-primary/50 hover:text-primary'
+                  }`}
+                  title={`${exchange.name} — ${STATUS_LABELS[state.status]}`}
+                >
+                  {exchange.id.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            {selectedExchange && selectedState && (
+              <div className="mt-3 border-t border-border/50 pt-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
+                  <LocateFixed className="h-3 w-3 text-primary" />
+                  {selectedExchange.location}
+                </div>
+                <div className="mt-1 text-[9px] text-muted-foreground">
+                  {selectedExchange.name} · {selectedState.localTimeStr}
+                </div>
+                <div className={`mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] ${selectedState.status === 'open' ? 'text-emerald-400' : 'text-primary'}`}>
+                  {STATUS_LABELS[selectedState.status]}
+                </div>
+              </div>
+            )}
           </div>
+          <div className="pointer-events-none absolute bottom-[15%] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/20 bg-background/45 px-2.5 py-1 text-[8px] uppercase tracking-[0.18em] text-primary/75 backdrop-blur-sm">
+            {rotationMode === 'manual' ? 'Vue sélectionnée' : rotationMode === 'paused' ? 'Rotation en pause' : 'Rotation automatique'}
+          </div>
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={handleToggleRotation}
+            className="absolute bottom-[15%] right-[4%] z-30 flex items-center gap-1.5 rounded-full border border-primary/25 bg-background/65 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-primary shadow-lg backdrop-blur-md transition-all hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={autoRotateRef.current ? 'Mettre la rotation en pause' : 'Reprendre la rotation automatique'}
+          >
+            {autoRotateRef.current ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            {autoRotateRef.current ? 'Pause' : 'Reprendre'}
+          </button>
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}

@@ -37,6 +37,7 @@ export default function Landing() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
+      <div className="observatory-backdrop pointer-events-none fixed inset-0" aria-hidden="true" />
       <div className="space-starfield pointer-events-none fixed inset-0" aria-hidden="true" />
       {/* fond : vignette dorée très douce, pas d'image importée */}
       <div
@@ -113,8 +114,11 @@ export default function Landing() {
           </div>
         </div>
 
-        <Reveal as="div" direction="scale" className="relative z-10 mx-auto aspect-square w-full max-w-[590px]">
+        <Reveal as="div" direction="scale" className="observatory-stage relative z-10 mx-auto aspect-square w-full max-w-[590px]">
           <div className="pointer-events-none absolute inset-[7%] rounded-full border border-[#c9a227]/10 shadow-[0_0_90px_rgba(201,162,39,0.09)]" />
+          <div className="observatory-stage-glow pointer-events-none absolute inset-[12%] rounded-full" />
+          <div className="observatory-stage-orbit observatory-stage-orbit-a pointer-events-none absolute inset-[3%] rounded-full" />
+          <div className="observatory-stage-orbit observatory-stage-orbit-b pointer-events-none absolute inset-[9%] rounded-full" />
           <div className="orbital-ring" />
           <div className="pointer-events-none absolute left-1/2 top-[6%] z-20 -translate-x-1/2 text-center">
             <div className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c9a227]/80">

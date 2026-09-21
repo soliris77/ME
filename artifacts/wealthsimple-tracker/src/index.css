@@ -214,6 +214,47 @@
   letter-spacing: 0.18em;
 }
 
+/* ─── Fond de l'observatoire derrière le globe ─── */
+.observatory-backdrop {
+  background:
+    radial-gradient(ellipse 42% 58% at 73% 48%, rgba(212, 167, 44, 0.10), transparent 68%),
+    radial-gradient(ellipse 38% 52% at 70% 48%, rgba(42, 65, 104, 0.22), transparent 72%),
+    radial-gradient(ellipse 75% 85% at 20% 15%, rgba(74, 18, 34, 0.18), transparent 70%),
+    linear-gradient(135deg, #07080a 0%, #0a0d15 54%, #11090d 100%);
+}
+
+.observatory-stage-glow {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(201, 162, 39, 0.16) 0%, rgba(64, 81, 116, 0.13) 34%, transparent 70%);
+  filter: blur(12px);
+  opacity: 0.9;
+}
+
+.observatory-stage-orbit {
+  border: 1px solid rgba(201, 162, 39, 0.13);
+  box-shadow: 0 0 28px rgba(201, 162, 39, 0.06);
+  transform: rotate(-18deg) scaleY(0.32);
+  animation: observatoryOrbit 18s linear infinite;
+}
+
+.observatory-stage-orbit-b {
+  transform: rotate(28deg) scaleY(0.52);
+  border-color: rgba(113, 145, 190, 0.13);
+  animation-duration: 26s;
+  animation-direction: reverse;
+}
+
+@keyframes observatoryOrbit {
+  from { rotate: 0deg; }
+  to { rotate: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .observatory-stage-orbit {
+    animation: none;
+  }
+}
+
 /* ─── Reflet doré sur les textes d'accent, jamais sur les images ─── */
 @keyframes solirisGoldTextShimmer {
   0% { background-position: -180% center; }
