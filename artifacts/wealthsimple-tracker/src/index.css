@@ -1095,6 +1095,45 @@
   animation: globeVitality 3.2s var(--ease-precision) infinite;
 }
 
+.globe-market-point-open {
+  animation: marketPointSpark 1.8s ease-in-out infinite;
+}
+
+.globe-market-point-open::before,
+.globe-market-point-open::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(242, 210, 126, 0.52);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.globe-market-point-open::before {
+  animation: marketPointRipple 1.8s ease-out infinite;
+}
+
+.globe-market-point-open::after {
+  inset: -2px;
+  border-color: rgba(125, 215, 199, 0.72);
+  animation: marketPointTwinkle 1.8s ease-in-out 0.3s infinite;
+}
+
+@keyframes marketPointSpark {
+  0%, 100% { filter: brightness(0.9); }
+  45% { filter: brightness(1.65) drop-shadow(0 0 5px rgba(242, 210, 126, 0.86)); }
+}
+
+@keyframes marketPointRipple {
+  0% { opacity: 0.7; transform: scale(0.75); }
+  100% { opacity: 0; transform: scale(2.3); }
+}
+
+@keyframes marketPointTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.35); }
+}
+
 .globe-hover-panel {
   opacity: 0;
   pointer-events: none;
