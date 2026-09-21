@@ -179,6 +179,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const [isDragging, setIsDragging] = useState(false);
   const [rotationMode, setRotationMode] = useState<'auto' | 'manual' | 'paused'>('auto');
   const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(variant === 'hero' ? 'nyse' : null);
+  const [hoveredExchangeId, setHoveredExchangeId] = useState<string | null>(null);
+  const [isPointerInside, setIsPointerInside] = useState(false);
+  const [moonPosition, setMoonPosition] = useState({ x: 50, y: 50 });
   
   const [states, setStates] = useState<Record<string, ReturnType<typeof getExchangeState>>>(() => {
     const init: any = {};
@@ -353,7 +356,22 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     setRotationMode('manual');
   };
 
+  const updateMoonPosition = (event: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+    setMoonPosition({
+      x: Math.max(7, Math.min(93, x)),
+      y: Math.max(7, Math.min(93, y)),
+    });
+  };
+
+  const handlePointerEnter = () => {
+    setIsPointerInside(true);
+  };
+
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    updateMoonPosition(event);
     if (!dragRef.current.active) return;
     const deltaX = event.clientX - dragRef.current.lastX;
     const deltaY = event.clientY - dragRef.current.lastY;
@@ -361,6 +379,11 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     dragRef.current.lastX = event.clientX;
     dragRef.current.lastY = event.clientY;
     if (Math.abs(deltaX) + Math.abs(deltaY) > 1) event.preventDefault();
+  };
+
+  const handlePointerLeave = () => {
+    setIsPointerInside(false);
+    setHoveredExchangeId(null);
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -414,6 +437,10 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const selectedExchange = GLOBE_EXCHANGES.find((exchange) => exchange.id === selectedExchangeId);
   const selectedState = selectedExchangeId ? states[selectedExchangeId] : undefined;
   const selectedStory = selectedExchangeId ? MARKET_STORIES[selectedExchangeId] : undefined;
+  const activeExchangeId = hoveredExchangeId ?? selectedExchangeId;
+  const activeExchange = GLOBE_EXCHANGES.find((exchange) => exchange.id === activeExchangeId);
+  const activeState = activeExchangeId ? states[activeExchangeId] : undefined;
+  const activeStory = activeExchangeId ? MARKET_STORIES[activeExchangeId] : undefined;
   const globalPhase = getGlobalPhase(
     openMarkets.map(({ exchange }) => exchange),
     visibleMarkets.map(({ exchange }) => exchange),
@@ -428,9 +455,11 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onPointerEnter={handlePointerEnter}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
       className={`globe-vitality relative mx-auto h-full w-full select-none touch-none ${
         variant === 'hero' ? 'max-w-[700px] aspect-square' : 'aspect-square max-h-full'
       }`}
@@ -439,6 +468,17 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       aria-label="Globe interactif et encyclopédie des places boursières. Faites glisser pour le faire tourner."
     >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
+
+      {isPointerInside && (
+        <div
+          className="globe-pointer-moon pointer-events-none absolute z-20"
+          style={{ left: `${moonPosition.x}%`, top: `${moonPosition.y}%` }}
+          aria-hidden="true"
+        >
+          <span className="globe-pointer-moon-body" />
+          <span className="globe-pointer-moon-label">Lune de veille</span>
+        </div>
+      )}
       
       <ul className="sr-only">
         {GLOBE_EXCHANGES.map(ex => (
@@ -457,6 +497,8 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
             className="absolute top-0 left-0 group outline-none cursor-pointer"
             style={{ display: 'none' }}
             onPointerDown={(event) => event.stopPropagation()}
+            onMouseEnter={() => setHoveredExchangeId(ex.id)}
+            onMouseLeave={() => setHoveredExchangeId(null)}
             onClick={(event) => focusExchange(ex.id, event)}
             aria-label={`${ex.location}, ${ex.name}, ${st.localTimeStr} heure locale, ${STATUS_LABELS[st.status]}`}
           >
@@ -469,6 +511,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
               <div className="text-muted-foreground mt-1 font-mono text-[10px] uppercase tracking-widest">{st.localTimeStr} <span className="opacity-50">locale</span></div>
               <div className={`mt-1 font-bold text-[10px] uppercase tracking-widest ${st.status === 'open' ? 'text-primary' : 'text-muted-foreground/80'}`}>
                 {STATUS_LABELS[st.status]}
+              </div>
+              <div className="mt-1 max-w-[190px] whitespace-normal text-[10px] leading-relaxed text-muted-foreground">
+                {MARKET_STORIES[ex.id]?.role}
               </div>
             </div>
           </button>
@@ -498,27 +543,30 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
               <span>{openMarkets.length} ouverts</span>
               <span>{visibleMarkets.length} sur le relais</span>
             </div>
-            {selectedExchange && selectedState && selectedStory && (
+            {activeExchange && activeState && activeStory && (
               <div className="mt-3 border-t border-primary/15 pt-2.5">
                 <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
                   <LocateFixed className="h-3 w-3" />
-                  {selectedExchange.location}
+                  {activeExchange.location}
                 </div>
                 <div className="mt-1 text-[11px] font-medium leading-tight text-foreground">
-                  {selectedStory.title}
+                  {activeStory.title}
+                </div>
+                <div className="mt-1 text-[8px] uppercase tracking-[0.1em] text-primary/65">
+                  {activeStory.role}
                 </div>
                 <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
-                  {selectedStory.fact}
+                  {activeStory.fact}
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2 text-[8px] uppercase tracking-[0.1em]">
-                  <span className={selectedState.status === 'open' ? 'text-emerald-400' : 'text-primary/75'}>
-                    {STATUS_LABELS[selectedState.status]}
+                  <span className={activeState.status === 'open' ? 'text-emerald-400' : 'text-primary/75'}>
+                    {STATUS_LABELS[activeState.status]}
                   </span>
-                  <span className="text-muted-foreground">{selectedStory.region}</span>
+                  <span className="text-muted-foreground">{activeStory.region}</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1 text-[8px] leading-relaxed text-primary/75">
                   <ArrowUpRight className="h-3 w-3 shrink-0" />
-                  {selectedStory.lens}
+                  {activeStory.lens}
                 </div>
               </div>
             )}
@@ -544,6 +592,8 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
                   key={exchange.id}
                   type="button"
                   onPointerDown={(event) => event.stopPropagation()}
+                  onMouseEnter={() => setHoveredExchangeId(exchange.id)}
+                  onMouseLeave={() => setHoveredExchangeId(null)}
                   onClick={(event) => focusExchange(exchange.id, event)}
                   className={`rounded-full border px-2 py-1 text-[9px] font-medium transition-colors ${
                     selectedExchangeId === exchange.id
@@ -556,17 +606,17 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
                 </button>
               ))}
             </div>
-            {selectedExchange && selectedState && (
+            {activeExchange && activeState && (
               <div className="mt-3 border-t border-border/50 pt-2">
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
                   <LocateFixed className="h-3 w-3 text-primary" />
-                  {selectedExchange.location}
+                  {activeExchange.location}
                 </div>
                 <div className="mt-1 text-[9px] text-muted-foreground">
-                  {selectedExchange.name} · {selectedState.localTimeStr}
+                  {activeExchange.name} · {activeState.localTimeStr}
                 </div>
-                <div className={`mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] ${selectedState.status === 'open' ? 'text-emerald-400' : 'text-primary'}`}>
-                  {STATUS_LABELS[selectedState.status]}
+                <div className={`mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] ${activeState.status === 'open' ? 'text-emerald-400' : 'text-primary'}`}>
+                  {STATUS_LABELS[activeState.status]}
                 </div>
               </div>
             )}

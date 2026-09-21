@@ -1095,6 +1095,55 @@
   animation: globeVitality 3.2s var(--ease-precision) infinite;
 }
 
+.globe-pointer-moon {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  transform: translate(-50%, -50%);
+  animation: globeMoonAppear 280ms var(--ease-precision) both;
+}
+
+.globe-pointer-moon-body {
+  display: block;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 249, 216, 0.96) 0 12%, transparent 13%),
+    radial-gradient(circle at 68% 62%, rgba(126, 118, 91, 0.7) 0 13%, transparent 14%),
+    radial-gradient(circle at 38% 68%, rgba(107, 107, 97, 0.6) 0 9%, transparent 10%),
+    radial-gradient(circle at 42% 38%, #f3e7b8, #b6a77b 64%, #6e654e);
+  border: 1px solid rgba(255, 233, 162, 0.8);
+  box-shadow:
+    0 0 8px rgba(245, 221, 144, 0.92),
+    0 0 24px rgba(112, 163, 199, 0.4);
+  animation: globeMoonDrift 3.8s ease-in-out infinite;
+}
+
+.globe-pointer-moon-label {
+  border: 1px solid rgba(201, 162, 39, 0.28);
+  border-radius: 999px;
+  background: rgba(7, 8, 10, 0.72);
+  padding: 3px 7px;
+  color: rgba(242, 234, 214, 0.72);
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes globeMoonAppear {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.55); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes globeMoonDrift {
+  0%, 100% { transform: translate3d(-2px, 1px, 0) rotate(-4deg); }
+  50% { transform: translate3d(2px, -2px, 0) rotate(4deg); }
+}
+
 .globe-vitality::before {
   content: "";
   position: absolute;
@@ -1150,6 +1199,9 @@
   :root:not([data-motion="full"]) .globe-vitality::before {
     animation: none !important;
     transition: none;
+  }
+  :root:not([data-motion="full"]) .globe-pointer-moon-body {
+    animation: none !important;
   }
   :root:not([data-motion="full"]) .globe-halo { animation: none !important; display: none !important; }
 }

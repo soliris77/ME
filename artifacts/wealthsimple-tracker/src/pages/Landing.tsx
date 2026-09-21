@@ -2,7 +2,8 @@ import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { LineChart, ShieldCheck, Bell, Compass } from "lucide-react";
 import { Reveal, StaggerGroup, StaggerItem, Parallax } from "@/components/motion";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { INVESTOR_QUOTES } from "@/data/investorQuotes";
 
 const MarketGlobe = lazy(() => import("@/components/MarketGlobe"));
 
@@ -30,6 +31,17 @@ const PILLARS = [
 ];
 
 export default function Landing() {
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setQuoteIndex((current) => (current + 1) % INVESTOR_QUOTES.length);
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const currentQuote = INVESTOR_QUOTES[quoteIndex] ?? INVESTOR_QUOTES[0];
+
   usePageMeta(
     "Soliris Market",
     "Soliris Market — un suivi des marchés épuré et sans bruit, pensé pour l'investisseur exigeant."
@@ -136,9 +148,26 @@ export default function Landing() {
 
           <div className="gold-divider mt-8 w-24 animate-[fadeUp_1.1s_ease-out_0.35s_both]" />
 
-          <p className="brand-serif mt-8 max-w-md text-xl italic text-[#f2ead6]/80 sm:text-2xl animate-[fadeUp_1.1s_ease-out_0.45s_both]">
-            Une lecture claire des marchés, pour ceux qui n'ont pas de temps à perdre.
-          </p>
+          <div
+            className="mt-8 max-w-md animate-[fadeUp_1.1s_ease-out_0.45s_both]"
+            aria-live="polite"
+          >
+            <p
+              key={currentQuote.text}
+              className="brand-serif text-xl italic text-[#f2ead6]/80 transition-opacity duration-700 sm:text-2xl"
+            >
+              « {currentQuote.text} »
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] text-[#c9a227]/75">
+              <span className="h-px w-7 bg-[#c9a227]/50" />
+              <span>
+                Pensée inspirée de {currentQuote.author}
+              </span>
+            </div>
+            <div className="mt-2 text-[8px] uppercase tracking-[0.18em] text-[#f2ead6]/35">
+              Une nouvelle pensée toutes les 30 secondes · {INVESTOR_QUOTES.length} regards
+            </div>
+          </div>
 
           <div className="relative z-20 mt-10 flex flex-col items-center gap-5 sm:flex-row sm:gap-4 animate-[fadeUp_1.1s_ease-out_0.55s_both]">
             <Link href="/dashboard">
