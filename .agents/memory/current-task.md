@@ -5,6 +5,13 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Wallpaper animé 4K — L'Ange et la dernière envolée
+
+- ✅ FAIT — Étape 1 : Préparer une version améliorée et agrandie 4K de l’image fournie
+- → EN COURS — Étape 2 : Remplacer les anciens fonds de l’accueil par le nouveau visuel
+- ☐ À FAIRE — Étape 3 : Ajouter les animations de profondeur, lumière et particules
+- ☐ À FAIRE — Étape 4 : Vérifier le typecheck, le workflow et le rendu final
+
 ## Animation des textes dorés uniquement
 
 - ✅ FAIT — Étape 28 : Retirer l’animation de la bannière et cibler les textes dorés
