@@ -1157,10 +1157,10 @@
 .globe-moon-system {
   left: 50%;
   top: 50%;
-  width: min(58%, 300px);
-  aspect-ratio: 1.65;
+  width: min(76%, 430px);
+  aspect-ratio: 1.42;
   perspective: 900px;
-  transform: translate(-50%, -50%) rotateX(62deg);
+  transform: translate(-50%, -50%) rotateX(64deg) rotateZ(-8deg);
   transform-style: preserve-3d;
   animation: globeMoonAppear 480ms var(--ease-precision) both;
 }
@@ -1168,11 +1168,12 @@
 .globe-moon-orbit-ring {
   position: absolute;
   inset: 0;
-  border: 1px solid rgba(225, 200, 125, 0.38);
+  border: 1px solid rgba(225, 200, 125, 0.48);
   border-radius: 50%;
   box-shadow:
-    0 0 12px rgba(201, 162, 39, 0.2),
-    inset 0 0 14px rgba(103, 151, 186, 0.12);
+    0 0 16px rgba(201, 162, 39, 0.28),
+    0 0 42px rgba(103, 151, 186, 0.12),
+    inset 0 0 18px rgba(103, 151, 186, 0.16);
   transform: translateZ(1px);
 }
 
@@ -1180,28 +1181,62 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  animation: globeMoonOrbit 9s linear infinite;
+  transform-origin: center;
+  animation: globeMoonOrbit 10s linear infinite;
 }
 
 .globe-moon-body {
   position: absolute;
-  top: -11px;
+  top: -29px;
   left: 50%;
   display: block;
-  width: 24px;
-  height: 24px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 251, 226, 0.98) 0 10%, transparent 11%),
-    radial-gradient(circle at 67% 63%, rgba(121, 112, 84, 0.76) 0 14%, transparent 15%),
-    radial-gradient(circle at 39% 68%, rgba(107, 102, 86, 0.64) 0 10%, transparent 11%),
-    radial-gradient(circle at 40% 35%, #f5eac2, #b7a978 62%, #625844);
-  border: 1px solid rgba(255, 237, 173, 0.92);
+    radial-gradient(circle at 26% 25%, rgba(255, 251, 226, 0.98) 0 7%, transparent 8%),
+    radial-gradient(circle at 64% 60%, rgba(121, 112, 84, 0.72) 0 11%, transparent 12%),
+    radial-gradient(circle at 34% 70%, rgba(107, 102, 86, 0.68) 0 8%, transparent 9%),
+    radial-gradient(circle at 40% 34%, #f5eac2 0%, #cabb8a 44%, #8f815c 70%, #534b39 100%);
+  border: 1px solid rgba(255, 237, 173, 0.96);
   box-shadow:
-    0 0 9px rgba(255, 226, 145, 0.96),
-    0 0 25px rgba(123, 174, 207, 0.48),
-    inset -5px -4px 7px rgba(53, 48, 35, 0.38);
-  transform: translateX(-50%) rotateX(-62deg);
+    0 0 14px rgba(255, 226, 145, 0.98),
+    0 0 38px rgba(123, 174, 207, 0.62),
+    inset -14px -9px 16px rgba(46, 41, 29, 0.52),
+    inset 8px 7px 14px rgba(255, 250, 214, 0.26);
+  transform: translateX(-50%) rotateX(-64deg);
+  transform-style: preserve-3d;
+  animation: globeMoonDepth 10s linear infinite;
+}
+
+.globe-moon-body::before,
+.globe-moon-body::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.globe-moon-body::before {
+  width: 13px;
+  height: 8px;
+  top: 16px;
+  left: 11px;
+  background: rgba(106, 94, 67, 0.48);
+  box-shadow:
+    19px 17px 0 -2px rgba(113, 101, 73, 0.44),
+    7px 23px 0 -3px rgba(93, 84, 64, 0.5);
+  transform: rotate(-18deg);
+}
+
+.globe-moon-body::after {
+  width: 22px;
+  height: 58px;
+  top: -1px;
+  right: -1px;
+  background: linear-gradient(90deg, transparent, rgba(41, 38, 30, 0.14) 35%, rgba(26, 25, 21, 0.54));
+  filter: blur(1px);
 }
 
 .globe-moon-label {
@@ -1217,19 +1252,26 @@
   white-space: nowrap;
   backdrop-filter: blur(8px);
   position: absolute;
-  top: 18px;
+  top: 39px;
   left: 50%;
   transform: translateX(-50%) rotateX(-62deg);
 }
 
 @keyframes globeMoonAppear {
-  from { opacity: 0; transform: translate(-50%, -50%) rotateX(62deg) scale(0.55); }
-  to { opacity: 1; transform: translate(-50%, -50%) rotateX(62deg) scale(1); }
+  from { opacity: 0; transform: translate(-50%, -50%) rotateX(64deg) rotateZ(-8deg) scale(0.55); }
+  to { opacity: 1; transform: translate(-50%, -50%) rotateX(64deg) rotateZ(-8deg) scale(1); }
 }
 
 @keyframes globeMoonOrbit {
   from { transform: rotateZ(0deg); }
   to { transform: rotateZ(360deg); }
+}
+
+@keyframes globeMoonDepth {
+  0%, 100% { transform: translateX(-50%) rotateX(-64deg) scale(0.76); filter: brightness(0.82); }
+  25% { transform: translateX(-50%) rotateX(-64deg) scale(0.96); filter: brightness(0.96); }
+  50% { transform: translateX(-50%) rotateX(-64deg) scale(1.18); filter: brightness(1.08); }
+  75% { transform: translateX(-50%) rotateX(-64deg) scale(0.96); filter: brightness(0.96); }
 }
 
 .globe-vitality::before {
