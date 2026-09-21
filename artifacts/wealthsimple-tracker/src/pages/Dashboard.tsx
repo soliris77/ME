@@ -190,7 +190,7 @@ interface H24Asset { label: string; symbol: string | null }
 
 const H24_CATEGORIES: {
   id: string; label: string; badge: string; color: "violet" | "sky" | "amber";
-  assets: H24Asset[]; note: string;
+  assets: H24Asset[]; note: string; regimeLabel: string;
 }[] = [
   {
     id: "crypto",
@@ -212,6 +212,7 @@ const H24_CATEGORIES: {
       { label: "ATOM",  symbol: "ATOM-USD" },
     ],
     note: "Cotations continues — 7j/7, 24h/24",
+    regimeLabel: "Continu · 7j/7",
   },
   {
     id: "forex",
@@ -231,6 +232,7 @@ const H24_CATEGORIES: {
       { label: "EUR/GBP", symbol: "EURGBP=X"  },
     ],
     note: "Lun matin Sydney — Ven soir New York",
+    regimeLabel: "Quasi continu · lun–ven",
   },
   {
     id: "futures",
@@ -249,6 +251,7 @@ const H24_CATEGORIES: {
       { label: "Soja",         symbol: "ZS=F"  },
     ],
     note: "Pause quotidienne ~1h (17h–18h ET)",
+    regimeLabel: "Quasi continu · lun–ven",
   },
 ];
 
@@ -294,7 +297,7 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
   const hasMore = cat.assets.length > H24_DEFAULT_VISIBLE;
 
   return (
-    <div className={`surface-glass border rounded-xl p-4 flex flex-col transition-all ${t.border} hover:border-opacity-50`}>
+    <div className={`market-continuous-card surface-glass border rounded-xl p-4 flex flex-col transition-all ${t.border} hover:border-opacity-50`}>
       {/* Header — cliquable pour étendre */}
       <button
         onClick={() => setExpanded((v) => !v)}
@@ -315,6 +318,12 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
           )}
         </span>
       </button>
+
+      <div className={`market-continuous-regime ${t.label}`}>
+        <span className={`market-continuous-regime-dot ${cat.color}`} />
+        <span>{cat.regimeLabel}</span>
+        <span className="ml-auto opacity-60">{cat.id === "crypto" ? "ACTIF" : "FENÊTRE SEMAINE"}</span>
+      </div>
 
       {/* Asset chips — navigables */}
       <div className="flex flex-wrap gap-1.5 mb-4 flex-1">
@@ -369,8 +378,8 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
   const hasMore = ex.symbols.length > VISIBLE;
 
   return (
-    <div className={`surface-glass rounded-xl p-4 flex flex-col transition-colors ${
-      open ? "border-green-500/20" : "border-border/40"
+    <div className={`market-exchange-card surface-glass rounded-xl p-4 flex flex-col transition-colors ${
+      open ? "market-exchange-card-open" : "market-exchange-card-closed"
     }`}>
       {/* Header */}
       <div className="flex items-center gap-2.5 mb-4">
@@ -384,13 +393,8 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
           <div className="text-[9px] text-muted-foreground truncate uppercase tracking-widest">{ex.location}</div>
         </div>
         {/* Status badge */}
-        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[9px] font-bold font-mono tracking-widest ${
-          open ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-muted/40 text-muted-foreground border border-border/50"
-        }`}>
-          {open
-            ? <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            : <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
-          }
+        <div className={`market-exchange-status ${open ? "market-exchange-status-open" : "market-exchange-status-closed"}`}>
+          <span className="market-exchange-status-dot" />
           {open ? "OUVERT" : "FERMÉ"}
         </div>
       </div>
@@ -435,10 +439,10 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
 
       {/* Footer — hours + next event */}
       <div className={`text-[10px] border-t pt-3 flex flex-col gap-1 tracking-wide ${
-        open ? "border-green-500/10 text-green-400/60" : "border-border/30 text-muted-foreground/80"
+        open ? "border-green-500/10 text-green-400/60" : "border-primary/10 text-muted-foreground/80"
       }`}>
         <span className="font-medium">{ex.hoursLabel}, lun–ven</span>
-        <span>{next}</span>
+        <span className={open ? "" : "text-primary/75"}>{open ? next : `Prochaine séance · ${next}`}</span>
       </div>
     </div>
   );
@@ -452,14 +456,30 @@ function MarketStatusSection() {
       <SectionRule title="Statut des marchés" />
       <MarketStatusPanel />
 
-      {/* ── H24 : Crypto · Forex · Futures ──────────────────────────── */}
+      <div className="market-regime-heading">
+        <div>
+          <div className="market-regime-eyebrow">Disponibilité continue</div>
+          <h3 className="market-regime-title">Marchés qui restent actifs</h3>
+        </div>
+        <p>Les horaires diffèrent des places à séances fixes.</p>
+      </div>
+
+      {/* ── Marchés continus : crypto · forex · matières premières ───── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
         {H24_CATEGORIES.map((cat) => (
           <H24Card key={cat.id} cat={cat} />
         ))}
       </div>
 
-      {/* ── Bourses mondiales ────────────────────────────────────────── */}
+      <div className="market-regime-heading market-regime-heading-exchanges">
+        <div>
+          <div className="market-regime-eyebrow">Séances locales</div>
+          <h3 className="market-regime-title">Places et bourses mondiales</h3>
+        </div>
+        <p>Fermé signifie hors séance, pas en erreur.</p>
+      </div>
+
+      {/* ── Places à séances : NYSE · NASDAQ · Euronext · Tokyo ... ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {EXCHANGES.map((ex) => (
           <ExchangeCard key={ex.id} ex={ex} />

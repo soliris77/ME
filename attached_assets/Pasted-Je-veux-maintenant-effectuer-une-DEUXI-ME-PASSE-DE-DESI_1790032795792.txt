@@ -1,0 +1,739 @@
+Je veux maintenant effectuer une DEUXIÈME PASSE DE DESIGN ET D’EXPÉRIENCE sur l’Observatoire de Soliris Market.
+
+La première version de l’Observatoire a déjà été implémentée et fonctionne. Je ne veux PAS repartir de zéro et je ne veux PAS détruire ce qui fonctionne.
+
+Je veux maintenant faire passer l’Observatoire d’un composant « très beau » à une véritable SIGNATURE VISUELLE de Soliris Market.
+
+IMPORTANT :
+Avant de modifier quoi que ce soit, inspecte l’implémentation actuelle et comprends :
+
+* la structure du composant ;
+* le design actuel ;
+* le globe actuel ;
+* les animations existantes ;
+* les données utilisées ;
+* les interactions ;
+* le responsive ;
+* les performances.
+
+Conserve tout ce qui fonctionne bien et améliore uniquement ce qui peut réellement être élevé à un niveau supérieur.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. VISION GÉNÉRALE
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+L’Observatoire doit donner l’impression que l’utilisateur entre dans un véritable centre de surveillance numérique moderne.
+
+Je veux une expérience qui communique :
+
+« Voici le centre de vision de Soliris Market. »
+
+Mais attention :
+
+Je ne veux PAS d’une interface de science-fiction générique remplie de néons, de particules et d’animations.
+
+Je veux du :
+
+* premium ;
+* sophistiqué ;
+* minimaliste ;
+* technologique ;
+* immersif ;
+* élégant ;
+* précis ;
+* vivant.
+
+Chaque effet visuel doit avoir une raison.
+
+La règle principale :
+
+UNE ANIMATION = UNE FONCTION OU UNE INFORMATION.
+
+Ne pas ajouter d’effets uniquement parce qu’ils sont visuellement impressionnants.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. LE GLOBE DOIT DEVENIR LE CŒUR DE L’OBSERVATOIRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le globe actuel doit devenir l’élément visuel principal.
+
+Il ne doit plus simplement être une décoration placée au milieu du module.
+
+Il doit donner l’impression d’être le moteur visuel de l’Observatoire.
+
+Je veux une sensation de :
+
+« système mondial actuellement actif ».
+
+Le globe doit avoir une présence importante mais élégante.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. GLOBE — PROFONDEUR
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Si la technologie actuelle le permet sans dégrader les performances, construis plusieurs couches visuelles :
+
+COUCHE 1
+Particules ou étoiles très discrètes en arrière-plan.
+
+COUCHE 2
+Halo atmosphérique autour du globe.
+
+COUCHE 3
+Globe principal.
+
+COUCHE 4
+Grille latitude/longitude très subtile si elle améliore la lecture.
+
+COUCHE 5
+Points de données ou zones d’activité.
+
+COUCHE 6
+Connexions ou arcs lorsque de vraies données permettent de les représenter.
+
+COUCHE 7
+Ombre/profondeur permettant de détacher le globe du fond.
+
+L’ensemble doit rester extrêmement propre.
+
+Ne surcharge pas la scène.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. ROTATION DU GLOBE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le globe doit pouvoir tourner automatiquement.
+
+Mais la rotation doit être :
+
+* très lente ;
+* fluide ;
+* régulière ;
+* presque contemplative.
+
+Elle ne doit jamais donner l’impression d’un écran de jeu vidéo.
+
+Lorsque l’utilisateur interagit avec le globe :
+
+* suspendre temporairement la rotation automatique ;
+* permettre l’exploration ;
+* reprendre doucement la rotation après quelques secondes d’inactivité.
+
+Si le globe n’est pas réellement interactif actuellement, implémente cette interaction seulement si elle peut être faite proprement.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. INTERACTION AVEC LA SOURIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lorsque l’utilisateur déplace son curseur autour du globe, créer une réponse visuelle très subtile.
+
+Par exemple :
+
+* variation légère de l’éclairage ;
+* profondeur légèrement modifiée ;
+* éléments proches légèrement mis en évidence ;
+* apparition d’informations lorsqu’un point de données réel est survolé.
+
+IMPORTANT :
+Aucune animation agressive.
+
+L’utilisateur doit ressentir que l’interface réagit à sa présence sans que cela devienne un gadget.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. DONNÉES AUTOUR DU GLOBE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Si Soliris Market possède réellement des données géographiques ou des données pouvant être représentées spatialement, exploite-les.
+
+Les données peuvent apparaître sous forme de :
+
+* points lumineux ;
+* zones d’activité ;
+* connexions ;
+* arcs ;
+* signaux ;
+* événements.
+
+Lorsqu’une donnée est sélectionnée :
+
+POINT
+↓
+mise en évidence
+↓
+petit panneau contextuel
+↓
+informations pertinentes
+
+Ne jamais inventer de données.
+
+Si aucune donnée réelle n’est disponible pour une visualisation, conserve un globe visuel propre sans prétendre que les points représentent des événements réels.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. SYSTÈME DE SIGNAUX
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lorsqu’une vraie donnée importante apparaît, crée une animation de signal.
+
+Exemple conceptuel :
+
+POINT
+→ petite pulsation
+→ halo circulaire
+→ information contextuelle
+→ retour progressif à l’état normal.
+
+La durée doit être courte et élégante.
+
+Ne laisse pas tous les points pulser en permanence.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. CONNEXIONS / ARCS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Si les données permettent de représenter des connexions géographiques :
+
+ajoute des arcs subtils entre certains points.
+
+L’arc peut apparaître progressivement :
+
+POINT A
+───────╮
+╰──── POINT B
+
+Puis disparaître lentement.
+
+Ne jamais transformer le globe en toile de lignes permanente.
+
+Les connexions doivent être rares et significatives.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. ANIMATION DE SCAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ajoute éventuellement un effet de « scan » très subtil.
+
+L’objectif est de communiquer :
+
+« le système observe / actualise ».
+
+Le scan peut être :
+
+* une lumière douce ;
+* une ligne extrêmement fine ;
+* une onde circulaire ;
+* un balayage très lent.
+
+Il ne doit PAS fonctionner en boucle permanente agressive.
+
+Il peut se déclencher :
+
+* au chargement ;
+* lors d’une actualisation ;
+* lorsqu’une nouvelle donnée réelle arrive.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. ANIMATION D’ENTRÉE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Travaille particulièrement l’entrée initiale de l’Observatoire.
+
+Je veux une séquence courte et premium.
+
+TIMELINE APPROXIMATIVE :
+
+0–300 ms
+→ apparition du conteneur.
+
+300–700 ms
+→ apparition du globe.
+
+700–1100 ms
+→ apparition progressive des informations.
+
+1100–1500 ms
+→ activation des indicateurs.
+
+Puis :
+→ état calme.
+
+Ne transforme pas chaque changement de page en longue animation.
+
+L’animation d’entrée doit être courte et mémorable.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. MICRO-INTERACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ajoute des micro-interactions cohérentes :
+
+* hover ;
+* focus ;
+* sélection ;
+* apparition d’informations ;
+* changement d’état ;
+* actualisation ;
+* ouverture du mode immersif.
+
+Toutes les transitions doivent être fluides.
+
+Utilise des durées courtes.
+
+Évite les animations excessivement lentes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. MODE IMMERSIF
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le bouton permettant d’ouvrir l’Observatoire doit être beaucoup plus qu’un simple agrandissement.
+
+Lorsqu’il est activé :
+
+1. transition fluide depuis le dashboard ;
+2. agrandissement du globe ;
+3. disparition ou réduction visuelle des éléments secondaires ;
+4. apparition d’informations supplémentaires ;
+5. contrôles du globe ;
+6. accès aux détails ;
+7. possibilité de revenir au dashboard.
+
+Le mode immersif doit donner l’impression que l’utilisateur entre dans un véritable centre d’observation.
+
+Mais il doit rester cohérent avec Soliris Market.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. CONTRÔLES DU GLOBE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Si pertinent, ajoute des contrôles minimalistes :
+
+*
+
+−
+⌖
+⟳
+
+Ils peuvent permettre :
+
+*
+
+→ zoom avant
+
+−
+→ zoom arrière
+
+⌖
+→ recentrer
+
+⟳
+→ activer/désactiver la rotation automatique
+
+Ne présente pas ces contrôles comme de gros boutons classiques.
+
+Ils doivent être élégants et presque intégrés à l’interface.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. HIÉRARCHIE VISUELLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Il faut clairement établir plusieurs niveaux d’importance.
+
+NIVEAU 1
+OBSERVATOIRE
+
+NIVEAU 2
+GLOBE
+
+NIVEAU 3
+INFORMATIONS IMPORTANTES
+
+NIVEAU 4
+STATISTIQUES SECONDAIRES
+
+NIVEAU 5
+CONTRÔLES
+
+Tout ne doit pas avoir la même luminosité, taille ou importance.
+
+Le regard doit naturellement aller :
+
+Titre
+↓
+Globe
+↓
+information principale
+↓
+détails.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. « CENTRE DE GRAVITÉ »
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le globe doit être le centre de gravité visuel.
+
+Les informations autour doivent être organisées pour guider le regard vers lui.
+
+Évite de mettre trop de cartes indépendantes autour.
+
+Préférer :
+
+GLOBE CENTRAL
+
+*
+
+informations intégrées autour
+
+plutôt que :
+
+GLOBE
+
++ 7 cartes identiques.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+16. L’INTERFACE DOIT RESPIRER
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Réévalue les espacements.
+
+Je veux :
+
+* beaucoup d’air ;
+* marges cohérentes ;
+* hiérarchie nette ;
+* éléments bien alignés.
+
+Ne remplis pas chaque espace vide.
+
+L’espace vide fait partie du design.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+17. LUMIÈRE ET EFFETS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Utilise la lumière comme un outil de hiérarchie.
+
+Par exemple :
+
+* halo autour du globe ;
+* lumière légère autour d’un événement actif ;
+* accent lors d’une sélection ;
+* lumière faible autour du statut actif.
+
+Mais :
+
+PAS de néons partout.
+
+PAS de glow excessif.
+
+PAS de gradients multicolores inutiles.
+
+La lumière doit être contrôlée.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+18. PALETTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Réutilise impérativement la palette déjà présente dans Soliris Market.
+
+Ne crée pas une nouvelle identité visuelle pour l’Observatoire.
+
+Le globe doit sembler appartenir naturellement au produit.
+
+Si certaines couleurs sont nécessaires pour représenter différents états, utilise-les comme accents et non comme couleurs dominantes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+19. TYPOGRAPHIE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+La typographie doit rester extrêmement lisible.
+
+Créer une hiérarchie claire :
+
+Petit :
+labels / métadonnées
+
+Moyen :
+informations secondaires
+
+Grand :
+données importantes
+
+Très grand :
+élément principal lorsque nécessaire
+
+Évite les textes minuscules utilisés uniquement pour donner une impression « technique ».
+
+La lisibilité passe avant l’esthétique.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+20. ÉVÉNEMENTS VISUELS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lorsque le système reçoit réellement une nouvelle information importante :
+
+ne fais pas apparaître brutalement un bloc.
+
+Utilise une séquence :
+
+signal
+↓
+mise en évidence
+↓
+apparition de l’information
+↓
+stabilisation.
+
+Cela doit donner une sensation de système vivant.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+21. ACTUALISATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lorsque les données sont actualisées :
+
+ne recharge pas visuellement tout le composant.
+
+Anime uniquement les éléments concernés.
+
+Par exemple :
+
+Dernière mise à jour
+19:05:12
+
+→ changement subtil
+
+ou
+
+point actualisé
+→ petite impulsion
+
+L’utilisateur doit comprendre qu’une actualisation vient d’avoir lieu sans être distrait.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+22. ÉTATS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vérifie et améliore tous les états :
+
+LOADING
+→ chargement élégant
+
+READY
+→ état normal
+
+UPDATING
+→ actualisation discrète
+
+NO DATA
+→ aucune donnée disponible
+
+ERROR
+→ erreur clairement expliquée
+
+OFFLINE
+→ connexion indisponible
+
+SELECTED
+→ élément sélectionné
+
+IMMERSIVE
+→ mode plein écran
+
+Chaque état doit avoir une apparence cohérente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+23. ACCESSIBILITÉ
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Respecte :
+
+* contraste ;
+* navigation clavier ;
+* focus visible ;
+* labels accessibles ;
+* informations compréhensibles sans la couleur ;
+* prefers-reduced-motion.
+
+Si l’utilisateur demande une réduction des animations, désactive toutes les animations non essentielles.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+24. PERFORMANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+C’est une priorité.
+
+Le globe et ses animations ne doivent pas ralentir le dashboard.
+
+Analyse les performances de l’implémentation actuelle.
+
+Évite :
+
+* rerenders inutiles ;
+* timers multiples ;
+* calculs lourds ;
+* animations JavaScript inutiles ;
+* effets qui consomment énormément de ressources.
+
+Privilégie les techniques performantes adaptées à la technologie déjà utilisée par le projet.
+
+Si WebGL / Canvas / SVG est déjà utilisé, optimise l’implémentation existante plutôt que de remplacer toute l’architecture sans nécessité.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+25. RESPONSIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DESKTOP :
+
+Le globe doit avoir une présence forte.
+
+TABLETTE :
+
+Réduire intelligemment le globe et réorganiser les informations.
+
+MOBILE :
+
+Le globe reste spectaculaire mais ne doit pas prendre toute la hauteur de l’écran.
+
+Les informations doivent être accessibles sous le globe.
+
+Aucun débordement horizontal.
+
+Aucun texte coupé.
+
+Aucune interaction dépendante uniquement du hover.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+26. CURSEUR ET INTERACTIONS TACTILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sur desktop :
+utiliser les interactions de souris lorsque pertinentes.
+
+Sur mobile :
+remplacer les interactions hover par des interactions tactiles.
+
+Ne jamais rendre une information essentielle accessible uniquement au survol.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+27. DESIGN SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Réutilise les composants existants lorsque possible.
+
+Ne crée pas :
+
+* une nouvelle famille de boutons ;
+* une nouvelle famille de cartes ;
+* une nouvelle palette ;
+* une nouvelle typographie.
+
+L’Observatoire doit enrichir le design system existant.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+28. RÈGLE ANTI-SURCHARGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Après avoir ajouté les améliorations, fais une deuxième analyse critique.
+
+Supprime tout effet qui :
+
+* n’apporte aucune information ;
+* rend l’interface moins lisible ;
+* ralentit l’expérience ;
+* attire l’attention au mauvais endroit ;
+* donne un aspect générique « sci-fi ».
+
+Je préfère 5 animations parfaitement exécutées à 30 animations médiocres.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+29. TEST VISUEL FINAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Une fois terminé, regarde l’Observatoire comme si tu étais un utilisateur qui découvre Soliris Market pour la première fois.
+
+Pose-toi les questions suivantes :
+
+1. Est-ce que mon regard va naturellement vers le globe ?
+2. Est-ce que je comprends immédiatement ce qu’est l’Observatoire ?
+3. Est-ce que le globe semble vivant ?
+4. Est-ce que les animations ont une fonction ?
+5. Est-ce que l’interface paraît premium ?
+6. Est-ce qu’elle paraît professionnelle ?
+7. Est-ce que les informations sont faciles à comprendre ?
+8. Est-ce qu’il y a trop d’effets ?
+9. Est-ce que le globe semble appartenir naturellement à Soliris Market ?
+10. Est-ce que l’expérience reste fluide ?
+11. Est-ce que le mode immersif apporte réellement quelque chose ?
+12. Est-ce que l’interface reste excellente sans les animations ?
+
+Si certaines réponses sont négatives, corrige le problème avant de considérer la tâche terminée.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+30. RÈGLE ABSOLUE SUR LES DONNÉES
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ne jamais présenter des données simulées comme des données réelles.
+
+Si un point, un arc, un signal ou un événement représente une information réelle, il doit provenir d’une source réelle disponible dans l’application.
+
+Si ce n’est pas possible :
+
+* utilise une visualisation purement décorative clairement non présentée comme une donnée ;
+* ou affiche un état « aucune donnée disponible ».
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+31. NE PAS CASSER L’EXISTANT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Après les modifications :
+
+* vérifie les routes ;
+* vérifie les imports ;
+* vérifie les composants ;
+* vérifie les données ;
+* vérifie les API ;
+* vérifie la console ;
+* vérifie les performances ;
+* vérifie le responsive ;
+* vérifie le mode clair/sombre s’il existe ;
+* vérifie le dashboard complet.
+
+L’Observatoire doit être amélioré sans casser les autres sections.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+32. RÉSULTAT RECHERCHÉ
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Je veux que l’Observatoire devienne une signature de Soliris Market.
+
+L’utilisateur doit pouvoir ressentir trois choses :
+
+1. « C’est beau. »
+2. « C’est vivant. »
+3. « Ça sert réellement à quelque chose. »
+
+Le résultat final doit ressembler à un produit technologique haut de gamme, et non à une simple collection d’effets visuels.
+
+Priorité absolue :
+
+UTILITÉ
++
+CLARTÉ
++
+BEAUTÉ
++
+IMMERSION
++
+PERFORMANCE
+
+dans cet ordre.
+
+Commence par inspecter l’implémentation actuelle.
+
+Puis améliore directement le code existant.
+
+Ne te contente pas de me décrire ce que tu pourrais faire.
+
+Implémente les améliorations, teste l’interface et corrige les problèmes que tu rencontres.
+
+À la fin, vérifie visuellement l’ensemble du dashboard pour t’assurer que l’Observatoire s’intègre parfaitement au reste de Soliris Market.
