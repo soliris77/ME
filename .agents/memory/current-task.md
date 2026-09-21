@@ -17,6 +17,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 2 : Ajouter un aperçu professionnel, non interactif, du globe dans le dashboard avec lien vers l’observatoire
 - ✅ FAIT — Étape 3 : Ajouter le scintillement des places et les ondulations du relais ouvert au clic
 
+## Observatory Hero — dashboard et salle immersive
+
+- ✅ FAIT — Étape 1 : Donner à l’Observatoire une position centrale après le header du dashboard
+- ✅ FAIT — Étape 2 : Centraliser le hero réutilisable avec visualisation, statut réel de séance, métriques et CTA immersif
+- ✅ FAIT — Étape 3 : Ajouter la profondeur visuelle, le responsive et le guide de lecture sans inventer de données
+
 ## Globe au survol, lune 3D et curseur Soliris — accueil/site
 
 - ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés

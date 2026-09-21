@@ -1,36 +1,34 @@
-import { lazy, Suspense } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
   Compass,
-  Globe2,
   Info,
   Layers3,
+  MousePointer2,
   Radio,
   Sparkles,
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
-
-const MarketGlobe = lazy(() => import("@/components/MarketGlobe"));
+import ObservatoryHero from "@/components/ObservatoryHero";
 
 const OBSERVATORY_READINGS = [
   {
     icon: Radio,
     label: "Relais actif",
     title: "Suivre la main qui passe",
-    text: "Chaque place prend le relais d’une autre. Le globe montre la séance, pas une prédiction.",
+    text: "Chaque place prend le relais d’une autre. Les ondulations signalent la séance ouverte, sans transformer le statut en prédiction.",
   },
   {
     icon: Layers3,
     label: "Lecture en couches",
     title: "Temps, territoire, contexte",
-    text: "Survolez un nœud pour voir son heure locale, son statut et sa place dans le cycle mondial.",
+    text: "Survolez un nœud pour voir son heure locale, son statut et son rôle dans le cycle mondial.",
   },
   {
     icon: Compass,
     label: "Navigation",
     title: "Choisir un point de vue",
-    text: "Faites glisser la Terre, sélectionnez un marché et observez les ondulations du relais actif.",
+    text: "Faites glisser la Terre, sélectionnez une place et utilisez les commandes de rotation pour composer votre lecture.",
   },
 ];
 
@@ -38,97 +36,62 @@ export default function Observatory() {
   return (
     <PageTransition>
       <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
-          <header className="flex flex-col gap-5 border-b border-border/40 pb-7 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary/80">
-                <Globe2 className="h-3.5 w-3.5" />
-                Soliris · Observatoire
-              </div>
-              <h1 className="font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
-                Le monde change de main.
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                Une salle de lecture dédiée aux fuseaux, aux séances et aux places qui
-                donnent le rythme. Ici, le marché devient une géographie vivante.
-              </p>
+        <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-10 lg:py-7">
+          <header className="mb-5 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary/80">
+              <Sparkles className="h-3.5 w-3.5" />
+              Soliris · Salle d’observation
             </div>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary lg:self-auto"
+              className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Retour au tableau
+              Tableau de bord
             </Link>
           </header>
 
-          <section className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              ["08", "places suivies"],
-              ["03", "grands relais"],
-              ["24 h", "cycle mondial"],
-              ["live", "état de séance"],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="surface-glass rounded-xl border border-border/50 px-4 py-3"
-              >
-                <div className="font-mono text-lg text-primary">{value}</div>
-                <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-                  {label}
-                </div>
-              </div>
-            ))}
-          </section>
+          <ObservatoryHero variant="page" />
 
-          <section className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_360px]">
-            <div className="observatory-room relative min-h-[560px] overflow-hidden rounded-2xl border border-primary/20 bg-[#070b11] shadow-2xl">
-              <div className="observatory-room-stars pointer-events-none absolute inset-0" />
-              <div className="pointer-events-none absolute left-6 top-5 z-10">
-                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Salle des fuseaux
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Survolez la Terre pour ouvrir les instruments.
-                </div>
+          <section className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_1.9fr]">
+            <div className="observatory-context-panel rounded-2xl border border-primary/20 bg-card/60 p-5 sm:p-6">
+              <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary">
+                <Info className="h-3.5 w-3.5" />
+                Guide de lecture
               </div>
-              <div className="absolute inset-x-0 bottom-0 top-12">
-                <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Chargement de l’observatoire…</div>}>
-                  <MarketGlobe variant="hero" />
-                </Suspense>
+              <h2 className="mt-3 font-serif text-2xl tracking-tight text-foreground">
+                Une encyclopédie en mouvement
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                L’Observatoire distingue les faits de séance des données de prix.
+                Il montre où le marché est ouvert, quelle heure il est sur place et
+                comment les relais s’enchaînent.
+              </p>
+              <div className="mt-5 flex items-start gap-3 border-t border-border/50 pt-4">
+                <MousePointer2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Sur ordinateur, survolez les instruments. Sur mobile, touchez un
+                  nœud pour ouvrir sa fiche et utilisez le bouton de rotation pour
+                  changer de perspective.
+                </p>
               </div>
             </div>
 
-            <aside className="space-y-4">
-              <div className="rounded-2xl border border-primary/25 bg-card/70 p-5 shadow-xl">
-                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
-                  <Info className="h-3.5 w-3.5" />
-                  Comment lire l’astre
-                </div>
-                <h2 className="mt-3 font-serif text-2xl text-foreground">
-                  Une encyclopédie en mouvement
-                </h2>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Le globe n’affiche pas de faux cours. Il révèle les heures locales,
-                  les marchés ouverts et le contexte économique de chaque nœud.
-                </p>
-              </div>
-
+            <div className="grid gap-4 md:grid-cols-3">
               {OBSERVATORY_READINGS.map(({ icon: Icon, label, title, text }) => (
-                <div
+                <article
                   key={label}
-                  className="surface-glass rounded-2xl border border-border/50 p-4 transition-colors hover:border-primary/35"
+                  className="observatory-context-card rounded-2xl border border-border/50 bg-card/35 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card/60"
                 >
-                  <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+                  <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-primary/85">
                     <Icon className="h-3.5 w-3.5" />
                     {label}
                   </div>
-                  <h3 className="mt-2 text-sm font-semibold text-foreground">{title}</h3>
+                  <h3 className="mt-3 text-sm font-semibold text-foreground">{title}</h3>
                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{text}</p>
-                </div>
+                </article>
               ))}
-            </aside>
+            </div>
           </section>
         </div>
       </div>
