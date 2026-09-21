@@ -637,7 +637,7 @@ export default function MarketGlobe({
             onClick={(event) => focusExchange(ex.id, event)}
             aria-label={`${ex.location}, ${ex.name}, ${st.localTimeStr} heure locale, ${STATUS_LABELS[st.status]}`}
           >
-            <div className={`rounded-full transition-all duration-500 ease-in-out relative ${variant === 'hero' ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${getDotClass(st.status)}`}>
+             <div className={`globe-market-point rounded-full transition-all duration-500 ease-in-out relative ${st.status === 'open' ? 'globe-market-point-open' : ''} ${variant === 'hero' ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${getDotClass(st.status)}`}>
                {st.status === 'open' && <div className="globe-halo" />}
             </div>
             

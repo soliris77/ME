@@ -8,7 +8,7 @@ import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link } from "wouter";
 import {
   ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown,
-  Bitcoin, BarChart3, AlertTriangle, Bookmark,
+  Globe, Bitcoin, BarChart3, AlertTriangle, Bookmark,
   Radio, Clock, Infinity, ChevronDown, ChevronUp, ExternalLink,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -32,6 +32,9 @@ import { staggerContainer, cardVariants, listItemVariants, hoverLift, EASE_PRECI
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Sparkline } from "@/components/Sparkline";
 import { PageTransition } from "@/components/PageTransition";
+import { lazy, Suspense } from "react";
+
+const MarketGlobe = lazy(() => import("@/components/MarketGlobe"));
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -461,6 +464,30 @@ function MarketStatusSection() {
 
       {/* ── Bourses mondiales ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <Link
+          href="/observatoire"
+          className="group block min-h-[220px] xl:row-span-2"
+          aria-label="Ouvrir l'Observatoire mondial"
+        >
+          <div className="observatory-dashboard-preview surface-glass relative flex h-full min-h-[220px] flex-col items-center justify-center overflow-hidden rounded-xl border border-primary/20 p-4 transition-all duration-500 group-hover:border-primary/55 group-hover:shadow-[0_0_40px_hsl(var(--primary)/0.18)]">
+            <div className="observatory-dashboard-preview-light pointer-events-none absolute inset-0" />
+            <div className="pointer-events-none absolute left-4 top-3 z-10 flex items-center gap-2 rounded-md border border-primary/20 bg-background/55 px-2 py-1 backdrop-blur-sm">
+              <Globe className="h-3 w-3 text-primary/85" />
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-[0.22em] text-primary/85">Observatoire mondial</div>
+                <div className="mt-1 text-[9px] text-muted-foreground">Ouvrir la salle des fuseaux</div>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-x-8 bottom-3 top-11">
+              <Suspense fallback={<div className="skeleton-premium h-full w-full rounded-full" />}>
+                <MarketGlobe variant="compact" interactive={false} />
+              </Suspense>
+            </div>
+            <div className="pointer-events-none absolute bottom-4 z-10 rounded-full border border-primary/35 bg-background/75 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-primary opacity-80 transition-opacity group-hover:opacity-100">
+              Explorer l’observatoire →
+            </div>
+          </div>
+        </Link>
         {EXCHANGES.map((ex) => (
           <ExchangeCard key={ex.id} ex={ex} />
         ))}
