@@ -241,15 +241,15 @@
 }
 
 .celestial-welcome-layer-color {
-  background-image: url("/angel-flight-welcome-4k.webp");
-  filter: saturate(0.9) contrast(1.08) brightness(0.94);
+  background-image: url("/soliris-cosmic-observatory-8k.webp");
+  filter: saturate(0.94) contrast(1.08) brightness(0.94);
   opacity: 0.72;
   animation: celestialWelcomeColor 32s ease-in-out infinite alternate;
 }
 
 .celestial-welcome-layer-mono {
-  background-image: url("/angel-flight-welcome-4k.webp");
-  filter: grayscale(1) contrast(1.18) brightness(1.08);
+  background-image: url("/soliris-cosmic-observatory-8k.webp");
+  filter: grayscale(1) contrast(1.18) brightness(1.06);
   mix-blend-mode: screen;
   opacity: 0.16;
   animation: celestialWelcomeMono 36s ease-in-out 1s infinite alternate;

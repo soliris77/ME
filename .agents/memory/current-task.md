@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Wallpaper animé original 8K — Observatoire cosmique Soliris
+
+- ✅ FAIT — Étape 1 : Générer un fond original large adapté à la composition de l’accueil
+- ✅ FAIT — Étape 2 : Exporter le fond en haute résolution et l’intégrer
+- ✅ FAIT — Étape 3 : Vérifier les animations et le rendu final
+
 ## Wallpaper animé 4K — Anneau spatial et astéroïdes
 
 - ✅ FAIT — Étape 1 : Créer une version UHD 3840 × 2160 à partir de l’image verticale
