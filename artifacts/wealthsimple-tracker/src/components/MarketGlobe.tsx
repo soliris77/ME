@@ -485,6 +485,7 @@ export default function MarketGlobe({
   }, [variant]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
@@ -495,10 +496,13 @@ export default function MarketGlobe({
   };
 
   const handlePointerEnter = () => {
+    if (!interactive) return;
+    pointerInsideRef.current = true;
     setIsPointerInside(true);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
     if (!dragRef.current.active) return;
     const deltaX = event.clientX - dragRef.current.lastX;
     const deltaY = event.clientY - dragRef.current.lastY;
@@ -510,6 +514,8 @@ export default function MarketGlobe({
   };
 
   const handlePointerLeave = () => {
+    if (!interactive) return;
+    pointerInsideRef.current = false;
     setIsPointerInside(false);
     setHoveredExchangeId(null);
   };
@@ -604,21 +610,11 @@ export default function MarketGlobe({
         variant === 'hero' ? 'max-w-[700px] aspect-square' : 'aspect-square max-h-full'
       }`}
       data-market-phase={variant === 'hero' ? globalPhase.tone : undefined}
-      style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      style={{ cursor: interactive ? (isDragging ? 'grabbing' : 'grab') : 'default', pointerEvents: interactive ? 'auto' : 'none' }}
       aria-label="Globe interactif et encyclopédie des places boursières. Faites glisser pour le faire tourner."
     >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 
-      {isPointerInside && (
-        <div className="globe-moon-system pointer-events-none absolute z-20" aria-hidden="true">
-          <span className="globe-moon-orbit-ring" />
-          <span className="globe-moon-orbiter">
-            <span className="globe-moon-body" />
-            <span className="globe-moon-label">Lune de veille</span>
-          </span>
-        </div>
-      )}
-      
       <ul className="sr-only">
         {GLOBE_EXCHANGES.map(ex => (
           <li key={ex.id}>{ex.location}, {ex.name}, {states[ex.id]?.localTimeStr} heure locale, {STATUS_LABELS[states[ex.id]?.status]}</li>
