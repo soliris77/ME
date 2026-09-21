@@ -29,6 +29,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 2 : Ajouter compte à rebours réel, timeline de session, détails accessibles et source explicite
 - ✅ FAIT — Étape 3 : Vérifier le typecheck, le format, le démarrage du workflow et les routes accessibles
 
+## Régimes de marché — places à séances et marchés continus
+
+- ✅ FAIT — Étape 1 : Séparer visuellement NYSE/NASDAQ, Euronext/XETRA, Tokyo et les autres places locales
+- ✅ FAIT — Étape 2 : Donner à Forex, matières premières et crypto un langage distinct de disponibilité continue
+- ✅ FAIT — Étape 3 : Clarifier que « fermé » signifie hors séance, avec prochaine séance visible et sans fausse erreur
+
 ## Globe au survol, lune 3D et curseur Soliris — accueil/site
 
 - ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés
