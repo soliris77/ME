@@ -101,6 +101,28 @@ describe("cache d'historique /quotes/:symbol/history/:range", () => {
     }
   });
 
+  it("accepte les trois plages intrajournalières", async () => {
+    const { server, base } = await makeServer();
+    try {
+      for (const range of ["1h", "5m", "1m"]) {
+        const response = await fetch(`${base}/api/quotes/AAPL/history/${range}`);
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual([
+          {
+            date: "2026-07-30T14:00:00.000Z",
+            open: 1,
+            high: 2,
+            low: 0.5,
+            close: 1.5,
+            volume: 100,
+          },
+        ]);
+      }
+    } finally {
+      server.close();
+    }
+  });
+
   it("un échec Yahoo renvoie 500 à tous les clients, sans unhandledRejection, et permet un nouvel essai", async () => {
     const unhandled: unknown[] = [];
     const onUnhandled = (err: unknown) => unhandled.push(err);

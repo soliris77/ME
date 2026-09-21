@@ -38,6 +38,9 @@ import { twentyDayLow, twentyDayHigh } from "@/lib/stopSuggestion";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RANGES = [
+  { value: "1m",  label: "1 min" },
+  { value: "5m",  label: "5 min" },
+  { value: "1h",  label: "1h" },
   { value: "1d",  label: "1j" },
   { value: "5d",  label: "5j" },
   { value: "1mo", label: "1m" },
@@ -696,7 +699,7 @@ export default function QuoteDetail() {
       {/* Range */}
       <div className="flex items-center justify-between mb-5">
         <span className="text-[11px] tracking-widest uppercase text-muted-foreground/50">Période</span>
-        <div className="flex gap-1 bg-muted/40 p-0.5 rounded-lg">
+        <div className="flex flex-wrap justify-end gap-1 bg-muted/40 p-0.5 rounded-lg">
           {RANGES.map((r) => (
             <button
               key={r.value}

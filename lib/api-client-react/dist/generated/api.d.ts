@@ -74,13 +74,13 @@ export declare function useGetQuote<TData = Awaited<ReturnType<typeof getQuote>>
 }): UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
 };
-export declare const getGetQuoteHistoryUrl: (symbol: string, range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y") => string;
+export declare const getGetQuoteHistoryUrl: (symbol: string, range: "1m" | "5m" | "1h" | "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y") => string;
 /**
  * @summary Get historical price data for a symbol
  */
-export declare const getQuoteHistory: (symbol: string, range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y", options?: RequestInit) => Promise<HistoricalPoint[]>;
-export declare const getGetQuoteHistoryQueryKey: (symbol: string, range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y") => readonly [`/api/quotes/${string}/history/1d` | `/api/quotes/${string}/history/5d` | `/api/quotes/${string}/history/1mo` | `/api/quotes/${string}/history/3mo` | `/api/quotes/${string}/history/6mo` | `/api/quotes/${string}/history/1y`];
-export declare const getGetQuoteHistoryQueryOptions: <TData = Awaited<ReturnType<typeof getQuoteHistory>>, TError = ErrorType<unknown>>(symbol: string, range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y", options?: {
+export declare const getQuoteHistory: (symbol: string, range: "1m" | "5m" | "1h" | "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y", options?: RequestInit) => Promise<HistoricalPoint[]>;
+export declare const getGetQuoteHistoryQueryKey: (symbol: string, range: "1m" | "5m" | "1h" | "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y") => readonly [`/api/quotes/${string}/history/1m` | `/api/quotes/${string}/history/5m` | `/api/quotes/${string}/history/1h` | `/api/quotes/${string}/history/1d` | `/api/quotes/${string}/history/5d` | `/api/quotes/${string}/history/1mo` | `/api/quotes/${string}/history/3mo` | `/api/quotes/${string}/history/6mo` | `/api/quotes/${string}/history/1y`];
+export declare const getGetQuoteHistoryQueryOptions: <TData = Awaited<ReturnType<typeof getQuoteHistory>>, TError = ErrorType<unknown>>(symbol: string, range: "1m" | "5m" | "1h" | "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y", options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuoteHistory>>, TError, TData>;
     request?: SecondParameter<typeof customFetch>;
 }) => UseQueryOptions<Awaited<ReturnType<typeof getQuoteHistory>>, TError, TData> & {
@@ -91,7 +91,7 @@ export type GetQuoteHistoryQueryError = ErrorType<unknown>;
 /**
  * @summary Get historical price data for a symbol
  */
-export declare function useGetQuoteHistory<TData = Awaited<ReturnType<typeof getQuoteHistory>>, TError = ErrorType<unknown>>(symbol: string, range: '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y', options?: {
+export declare function useGetQuoteHistory<TData = Awaited<ReturnType<typeof getQuoteHistory>>, TError = ErrorType<unknown>>(symbol: string, range: '1m' | '5m' | '1h' | '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y', options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getQuoteHistory>>, TError, TData>;
     request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & {

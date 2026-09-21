@@ -188,13 +188,13 @@ export declare const GetQuoteResponse: zod.ZodObject<{
  */
 export declare const GetQuoteHistoryParams: zod.ZodObject<{
     symbol: zod.ZodString;
-    range: zod.ZodEnum<["1d", "5d", "1mo", "3mo", "6mo", "1y"]>;
+    range: zod.ZodEnum<["1m", "5m", "1h", "1d", "5d", "1mo", "3mo", "6mo", "1y"]>;
 }, "strip", zod.ZodTypeAny, {
     symbol: string;
-    range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y";
+    range: "1m" | "5m" | "1h" | "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y";
 }, {
     symbol: string;
-    range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y";
+    range: "1m" | "5m" | "1h" | "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y";
 }>;
 export declare const GetQuoteHistoryResponseItem: zod.ZodObject<{
     date: zod.ZodString;

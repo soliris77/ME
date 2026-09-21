@@ -96,7 +96,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [1d, 5d, 1mo, 3mo, 6mo, 1y]
+            enum: [1m, 5m, 1h, 1d, 5d, 1mo, 3mo, 6mo, 1y]
       responses:
         "200":
           description: Historical price data

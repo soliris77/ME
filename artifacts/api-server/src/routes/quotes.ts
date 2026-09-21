@@ -46,6 +46,19 @@ const HISTORY_CACHE_TTL_MS = 5 * 60 * 1000;
 const historyCache = new Map<string, { expiresAt: number; points: HistoryPoint[] }>();
 const inFlight = new Map<string, Promise<HistoryPoint[]>>();
 
+const SHORT_RANGE_CONFIG: Record<string, { durationMs: number; fallbackBars: number }> = {
+  "1m": { durationMs: 60 * 1000, fallbackBars: 1 },
+  "5m": { durationMs: 5 * 60 * 1000, fallbackBars: 5 },
+  "1h": { durationMs: 60 * 60 * 1000, fallbackBars: 60 },
+};
+
+function historyCacheTtl(range: string): number {
+  if (range === "1m") return 15 * 1000;
+  if (range === "5m") return 30 * 1000;
+  if (range === "1h") return 60 * 1000;
+  return HISTORY_CACHE_TTL_MS;
+}
+
 function pruneHistoryCache() {
   const now = Date.now();
   for (const [key, entry] of historyCache) {
@@ -54,6 +67,9 @@ function pruneHistoryCache() {
 }
 
 const INTERVAL_MAP: Record<string, string> = {
+  "1m": "1m",
+  "5m": "1m",
+  "1h": "1m",
   "1d": "5m",
   "5d": "15m",
   "1mo": "1d",
@@ -64,7 +80,7 @@ const INTERVAL_MAP: Record<string, string> = {
 
 router.get("/quotes/:symbol/history/:range", async (req, res) => {
   const { symbol, range } = req.params;
-  const validRanges = ["1d", "5d", "1mo", "3mo", "6mo", "1y"];
+  const validRanges = ["1m", "5m", "1h", "1d", "5d", "1mo", "3mo", "6mo", "1y"];
   if (!validRanges.includes(range)) {
     return res.status(400).json({ error: "Invalid range" });
   }
@@ -79,7 +95,7 @@ router.get("/quotes/:symbol/history/:range", async (req, res) => {
       promise = fetchHistory(symbol, range, req.log).then(
         (points) => {
           pruneHistoryCache();
-          historyCache.set(cacheKey, { expiresAt: Date.now() + HISTORY_CACHE_TTL_MS, points });
+          historyCache.set(cacheKey, { expiresAt: Date.now() + historyCacheTtl(range), points });
           inFlight.delete(cacheKey);
           return points;
         },
@@ -117,8 +133,22 @@ async function fetchHistory(
       volume: p.volume ?? null,
     }));
 
-  const result = await yahooFinance.chart(symbol, { period1: getStartDate(range), interval });
+  const shortRange = SHORT_RANGE_CONFIG[range];
+  const result = await yahooFinance.chart(symbol, {
+    period1: shortRange
+      ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      : getStartDate(range),
+    interval,
+  });
   let points = toPoints(result.quotes ?? []);
+
+  if (shortRange && points.length > 0) {
+    const cutoff = Date.now() - shortRange.durationMs;
+    const recent = points.filter((point) => new Date(point.date).getTime() >= cutoff);
+    // Hors séance, conserver les dernières bougies disponibles plutôt que
+    // laisser le graphique vide.
+    points = recent.length > 0 ? recent : points.slice(-shortRange.fallbackBars);
+  }
 
   // Fallback 1j — marchés fermés (week-end, jour férié) : Yahoo Finance renvoie
   // 0 bougies intraday pour la journée en cours. On recule jusqu'à 7 jours pour
@@ -144,6 +174,9 @@ async function fetchHistory(
 function getStartDate(range: string): Date {
   const now = new Date();
   switch (range) {
+    case "1m": return new Date(now.getTime() - 60 * 1000);
+    case "5m": return new Date(now.getTime() - 5 * 60 * 1000);
+    case "1h": return new Date(now.getTime() - 60 * 60 * 1000);
     case "1d": return new Date(now.getTime() - 24 * 60 * 60 * 1000);
     case "5d": return new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
     case "1mo": return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

@@ -74,7 +74,7 @@ export const GetQuoteResponse = zod.object({
  */
 export const GetQuoteHistoryParams = zod.object({
   "symbol": zod.coerce.string(),
-  "range": zod.enum(['1d', '5d', '1mo', '3mo', '6mo', '1y'])
+  "range": zod.enum(['1m', '5m', '1h', '1d', '5d', '1mo', '3mo', '6mo', '1y'])
 })
 
 export const GetQuoteHistoryResponseItem = zod.object({
