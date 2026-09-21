@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Animation email compatible avec les clients de messagerie
+
+- → EN COURS — Étape 26 : Remplacer l’animation CSS par un GIF animé embarqué
+- ☐ À FAIRE — Étape 27 : Vérifier l’attachement inline, le typecheck et envoyer un email de contrôle
+
 ## Animation dorée des emails
 
 - ✅ FAIT — Étape 24 : Ajouter un reflet doré animé avec fallback email compatible
