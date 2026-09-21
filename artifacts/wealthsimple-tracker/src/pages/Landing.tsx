@@ -39,6 +39,47 @@ export default function Landing() {
     <div className="relative min-h-screen w-full overflow-hidden bg-[#07080a] text-[#f2ead6]">
       <div className="observatory-backdrop pointer-events-none fixed inset-0" aria-hidden="true" />
       <div className="celestial-welcome-backdrop pointer-events-none fixed inset-0" aria-hidden="true">
+        <svg className="celestial-welcome-svg-filters" aria-hidden="true">
+          <defs>
+            <filter
+              id="soliris-wave-filter"
+              x="-8%"
+              y="-8%"
+              width="116%"
+              height="116%"
+              colorInterpolationFilters="sRGB"
+            >
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.006 0.012"
+                numOctaves="2"
+                seed="7"
+                result="solirisWaveNoise"
+              >
+                <animate
+                  attributeName="baseFrequency"
+                  dur="19s"
+                  values="0.006 0.012;0.012 0.006;0.006 0.012"
+                  repeatCount="indefinite"
+                />
+              </feTurbulence>
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="solirisWaveNoise"
+                scale="4"
+                xChannelSelector="R"
+                yChannelSelector="G"
+              >
+                <animate
+                  attributeName="scale"
+                  dur="19s"
+                  values="2;7;3;2"
+                  repeatCount="indefinite"
+                />
+              </feDisplacementMap>
+            </filter>
+          </defs>
+        </svg>
         <div className="celestial-welcome-layer celestial-welcome-layer-color" />
         <div className="celestial-welcome-layer celestial-welcome-layer-mono" />
         <div className="celestial-welcome-light celestial-welcome-light-gold" />

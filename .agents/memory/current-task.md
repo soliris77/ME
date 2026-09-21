@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Ondulation du wallpaper 8K
+
+- → EN COURS — Étape 1 : Ajouter une déformation organique lente sur le fond 8K
+- ☐ À FAIRE — Étape 2 : Vérifier la réduction des mouvements et le rendu final
+
 ## Wallpaper animé original 8K — Observatoire cosmique Soliris
 
 - ✅ FAIT — Étape 1 : Générer un fond original large adapté à la composition de l’accueil

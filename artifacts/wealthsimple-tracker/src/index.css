@@ -231,6 +231,14 @@
   background: #09090c;
 }
 
+.celestial-welcome-svg-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .celestial-welcome-layer {
   position: absolute;
   inset: -8%;
@@ -242,7 +250,7 @@
 
 .celestial-welcome-layer-color {
   background-image: url("/soliris-cosmic-observatory-8k.webp");
-  filter: saturate(0.94) contrast(1.08) brightness(0.94);
+  filter: url("#soliris-wave-filter") saturate(0.94) contrast(1.08) brightness(0.94);
   opacity: 0.72;
   animation: celestialWelcomeColor 32s ease-in-out infinite alternate;
 }
@@ -404,11 +412,15 @@
 @keyframes celestialWelcomeColor {
   0% {
     opacity: 0.34;
-    transform: scale(1.04) translate3d(1%, 0, 0);
+    transform: scale(1.04) translate3d(1%, 0, 0) rotate(-0.25deg) skewX(-0.15deg);
+  }
+  50% {
+    opacity: 0.46;
+    transform: scale(1.08) translate3d(-1%, 1%, 0) rotate(0.18deg) skewX(0.18deg);
   }
   100% {
     opacity: 0.55;
-    transform: scale(1.12) translate3d(-2%, -1%, 0);
+    transform: scale(1.12) translate3d(-2%, -1%, 0) rotate(-0.2deg) skewX(-0.12deg);
   }
 }
 
@@ -556,6 +568,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .celestial-welcome-svg-filters {
+    display: none;
+  }
+  :root:not([data-motion="full"]) .celestial-welcome-layer-color {
+    filter: saturate(0.94) contrast(1.08) brightness(0.94);
+  }
   :root:not([data-motion="full"]) .celestial-welcome-layer {
     animation: none;
   }
