@@ -28,3 +28,4 @@
 - [Installation pnpm du workspace](pnpm-workspace-install.md) — un install offline peut échouer sur les métadonnées de dépendances déjà présentes; garder le registre géré comme repli.
 - [Transition des ordres protecteurs](protective-orders-transition.md) — conserver la protection actions actuelle jusqu’à ce que BrokerAdapter et Kraken permettent son remplacement complet.
 - [Hyperliquid balance accounts](hyperliquid-balance-accounts.md) — lire Spot et Perps séparément; le `fetchBalance()` implicite de CCXT peut choisir Spot.
+- [Hyperliquid public feed](hyperliquid-public-feed.md) — le scanner et les signaux utilisent uniquement les marchés publics; l’accès privé reste isolé des workers d’observation.

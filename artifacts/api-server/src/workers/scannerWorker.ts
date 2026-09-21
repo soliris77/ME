@@ -65,11 +65,19 @@ const OUTCOMES_PER_PASS = 20;   // borne le travail d'un passage
 // Interne : 'SOL-USD'. ccxt : 'SOL/USD'. Une seule paire de fonctions, ici.
 
 export function toExchangeSymbol(symbol: string): string {
-  return symbol.replace("-", "/");
+  if (symbol.includes("/")) return symbol;
+  const separator = symbol.lastIndexOf("-");
+  return separator > 0
+    ? `${symbol.slice(0, separator)}/${symbol.slice(separator + 1)}`
+    : symbol;
 }
 
 export function toInternalSymbol(symbol: string): string {
-  return symbol.replace("/", "-");
+  const normalized = symbol.toUpperCase();
+  const [pair] = normalized.split(":");
+  const [base, quote] = pair.split("/");
+  if (base && quote) return `${base}-${quote === "USDC" ? "USD" : quote}`;
+  return normalized.replace("/", "-");
 }
 
 // ── Réglages ─────────────────────────────────────────────────────────────

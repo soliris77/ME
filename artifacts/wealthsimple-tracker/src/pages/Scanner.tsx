@@ -4,6 +4,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
 import {
   Radar, ShieldAlert, Loader2, Save, RotateCcw, Radio, Activity, Power, TrendingUp, TrendingDown,
+  RefreshCw, Globe2,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -66,6 +67,21 @@ interface SignalPerfRow {
   gagnants: number;
 }
 
+interface HyperliquidMarket {
+  symbol: string;
+  exchangeSymbol: string;
+  base: string;
+  quoteCurrency: string;
+  settlementCurrency: string;
+  active: boolean;
+  status: string;
+  maxLeverage: number | null;
+  last: number | null;
+  bid: number | null;
+  ask: number | null;
+  quoteVolume24h: number | null;
+}
+
 /* ── Petits utilitaires d'affichage ────────────────────────────────────── */
 
 const HORIZON_LABEL: Record<number, string> = { 60: "1 h", 240: "4 h", 1440: "24 h" };
@@ -86,6 +102,17 @@ function toneClass(value: string | null): string {
   const n = value === null ? Number.NaN : Number(value);
   if (!Number.isFinite(n) || n === 0) return "text-muted-foreground";
   return n > 0 ? "text-green-400" : "text-destructive";
+}
+
+function price(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return value >= 100 ? value.toLocaleString("fr-CA", { maximumFractionDigits: 2 })
+    : value.toLocaleString("fr-CA", { maximumFractionDigits: 6 });
+}
+
+function volume(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `$${Intl.NumberFormat("fr-CA", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`;
 }
 
 function jsonOrThrow(res: Response): Promise<any> {
@@ -311,6 +338,93 @@ function ScannerSection() {
         </button>
       </div>
     </div>
+  );
+}
+
+function HyperliquidMarkets() {
+  const marketsQ = useQuery<{ venue: string; source: string; refreshedAt: string; markets: HyperliquidMarket[] }>({
+    queryKey: ["hyperliquid-markets"],
+    queryFn: () => fetch(`${BASE}/api/scanner/markets`).then(jsonOrThrow),
+    refetchInterval: 60_000,
+  });
+  const markets = marketsQ.data?.markets ?? [];
+
+  return (
+    <section className="mt-10 rounded-xl border border-border/60 bg-card/30 overflow-hidden">
+      <div className="px-5 py-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Flux public</p>
+          <h2 className="mt-1 text-lg font-semibold brand-mark tracking-[0.06em] flex items-center gap-2">
+            <Globe2 className="w-4 h-4 text-primary" />
+            Marchés perpétuels Hyperliquid accessibles
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Contrats actifs retournés par les métadonnées et tickers publics Hyperliquid.
+            Aucun ordre ni secret n’est utilisé pour cette liste.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void marketsQ.refetch()}
+          disabled={marketsQ.isFetching}
+          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${marketsQ.isFetching ? "animate-spin" : ""}`} />
+          Actualiser
+        </button>
+      </div>
+
+      {marketsQ.isLoading && (
+        <div className="px-5 py-8 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> Lecture des marchés publics…
+        </div>
+      )}
+      {marketsQ.isError && (
+        <div className="px-5 py-6 text-sm text-destructive">
+          Les marchés Hyperliquid ne sont pas disponibles pour le moment.
+        </div>
+      )}
+      {!marketsQ.isLoading && !marketsQ.isError && (
+        <>
+          <div className="px-5 py-3 text-xs text-muted-foreground border-b border-border/40">
+            <span className="font-mono text-foreground">{markets.length}</span> contrats actifs
+            {marketsQ.data?.refreshedAt && <> · relevé {new Date(marketsQ.data.refreshedAt).toLocaleTimeString("fr-CA")}</>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/40">
+                <tr>
+                  <th className="px-5 py-3 text-left font-semibold">Marché</th>
+                  <th className="px-3 py-3 text-right font-semibold">Dernier</th>
+                  <th className="px-3 py-3 text-right font-semibold">Volume 24 h</th>
+                  <th className="px-3 py-3 text-right font-semibold">Levier max.</th>
+                  <th className="px-5 py-3 text-right font-semibold">État</th>
+                </tr>
+              </thead>
+              <tbody>
+                {markets.map((market) => (
+                  <tr key={market.exchangeSymbol} className="border-b border-border/30 last:border-0">
+                    <td className="px-5 py-3">
+                      <span className="font-mono font-semibold">{market.symbol}</span>
+                      <span className="block text-[10px] text-muted-foreground font-mono">{market.exchangeSymbol}</span>
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono">{price(market.last)}</td>
+                    <td className="px-3 py-3 text-right font-mono">{volume(market.quoteVolume24h)}</td>
+                    <td className="px-3 py-3 text-right font-mono">{market.maxLeverage ? `${market.maxLeverage}×` : "—"}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`inline-flex items-center gap-1.5 text-xs ${market.active ? "text-emerald-400" : "text-muted-foreground"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${market.active ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                        {market.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -608,6 +722,7 @@ export default function ScannerPage() {
       </div>
 
       <ScannerSection />
+      <HyperliquidMarkets />
 
       <div className="mt-12">
         <div className="section-rule mb-4"><span>RÉSULTATS MESURÉS</span></div>

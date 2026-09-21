@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Vérification Hyperliquid — scanner, signaux et marchés publics
+
+- ✅ FAIT — Étape 17 : Ajouter le flux public Hyperliquid et normaliser les symboles scanner/signaux
+- ✅ FAIT — Étape 18 : Brancher le worker, exposer l’univers de marchés et l’afficher dans Scanner & Signaux
+- ✅ FAIT — Étape 19 : Tester le flux public, les routes et les builds sans envoyer d’ordre
+
 **Instruction utilisateur :** Construire d'abord le nouveau projet crypto de Soliris selon le cahier des charges, puis reprendre la tâche du globe interactif à la fin.
 **Démarrée le :** 2026-09-10
 
@@ -23,6 +29,6 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 - ✅ FAIT — Étape 11 : Réaliser le Lot 6 — garde-fous et mode dry-run
 - ✅ FAIT — Étape 12 : Réaliser le Lot 7 — worker séparé, bail PostgreSQL, santé worker et cible Reserved VM
 - ✅ FAIT — Étape 13 : Reprendre et valider le globe interactif après le chantier crypto
-- → EN COURS — Étape 14 : Valider les changements Courtier/Kraken, l’endpoint protégé et l’état du commit final
+- ✅ FAIT — Étape 14 : Valider les changements Courtier/Kraken, l’endpoint protégé et l’état du commit final
 - ✅ FAIT — Étape 15 : Corriger l’affichage du solde Hyperliquid en séparant les comptes Spot et Perps
 - ✅ FAIT — Étape 16 : Refaire Perps & levier et sécuriser l’affichage/validation du mode Live

@@ -15,6 +15,7 @@
 import { Router } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { listHyperliquidMarkets } from "../lib/hyperliquidMarketData";
 
 const router = Router();
 
@@ -41,6 +42,21 @@ const ENVELOPE_FIELDS: Record<string, { column: string; min: number; max: number
   trailingStopPct:  { column: "trailing_stop_pct", min: 0, max: 100 },
   hardStopPct:      { column: "hard_stop_pct", min: 0, max: 100 },
 };
+
+router.get("/scanner/markets", async (_req, res) => {
+  try {
+    const markets = await listHyperliquidMarkets();
+    return res.json({
+      venue: "hyperliquid",
+      source: "public_markets_and_tickers",
+      refreshedAt: new Date().toISOString(),
+      markets,
+    });
+  } catch (err) {
+    logger.error({ err }, "scanner: lecture des marchés Hyperliquid impossible");
+    return res.status(502).json({ error: "Impossible de lire les marchés publics Hyperliquid." });
+  }
+});
 
 interface Assignment { fragment: string; value: unknown }
 

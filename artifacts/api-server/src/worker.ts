@@ -9,6 +9,7 @@ import { WorkerLeaseCoordinator, databaseLeaseRepository, type LeaseRepository }
 import { startScannerWorker, stopScannerWorker } from "./workers/scannerWorker";
 import { startSignalsWorker, stopSignalsWorker } from "./workers/signalsWorker";
 import { startPerpsWorker, stopPerpsWorker } from "./workers/perpsWorker";
+import { getHyperliquidPublicFeed } from "./lib/hyperliquidMarketData";
 
 export interface WorkerBootstrapOptions {
   lease?: WorkerLeaseCoordinator;
@@ -32,6 +33,10 @@ export function startWorker(options: WorkerBootstrapOptions = {}) {
   // Une seule instance Kraken, partagee par le flux de donnees et le scanner :
   // deux instances doubleraient la charge sur la meme limite de debit.
   const exchange = new (ccxt as any).kraken({ enableRateLimit: true });
+  // The scanner and external-signal confluence use Hyperliquid's public
+  // perpetual markets. Auto-trading keeps its existing Kraken feed until its
+  // broker/account selection is migrated separately.
+  const hyperliquidFeed = getHyperliquidPublicFeed();
   configureMarketDataFeeds({
     equity: new YahooFeed(),
     crypto: new CcxtFeed({ exchange }),
@@ -45,8 +50,8 @@ export function startWorker(options: WorkerBootstrapOptions = {}) {
   // Il reste sans effet tant que scanner_settings.enabled vaut false.
   const start = options.start ?? (() => {
     startAutoTradeWorker();
-    startScannerWorker(exchange);
-    startSignalsWorker(exchange);
+    startScannerWorker(hyperliquidFeed);
+    startSignalsWorker(hyperliquidFeed);
     startPerpsWorker();
   });
   const stop = options.stop ?? (() => {
