@@ -175,6 +175,13 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const pointsRef = useRef<Record<string, HTMLButtonElement | null>>({});
   const rotationRef = useRef(0);
   const dragRef = useRef({ active: false, lastX: 0, lastY: 0 });
+  const pointerTravelRef = useRef(0);
+  const clickWaveRef = useRef<{ targetId: string | null; startedAt: number }>({
+    targetId: null,
+    startedAt: 0,
+  });
+  const activityIdsRef = useRef<string[]>([]);
+  const selectedExchangeIdRef = useRef<string | null>(null);
   const autoRotateRef = useRef(true);
   const [isDragging, setIsDragging] = useState(false);
   const [rotationMode, setRotationMode] = useState<'auto' | 'manual' | 'paused'>('auto');
@@ -324,6 +331,48 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
 
       // Update interactive points
       const center = projection.invert?.([w / 2, h / 2]) ?? [0, 0];
+
+       // A click sends a visible pulse from the first currently open relay.
+       // This is intentionally based on session state, not an invented volume.
+       const wave = clickWaveRef.current;
+       const leader = GLOBE_EXCHANGES.find((exchange) => exchange.id === wave.targetId);
+       const waveAge = (time - wave.startedAt) / 1000;
+       if (leader && waveAge >= 0 && waveAge < 4) {
+         const leaderPoint = projection([leader.lon, leader.lat]);
+         if (leaderPoint) {
+           ctx.save();
+           ctx.globalCompositeOperation = 'lighter';
+           for (let ring = 0; ring < 3; ring += 1) {
+             const progress = (waveAge * 0.32 + ring * 0.25) % 1;
+             const alpha = (1 - progress) * 0.5;
+             const radius = 7 + progress * RADIUS * 0.34;
+             ctx.beginPath();
+             ctx.arc(leaderPoint[0], leaderPoint[1], radius, 0, Math.PI * 2);
+             ctx.strokeStyle = `rgba(242, 210, 126, ${alpha.toFixed(3)})`;
+             ctx.lineWidth = variant === 'hero' ? 1.5 : 1;
+             ctx.stroke();
+           }
+
+           activityIdsRef.current.forEach((id, index) => {
+             if (id === leader.id) return;
+             const destination = GLOBE_EXCHANGES.find((exchange) => exchange.id === id);
+             const destinationPoint = destination
+               ? projection([destination.lon, destination.lat])
+               : null;
+             if (!destinationPoint) return;
+             ctx.beginPath();
+             ctx.moveTo(leaderPoint[0], leaderPoint[1]);
+             ctx.lineTo(destinationPoint[0], destinationPoint[1]);
+             ctx.setLineDash([3 + index * 1.5, 8]);
+             ctx.strokeStyle = `rgba(129, 201, 205, ${(0.24 * (1 - waveAge / 4)).toFixed(3)})`;
+             ctx.lineWidth = variant === 'hero' ? 1 : 0.6;
+             ctx.stroke();
+           });
+           ctx.setLineDash([]);
+           ctx.restore();
+         }
+       }
+
       GLOBE_EXCHANGES.forEach(ex => {
         const p = projection([ex.lon, ex.lat]);
         const el = pointsRef.current[ex.id];
@@ -350,6 +399,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
+    pointerTravelRef.current = 0;
     setIsDragging(true);
     autoRotateRef.current = false;
     setRotationMode('manual');
@@ -363,6 +413,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     if (!dragRef.current.active) return;
     const deltaX = event.clientX - dragRef.current.lastX;
     const deltaY = event.clientY - dragRef.current.lastY;
+    pointerTravelRef.current += Math.abs(deltaX) + Math.abs(deltaY);
     rotationRef.current += deltaX * 0.42;
     dragRef.current.lastX = event.clientX;
     dragRef.current.lastY = event.clientY;
@@ -378,6 +429,13 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     if (!dragRef.current.active) return;
     dragRef.current.active = false;
     setIsDragging(false);
+    if (pointerTravelRef.current < 8) {
+      const targetId =
+        activityIdsRef.current[0] ??
+        selectedExchangeIdRef.current ??
+        'nyse';
+      clickWaveRef.current = { targetId, startedAt: performance.now() };
+    }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -403,6 +461,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     if (!exchange) return;
     rotationRef.current = -exchange.lon;
     autoRotateRef.current = false;
+    clickWaveRef.current = { targetId: id, startedAt: performance.now() };
     setSelectedExchangeId(id);
     setRotationMode('manual');
   };
@@ -422,6 +481,10 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     .filter((row): row is { exchange: typeof GLOBE_EXCHANGES[number]; state: ReturnType<typeof getExchangeState> } => Boolean(row.state));
   const openMarkets = marketRows.filter(({ state }) => state.status === 'open');
   const visibleMarkets = marketRows.filter(({ state }) => state.status === 'open' || state.status === 'pre' || state.status === 'post');
+  activityIdsRef.current = openMarkets.length > 0
+    ? openMarkets.map(({ exchange }) => exchange.id)
+    : visibleMarkets.map(({ exchange }) => exchange.id);
+  selectedExchangeIdRef.current = selectedExchangeId;
   const selectedExchange = GLOBE_EXCHANGES.find((exchange) => exchange.id === selectedExchangeId);
   const selectedState = selectedExchangeId ? states[selectedExchangeId] : undefined;
   const selectedStory = selectedExchangeId ? MARKET_STORIES[selectedExchangeId] : undefined;

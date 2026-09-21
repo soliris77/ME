@@ -15,6 +15,7 @@ import ConditionsUtilisation from "@/pages/ConditionsUtilisation";
 import BrokerPage from "@/pages/Broker";
 import TradingModeBanner from "@/components/TradingModeBanner";
 import Dashboard from "@/pages/Dashboard";
+import Observatory from "@/pages/Observatory";
 import Watchlist from "@/pages/Watchlist";
 import Alerts from "@/pages/Alerts";
 import QuoteDetail from "@/pages/QuoteDetail";
@@ -67,6 +68,7 @@ import {
   Eye,
   EyeOff,
   Gauge,
+  Globe2,
   GitCompare,
   Grid3x3,
   LayoutDashboard,
@@ -237,6 +239,7 @@ function Nav() {
       group: "Marchés & Analyse",
       items: [
         { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+        { href: "/observatoire", label: "Observatoire", icon: Globe2 },
         { href: "/search", label: "Recherche", icon: Search },
         { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
         { href: "/journal", label: "Journal des marchés", icon: Newspaper },
@@ -550,6 +553,10 @@ function App() {
                 <Route
                   path="/dashboard"
                   component={wrap("Tableau de bord", Dashboard)}
+                />
+                <Route
+                  path="/observatoire"
+                  component={wrap("Observatoire mondial", Observatory)}
                 />
                 <Route
                   path="/search"
