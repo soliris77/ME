@@ -94,6 +94,7 @@ import {
 } from "@/lib/sounds";
 import { isMotionForced, setMotionForced, subscribeMotion } from "@/lib/motion";
 import { PositionCalculator } from "@/components/PositionCalculator";
+import CustomCursor from "@/components/CustomCursor";
 import { useQuery } from "@tanstack/react-query";
 
 const queryClient = new QueryClient({
@@ -106,51 +107,6 @@ function SolirisMark() {
   return (
     <div className="logo-emblem-wrap">
       <img src="/soliris-icon.svg" alt="Soliris Market" draggable={false} />
-    </div>
-  );
-}
-
-function SolirisCursor() {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [visible, setVisible] = useState(false);
-  const [interactive, setInteractive] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.classList.add("soliris-cursor-enabled");
-
-    const handleMove = (event: PointerEvent) => {
-      setPosition({ x: event.clientX, y: event.clientY });
-      setVisible(true);
-      const target = event.target;
-      setInteractive(
-        target instanceof Element &&
-          Boolean(target.closest("a, button, [role='button'], input, select, textarea")),
-      );
-    };
-    const handleLeave = (event: PointerEvent) => {
-      if (!event.relatedTarget) setVisible(false);
-    };
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerout", handleLeave);
-    return () => {
-      document.documentElement.classList.remove("soliris-cursor-enabled");
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerout", handleLeave);
-    };
-  }, []);
-
-  return (
-    <div
-      className={`soliris-cursor ${visible ? "soliris-cursor-visible" : ""} ${
-        interactive ? "soliris-cursor-interactive" : ""
-      }`}
-      style={{ left: position.x, top: position.y }}
-      aria-hidden="true"
-    >
-      <span className="soliris-cursor-aura" />
-      <span className="soliris-cursor-ring" />
-      <span className="soliris-cursor-core" />
     </div>
   );
 }
@@ -535,7 +491,7 @@ function App() {
         <AuthProvider>
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <SolirisCursor />
+              <CustomCursor />
               <Switch>
                 <Route path="/" component={Landing} />
                 <Route path="/setup" component={SetupPassword} />

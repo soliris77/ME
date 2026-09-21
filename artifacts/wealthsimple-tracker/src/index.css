@@ -730,6 +730,197 @@
   from { opacity: 0; transform: scale(0.3); }
   to   { opacity: 1; transform: scale(1);   }
 }
+
+/* ─── Technical analysis command center ─── */
+@keyframes analysisSignalGlow {
+  0%, 100% { box-shadow: 0 18px 50px rgba(212, 167, 44, 0.08), inset 0 1px 0 rgba(255,255,255,0.04); }
+  50% { box-shadow: 0 22px 64px rgba(212, 167, 44, 0.16), inset 0 1px 0 rgba(255,255,255,0.06); }
+}
+@keyframes analysisReveal {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.analysis-command-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid hsl(var(--primary) / 0.24);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 88% 18%, hsl(var(--primary) / 0.12), transparent 34%),
+    linear-gradient(135deg, hsl(var(--card)), hsl(var(--background) / 0.86));
+  animation: analysisSignalGlow 5s ease-in-out infinite;
+}
+.analysis-command-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.28;
+  background: linear-gradient(115deg, transparent 0 42%, hsl(var(--primary) / 0.09) 50%, transparent 58%);
+  transform: translateX(-70%);
+  animation: analysisScan 8s ease-in-out infinite;
+}
+.analysis-command-hero.is-bullish { border-color: rgba(34, 197, 94, 0.30); }
+.analysis-command-hero.is-bearish { border-color: rgba(239, 68, 68, 0.30); }
+.analysis-command-hero.is-neutral { border-color: rgba(212, 167, 44, 0.28); }
+.analysis-command-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: center;
+  gap: 1.25rem;
+}
+.analysis-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid hsl(var(--primary) / 0.18);
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+  letter-spacing: 0.06em;
+}
+.analysis-live-chip span {
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+.analysis-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.34rem 0.55rem;
+  border: 1px solid hsl(var(--border) / 0.78);
+  border-radius: 0.5rem;
+  background: hsl(var(--background) / 0.42);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+}
+.analysis-context-dot { width: 0.42rem; height: 0.42rem; border-radius: 999px; }
+.analysis-command-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.52rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid transparent;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+.analysis-command-action:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.analysis-command-action.is-buy { background: #15803d; border-color: #22c55e; }
+.analysis-command-action.is-sell { background: #b91c1c; border-color: #ef4444; }
+.analysis-command-score { justify-self: center; }
+.analysis-score-ring {
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  padding: 0.55rem;
+  border-radius: 50%;
+  transform: rotate(-18deg);
+  box-shadow: 0 0 28px hsl(var(--primary) / 0.12);
+}
+.analysis-score-core {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: hsl(var(--card));
+  transform: rotate(18deg);
+}
+.analysis-score-core strong { font-family: "JetBrains Mono", monospace; font-size: 1.65rem; line-height: 1; }
+.analysis-score-core span { margin-top: 0.25rem; color: hsl(var(--muted-foreground)); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.16em; }
+.analysis-panel {
+  border: 1px solid hsl(var(--border) / 0.82);
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: hsl(var(--card) / 0.92);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+}
+.analysis-radar-panel, .analysis-prediction-panel { min-width: 0; }
+.analysis-panel-kicker {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.analysis-action-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  border-radius: 0.5rem;
+  background: hsl(var(--background) / 0.45);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+}
+.analysis-action-stat strong { font-family: "JetBrains Mono", monospace; font-size: 0.85rem; color: hsl(var(--foreground)); }
+.analysis-action-stat.is-buy { border-color: rgba(34,197,94,0.28); }
+.analysis-action-stat.is-sell { border-color: rgba(239,68,68,0.28); }
+.analysis-best-scenario {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-left: 2px solid hsl(var(--primary));
+  background: hsl(var(--primary) / 0.06);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+.analysis-live-status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.25rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+}
+.analysis-chart-panel { padding: 1rem; }
+.analysis-chart-signal {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.analysis-overlay-toggle { white-space: nowrap; }
+.analysis-chart-caption {
+  margin-top: 0.25rem;
+  color: hsl(var(--muted-foreground) / 0.55);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+.analysis-reveal {
+  animation: analysisReveal 0.38s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes analysisScan {
+  0%, 20% { transform: translateX(-70%); }
+  70%, 100% { transform: translateX(70%); }
+}
+@media (max-width: 640px) {
+  .analysis-command-grid { grid-template-columns: 1fr; }
+  .analysis-command-score { justify-self: start; display: flex; align-items: center; gap: 0.75rem; }
+  .analysis-score-ring { width: 104px; height: 104px; }
+  .analysis-command-hero { padding: 1rem; }
+}
 /* --- Mouvement ---------------------------------------------------
    Les blocs prefers-reduced-motion de ce fichier figent les animations
    quand le systeme le demande. Ils sont volontairement portes par

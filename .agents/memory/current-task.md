@@ -147,4 +147,8 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 ## État
 
-Aucune tâche active.
+## Curseur Soliris — passe premium globale
+
+- → EN COURS — Étape 1 : Remplacer la première version du curseur par un composant global piloté par requestAnimationFrame
+- ☐ À FAIRE — Étape 2 : Ajouter les états interactifs, carte, Observatoire, clic et réduction des mouvements
+- ☐ À FAIRE — Étape 3 : Vérifier le typecheck, le build, le workflow et le rendu dashboard/Observatoire

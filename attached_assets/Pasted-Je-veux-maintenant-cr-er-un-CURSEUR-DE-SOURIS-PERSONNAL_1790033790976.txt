@@ -1,0 +1,631 @@
+Je veux maintenant créer un CURSEUR DE SOURIS PERSONNALISÉ pour toute l'application Soliris Market.
+
+IMPORTANT :
+Ne modifie pas inutilement le design général existant.
+Le site possède déjà une identité visuelle sombre, premium et financière avec :
+- fond presque noir
+- panneaux très sombres
+- accents dorés
+- textes dorés/blanc cassé
+- vert pour les performances positives
+- rouge pour les performances négatives
+- bordures très discrètes
+- effets lumineux subtils
+
+Le curseur doit donc être conçu comme une extension naturelle de cette identité.
+
+==================================================
+1. OBJECTIF
+==================================================
+
+Créer un système de curseur personnalisé haut de gamme, moderne et immersif.
+
+Le curseur doit donner une sensation :
+- premium
+- technologique
+- financière
+- élégante
+- précise
+- légèrement futuriste
+- mais surtout PAS "gaming"
+- PAS cartoon
+- PAS flashy
+- PAS surchargée
+
+Le curseur doit donner l'impression que l'utilisateur manipule une véritable interface d'analyse financière avancée.
+
+==================================================
+2. STRUCTURE DU CURSEUR
+==================================================
+
+Créer un curseur composé de plusieurs couches :
+
+A. POINT CENTRAL
+
+Créer un petit point central circulaire.
+
+Caractéristiques :
+- environ 5 à 7 px
+- couleur dorée correspondant à l'identité Soliris
+- légèrement lumineux
+- parfaitement net
+- positionné exactement sous le curseur réel
+
+Ajouter un léger glow autour du point.
+
+Le point doit rester discret.
+
+--------------------------------------------------
+
+B. ANNEAU EXTERNE
+
+Créer un anneau circulaire autour du point central.
+
+Caractéristiques :
+- diamètre environ 26 à 34 px
+- bordure fine
+- couleur dorée légèrement transparente
+- aucune couleur pleine à l'intérieur
+- animation très légère
+
+L'anneau doit suivre le curseur avec un très léger retard.
+
+Cela doit créer une sensation de profondeur et de précision.
+
+Le mouvement doit être fluide grâce à requestAnimationFrame.
+
+NE PAS utiliser une animation CSS qui donne une sensation de retard saccadé.
+
+--------------------------------------------------
+
+C. HALO
+
+Ajouter autour de l'ensemble un halo très subtil.
+
+Le halo doit être :
+- doux
+- transparent
+- doré
+- peu visible
+- légèrement plus intense au survol d'un élément interactif
+
+Il ne doit jamais créer une grosse tache lumineuse.
+
+==================================================
+3. MOUVEMENT
+==================================================
+
+Le curseur doit être extrêmement fluide.
+
+Utiliser :
+- requestAnimationFrame
+- interpolation / lerp
+- transform: translate3d(...)
+- éviter les propriétés provoquant des reflows
+
+Le point central doit suivre immédiatement le curseur.
+
+L'anneau externe doit avoir un léger retard.
+
+Exemple conceptuel :
+
+cursorDot -> position instantanée
+cursorRing -> interpolation vers cursorDot
+
+Le mouvement doit donner une sensation :
+"précision instrumentale"
+
+et non :
+"animation de jeu vidéo".
+
+==================================================
+4. INTERACTION AVEC LES ÉLÉMENTS
+==================================================
+
+Le curseur doit comprendre automatiquement les éléments interactifs.
+
+Détecter notamment :
+
+- button
+- a
+- input
+- textarea
+- select
+- éléments avec role="button"
+- éléments ayant cursor:pointer
+- cartes interactives
+- éléments interactifs du globe
+- contrôles de l'Observatoire
+
+--------------------------------------------------
+
+ÉTAT NORMAL
+
+Point :
+petit et doré.
+
+Anneau :
+petit cercle fin doré.
+
+--------------------------------------------------
+
+ÉTAT HOVER
+
+Lorsque la souris passe sur un élément interactif :
+
+- agrandir légèrement l'anneau
+- réduire légèrement son opacité
+- augmenter légèrement le glow
+- faire varier subtilement le point central
+
+Par exemple :
+
+normal :
+anneau ~30px
+
+hover :
+anneau ~44px
+
+La transition doit être très fluide.
+
+NE PAS faire de changement brutal.
+
+--------------------------------------------------
+
+ÉTAT BOUTON
+
+Sur les boutons :
+
+- anneau légèrement plus lumineux
+- petite pulsation très subtile
+- point central légèrement plus intense
+
+Aucun effet sonore.
+
+==================================================
+5. CARTES FINANCIÈRES
+==================================================
+
+Pour les cartes de Soliris Market :
+
+Lorsque le curseur passe au-dessus d'une carte interactive :
+
+Créer éventuellement un petit effet de lumière locale.
+
+La lumière doit suivre légèrement la position du curseur dans la carte.
+
+Exemple :
+
+un radial-gradient extrêmement subtil positionné avec :
+
+--mouse-x
+--mouse-y
+
+Cela peut créer une petite zone lumineuse autour du curseur.
+
+IMPORTANT :
+L'effet doit rester presque invisible.
+
+Il doit être ressenti plutôt que remarqué.
+
+Ne jamais transformer une carte financière en effet RGB.
+
+==================================================
+6. COULEURS
+==================================================
+
+Utiliser strictement la palette existante de Soliris Market.
+
+Couleur principale du curseur :
+OR doré / accent doré déjà utilisé par l'interface.
+
+Utiliser les verts et rouges du site uniquement lorsqu'un contexte particulier le justifie.
+
+Exemple :
+
+normal :
+doré
+
+élément positif :
+éventuellement très légère teinte verte
+
+élément négatif :
+éventuellement très légère teinte rouge
+
+Mais par défaut :
+TOUJOURS DORÉ.
+
+Ne pas introduire de bleu, violet, cyan ou couleurs néon étrangères au design.
+
+==================================================
+7. CURSEUR SUR L'OBSERVATOIRE
+==================================================
+
+L'Observatoire mondial est une zone spéciale.
+
+Lorsque le curseur entre dans la zone du globe :
+
+faire évoluer très légèrement le curseur.
+
+Par exemple :
+
+- anneau légèrement plus grand
+- halo plus doux
+- petite sensation de réticule / instrument scientifique
+- éventuellement une seconde petite ligne circulaire très subtile
+
+Le résultat doit évoquer un instrument d'observation.
+
+PAS une cible militaire.
+
+PAS un viseur agressif.
+
+Le curseur doit rester élégant.
+
+==================================================
+8. INTERACTION AVEC LE GLOBE
+==================================================
+
+Lorsque l'utilisateur déplace la souris au-dessus du globe :
+
+le curseur peut devenir légèrement plus précis.
+
+Si le globe est draggable :
+
+indiquer visuellement que le globe peut être manipulé.
+
+Pendant le drag :
+
+- anneau légèrement contracté
+- point central plus lumineux
+- éventuellement très légère animation de rotation de l'anneau
+
+Lorsque le drag est terminé :
+retour progressif à l'état normal.
+
+Ne pas empêcher le fonctionnement actuel du globe.
+
+Le curseur ne doit jamais bloquer :
+- click
+- pointer events
+- drag
+- rotation
+- zoom
+- contrôles.
+
+==================================================
+9. TRAÎNÉE DU CURSEUR
+==================================================
+
+Je veux éventuellement une MICRO-TRAÎNÉE.
+
+Mais attention :
+
+PAS une longue traînée.
+
+PAS plusieurs dizaines de points.
+
+PAS un effet néon.
+
+Créer seulement une sensation très légère de mouvement.
+
+Si une trail est utilisée :
+- 2 à 4 petits éléments maximum
+- très faible opacité
+- disparition très rapide
+- couleur dorée
+- désactivation automatique sur les appareils moins puissants
+
+Si les performances diminuent :
+supprimer complètement la trail.
+
+La fluidité est plus importante que l'effet.
+
+==================================================
+10. EFFET PARTICULES
+==================================================
+
+NE PAS ajouter de grosses particules autour du curseur.
+
+Si nécessaire, seulement quelques micro-particules lors :
+- d'un clic
+- d'une interaction importante
+
+Mais cet effet doit rester extrêmement discret.
+
+Une interface financière professionnelle ne doit pas ressembler à un jeu.
+
+==================================================
+11. CLIC
+==================================================
+
+Lors d'un clic :
+
+faire une très légère animation de contraction :
+
+anneau :
+scale(1)
+
+vers :
+scale(0.82)
+
+puis retour :
+
+scale(1)
+
+Durée :
+environ 150-220ms.
+
+Ajouter éventuellement un petit ripple doré très discret.
+
+Le ripple doit disparaître rapidement.
+
+==================================================
+12. CURSEUR RÉEL
+==================================================
+
+Sur desktop :
+
+masquer le curseur système lorsque le curseur personnalisé est actif.
+
+Exemple :
+
+body.custom-cursor-active,
+body.custom-cursor-active * {
+    cursor: none;
+}
+
+MAIS :
+
+ne pas appliquer cela aveuglément aux éléments qui nécessitent un curseur système particulier si cela crée des problèmes d'accessibilité ou d'utilisation.
+
+Tester notamment :
+- inputs
+- textarea
+- sélection de texte
+- redimensionnement
+- drag
+- liens
+- contrôles du globe.
+
+Si nécessaire, conserver le curseur natif dans les champs de texte.
+
+==================================================
+13. MOBILE / TABLETTE
+==================================================
+
+IMPORTANT :
+
+NE PAS activer le curseur personnalisé sur :
+- téléphone
+- tablette
+- appareils tactiles
+
+Détecter les appareils qui n'utilisent pas une souris.
+
+Sur mobile :
+aucun système de curseur personnalisé.
+
+Le site doit fonctionner normalement avec le tactile.
+
+==================================================
+14. ACCESSIBILITÉ
+==================================================
+
+Respecter :
+
+prefers-reduced-motion
+
+Si l'utilisateur active "réduire les animations" :
+
+désactiver :
+- retard de l'anneau
+- trail
+- particules
+- animations complexes
+- effets inutiles
+
+Conserver uniquement :
+- petit point
+- anneau statique ou très simple
+
+Le curseur ne doit jamais être nécessaire pour comprendre l'interface.
+
+Toutes les interactions doivent rester accessibles au clavier.
+
+==================================================
+15. PERFORMANCE
+==================================================
+
+IMPORTANT.
+
+Le curseur est présent partout dans l'application.
+
+Il ne doit donc PAS provoquer de ralentissement.
+
+Utiliser :
+- requestAnimationFrame
+- transform
+- opacity
+- will-change avec modération
+- aucune manipulation DOM lourde à chaque mouvement
+- aucun recalcul coûteux
+- aucun listener inutile
+
+Éviter :
+- création/destruction permanente d'éléments
+- gros box-shadow animés en permanence
+- blur extrêmement lourd
+- filtres GPU coûteux
+
+Le système doit rester fluide même lorsque :
+- le globe 3D fonctionne
+- les graphiques sont animés
+- les données se mettent à jour.
+
+==================================================
+16. ARCHITECTURE
+==================================================
+
+Créer un composant réutilisable du type :
+
+CustomCursor
+
+avec éventuellement :
+
+CursorDot
+CursorRing
+CursorGlow
+CursorTrail
+
+Le système doit être centralisé.
+
+NE PAS dupliquer le code dans chaque page.
+
+Le curseur doit fonctionner automatiquement sur :
+- Tableau de bord
+- Observatoire
+- Recherche
+- Portefeuille suivi
+- Journal des marchés
+- Calendrier économique
+- Journal des ordres
+- Auto-Trader
+- Scanner & Signaux
+- Perps & levier
+- Copy Trading
+- Tâches agent
+- Taille de position
+- Coûts API & données
+- etc.
+
+==================================================
+17. DESIGN VISUEL FINAL
+==================================================
+
+Je veux quelque chose qui ressemble davantage à :
+
+"instrument financier futuriste"
+
+qu'à :
+
+"curseur animé de site gaming".
+
+Le résultat doit être :
+- noir
+- or
+- discret
+- élégant
+- précis
+- immersif
+- professionnel.
+
+Le curseur doit presque donner l'impression d'être un petit instrument de mesure.
+
+==================================================
+18. IMPORTANT : COHÉRENCE AVEC LE SITE
+==================================================
+
+NE PAS modifier :
+- le logo
+- la sidebar
+- les cartes
+- les graphiques
+- la typographie
+- les couleurs existantes
+- la structure générale
+
+Le curseur doit S'ADAPTER au design existant.
+
+Il ne doit pas devenir l'élément principal de l'interface.
+
+Le contenu reste prioritaire.
+
+==================================================
+19. MICRO-INTERACTIONS INTELLIGENTES
+==================================================
+
+Ajouter des variantes selon le contexte.
+
+Exemples :
+
+Navigation :
+curseur normal.
+
+Bouton :
+anneau légèrement agrandi.
+
+Carte interactive :
+halo légèrement visible.
+
+Globe :
+mode "observation".
+
+Drag :
+mode "interaction".
+
+Lien :
+anneau légèrement plus ouvert.
+
+Champ texte :
+retour au curseur système / curseur texte normal.
+
+==================================================
+20. TEST FINAL
+==================================================
+
+Après implémentation :
+
+Tester le curseur sur toutes les pages.
+
+Tester :
+- déplacement rapide
+- déplacement lent
+- clic
+- double clic
+- hover
+- drag
+- scroll
+- globe
+- boutons
+- liens
+- champs texte
+- graphiques
+- cartes
+- sidebar
+- menus
+- fenêtres modales
+
+Tester également :
+- écran 1920px
+- écran 1440px
+- écran 1280px
+- laptop
+- mobile
+- tablette
+
+Vérifier :
+- aucune latence perceptible
+- aucune position incorrecte
+- aucun curseur bloqué
+- aucun élément inaccessible
+- aucun conflit avec le globe 3D
+- aucune baisse importante des FPS.
+
+==================================================
+21. RÈGLE ESTHÉTIQUE ABSOLUE
+==================================================
+
+La règle principale est :
+
+"SUBTILITÉ > EFFETS"
+
+Si un effet semble trop visible, le réduire.
+
+Si un effet ressemble à un jeu vidéo, le supprimer.
+
+Si le curseur attire davantage l'attention que les données financières, le réduire.
+
+Le résultat final doit être suffisamment élégant pour donner l'impression que le curseur fait partie du produit depuis le premier jour.
+
+Avant de terminer, vérifie visuellement le résultat sur le dashboard et sur l'Observatoire mondial.

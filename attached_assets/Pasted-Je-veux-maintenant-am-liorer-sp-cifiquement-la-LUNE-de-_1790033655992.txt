@@ -1,0 +1,705 @@
+Je veux maintenant améliorer spécifiquement la LUNE de l'Observatoire Mondial.
+
+IMPORTANT :
+La Lune existe déjà dans l'Observatoire et tourne autour du globe.
+Je ne veux PAS supprimer cette fonctionnalité.
+
+Je veux transformer cette Lune actuelle en un véritable OBJET 3D PREMIUM qui donne une impression de profondeur, de volume et de mouvement orbital.
+
+L'objectif est que l'utilisateur puisse immédiatement comprendre :
+
+TERRE
++
+LUNE
++
+ORBITES
++
+MOUVEMENT
+
+comme un véritable petit système astronomique intégré à l'Observatoire.
+
+==================================================
+1. LA LUNE DOIT ÊTRE UNE VRAIE SPHÈRE 3D
+==================================================
+
+Ne représente pas la Lune comme :
+
+- un cercle 2D ;
+- une image plate ;
+- une simple icône ;
+- un disque lumineux.
+
+Elle doit être une véritable sphère 3D.
+
+Utilise une géométrie sphérique suffisamment détaillée pour que ses contours soient parfaitement lisses.
+
+Évite cependant une géométrie inutilement lourde.
+
+La priorité est :
+
+QUALITÉ VISUELLE
++
+PERFORMANCE.
+
+==================================================
+2. TEXTURE DE LA LUNE
+==================================================
+
+La Lune doit avoir une surface réaliste stylisée.
+
+Elle doit comporter :
+
+- variations de luminosité ;
+- cratères ;
+- reliefs ;
+- zones sombres ;
+- petites variations de couleur ;
+- texture de surface.
+
+Si une texture lunaire est déjà présente dans le projet, améliore son rendu au lieu de la remplacer inutilement.
+
+Si aucune texture n'existe actuellement, crée une structure permettant d'en utiliser une proprement.
+
+IMPORTANT :
+
+Ne fais pas une Lune parfaitement blanche et uniforme.
+
+Je veux une surface lunaire reconnaissable.
+
+==================================================
+3. RELIEF 3D DE LA LUNE
+==================================================
+
+C'est très important.
+
+Utilise si possible une normal map ou bump map pour donner l'impression que les cratères possèdent réellement du relief.
+
+Le relief doit être visible principalement grâce à la lumière rasante.
+
+Je veux pouvoir observer :
+
+- cratères ;
+- reliefs ;
+- zones légèrement enfoncées ;
+- variations de surface.
+
+Mais le relief doit rester subtil.
+
+Ne transforme pas la Lune en boule rocheuse exagérée.
+
+==================================================
+4. ÉCLAIRAGE DE LA LUNE
+==================================================
+
+La Lune doit recevoir une lumière directionnelle provenant de la même logique lumineuse que le système Terre/Lune.
+
+Elle doit donc présenter :
+
+PARTIE ÉCLAIRÉE
+→ clairement visible
+
+PARTIE DANS L'OMBRE
+→ plus sombre
+
+TERMINATEUR
+→ transition progressive entre lumière et ombre
+
+Cela donnera immédiatement beaucoup plus de profondeur.
+
+La Lune ne doit jamais être uniformément éclairée.
+
+==================================================
+5. CRATÈRES ET OMBRES
+==================================================
+
+Les cratères doivent réagir à la lumière.
+
+Un cratère situé du côté éclairé peut montrer :
+
+- un bord lumineux ;
+- un intérieur plus sombre.
+
+Cela crée l'impression de véritable relief.
+
+Le but est d'obtenir une Lune qui ressemble à un objet tridimensionnel et non à une texture collée sur une sphère.
+
+==================================================
+6. ORBITE DE LA LUNE
+==================================================
+
+La Lune doit tourner autour de la Terre sur une véritable trajectoire orbitale.
+
+Ne fais pas simplement :
+
+moon.position.x += ...
+
+Je veux une véritable logique orbitale basée sur une trajectoire.
+
+Conceptuellement :
+
+                    LUNE
+                     ●
+                  ╱     ╲
+                ╱         ╲
+              ╱             ╲
+             |      🌍       |
+              ╲             ╱
+                ╲         ╱
+                  ╲     ╱
+
+La Lune doit suivre une trajectoire elliptique ou circulaire stylisée.
+
+Si une représentation astronomique réaliste est utilisée, respecte les paramètres correspondants.
+
+Sinon, assume clairement une orbite artistique destinée à l'interface.
+
+==================================================
+7. INCLINAISON DE L'ORBITE
+==================================================
+
+Ne fais pas forcément tourner la Lune sur un axe parfaitement horizontal.
+
+Une légère inclinaison de l'orbite donnera beaucoup plus de profondeur.
+
+L'orbite doit être légèrement inclinée par rapport au plan visuel de la Terre.
+
+Cela permettra à la Lune de :
+
+- passer légèrement devant ;
+- passer légèrement derrière ;
+- créer de la profondeur ;
+- donner une véritable impression de système 3D.
+
+==================================================
+8. PROFONDEUR DE L'ORBITE
+==================================================
+
+La Lune doit réellement se déplacer dans l'espace 3D.
+
+Lorsqu'elle passe derrière la Terre :
+
+→ elle doit être partiellement ou totalement masquée selon sa position.
+
+Lorsqu'elle revient devant :
+
+→ elle doit réapparaître progressivement.
+
+IMPORTANT :
+
+La Lune ne doit pas toujours être dessinée au-dessus du globe.
+
+Le moteur de rendu doit respecter la profondeur réelle.
+
+C'est essentiel pour obtenir une véritable impression 3D.
+
+==================================================
+9. TAILLE DE LA LUNE
+==================================================
+
+La Lune doit être suffisamment grande pour être identifiable.
+
+Mais elle ne doit pas être énorme.
+
+Elle doit être visuellement proportionnée au globe dans le contexte de l'interface.
+
+Je préfère une Lune légèrement stylisée mais élégante plutôt qu'une Lune surdimensionnée.
+
+==================================================
+10. DISTANCE VISUELLE
+==================================================
+
+La Lune doit être suffisamment éloignée du globe pour que son orbite soit clairement visible.
+
+Actuellement, si elle est trop proche :
+
+→ augmente légèrement son rayon orbital.
+
+Si elle est trop éloignée :
+
+→ rapproche-la.
+
+Je veux que l'utilisateur puisse immédiatement voir :
+
+TERRE
+→ espace
+→ ORBITE
+→ LUNE.
+
+==================================================
+11. ORBITE VISIBLE
+==================================================
+
+Ajoute éventuellement une représentation très discrète de l'orbite.
+
+Par exemple :
+
+une ligne extrêmement fine et légèrement lumineuse.
+
+Elle doit être :
+
+- presque transparente ;
+- élégante ;
+- fine ;
+- non intrusive.
+
+Ne dessine pas une énorme ligne brillante autour de la Terre.
+
+L'orbite doit être découverte progressivement par l'utilisateur.
+
+==================================================
+12. ORBITE DYNAMIQUE
+==================================================
+
+Lorsque la Lune tourne :
+
+l'orbite doit rester parfaitement synchronisée.
+
+Aucun tremblement.
+
+Aucun saut.
+
+Aucun changement brutal de vitesse.
+
+La vitesse doit être constante ou légèrement interpolée.
+
+Utilise une animation basée sur le temps et non sur un simple nombre de pixels par frame afin que la vitesse reste cohérente selon le FPS.
+
+==================================================
+13. ROTATION PROPRE DE LA LUNE
+==================================================
+
+En plus de son mouvement orbital, la Lune doit également tourner sur elle-même.
+
+Mais attention :
+
+ne donne pas l'impression que la Lune tourne très rapidement.
+
+La rotation doit être extrêmement lente.
+
+Si une représentation astronomique est recherchée, tu peux utiliser une rotation synchrone de manière à conserver approximativement la même face orientée vers la Terre.
+
+Si l'objectif est purement esthétique, privilégie un mouvement lent et cohérent.
+
+==================================================
+14. MOUVEMENT GLOBAL
+==================================================
+
+Le système doit maintenant avoir plusieurs niveaux de mouvement :
+
+NIVEAU 1
+→ rotation du globe
+
+NIVEAU 2
+→ orbite de la Lune
+
+NIVEAU 3
+→ rotation propre de la Lune
+
+NIVEAU 4
+→ particules / environnement spatial
+
+IMPORTANT :
+
+Ces mouvements ne doivent pas avoir la même vitesse.
+
+Ils doivent être suffisamment différents pour donner une sensation de profondeur.
+
+==================================================
+15. MODE PAUSE
+==================================================
+
+Le bouton PAUSE actuel doit contrôler correctement le système.
+
+Lorsqu'on clique sur PAUSE :
+
+→ arrêter la rotation du globe
+→ arrêter l'orbite de la Lune
+→ arrêter la rotation de la Lune
+→ arrêter les animations orbitales importantes
+
+Mais les éléments purement UI peuvent continuer à fonctionner.
+
+Lorsque l'utilisateur clique sur PLAY/REPRENDRE :
+
+→ reprendre progressivement.
+
+Ne provoque pas de saut de position.
+
+==================================================
+16. ROTATION AUTOMATIQUE
+==================================================
+
+Le bouton :
+
+ROTATION AUTOMATIQUE
+
+doit contrôler le comportement global.
+
+Lorsque l'auto-rotation est active :
+
+TERRE
+→ rotation lente
+
+LUNE
+→ orbite lente
+
+Lorsque l'utilisateur désactive l'auto-rotation :
+
+les mouvements automatiques doivent s'arrêter proprement.
+
+==================================================
+17. INTERACTION MANUELLE
+==================================================
+
+Lorsque l'utilisateur fait tourner le globe manuellement :
+
+la Lune doit rester attachée au système Terre/Lune.
+
+Elle ne doit pas :
+
+- disparaître ;
+- changer brutalement d'orbite ;
+- sauter ;
+- se désynchroniser.
+
+Le système entier doit rester cohérent.
+
+==================================================
+18. OMBRE DE LA TERRE
+==================================================
+
+Si techniquement possible sans coût excessif :
+
+utilise les ombres 3D pour que la Terre puisse naturellement masquer la Lune lorsqu'elle passe derrière elle.
+
+Je veux obtenir une vraie relation :
+
+CAMÉRA
+↓
+LUNE
+↓
+TERRE
+
+ou :
+
+CAMÉRA
+↓
+TERRE
+↓
+LUNE
+
+selon la position orbitale.
+
+Cela donnera énormément de profondeur.
+
+==================================================
+19. OCCULTATION
+==================================================
+
+Lorsque la Lune passe derrière la Terre :
+
+elle doit disparaître naturellement derrière le globe.
+
+Lorsqu'elle revient :
+
+elle doit réapparaître.
+
+Ne fais pas apparaître/disparaître la Lune avec une simple opacité artificielle.
+
+La profondeur 3D doit gérer cette situation.
+
+==================================================
+20. HALO DE LA LUNE
+==================================================
+
+La Lune peut avoir un très léger halo lorsqu'elle est éclairée.
+
+Mais :
+
+PAS de gros glow.
+
+PAS d'effet néon.
+
+PAS de halo permanent trop visible.
+
+Le halo doit être extrêmement subtil.
+
+Il doit simplement séparer légèrement la Lune du fond spatial.
+
+==================================================
+21. CRATÈRES VISIBLES À DISTANCE
+==================================================
+
+À la distance normale du dashboard :
+
+les cratères principaux doivent rester légèrement visibles.
+
+Lorsqu'on zoome :
+
+les détails peuvent devenir plus visibles.
+
+Cela crée une impression de profondeur supplémentaire.
+
+==================================================
+22. INTERACTION AVEC LA LUNE
+==================================================
+
+Si l'utilisateur survole la Lune :
+
+→ petite mise en évidence.
+
+Par exemple :
+
+un halo légèrement plus visible.
+
+Au clic :
+
+afficher un petit panneau :
+
+LUNE
+
+Distance orbitale
+Phase
+Position
+État
+
+Uniquement si les données correspondantes sont réellement calculées.
+
+Sinon, ne pas afficher de fausses données.
+
+==================================================
+23. PHASE LUNAIRE
+==================================================
+
+Si techniquement possible et cohérent avec la position de la source lumineuse :
+
+la Lune peut afficher une véritable phase lunaire.
+
+Par exemple :
+
+nouvelle lune
+croissant
+premier quartier
+gibbeuse
+pleine lune
+
+La phase doit être calculée à partir de la géométrie Terre-Lune-source lumineuse.
+
+Ne change pas simplement la texture pour simuler une phase.
+
+==================================================
+24. SOURCE LUMINEUSE
+==================================================
+
+Idéalement :
+
+une lumière directionnelle représente le Soleil.
+
+Cette même source doit influencer :
+
+- Terre ;
+- Lune ;
+- atmosphère ;
+- ombres.
+
+Cela permettra d'avoir une cohérence visuelle entre les corps célestes.
+
+==================================================
+25. ORIENTATION
+==================================================
+
+La Lune doit conserver une orientation cohérente lorsqu'elle orbite.
+
+Évite les rotations aléatoires.
+
+Si le système permet une simulation astronomique :
+→ utiliser une rotation synchrone.
+
+Sinon :
+→ rotation lente et contrôlée.
+
+==================================================
+26. ARRIÈRE-PLAN
+==================================================
+
+La Lune doit évoluer dans un espace cohérent.
+
+Le champ d'étoiles actuel peut rester.
+
+Ajoute éventuellement quelques particules très éloignées.
+
+Mais elles doivent rester discrètes.
+
+La Lune doit être clairement visible sans que l'arrière-plan devienne chargé.
+
+==================================================
+27. HIÉRARCHIE
+==================================================
+
+Le globe reste le héros principal.
+
+La Lune est son compagnon visuel.
+
+Donc :
+
+TERRE
+★★★★★
+
+LUNE
+★★★
+
+ÉTOILES
+★
+
+La Lune doit être suffisamment importante pour être remarquée, mais elle ne doit jamais voler la vedette au globe.
+
+==================================================
+28. ESTHÉTIQUE
+==================================================
+
+La Lune doit respecter exactement l'identité visuelle de Soliris Market.
+
+Conserve :
+
+- fond sombre ;
+- accents dorés ;
+- profondeur ;
+- élégance ;
+- sobriété.
+
+Évite :
+
+- bleu électrique excessif ;
+- néons ;
+- couleurs multicolores ;
+- effets sci-fi génériques.
+
+==================================================
+29. RESPONSIVE
+==================================================
+
+Sur desktop :
+
+→ Lune clairement visible.
+
+Sur tablette :
+
+→ réduire légèrement le rayon orbital.
+
+Sur mobile :
+
+→ réduire l'échelle de l'orbite et éviter que la Lune sorte du cadre.
+
+La Lune doit toujours rester dans la zone visuelle de l'Observatoire.
+
+==================================================
+30. PERFORMANCE
+==================================================
+
+IMPORTANT.
+
+Ne crée pas plusieurs requestAnimationFrame indépendants.
+
+Utilise la boucle d'animation existante lorsque possible.
+
+Toutes les animations :
+
+- globe ;
+- lune ;
+- orbite ;
+- particules ;
+
+doivent être synchronisées dans le même système d'animation.
+
+Évite les calculs lourds à chaque frame.
+
+Optimise la géométrie.
+
+Limite le pixel ratio si nécessaire sur les appareils faibles.
+
+==================================================
+31. RÉDUCTION DES ANIMATIONS
+==================================================
+
+Respecte :
+
+prefers-reduced-motion.
+
+Lorsque cette option est activée :
+
+→ ralentir fortement ou désactiver les mouvements orbitaux décoratifs.
+
+Conserver uniquement les animations nécessaires à la compréhension de l'interface.
+
+==================================================
+32. QUALITÉ FINALE
+==================================================
+
+Après implémentation, vérifie visuellement :
+
+1. La Lune est-elle réellement sphérique ?
+2. Les cratères donnent-ils une impression de relief ?
+3. La lumière crée-t-elle une vraie partie éclairée et une vraie partie sombre ?
+4. La Lune tourne-t-elle réellement autour de la Terre ?
+5. La Lune se déplace-t-elle réellement en profondeur ?
+6. Peut-elle passer derrière la Terre ?
+7. L'orbite est-elle élégante ?
+8. La vitesse est-elle suffisamment lente ?
+9. La rotation propre est-elle subtile ?
+10. Le système reste-t-il fluide ?
+11. Le bouton PAUSE contrôle-t-il correctement la Lune ?
+12. Le bouton ROTATION AUTOMATIQUE contrôle-t-il correctement l'ensemble ?
+13. Le rendu reste-t-il premium ?
+14. La Lune ne vole-t-elle pas la vedette au globe ?
+
+==================================================
+33. RÈGLE ABSOLUE
+==================================================
+
+Je ne veux PAS simplement :
+
+« une petite boule qui tourne autour du globe ».
+
+Je veux :
+
+UNE VÉRITABLE MINIATURE DU SYSTÈME TERRE-LUNE.
+
+Le résultat doit donner l'impression que :
+
+le globe est un corps céleste 3D,
+
+la Lune est un second corps céleste 3D,
+
+ils occupent réellement le même espace,
+
+la lumière les éclaire de manière cohérente,
+
+la Lune possède une orbite,
+
+la profondeur est réelle,
+
+et tout le système fonctionne comme une seule scène WebGL.
+
+==================================================
+34. NE PAS CASSER L'OBSERVATOIRE
+==================================================
+
+Avant de terminer :
+
+- vérifier le globe ;
+- vérifier les contrôles ;
+- vérifier la rotation ;
+- vérifier le mode pause ;
+- vérifier les données ;
+- vérifier les animations ;
+- vérifier le responsive ;
+- vérifier les performances ;
+- vérifier la console.
+
+Ne casse aucune fonctionnalité existante.
+
+Commence par inspecter le code actuel de l'Observatoire et identifie comment la Lune est actuellement créée et animée.
+
+Puis améliore cette implémentation au lieu de créer un deuxième système parallèle.
+
+Je veux que tu implémentes réellement les modifications, que tu testes le résultat dans l'application et que tu corriges les problèmes avant de terminer.

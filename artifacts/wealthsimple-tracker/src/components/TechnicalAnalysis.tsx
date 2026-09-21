@@ -23,7 +23,7 @@ import type {
 import {
   TrendingUp, TrendingDown, Minus, AlertCircle, ChevronDown, ChevronUp, BookOpen, X, CandlestickChart,
   Radio, ArrowUpRight, ArrowDownRight, Gauge, GitCompareArrows, History, Sparkles, Target,
-  ShoppingCart, ArrowDownToLine, Layers,
+  ShoppingCart, ArrowDownToLine, Layers, Activity,
 } from "lucide-react";
 import TradingJournal from "@/components/TradingJournal";
 
@@ -439,12 +439,13 @@ function PredictionCandleChart({
 }
 
 function PredictionRow({
-  pred, highlighted, onJumpToPattern, onTrade,
+  pred, highlighted, onJumpToPattern, onTrade, index = 0,
 }: {
   pred: CandlePrediction;
   highlighted?: boolean;
   onJumpToPattern?: () => void;
   onTrade?: (side: "BUY" | "SELL", source: string) => void;
+  index?: number;
 }) {
   const [open, setOpen] = useState(false);
   const style = ACTION_STYLE[pred.action];
@@ -455,9 +456,10 @@ function PredictionRow({
   return (
     <div
       id={`prediction-${pred.patternIdx}-${pred.patternName}`}
-      className={`border rounded-lg overflow-hidden cursor-pointer transition-colors ${
+      className={`analysis-reveal border rounded-lg overflow-hidden cursor-pointer transition-colors ${
         highlighted ? "ring-2 ring-primary/60 border-primary/40" : "border-card-border hover:border-primary/40"
       }`}
+      style={{ animationDelay: `${index * 55}ms` }}
       onClick={() => setOpen((v) => !v)}
     >
       <div className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1.5fr_1fr_1fr_auto] items-center gap-2 px-3 py-2.5 bg-card">
@@ -492,6 +494,13 @@ function PredictionRow({
             </button>
           )}
         </div>
+      </div>
+      <div className="h-0.5 bg-muted/60">
+        <div
+          className={`h-full transition-[width] duration-700 ${isUp ? "bg-emerald-500" : "bg-red-500"}`}
+          style={{ width: `${pred.confidence}%` }}
+          aria-label={`Confiance ${pred.confidence}%`}
+        />
       </div>
       {open && (
         <div className="px-3 py-2.5 border-t border-card-border bg-background/50 space-y-2">
@@ -916,6 +925,90 @@ function MultiTimeframePanel({ frames }: { frames: TfSlot[] }) {
   );
 }
 
+function AnalysisCommandHeader({
+  analysis,
+  structure,
+  recentPatterns,
+  livePatterns,
+  predictions,
+  currentPrice,
+  currency,
+  onTrade,
+}: {
+  analysis: ReturnType<typeof analyzeTradingSignals>;
+  structure: MarketStructure;
+  recentPatterns: CandlePattern[];
+  livePatterns: CandlePattern[];
+  predictions: CandlePrediction[];
+  currentPrice: number;
+  currency: string;
+  onTrade?: (side: "BUY" | "SELL", source: string) => void;
+}) {
+  const scoreBalance = Math.round((analysis.score + 100) / 2);
+  const isBull = analysis.overall.includes("ACHAT");
+  const isBear = analysis.overall.includes("VENTE");
+  const accent = isBull ? "#22c55e" : isBear ? "#ef4444" : "#d4a72c";
+  const actionCount = predictions.filter((p) => p.action !== "Attendre").length;
+  const signalCount = analysis.signals.filter((s) => s.verdict !== "neutral").length;
+
+  return (
+    <section className={`analysis-command-hero ${isBull ? "is-bullish" : isBear ? "is-bearish" : "is-neutral"}`}>
+      <div className="analysis-command-grid">
+        <div className="analysis-command-copy">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-primary/80">
+            <Activity className="w-3.5 h-3.5" />
+            Lecture technique en direct
+            <span className="analysis-live-chip"><span /> calcul local</span>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-1 mt-3">
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">{analysis.overall}</h2>
+            <span className="text-sm font-mono text-muted-foreground mb-1">
+              {currency}{currentPrice.toFixed(2)}
+            </span>
+          </div>
+          <p className="text-sm text-foreground/75 leading-relaxed max-w-2xl mt-2">{analysis.recommendation}</p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="analysis-context-chip"><span className="analysis-context-dot" style={{ background: accent }} /> {structure.label}</span>
+            <span className="analysis-context-chip">{recentPatterns.length} patterns récents</span>
+            <span className="analysis-context-chip">{actionCount} scénario{actionCount > 1 ? "s" : ""} actif{actionCount > 1 ? "s" : ""}</span>
+          </div>
+          {onTrade && analysis.overall !== "NEUTRE" && (
+            <div className="flex gap-2 mt-5">
+              {(isBull) && (
+                <button onClick={() => onTrade("BUY", analysis.overall)} className="analysis-command-action is-buy">
+                  <ShoppingCart className="w-3.5 h-3.5" /> Ouvrir un achat
+                </button>
+              )}
+              {(isBear) && (
+                <button onClick={() => onTrade("SELL", analysis.overall)} className="analysis-command-action is-sell">
+                  <ArrowDownToLine className="w-3.5 h-3.5" /> Préparer une vente
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="analysis-command-score">
+          <div
+            className="analysis-score-ring"
+            style={{ background: `conic-gradient(${accent} ${scoreBalance}%, hsl(var(--border) / 0.55) 0)` }}
+            aria-label={`Balance des signaux ${analysis.score}`}
+          >
+            <div className="analysis-score-core">
+              <strong>{analysis.score > 0 ? "+" : ""}{analysis.score}</strong>
+              <span>balance</span>
+            </div>
+          </div>
+          <div className="text-center mt-2">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Convergence technique</p>
+            <p className="text-xs text-foreground/70 mt-1">{signalCount} signal{signalCount > 1 ? "s" : ""} directionnel{signalCount > 1 ? "s" : ""} · {livePatterns.length} sur la dernière bougie</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function TechnicalAnalysis({ history, currentPrice, currency, symbol, onTrade }: Props) {
   const [overlays, setOverlays] = useState<Set<ActiveOverlay>>(new Set(["sma"]));
   const [showDetails, setShowDetails] = useState(false);
@@ -1024,6 +1117,18 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
     () => predictNextMove(recentPatterns, backtestStats, analysis, srLevels, currentPrice).slice(0, 8),
     [recentPatterns, backtestStats, analysis, srLevels, currentPrice]
   );
+  const predictionSummary = useMemo(
+    () => ({
+      buy: predictions.filter((p) => p.action === "Acheter").length,
+      sell: predictions.filter((p) => p.action === "Vendre").length,
+      wait: predictions.filter((p) => p.action === "Attendre").length,
+      strongest: predictions.reduce<CandlePrediction | null>(
+        (best, prediction) => (!best || prediction.confidence > best.confidence ? prediction : best),
+        null
+      ),
+    }),
+    [predictions]
+  );
 
   // Petit indicateur visuel pour confirmer que tout se recalcule bien en
   // direct — se met à jour chaque fois que `history` change (donc à chaque
@@ -1088,6 +1193,11 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
   const mutedFg = "hsl(var(--muted-foreground))";
   const font = 10;
   const yDomain: [string, string] = ["auto", "auto"];
+  const chartSignalColor = analysis.overall.includes("ACHAT")
+    ? "#22c55e"
+    : analysis.overall.includes("VENTE")
+      ? "#ef4444"
+      : "#d4a72c";
 
   return (
     <div className="space-y-4">
@@ -1105,57 +1215,96 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
         </button>
       </div>
 
-      {/* Radar de patterns — visualisation balayage continu */}
-      <div className="bg-card border border-card-border rounded-xl px-4 py-3">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: "#D4A72C" }} />
-            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#D4A72C" }} />
-          </span>
-          <Radio className="w-3.5 h-3.5" style={{ color: "#D4A72C" }} />
-          <span className="text-sm font-semibold">Radar de patterns — dernière bougie</span>
-          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">
-            Mis à jour à chaque nouvelle donnée
-          </span>
-        </div>
-        <PatternRadar patterns={livePatterns} backtestStats={backtestStats} />
+      <AnalysisCommandHeader
+        analysis={analysis}
+        structure={structure}
+        recentPatterns={recentPatterns}
+        livePatterns={livePatterns}
+        predictions={predictions}
+        currentPrice={currentPrice}
+        currency={currency}
+        onTrade={onTrade}
+      />
+
+      {/* Radar + scénarios : deux vues de la même chaîne de preuve */}
+      <div className="grid grid-cols-1 xl:grid-cols-[0.82fr_1.18fr] gap-4 items-stretch">
+        <section className="analysis-panel analysis-radar-panel">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: "#D4A72C" }} />
+                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#D4A72C" }} />
+                </span>
+                <Radio className="w-3.5 h-3.5" style={{ color: "#D4A72C" }} />
+                <span className="text-sm font-semibold">Radar des patterns</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Les dernières bougies détectées, pondérées par leur historique sur ce titre.</p>
+            </div>
+            <span className="analysis-panel-kicker">{recentPatterns.length} détectés</span>
+          </div>
+          <PatternRadar patterns={recentPatterns} backtestStats={backtestStats} />
+        </section>
+
+        <section className="analysis-panel analysis-prediction-panel">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="text-sm font-semibold">Scénarios &amp; signaux d'entrée</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Une lecture probabiliste basée sur les occurrences historiques et la confluence actuelle.</p>
+            </div>
+            <span className="analysis-panel-kicker">Historique local</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {[
+              { label: "Acheter", value: predictionSummary.buy, tone: "is-buy" },
+              { label: "Attendre", value: predictionSummary.wait, tone: "is-wait" },
+              { label: "Vendre", value: predictionSummary.sell, tone: "is-sell" },
+            ].map((item) => (
+              <div key={item.label} className={`analysis-action-stat ${item.tone}`}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+          <PredictionCandleChart history={history} data={data} predictions={predictions} />
+          {predictions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Pas assez de patterns récents pour établir un scénario fiable.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {predictions.map((pred, i) => (
+                <PredictionRow
+                  key={`pred-${pred.patternIdx}-${pred.patternName}-${i}`}
+                  pred={pred}
+                  index={i}
+                  highlighted={highlightKey === `${pred.patternIdx}-${pred.patternName}`}
+                  onJumpToPattern={() => jumpTo(`pattern-${pred.patternIdx}-${pred.patternName}`, `${pred.patternIdx}-${pred.patternName}`)}
+                  onTrade={onTrade}
+                />
+              ))}
+            </div>
+          )}
+          {predictionSummary.strongest && (
+            <div className="analysis-best-scenario">
+              <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span>Scénario le plus net : <strong>{predictionSummary.strongest.patternName}</strong> · {predictionSummary.strongest.confidence}% de confiance historique</span>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground/70 mt-3 leading-relaxed">
+            ⚠️ Ce ne sont pas des certitudes : elles résument ce qui s'est produit après ce pattern sur ce titre. Confirme toujours avec le prix, le volume et un stop-loss.
+          </p>
+        </section>
       </div>
 
-      {/* Indicateur "en direct" — confirme visuellement que tout se rafraîchit tout seul toutes les 10s */}
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1">
+      {/* Indicateur "en direct" — relié aux actualisations de l'historique */}
+      <div className="analysis-live-status">
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
         </span>
-        En direct — mis à jour à {lastUpdated.toLocaleTimeString("fr-CA")} (rafraîchissement automatique toutes les 5s)
-      </div>
-
-      {/* Prédictions IA — table interactive des signaux d'entrée/sortie */}
-      <div className="bg-card border border-card-border rounded-xl px-4 py-3">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
-          <span className="text-sm font-semibold">Prédictions &amp; signaux d'entrée</span>
-          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Basé sur l'historique de ce titre — cliquez une ligne pour le détail</span>
-        </div>
-        <PredictionCandleChart history={history} data={data} predictions={predictions} />
-        {predictions.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Pas assez de patterns récents pour établir une prédiction fiable.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {predictions.map((pred, i) => (
-              <PredictionRow
-                key={`pred-${pred.patternIdx}-${pred.patternName}-${i}`}
-                pred={pred}
-                highlighted={highlightKey === `${pred.patternIdx}-${pred.patternName}`}
-                onJumpToPattern={() => jumpTo(`pattern-${pred.patternIdx}-${pred.patternName}`, `${pred.patternIdx}-${pred.patternName}`)}
-                onTrade={onTrade}
-              />
-            ))}
-          </div>
-        )}
-        <p className="text-[11px] text-muted-foreground/70 mt-3 leading-relaxed">
-          ⚠️ Ces prédictions se basent sur ce qui s'est produit après ce pattern les fois précédentes sur ce titre — ce n'est pas une garantie. Combinez toujours avec votre propre jugement et un stop-loss.
-        </p>
+        Analyse recalculée à {lastUpdated.toLocaleTimeString("fr-CA")} · actualisation automatique des données
       </div>
 
       {/* Structure de marché + Volatilité (ATR) */}
@@ -1257,10 +1406,26 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
       </div>
 
       {/* Graphique prix + overlays */}
-      <div className="bg-card border border-card-border rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold">Prix &amp; Indicateurs</span>
-          <div className="flex items-center gap-1.5">
+      <section className="analysis-panel analysis-chart-panel">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <CandlestickChart className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Carte des prix &amp; indicateurs</span>
+              <span className="analysis-panel-kicker">lecture centrale</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">Le prix est la source primaire. Les indicateurs servent à confirmer, jamais à le remplacer.</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Signal</span>
+            <span className="analysis-chart-signal" style={{ color: chartSignalColor, borderColor: `${chartSignalColor}55`, background: `${chartSignalColor}14` }}>
+              {analysis.overall}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Calques</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
             {(["sma", "ema", "bb", "sr", "fib"] as ActiveOverlay[]).map((o) => {
               const hasEnoughData = history.length >= OVERLAY_MIN_HISTORY[o];
               const label = o === "sma" ? "MM 20/50" : o === "ema" ? "EMA 12/26" : o === "bb" ? "Bollinger" : o === "sr" ? "Support/Résist." : "Fibonacci";
@@ -1270,7 +1435,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
                   onClick={() => hasEnoughData && toggleOverlay(o)}
                   disabled={!hasEnoughData}
                   title={hasEnoughData ? undefined : `Besoin d'au moins ${OVERLAY_MIN_HISTORY[o]} bougies — choisis une période plus longue (3m ou plus) pour activer "${label}".`}
-                  className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
+                  className={`analysis-overlay-toggle px-2 py-1 text-xs font-medium rounded border transition-colors ${
                     !hasEnoughData
                       ? "bg-muted/50 text-muted-foreground/40 border-border cursor-not-allowed"
                       : overlays.has(o)
@@ -1295,6 +1460,13 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis domain={yDomain} tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v.toFixed(0)}`} width={58} />
             <Tooltip content={<PriceTooltip />} />
+            <ReferenceLine
+              y={currentPrice}
+              stroke={chartSignalColor}
+              strokeDasharray="3 3"
+              strokeOpacity={0.8}
+              label={{ value: `Actuel ${currency}${currentPrice.toFixed(2)}`, position: "insideTopRight", fontSize: 9, fill: chartSignalColor }}
+            />
 
             {overlays.has("sr") && srLevels.map((l) => (
               <ReferenceLine
@@ -1328,7 +1500,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
               </>
             )}
 
-            <Line dataKey="close" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Prix" connectNulls activeDot={{ r: 4, strokeWidth: 0 }} />
+            <Line dataKey="close" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Prix" connectNulls activeDot={{ r: 4, strokeWidth: 0 }} isAnimationActive animationDuration={650} />
 
             {overlays.has("sma") && (
               <>
@@ -1357,7 +1529,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             />
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="text-center text-[10px] text-muted-foreground/40 mt-1 tracking-wider">Glissez les ancrages · synchronisé avec RSI et MACD</p>
+        <p className="analysis-chart-caption">Glissez les ancrages · la fenêtre est synchronisée avec RSI et MACD</p>
 
         <div className="flex flex-wrap gap-3 mt-2 px-1">
           <LegendDot color="hsl(var(--primary))" label="Prix" />
@@ -1367,7 +1539,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
           {overlays.has("sr") && <><LegendDot color="#10b981" label="Support" dashed /><LegendDot color="#ef4444" label="Résistance" dashed /></>}
           {overlays.has("fib") && <LegendDot color="#f43f5e" label="Fibonacci" dashed />}
         </div>
-      </div>
+      </section>
 
       {/* Volume */}
       <div className="bg-card border border-card-border rounded-xl p-4">
