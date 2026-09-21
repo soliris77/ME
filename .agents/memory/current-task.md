@@ -5,6 +5,11 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Animation dorée des emails
+
+- ✅ FAIT — Étape 24 : Ajouter un reflet doré animé avec fallback email compatible
+- ✅ FAIT — Étape 25 : Vérifier le HTML, le typecheck et envoyer un email de contrôle
+
 ## Affinage du branding des emails
 
 - ✅ FAIT — Étape 22 : Utiliser la bannière complète Soliris et renforcer les textes dorés

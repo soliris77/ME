@@ -33,6 +33,25 @@ export const BRAND = {
 
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const SERIF = "Georgia, 'Times New Roman', Times, serif";
+const GOLD_SHIMMER_CSS = `<style>
+@keyframes solirisGoldShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.soliris-gold-shimmer {
+  color: ${BRAND.goldDeep};
+  background-image: linear-gradient(100deg, ${BRAND.goldDeep} 0%, ${BRAND.gold} 34%, #FFF1A8 50%, ${BRAND.gold} 66%, ${BRAND.goldDeep} 100%);
+  background-size: 220% auto;
+  background-position: -200% center;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: solirisGoldShimmer 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .soliris-gold-shimmer { animation: none; }
+}
+</style>`;
 
 /** Identifiant de la pièce jointe du logo, partagé avec emailClient. */
 export const LOGO_CONTENT_ID = "soliris-logo";
@@ -136,7 +155,7 @@ export interface SolirisEmailParams {
 export function solirisEmail({ title, intro, bodyHtml, footnote, venue }: SolirisEmailParams): string {
   return `<!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>${GOLD_SHIMMER_CSS}</head>
 <body style="margin:0;padding:0;background:#F4F5F7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F5F7;padding:24px 12px;">
     <tr><td align="center">
@@ -152,8 +171,8 @@ export function solirisEmail({ title, intro, bodyHtml, footnote, venue }: Soliri
 
         <!-- Contenu -->
         <tr><td style="padding:28px 26px 8px;">
-          <h1 style="margin:0;font-family:${FONT};font-size:18px;line-height:1.35;color:${BRAND.goldDeep};font-weight:700;">${escapeHtml(title)}</h1>
-          ${intro ? `<p style="margin:8px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${BRAND.goldDeep};">${escapeHtml(intro)}</p>` : ""}
+          <h1 style="margin:0;font-family:${FONT};font-size:18px;line-height:1.35;color:${BRAND.goldDeep};font-weight:700;"><span class="soliris-gold-shimmer">${escapeHtml(title)}</span></h1>
+          ${intro ? `<p style="margin:8px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${BRAND.goldDeep};"><span class="soliris-gold-shimmer">${escapeHtml(intro)}</span></p>` : ""}
         </td></tr>
         <tr><td style="padding:18px 26px 26px;font-family:${FONT};color:${BRAND.text};">${venue === "hyperliquid" ? hyperliquidBadge() : ""}${bodyHtml}</td></tr>
 
@@ -193,7 +212,7 @@ function hyperliquidBadge(): string {
         <img src="cid:${HYPERLIQUID_CONTENT_ID}" alt="Hyperliquid" width="28" height="28" style="display:block;width:28px;height:28px;border:0;border-radius:6px;">
       </td>
       <td style="padding:8px 12px 8px 0;font-family:${FONT};font-size:12px;line-height:1.35;color:${BRAND.goldDeep};font-weight:700;">
-        Marchés disponibles sur Hyperliquid<br>
+        <span class="soliris-gold-shimmer">Marchés disponibles sur Hyperliquid</span><br>
         <span style="font-size:11px;color:${BRAND.muted};font-weight:400;">Données publiques de marchés perpétuels</span>
       </td>
     </tr>
@@ -211,11 +230,11 @@ export function emailTable(headers: readonly string[], rows: readonly (readonly 
   const pad = (i: number) => (i === 0 ? "0 14px 8px 0" : "0 0 8px 18px");
   const padCell = (i: number) => (i === 0 ? "10px 14px 10px 0" : "10px 0 10px 18px");
   const head = headers
-    .map((h, i) => `<th style="text-align:${i === 0 ? "left" : "right"};padding:${pad(i)};font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.goldDeep};font-weight:700;border-bottom:1px solid ${BRAND.hairline};white-space:nowrap;">${escapeHtml(h)}</th>`)
+    .map((h, i) => `<th class="soliris-gold-shimmer" style="text-align:${i === 0 ? "left" : "right"};padding:${pad(i)};font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.goldDeep};font-weight:700;border-bottom:1px solid ${BRAND.hairline};white-space:nowrap;">${escapeHtml(h)}</th>`)
     .join("");
   const body = rows
     .map((row) => `<tr>${row
-      .map((cell, i) => `<td style="text-align:${i === 0 ? "left" : "right"};padding:${padCell(i)};font-size:14px;color:${i === 0 ? BRAND.goldDeep : BRAND.text};border-bottom:1px solid ${BRAND.hairline};${i === 0 ? "font-weight:600;" : "font-variant-numeric:tabular-nums;white-space:nowrap;"}">${cell}</td>`)
+      .map((cell, i) => `<td${i === 0 ? ' class="soliris-gold-shimmer"' : ""} style="text-align:${i === 0 ? "left" : "right"};padding:${padCell(i)};font-size:14px;color:${i === 0 ? BRAND.goldDeep : BRAND.text};border-bottom:1px solid ${BRAND.hairline};${i === 0 ? "font-weight:600;" : "font-variant-numeric:tabular-nums;white-space:nowrap;"}">${cell}</td>`)
       .join("")}</tr>`)
     .join("");
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
