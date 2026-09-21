@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
 import {
   Activity,
@@ -28,6 +28,54 @@ type ObservatorySnapshot = {
   totalCount: number;
   checkedAt: Date;
 };
+
+const OBSERVATORY_STARS = [
+  { x: 8, y: 18, size: 1.4, delay: -1.2, duration: 3.8, tier: "back", tone: "gold" },
+  { x: 17, y: 44, size: 1.1, delay: -2.7, duration: 4.5, tier: "back", tone: "blue" },
+  { x: 26, y: 14, size: 1.6, delay: -0.8, duration: 3.2, tier: "mid", tone: "gold" },
+  { x: 32, y: 73, size: 1.2, delay: -3.4, duration: 4.9, tier: "back", tone: "blue" },
+  { x: 40, y: 24, size: 1.8, delay: -1.9, duration: 3.6, tier: "front", tone: "gold" },
+  { x: 48, y: 11, size: 1.1, delay: -4.2, duration: 5.2, tier: "back", tone: "blue" },
+  { x: 54, y: 78, size: 1.5, delay: -2.2, duration: 4.1, tier: "mid", tone: "gold" },
+  { x: 62, y: 29, size: 1.2, delay: -0.5, duration: 3.9, tier: "back", tone: "blue" },
+  { x: 69, y: 12, size: 1.7, delay: -2.9, duration: 4.4, tier: "front", tone: "gold" },
+  { x: 77, y: 48, size: 1.2, delay: -1.6, duration: 3.5, tier: "mid", tone: "blue" },
+  { x: 84, y: 24, size: 1.5, delay: -3.8, duration: 4.7, tier: "back", tone: "gold" },
+  { x: 91, y: 68, size: 1.1, delay: -2.1, duration: 5.4, tier: "back", tone: "blue" },
+  { x: 12, y: 82, size: 1.7, delay: -4.5, duration: 3.7, tier: "front", tone: "gold" },
+  { x: 23, y: 61, size: 1.3, delay: -1.4, duration: 4.2, tier: "mid", tone: "blue" },
+  { x: 73, y: 84, size: 1.6, delay: -3.1, duration: 3.4, tier: "front", tone: "gold" },
+  { x: 88, y: 87, size: 1.3, delay: -0.9, duration: 4.8, tier: "mid", tone: "blue" },
+] as const;
+
+function ObservatorySpaceBackdrop() {
+  return (
+    <div className="observatory-hero-space pointer-events-none" aria-hidden="true">
+      <div className="observatory-space-nebula observatory-space-nebula-gold" />
+      <div className="observatory-space-nebula observatory-space-nebula-blue" />
+      <div className="observatory-space-core" />
+      <div className="observatory-space-stars-field observatory-space-stars-field-back" />
+      <div className="observatory-space-stars-field observatory-space-stars-field-mid" />
+      <div className="observatory-space-orbit observatory-space-orbit-one" />
+      <div className="observatory-space-orbit observatory-space-orbit-two" />
+      {OBSERVATORY_STARS.map((star, index) => (
+        <span
+          key={`${star.x}-${star.y}-${index}`}
+          className={`observatory-space-star observatory-space-star-${star.tier} observatory-space-star-${star.tone}`}
+          style={
+            {
+              "--star-x": `${star.x}%`,
+              "--star-y": `${star.y}%`,
+              "--star-size": `${star.size}px`,
+              "--star-delay": `${star.delay}s`,
+              "--star-duration": `${star.duration}s`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
 
 function readSnapshot(): ObservatorySnapshot {
   return {
@@ -158,7 +206,7 @@ export default function ObservatoryHero({
 
       <div className="relative z-10 grid gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
         <div className={`observatory-hero-visual ${isDashboard ? "observatory-hero-visual-preview" : ""}`}>
-           <div className="observatory-hero-stars pointer-events-none" aria-hidden="true" />
+          <ObservatorySpaceBackdrop />
           <div className="observatory-hero-visual-label">
             <span className="flex items-center gap-2">
               <Radio className="h-3.5 w-3.5 text-primary" />

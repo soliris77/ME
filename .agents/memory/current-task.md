@@ -156,3 +156,9 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 ## État
 
 Aucune tâche active.
+
+## Espace étoilé — Observatoire du dashboard
+
+- ✅ FAIT — Étape 1 : Auditer le décor actuel de l’Observatoire et préparer des couches spatiales dédiées
+- → EN COURS — Étape 2 : Ajouter les étoiles scintillantes, la profondeur et les halos sans toucher à l’Observatoire de l’accueil
+- ☐ À FAIRE — Étape 3 : Vérifier le responsive, prefers-reduced-motion, le typecheck, le build et le rendu du dashboard
