@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Globe encyclopédique adaptatif — accueil Soliris
+
+- ✅ FAIT — Étape 1 : Ajouter les profils encyclopédiques et la phase mondiale calculée
+- ✅ FAIT — Étape 2 : Intégrer le panneau interactif au globe hero
+- ✅ FAIT — Étape 3 : Harmoniser le rendu, vérifier le typecheck et le preview
+
 ## Ondulation du wallpaper 8K
 
 - ✅ FAIT — Étape 1 : Ajouter une déformation organique lente sur le fond 8K

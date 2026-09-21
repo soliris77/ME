@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { geoDistance, geoGraticule10, geoOrthographic, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import land110m from 'world-atlas/land-110m.json';
-import { Clock3, LocateFixed, Pause, Play, RotateCw } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Clock3, LocateFixed, Pause, Play, Sparkles, RotateCw } from 'lucide-react';
 
 // Places à couvrir
 const GLOBE_EXCHANGES = [
@@ -27,6 +27,107 @@ const STATUS_LABELS: Record<ExStatus, string> = {
   post: "Après-séance",
   holiday: "Fermé (férié)"
 };
+
+type MarketStory = {
+  region: string;
+  title: string;
+  role: string;
+  fact: string;
+  lens: string;
+};
+
+const MARKET_STORIES: Record<string, MarketStory> = {
+  nyse: {
+    region: "Amérique du Nord",
+    title: "Le cœur du prix mondial",
+    role: "Actions américaines · dollar · risque global",
+    fact: "Quand New York ouvre, la liquidité mondiale change de gravité : les autres places réagissent à son tempo.",
+    lens: "Le réflexe Soliris : comparer le relais de Londres avant de lire la première impulsion américaine.",
+  },
+  tsx: {
+    region: "Amérique du Nord",
+    title: "Le baromètre des ressources",
+    role: "Banques · énergie · métaux · économie canadienne",
+    fact: "Toronto relie les capitaux mondiaux aux matières premières : une place discrète, mais très sensible au cycle réel.",
+    lens: "Le réflexe Soliris : surveiller TSX quand le cuivre, le pétrole ou le dollar canadien accélèrent.",
+  },
+  lse: {
+    region: "Europe",
+    title: "Le pont entre les fuseaux",
+    role: "Finance internationale · devises · capitaux européens",
+    fact: "Londres est souvent le passage de relais : l’Europe absorbe l’Asie avant de transmettre le risque à New York.",
+    lens: "Le réflexe Soliris : observer Londres comme une boussole de transition, pas seulement comme un indice local.",
+  },
+  xetra: {
+    region: "Europe",
+    title: "La force industrielle",
+    role: "Industrie · export · ingénierie européenne",
+    fact: "Francfort donne une lecture directe du cœur industriel européen et de sa sensibilité aux cycles de taux.",
+    lens: "Le réflexe Soliris : confronter XETRA à l’euro et aux marchés obligataires avant de conclure.",
+  },
+  euronext: {
+    region: "Europe",
+    title: "Le marché en constellation",
+    role: "France · Benelux · Italie · grandes capitalisations",
+    fact: "Euronext n’est pas une seule ville : c’est un réseau de places qui agrège plusieurs économies européennes.",
+    lens: "Le réflexe Soliris : chercher la tendance commune plutôt que le bruit d’un seul pays.",
+  },
+  tse: {
+    region: "Asie-Pacifique",
+    title: "La précision japonaise",
+    role: "Technologie · industrie · yen · export",
+    fact: "Tokyo ouvre souvent la première grande fenêtre de risque de la journée, avec une profondeur particulière sur l’industrie.",
+    lens: "Le réflexe Soliris : lire Tokyo avec le yen — le mouvement de change raconte souvent la moitié de l’histoire.",
+  },
+  hkex: {
+    region: "Asie-Pacifique",
+    title: "La porte de la Chine",
+    role: "Chine élargie · finance · immobilier · devises",
+    fact: "Hong Kong fonctionne comme une interface entre capitaux internationaux et économie chinoise.",
+    lens: "Le réflexe Soliris : distinguer le mouvement local du véritable changement de régime asiatique.",
+  },
+  asx: {
+    region: "Asie-Pacifique",
+    title: "Le premier signal du jour",
+    role: "Matières premières · banques · Australie",
+    fact: "Sydney est l’un des premiers éclats du cycle mondial : les matières premières y parlent avant l’Europe.",
+    lens: "Le réflexe Soliris : utiliser Sydney comme signal d’ambiance, jamais comme verdict isolé.",
+  },
+};
+
+function getGlobalPhase(openMarkets: typeof GLOBE_EXCHANGES, visibleMarkets: typeof GLOBE_EXCHANGES) {
+  const openIds = new Set(openMarkets.map((market) => market.id));
+  if (openMarkets.length === 0) {
+    return {
+      eyebrow: "VEILLE MONDIALE",
+      title: "Le silence n’est jamais vide",
+      description: "Les carnets se taisent, mais le prochain relais se prépare déjà.",
+      tone: "rest",
+    };
+  }
+  if (openIds.has("nyse") && openIds.has("lse")) {
+    return {
+      eyebrow: "PONT ATLANTIQUE",
+      title: "Le monde change de main",
+      description: "New York et Londres sont ouvertes : c’est ici que les récits de marché se confrontent.",
+      tone: "active",
+    };
+  }
+  if (openIds.has("tse") || openIds.has("hkex") || openIds.has("asx")) {
+    return {
+      eyebrow: "RELAIS ASIE-PACIFIQUE",
+      title: "Le premier battement",
+      description: "L’Asie donne le ton pendant que les autres fuseaux se mettent en mouvement.",
+      tone: "dawn",
+    };
+  }
+  return {
+    eyebrow: visibleMarkets.length > openMarkets.length ? "TRANSITION DE SÉANCE" : "MARCHÉ EN MOUVEMENT",
+    title: "La liquidité circule",
+    description: "Chaque ouverture est un passage de relais, jamais un événement isolé.",
+    tone: "active",
+  };
+}
 
 function getExchangeState(ex: typeof GLOBE_EXCHANGES[0]) {
   const now = new Date();
@@ -77,7 +178,7 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const autoRotateRef = useRef(true);
   const [isDragging, setIsDragging] = useState(false);
   const [rotationMode, setRotationMode] = useState<'auto' | 'manual' | 'paused'>('auto');
-  const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(null);
+  const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(variant === 'hero' ? 'nyse' : null);
   
   const [states, setStates] = useState<Record<string, ReturnType<typeof getExchangeState>>>(() => {
     const init: any = {};
@@ -312,6 +413,11 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const visibleMarkets = marketRows.filter(({ state }) => state.status === 'open' || state.status === 'pre' || state.status === 'post');
   const selectedExchange = GLOBE_EXCHANGES.find((exchange) => exchange.id === selectedExchangeId);
   const selectedState = selectedExchangeId ? states[selectedExchangeId] : undefined;
+  const selectedStory = selectedExchangeId ? MARKET_STORIES[selectedExchangeId] : undefined;
+  const globalPhase = getGlobalPhase(
+    openMarkets.map(({ exchange }) => exchange),
+    visibleMarkets.map(({ exchange }) => exchange),
+  );
   const utcLabel = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'UTC',
     hour: '2-digit',
@@ -328,8 +434,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       className={`globe-vitality relative mx-auto h-full w-full select-none touch-none ${
         variant === 'hero' ? 'max-w-[700px] aspect-square' : 'aspect-square max-h-full'
       }`}
+      data-market-phase={variant === 'hero' ? globalPhase.tone : undefined}
       style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-      aria-label="Globe interactif des places boursières. Faites glisser pour le faire tourner."
+      aria-label="Globe interactif et encyclopédie des places boursières. Faites glisser pour le faire tourner."
     >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
       
@@ -370,9 +477,55 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
 
       {variant === 'hero' && (
         <>
+          <div
+            className="absolute left-[1%] top-[13%] z-30 w-[188px] rounded-xl border border-primary/25 bg-background/72 p-3 text-left shadow-2xl backdrop-blur-md sm:left-[2%] sm:w-[208px]"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-primary/85">
+              <Sparkles className="h-3 w-3" />
+              {globalPhase.eyebrow}
+            </div>
+            <div className="mt-2 flex items-start justify-between gap-2">
+              <div className="text-[13px] font-semibold leading-tight text-foreground">
+                {globalPhase.title}
+              </div>
+              <BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/75" />
+            </div>
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+              {globalPhase.description}
+            </p>
+            <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2 text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
+              <span>{openMarkets.length} ouverts</span>
+              <span>{visibleMarkets.length} sur le relais</span>
+            </div>
+            {selectedExchange && selectedState && selectedStory && (
+              <div className="mt-3 border-t border-primary/15 pt-2.5">
+                <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
+                  <LocateFixed className="h-3 w-3" />
+                  {selectedExchange.location}
+                </div>
+                <div className="mt-1 text-[11px] font-medium leading-tight text-foreground">
+                  {selectedStory.title}
+                </div>
+                <div className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
+                  {selectedStory.fact}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2 text-[8px] uppercase tracking-[0.1em]">
+                  <span className={selectedState.status === 'open' ? 'text-emerald-400' : 'text-primary/75'}>
+                    {STATUS_LABELS[selectedState.status]}
+                  </span>
+                  <span className="text-muted-foreground">{selectedStory.region}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-1 text-[8px] leading-relaxed text-primary/75">
+                  <ArrowUpRight className="h-3 w-3 shrink-0" />
+                  {selectedStory.lens}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="absolute right-[2%] top-[13%] z-30 w-[165px] rounded-xl border border-primary/20 bg-background/65 p-2.5 text-left shadow-2xl backdrop-blur-md sm:right-[3%] sm:top-[14%] sm:w-[190px] sm:p-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Marchés en direct</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Nœuds en direct</span>
               <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.35)]" />
                 {openMarkets.length}/{GLOBE_EXCHANGES.length}
@@ -381,6 +534,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
             <div className="mt-2 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
               <Clock3 className="h-3 w-3 text-primary/70" />
               UTC {utcLabel}
+            </div>
+            <div className="mt-2 text-[8px] uppercase tracking-[0.14em] text-primary/70">
+              Cliquer un nœud pour l’explorer
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {visibleMarkets.slice(0, 4).map(({ exchange, state }) => (
