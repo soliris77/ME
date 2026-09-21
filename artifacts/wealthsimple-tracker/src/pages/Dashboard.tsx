@@ -8,7 +8,7 @@ import { formatPrice, formatPercent, changeClass, isUp } from "@/lib/format";
 import { Link } from "wouter";
 import {
   ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown,
-  Globe, Bitcoin, BarChart3, AlertTriangle, Bookmark,
+  Bitcoin, BarChart3, AlertTriangle, Bookmark,
   Radio, Clock, Infinity, ChevronDown, ChevronUp, ExternalLink,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -32,9 +32,6 @@ import { staggerContainer, cardVariants, listItemVariants, hoverLift, EASE_PRECI
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Sparkline } from "@/components/Sparkline";
 import { PageTransition } from "@/components/PageTransition";
-import { lazy, Suspense } from "react";
-
-const MarketGlobe = lazy(() => import("@/components/MarketGlobe"));
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -464,17 +461,6 @@ function MarketStatusSection() {
 
       {/* ── Bourses mondiales ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        <div className="surface-glass rounded-xl p-4 flex flex-col items-center justify-center min-h-[220px] xl:row-span-2 border-primary/20 relative overflow-hidden group">
-          <div className="space-starfield absolute inset-0 opacity-40" aria-hidden="true" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.05)_0%,transparent_70%)] pointer-events-none" />
-          <div className="pointer-events-none absolute left-4 top-3 z-10 rounded-md border border-primary/20 bg-background/45 px-2 py-1 backdrop-blur-sm">
-            <div className="text-[9px] font-bold uppercase tracking-[0.22em] text-primary/80">Observatoire mondial</div>
-            <div className="mt-1 text-[9px] text-muted-foreground">8 places · horaires locaux</div>
-          </div>
-          <Suspense fallback={<div className="skeleton-premium w-32 h-32 rounded-full" />}>
-             <MarketGlobe variant="compact" />
-          </Suspense>
-        </div>
         {EXCHANGES.map((ex) => (
           <ExchangeCard key={ex.id} ex={ex} />
         ))}
