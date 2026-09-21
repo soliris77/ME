@@ -5,6 +5,12 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 # Tâche en cours
 
+## Globe au survol, lune 3D et curseur Soliris — accueil/site
+
+- ✅ FAIT — Étape 1 : Masquer les panneaux du globe hors survol et valoriser le dock marchés
+- ✅ FAIT — Étape 2 : Remplacer la lune suiveuse par une orbite 3D et ajouter le curseur personnalisé
+- ✅ FAIT — Étape 3 : Vérifier le typecheck, le rendu et les interactions
+
 ## Compteur doré des pensées — accueil Soliris
 
 - ✅ FAIT — Étape 1 : Remplacer le texte de fréquence par un compte à rebours de 30 secondes

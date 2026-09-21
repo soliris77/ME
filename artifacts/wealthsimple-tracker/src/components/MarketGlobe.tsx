@@ -181,7 +181,6 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
   const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(variant === 'hero' ? 'nyse' : null);
   const [hoveredExchangeId, setHoveredExchangeId] = useState<string | null>(null);
   const [isPointerInside, setIsPointerInside] = useState(false);
-  const [moonPosition, setMoonPosition] = useState({ x: 50, y: 50 });
   
   const [states, setStates] = useState<Record<string, ReturnType<typeof getExchangeState>>>(() => {
     const init: any = {};
@@ -356,22 +355,11 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
     setRotationMode('manual');
   };
 
-  const updateMoonPosition = (event: React.PointerEvent<HTMLDivElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
-    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
-    setMoonPosition({
-      x: Math.max(7, Math.min(93, x)),
-      y: Math.max(7, Math.min(93, y)),
-    });
-  };
-
   const handlePointerEnter = () => {
     setIsPointerInside(true);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    updateMoonPosition(event);
     if (!dragRef.current.active) return;
     const deltaX = event.clientX - dragRef.current.lastX;
     const deltaY = event.clientY - dragRef.current.lastY;
@@ -470,13 +458,12 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 
       {isPointerInside && (
-        <div
-          className="globe-pointer-moon pointer-events-none absolute z-20"
-          style={{ left: `${moonPosition.x}%`, top: `${moonPosition.y}%` }}
-          aria-hidden="true"
-        >
-          <span className="globe-pointer-moon-body" />
-          <span className="globe-pointer-moon-label">Lune de veille</span>
+        <div className="globe-moon-system pointer-events-none absolute z-20" aria-hidden="true">
+          <span className="globe-moon-orbit-ring" />
+          <span className="globe-moon-orbiter">
+            <span className="globe-moon-body" />
+            <span className="globe-moon-label">Lune de veille</span>
+          </span>
         </div>
       )}
       
@@ -523,8 +510,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
       {variant === 'hero' && (
         <>
           <div
-            className="absolute left-[1%] top-[13%] z-30 w-[188px] rounded-xl border border-primary/25 bg-background/72 p-3 text-left shadow-2xl backdrop-blur-md sm:left-[2%] sm:w-[208px]"
+            className={`globe-hover-panel absolute left-[1%] top-[13%] z-30 w-[188px] rounded-xl border border-primary/25 bg-background/72 p-3 text-left shadow-2xl backdrop-blur-md sm:left-[2%] sm:w-[208px] ${isPointerInside ? 'globe-hover-panel-visible' : ''}`}
             aria-live="polite"
+            aria-hidden={!isPointerInside}
           >
             <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-primary/85">
               <Sparkles className="h-3 w-3" />
@@ -571,9 +559,9 @@ export default function MarketGlobe({ variant = 'compact' }: { variant?: 'hero' 
               </div>
             )}
           </div>
-          <div className="absolute right-[2%] top-[13%] z-30 w-[165px] rounded-xl border border-primary/20 bg-background/65 p-2.5 text-left shadow-2xl backdrop-blur-md sm:right-[3%] sm:top-[14%] sm:w-[190px] sm:p-3">
+          <div className={`globe-hover-panel globe-live-dock absolute bottom-[21%] right-[2%] z-30 w-[174px] rounded-xl border border-primary/30 bg-background/75 p-2.5 text-left shadow-2xl backdrop-blur-md sm:right-[3%] sm:w-[198px] sm:p-3 ${isPointerInside ? 'globe-hover-panel-visible' : ''}`} aria-hidden={!isPointerInside}>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Nœuds en direct</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Marchés en direct</span>
               <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.35)]" />
                 {openMarkets.length}/{GLOBE_EXCHANGES.length}
