@@ -61,6 +61,7 @@ export default function CustomCursor() {
   const targetRef = useRef<CursorPosition>({ x: -100, y: -100 });
   const ringPositionRef = useRef<CursorPosition>({ x: -100, y: -100 });
   const animationFrameRef = useRef<number | null>(null);
+  const clickTimerRef = useRef<number | null>(null);
   const visibleRef = useRef(false);
   const reducedMotionRef = useRef(false);
   const activeCardRef = useRef<HTMLElement | null>(null);
@@ -175,7 +176,13 @@ export default function CustomCursor() {
       root.classList.add("soliris-cursor-clicking");
       const context = updateContext(event.target, event);
       if (context.isObservatory) root.classList.add("soliris-cursor-dragging");
-      window.setTimeout(() => root.classList.remove("soliris-cursor-clicking"), 210);
+      if (clickTimerRef.current !== null) {
+        window.clearTimeout(clickTimerRef.current);
+      }
+      clickTimerRef.current = window.setTimeout(() => {
+        root.classList.remove("soliris-cursor-clicking");
+        clickTimerRef.current = null;
+      }, 210);
     };
 
     const handlePointerUp = () => {
@@ -204,7 +211,9 @@ export default function CustomCursor() {
 
     return () => {
       stopAnimationFrame();
-      window.clearTimeout();
+      if (clickTimerRef.current !== null) {
+        window.clearTimeout(clickTimerRef.current);
+      }
       document.documentElement.classList.remove("soliris-cursor-enabled");
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerover", handlePointerOver);
