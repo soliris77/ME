@@ -31,6 +31,7 @@ import { Sparkline } from "@/components/Sparkline";
 import { PageTransition } from "@/components/PageTransition";
 import ObservatoryHero from "@/components/ObservatoryHero";
 import MarketStatusPanel from "@/components/MarketStatusPanel";
+import MarketPulse from "@/components/MarketPulse";
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -46,6 +47,18 @@ const MARKET_NAMES: Record<string, string> = {
   "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
   "GC=F": "Or", "CL=F": "Pétrole WTI", "SI=F": "Argent",
 };
+
+function getQuoteMarketState(symbol: string): { label: string; tone: "open" | "continuous" | "closed" | "unknown" } {
+  if (symbol.endsWith("-USD")) return { label: "Continu · 24/7", tone: "continuous" };
+  if (symbol.endsWith("=F") || symbol.endsWith("=X")) return { label: "Quasi continu · 24/5", tone: "continuous" };
+
+  const exchange = EXCHANGES.find((candidate) => candidate.symbols.includes(symbol));
+  if (!exchange) return { label: "Cotation reçue", tone: "unknown" };
+
+  return getExchangeOpenStatus(exchange) === "open"
+    ? { label: "Marché ouvert", tone: "open" }
+    : { label: "Hors séance", tone: "closed" };
+}
 
 // ─── All 11 stock categories — mirrors the API's STOCK_CATEGORIES exactly ────
 
@@ -507,6 +520,14 @@ function FlashQuote({ q }: { q: Quote }) {
 
   const up = isUp(q.changePercent);
   const flashColor = up === true ? "gain" : up === false ? "loss" : "neutral";
+  const marketState = getQuoteMarketState(q.symbol);
+  const stateTone = marketState.tone === "open"
+    ? "text-emerald-400"
+    : marketState.tone === "continuous"
+      ? "text-sky-300"
+      : marketState.tone === "closed"
+        ? "text-muted-foreground/75"
+        : "text-primary/65";
 
   return (
     <Link href={`/quote/${encodeURIComponent(q.symbol)}`}>
@@ -515,14 +536,26 @@ function FlashQuote({ q }: { q: Quote }) {
         whileHover="hover"
         initial="rest"
         animate="rest"
-        className={`interactive-surface surface-glass rounded-xl p-4 cursor-pointer relative overflow-hidden group ${
+        data-cursor-card
+        className={`market-card interactive-surface surface-glass rounded-xl p-4 cursor-pointer relative overflow-hidden group ${
           flash ? "border-primary/50 bg-primary/5" : ""
         }`}
         style={hoverLift}
       >
         <div className="absolute top-0 left-0 w-1 h-full bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80 mb-3 truncate">
-          {MARKET_NAMES[q.symbol] ?? q.name}
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">
+              {MARKET_NAMES[q.symbol] ?? q.name}
+            </div>
+            <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/70">
+              {q.symbol}
+            </div>
+          </div>
+          <span className={`shrink-0 pt-0.5 text-[9px] font-mono uppercase tracking-wide ${stateTone}`} title={marketState.label}>
+            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle opacity-80" />
+            <span className="hidden xl:inline">{marketState.tone === "open" ? "OUVERT" : marketState.tone === "closed" ? "FERMÉ" : marketState.tone === "continuous" ? "CONTINU" : "ACTIF"}</span>
+          </span>
         </div>
         <div className="font-mono text-[18px] font-medium text-foreground leading-tight mb-2 tracking-tight">
           <AnimatedCounter 
@@ -987,41 +1020,6 @@ export default function Dashboard() {
     setTradeModal({ side, q });
   }, []);
 
-  if (isError) {
-    const errMsg = (error as { message?: string } | null)?.message ?? String(error);
-    return (
-      <div className="flex flex-col min-h-screen">
-        <LiveTicker />
-        <div className="p-8 max-w-2xl animate-fadeUp">
-          <div className="bg-card border border-card-border rounded-2xl p-10 flex flex-col items-center text-center gap-5">
-            <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-              <AlertTriangle className="w-7 h-7 text-red-500/80" />
-            </div>
-            <div>
-              <p className="text-base font-semibold mb-1.5">Impossible de charger les données de marché</p>
-              <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                Le serveur API ne répond pas. Vérifiez qu'il est démarré et réessayez.
-              </p>
-              {errMsg && (
-                <p className="text-xs font-mono text-red-500/70 mt-3 bg-red-500/5 border border-red-500/10 rounded-lg px-4 py-2 break-all">
-                  {errMsg}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-              Réessayer
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col min-h-screen">
       <LiveTicker />
@@ -1063,21 +1061,51 @@ export default function Dashboard() {
           </motion.button>
         </motion.div>
 
-        {/* Observatoire — centre de vision, affiché avant les modules secondaires */}
+        {isError && (
+          <div
+            className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300"
+            role="alert"
+          >
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+              <span>Données temporairement indisponibles. Les valeurs absentes restent vides.</span>
+            </div>
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 px-2.5 py-1.5 font-semibold uppercase tracking-wider transition-colors hover:bg-amber-400/10 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+              Réessayer
+            </button>
+          </div>
+        )}
+
+        <MarketPulse
+          indices={allIndices}
+          topGainers={data?.topGainers ?? []}
+          topLosers={data?.topLosers ?? []}
+          isLoading={isLoading}
+          dataUpdatedAt={dataUpdatedAt}
+          secondsSince={secondsSince}
+          isFetching={isFetching}
+        />
+
+        {/* Accès à l’Observatoire — approfondissement sans région inventée */}
         <ObservatoryHero variant="dashboard" />
 
-        {/* Centre de commande — P&L du jour, coupe-circuit, limite de perte */}
+        {/* Informations secondaires — P&L du jour, coupe-circuit, limite de perte */}
         <CommandCenter />
 
-        {/* Market status */}
+        {/* Disponibilité des places et régimes de marché */}
         <MarketStatusSection />
 
-        {/* Indices */}
+        {/* Niveau 2 — marchés majeurs */}
         <div className="space-y-6 mb-7">
           <MarketSection title="Amérique du Nord" symbols={CANADA_NORTH_AM} allQuotes={allIndices} loading={isLoading} />
           <MarketSection title="Europe & Asie" symbols={EUROPE_ASIA} allQuotes={allIndices} loading={isLoading} />
 
-          {/* Crypto + Commodities as card lists */}
+          {/* Niveau 3 — actifs alternatifs */}
           <div>
             <SectionRule title="Actifs alternatifs" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1087,9 +1115,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Heatmap de performance par secteur */}
+        {/* Niveau 4 — performance sectorielle */}
         <SectorHeatmap />
 
+        {/* Niveau 5 — informations secondaires et actions disponibles */}
         {/* Actifs populaires disponibles sur Wealthsimple — pas les positions détenues */}
         <div className="mb-7">
           <MarketSection

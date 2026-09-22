@@ -155,14 +155,14 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 ## État
 
-Aucune tâche active.
+Tâche Dashboard Market Command Center terminée côté code. Le contrôle visuel authentifié reste à faire lorsque l’aperçu pourra être ouvert après connexion.
 
 ## Dashboard Market Command Center
 
-- → EN COURS — Étape 1 : Cartographier les flux réels du dashboard et définir la nouvelle hiérarchie sans duplication
-- ☐ À FAIRE — Étape 2 : Ajouter le Market Pulse et renforcer les cartes existantes avec données, navigation et états réels
-- ☐ À FAIRE — Étape 3 : Réordonner le dashboard, améliorer le responsive et les micro-interactions
-- ☐ À FAIRE — Étape 4 : Vérifier typecheck, tests, build, workflow et rendu visuel
+- ✅ Étape 1 : Cartographier les flux réels du dashboard et définir la nouvelle hiérarchie sans duplication
+- ✅ Étape 2 : Ajouter le Market Pulse et renforcer les cartes existantes avec données, navigation et états réels
+- ✅ Étape 3 : Réordonner le dashboard, améliorer le responsive et les micro-interactions
+- ✅ Étape 4 : Vérifier typecheck, build, workflow et rendu public; tests API bloqués par une résolution GMX préexistante
 
 ## Espace étoilé — Observatoire du dashboard
 
