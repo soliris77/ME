@@ -199,8 +199,14 @@ Aucune tâche active.
 
 **Instruction utilisateur :** Améliorer uniquement les graphiques existants, sans recréer les fonctionnalités financières, modifier les données, inventer des séries ou remplacer la librairie sans inspection.
 
-- → EN COURS — Étape 1 : Cartographier les composants de graphiques, la librairie, les usages par page et les sources historiques
-- ☐ À FAIRE — Étape 2 : Définir les primitives graphiques partagées compatibles avec l’architecture actuelle
-- ☐ À FAIRE — Étape 3 : Améliorer interactions, tooltips, crosshair, périodes, zoom et plein écran uniquement quand les données existent
-- ☐ À FAIRE — Étape 4 : Harmoniser les graphiques du Dashboard, fiches actifs, portefeuille, comparateur, scanner et Observatoire sans dupliquer la logique
-- ☐ À FAIRE — Étape 5 : Vérifier données réelles, états loading/erreur, responsive, accessibilité, reduced motion, typecheck, build et workflow
+- ✅ FAIT — Étape 1 : Cartographier les composants de graphiques, la librairie, les usages par page et les sources historiques
+- ✅ FAIT — Étape 2 : Définir les primitives graphiques partagées compatibles avec l’architecture actuelle
+- ✅ FAIT — Étape 3 : Améliorer interactions, tooltips, crosshair, périodes, zoom et plein écran uniquement quand les données existent
+- ✅ FAIT — Étape 4 : Harmoniser les graphiques du Dashboard, fiches actifs, portefeuille, comparateur, scanner et Observatoire sans dupliquer la logique
+- ✅ FAIT — Étape 5 : Vérifier données réelles, états loading/erreur, responsive, accessibilité, reduced motion, typecheck, build et workflow
+
+**Limite de vérification :** la capture publique est saine; les contrôles interactifs des graphiques derrière authentification restent à valider dans une session connectée. Le workflow global `test` conserve l’échec préexistant de résolution `@gmx-io/sdk`; le typecheck, build et tests ciblés du tracker passent.
+
+## État
+
+Aucune tâche active.

@@ -16,7 +16,9 @@ export function Sparkline({ symbol, width = 56, height = 20 }: { symbol: string;
     .map((h) => h.close)
     .filter((v) => typeof v === "number" && !isNaN(v));
 
-  if (prices.length < 2) return <div style={{ width, height }} className="shrink-0" />;
+  if (prices.length < 2) {
+    return <div style={{ width, height }} className="shrink-0" aria-hidden="true" />;
+  }
 
   const min = Math.min(...prices);
   const max = Math.max(...prices);
@@ -27,18 +29,31 @@ export function Sparkline({ symbol, width = 56, height = 20 }: { symbol: string;
     y: height - 2 - ((p - min) / range) * (height - 4),
   }));
 
-  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const d = pts.reduce((path, point, index) => {
+    if (index === 0) return `M${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+    const previous = pts[index - 1];
+    const midpointX = ((previous.x + point.x) / 2).toFixed(1);
+    return `${path} Q${midpointX},${previous.y.toFixed(1)} ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+  }, "");
   const rising = prices[prices.length - 1] >= prices[0];
 
   return (
-    <svg width={width} height={height} className="overflow-visible shrink-0 opacity-80" aria-hidden="true">
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="overflow-visible shrink-0 opacity-80"
+      role="img"
+      aria-label={`Évolution récente de ${symbol}, ${rising ? "en hausse" : "en baisse"}`}
+    >
       <path
         d={d}
         fill="none"
         stroke={rising ? "#22c55e" : "#ef4444"}
-        strokeWidth={1.5}
+        strokeWidth={1.25}
         strokeLinecap="round"
         strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
       />
     </svg>
   );

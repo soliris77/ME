@@ -2830,6 +2830,17 @@
     opacity: 1;
   }
 
+  .soliris-cursor-chart .soliris-cursor-ring {
+    width: 34px;
+    height: 34px;
+    border-color: rgba(235, 205, 116, 0.88);
+    box-shadow: 0 0 8px rgba(201, 162, 39, 0.48);
+  }
+
+  .soliris-cursor-chart .soliris-cursor-reticle {
+    opacity: 0.72;
+  }
+
   .soliris-cursor-dragging .soliris-cursor-ring {
     width: 26px;
     height: 26px;
@@ -2883,6 +2894,117 @@
 @media (pointer: coarse), (hover: none) {
   .soliris-cursor {
     display: none;
+  }
+}
+
+/* ─── Langage graphique Soliris ─── */
+[data-chart-surface="soliris"] {
+  position: relative;
+  min-width: 0;
+}
+
+.soliris-chart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.25rem;
+  margin-bottom: 0.55rem;
+}
+
+.soliris-chart-viewport-content {
+  min-width: 0;
+}
+
+.soliris-chart-viewport.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: auto;
+  padding: clamp(1rem, 3vw, 3rem);
+  background: hsl(var(--background) / 0.98);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.soliris-chart-viewport.is-fullscreen .soliris-chart-toolbar {
+  max-width: 1240px;
+  margin: 0 auto 1rem;
+}
+
+.soliris-chart-viewport.is-fullscreen .soliris-chart-viewport-content {
+  width: min(1240px, 100%);
+  min-height: min(680px, calc(100vh - 7rem));
+  margin: 0 auto;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  border: 1px solid hsl(var(--border) / 0.55);
+  border-radius: 1rem;
+  background: hsl(var(--card) / 0.78);
+}
+
+.soliris-chart-viewport.is-fullscreen .soliris-quote-chart-height {
+  height: min(68vh, 680px);
+}
+
+.soliris-chart-viewport.is-fullscreen .soliris-compare-chart-height {
+  height: min(68vh, 680px);
+}
+
+.soliris-chart-viewport.is-fullscreen .soliris-technical-chart-height {
+  height: min(68vh, 680px);
+}
+
+[data-chart-surface="soliris"] .recharts-cartesian-grid-horizontal line,
+[data-chart-surface="soliris"] .recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--border) / 0.24);
+  stroke-width: 1;
+}
+
+[data-chart-surface="soliris"] .recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--muted-foreground) / 0.9);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-chart-surface="soliris"] .recharts-tooltip-cursor {
+  stroke: hsl(var(--primary) / 0.58);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.soliris-chart-state {
+  display: flex;
+  min-height: 15rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  border: 1px dashed hsl(var(--border) / 0.55);
+  border-radius: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.soliris-chart-skeleton {
+  width: min(22rem, 42%);
+  height: 5rem;
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(135deg, transparent 45%, hsl(var(--primary) / 0.22) 46%, transparent 48%) 0 60% / 100% 100% no-repeat,
+    linear-gradient(hsl(var(--muted) / 0.38), hsl(var(--muted) / 0.18));
+  opacity: 0.72;
+}
+
+@media (max-width: 640px) {
+  .soliris-chart-toolbar {
+    align-items: flex-start;
+  }
+
+  .soliris-chart-viewport.is-fullscreen {
+    padding: 0.75rem;
+  }
+
+  .soliris-chart-viewport.is-fullscreen .soliris-chart-viewport-content {
+    min-height: calc(100vh - 6rem);
+    padding: 0.5rem;
   }
 }
 

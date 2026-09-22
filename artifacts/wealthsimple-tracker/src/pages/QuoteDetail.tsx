@@ -26,6 +26,17 @@ import {
   CartesianGrid, Brush, ReferenceArea, Customized,
 } from "recharts";
 import TechnicalAnalysis from "@/components/TechnicalAnalysis";
+import {
+  ChartEmptyState,
+  ChartErrorState,
+  ChartLoadingState,
+  ChartPeriodSelector,
+  ChartTooltipRow,
+  ChartTooltipShell,
+  ChartViewport,
+  formatChartVolume,
+  usePrefersReducedMotion,
+} from "@/components/financialCharts";
 import { isIntradayHistory, formatCandleDate } from "@workspace/indicators";
 import { detectCandlePatterns } from "@/lib/patternDetect";
 import type { CandlePattern } from "@/lib/patternDetect";
@@ -102,26 +113,20 @@ const CustomTooltip = ({
   const priceEntry = payload.find((p) => p.name === "close" || p.name === undefined || p.name === "Prix");
   const price = priceEntry?.value ?? payload[0]?.value;
   const d = payload[0]?.payload;
-  const isUp = d ? d.close >= d.open : true;
-  const vol = d?.volume;
-  const volFmt = vol == null ? null
-    : vol >= 1e9 ? `${(vol / 1e9).toFixed(1)}G`
-    : vol >= 1e6 ? `${(vol / 1e6).toFixed(1)}M`
-    : vol >= 1e3 ? `${(vol / 1e3).toFixed(0)}K`
-    : `${vol}`;
+  const isPositive = d ? d.close >= d.open : null;
+  const volFmt = formatChartVolume(d?.volume);
   return (
-    <div className="bg-card border border-card-border rounded-xl px-4 py-3 shadow-xl"
-         style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px hsl(var(--primary)/0.1)" }}>
-      <p className="text-[10px] tracking-wider text-muted-foreground mb-1 uppercase">{label}</p>
-      <p className="text-[15px] font-mono font-bold text-foreground">
-        {price !== undefined ? `$${price.toFixed(2)}` : "—"}
-      </p>
-      {volFmt && (
-        <p className="text-[11px] font-mono mt-0.5" style={{ color: isUp ? "#22c55e" : "#ef4444" }}>
-          Vol. {volFmt}
-        </p>
+    <ChartTooltipShell label={label}>
+      <ChartTooltipRow
+        label="Prix"
+        value={price !== undefined ? `$${price.toFixed(2)}` : "—"}
+        tone={isPositive === true ? "positive" : isPositive === false ? "negative" : "neutral"}
+      />
+      {d?.open != null && (
+        <ChartTooltipRow label="Ouverture" value={`$${d.open.toFixed(2)}`} />
       )}
-    </div>
+      {volFmt && <ChartTooltipRow label="Volume" value={volFmt} />}
+    </ChartTooltipShell>
   );
 };
 
@@ -323,6 +328,7 @@ export default function QuoteDetail() {
 
   // ── State (all unconditional) ──────────────────────────────────────────────
   const [range, setRange]                       = useState<Range>("3mo");
+  const reducedMotion = usePrefersReducedMotion();
   const [tab, setTab]                           = useState<"chart" | "analysis">("chart");
   const [selectedAnnotation, setSelectedAnnotation] = useState<SelectedAnnotation | null>(null);
   const [noteModal, setNoteModal]               = useState<NoteModalState | null>(null);
@@ -348,7 +354,7 @@ export default function QuoteDetail() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: !!decodedSymbol, refetchInterval: 5_000 } as any,
   });
-  const { data: history = [], isLoading: histLoading } = useGetQuoteHistory(decodedSymbol, range, {
+  const { data: history = [], isLoading: histLoading, isError: histError, refetch: refetchHistory } = useGetQuoteHistory(decodedSymbol, range, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: !!decodedSymbol, refetchInterval: 5_000 } as any,
   });
@@ -696,37 +702,38 @@ export default function QuoteDetail() {
         ))}
       </div>
 
-      {/* Range */}
-      <div className="flex items-center justify-between mb-5">
-        <span className="text-[11px] tracking-widest uppercase text-muted-foreground/50">Période</span>
-        <div className="flex flex-wrap justify-end gap-1 bg-muted/40 p-0.5 rounded-lg">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRange(r.value)}
-              className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-all ${
-                range === r.value
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {tab === "chart" && (
         <>
           {/* ── Chart (TIER 1 + 2 + 3) ──────────────────────────────────── */}
           <div className="bg-card border border-card-border rounded-2xl p-5 mb-2"
                style={{ boxShadow: `0 0 40px ${chartGlowColor}` }}>
-            {histLoading ? (
-              <div className="h-56 bg-muted/50 rounded-xl animate-pulse" />
-            ) : simpleChartData.length > 0 ? (
-              <>
-                <div onWheel={handleChartWheel} style={{ touchAction: "none" }}>
-              <ResponsiveContainer width="100%" height={300}>
+            <ChartViewport
+              title={`${quote.symbol} · évolution du prix`}
+              description="Survolez pour lire une valeur précise · utilisez le Brush ou la molette pour naviguer."
+              controls={
+                <ChartPeriodSelector
+                  options={RANGES}
+                  value={range}
+                  onChange={(value) => setRange(value)}
+                  disabled={histLoading}
+                  label="Période"
+                />
+              }
+              onReset={() => {
+                const n = simpleChartData.length;
+                setBrushStart(Math.max(0, n - Math.round(n * 0.4)));
+                setBrushEnd(Math.max(0, n - 1));
+              }}
+            >
+              {histLoading ? (
+                <ChartLoadingState label="Chargement de l’historique…" />
+              ) : histError ? (
+                <ChartErrorState onRetry={() => void refetchHistory()} />
+              ) : simpleChartData.length > 0 ? (
+                <>
+                  <div onWheel={handleChartWheel} style={{ touchAction: "none" }} data-cursor-zone="chart">
+                    <div className="soliris-quote-chart-height h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={simpleChartData}
                     margin={{ top: 14, right: 4, bottom: 0, left: 0 }}
@@ -740,7 +747,7 @@ export default function QuoteDetail() {
                       </linearGradient>
                     </defs>
 
-                    <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border) / 0.4)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border) / 0.24)" vertical={false} />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} interval="preserveStartEnd"
                            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono, monospace" }} />
                     {/* YAxis principal — prix */}
@@ -750,7 +757,10 @@ export default function QuoteDetail() {
                     {/* YAxis secondaire — volume (invisible, mis à l'échelle à ~22% du bas) */}
                     <YAxis yAxisId="vol" orientation="right" hide
                            domain={[0, (dataMax: number) => dataMax * 4.5]} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ stroke: "hsl(var(--primary) / 0.58)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                    />
 
                     {/* Mini-barres volume — en fond, 22% du bas, bicolor vert/rouge */}
                     <Bar yAxisId="vol" dataKey="volume" isAnimationActive={false} maxBarSize={12}>
@@ -795,6 +805,7 @@ export default function QuoteDetail() {
                     <Area yAxisId="price" type="monotone" dataKey="close"
                           stroke={chartColor} strokeWidth={2.5}
                           fill="url(#colorClose)" dot={false}
+                          isAnimationActive={!reducedMotion}
                           activeDot={{ r: 5, strokeWidth: 0, fill: chartColor }} />
 
                     {/* TIER 1 — brush for zoom/pan + molette */}
@@ -814,18 +825,18 @@ export default function QuoteDetail() {
                               fill={chartColor} fillOpacity={0.15} dot={false} />
                       </AreaChart>
                     </Brush>
-                  </ComposedChart>
-                </ResponsiveContainer>
-                </div>
-                <p className="text-center text-[10px] text-muted-foreground/40 mt-1 tracking-wider">
-                  Cliquez pour annoter · Glissez les ancrages du bas pour naviguer · Molette pour zoomer
-                </p>
-              </>
-            ) : (
-              <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
-                Aucune donnée disponible
-              </div>
-            )}
+                      </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <p className="text-center text-[10px] text-muted-foreground/55 mt-2 tracking-wider">
+                    Cliquez pour annoter · Glissez les ancrages du bas pour naviguer · Molette pour zoomer
+                  </p>
+                </>
+              ) : (
+                <ChartEmptyState />
+              )}
+            </ChartViewport>
           </div>
 
           {/* TIER 2 — annotation info card */}

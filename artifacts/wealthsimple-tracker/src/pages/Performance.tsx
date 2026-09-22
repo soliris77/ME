@@ -319,7 +319,7 @@ function DisciplineSection() {
 
       {/* Trades indisciplinés */}
       {undisciplined.length > 0 ? (
-        <div className="bg-card border border-card-border rounded-2xl p-5">
+         <div className="bg-card border border-card-border rounded-2xl p-5" data-chart-surface="soliris">
           <div className="flex items-center gap-2 mb-4">
             <ShieldAlert className="w-4 h-4 text-red-500" />
             <h3 className="text-sm font-semibold uppercase tracking-wide">Trades indisciplinés</h3>

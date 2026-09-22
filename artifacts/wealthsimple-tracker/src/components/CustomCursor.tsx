@@ -36,6 +36,7 @@ function getCursorContext(target: EventTarget | null) {
   const observatory = element?.closest(
     ".globe-vitality, [data-cursor-zone='observatory']",
   );
+  const chart = element?.closest("[data-cursor-zone='chart'], [data-chart-surface='soliris']");
   const card = element?.closest(CARD_SELECTOR) as HTMLElement | null;
   const tone = element?.closest<HTMLElement>("[data-cursor-tone]")?.dataset
     .cursorTone;
@@ -44,6 +45,7 @@ function getCursorContext(target: EventTarget | null) {
     isTextField: Boolean(textField),
     isInteractive: Boolean(interactive),
     isObservatory: Boolean(observatory),
+    isChart: Boolean(chart),
     card,
     tone: tone === "positive" || tone === "negative" ? tone : "gold",
   };
@@ -169,6 +171,7 @@ export default function CustomCursor() {
       const context = getCursorContext(target);
       root.classList.toggle("soliris-cursor-interactive", context.isInteractive);
       root.classList.toggle("soliris-cursor-observatory", context.isObservatory);
+      root.classList.toggle("soliris-cursor-chart", context.isChart);
       root.classList.toggle("soliris-cursor-native", context.isTextField);
       root.classList.toggle("soliris-cursor-positive", context.tone === "positive");
       root.classList.toggle("soliris-cursor-negative", context.tone === "negative");

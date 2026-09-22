@@ -2,8 +2,19 @@ import { useState, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useSearchSymbols } from "@workspace/api-client-react";
-import { Scale, X, Search as SearchIcon, Loader2 } from "lucide-react";
+import { Scale, X, Search as SearchIcon } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import {
+  ChartEmptyState,
+  ChartErrorState,
+  ChartLoadingState,
+  ChartPeriodSelector,
+  ChartTooltipRow,
+  ChartTooltipShell,
+  ChartViewport,
+  formatChartDate,
+  usePrefersReducedMotion,
+} from "@/components/financialCharts";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +33,13 @@ interface HistoryPoint {
   date: string;
   close: number;
 }
+
+type ComparisonTooltipPayload = {
+  dataKey?: string;
+  name?: string;
+  value?: number;
+  color?: string;
+};
 
 async function fetchHistory(symbol: string, range: string): Promise<HistoryPoint[]> {
   const res = await fetch(`${BASE}/api/quotes/${encodeURIComponent(symbol)}/history/${range}`);
@@ -83,10 +101,38 @@ function SymbolPicker({ onAdd, excluded }: { onAdd: (symbol: string, name: strin
   );
 }
 
+function ComparisonTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: ComparisonTooltipPayload[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <ChartTooltipShell label={label ? formatChartDate(label) : undefined}>
+      {payload
+        .filter((item) => typeof item.value === "number")
+        .map((item) => (
+          <ChartTooltipRow
+            key={item.dataKey ?? item.name}
+            label={item.name ?? item.dataKey ?? "Actif"}
+            value={`${(item.value ?? 0) >= 0 ? "+" : ""}${(item.value ?? 0).toFixed(2)} %`}
+            color={item.color}
+            tone={(item.value ?? 0) > 0 ? "positive" : (item.value ?? 0) < 0 ? "negative" : "neutral"}
+          />
+        ))}
+    </ChartTooltipShell>
+  );
+}
+
 export default function Compare() {
   usePageMeta("Comparer des actifs — Soliris Market", "Superposez la performance normalisée de plusieurs titres sur une même période.");
   const [symbols, setSymbols] = useState<string[]>(DEFAULT_SYMBOLS);
   const [range, setRange] = useState("3mo");
+  const reducedMotion = usePrefersReducedMotion();
 
   const queries = useQueries({
     queries: symbols.map((s) => ({
@@ -96,25 +142,36 @@ export default function Compare() {
   });
 
   const loading = queries.some((q) => q.isLoading);
+  const error = queries.find((q) => q.isError)?.error;
 
   const chartData = useMemo(() => {
     if (queries.some((q) => !q.data || q.data.length === 0)) return [];
-    const bySymbol = symbols.map((s, i) => {
-      const hist = queries[i].data as HistoryPoint[];
-      const base = hist[0]?.close;
-      return { s, hist, base };
+    const series = symbols.map((symbol, index) => {
+      const byDate = new Map(
+        ((queries[index].data ?? []) as HistoryPoint[])
+          .filter((point) => point.close > 0)
+          .map((point) => [point.date.slice(0, 10), point.close]),
+      );
+      return { symbol, byDate };
     });
-    // On aligne sur la série la plus courte pour éviter les trous.
-    const minLen = Math.min(...bySymbol.map((b) => b.hist.length));
-    const rows = [];
-    for (let idx = 0; idx < minLen; idx++) {
-      const row: Record<string, string | number> = { date: bySymbol[0].hist[idx].date.slice(0, 10) };
-      bySymbol.forEach(({ s, hist, base }) => {
-        if (base) row[s] = Number((((hist[idx].close - base) / base) * 100).toFixed(2));
+    const commonDates = [...series[0].byDate.keys()]
+      .filter((date) => series.every(({ byDate }) => byDate.has(date)))
+      .sort();
+    const firstDate = commonDates[0];
+    if (!firstDate) return [];
+    const bases = new Map(series.map(({ symbol, byDate }) => [symbol, byDate.get(firstDate) ?? 0]));
+
+    return commonDates.map((date) => {
+      const row: Record<string, string | number> = { date };
+      series.forEach(({ symbol, byDate }) => {
+        const base = bases.get(symbol) ?? 0;
+        const close = byDate.get(date);
+        if (close != null && base > 0) {
+          row[symbol] = Number((((close - base) / base) * 100).toFixed(2));
+        }
       });
-      rows.push(row);
-    }
-    return rows;
+      return row;
+    });
   }, [queries, symbols]);
 
   const addSymbol = (symbol: string) => {
@@ -139,19 +196,6 @@ export default function Compare() {
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SymbolPicker onAdd={addSymbol} excluded={symbols} />
-        <div className="flex gap-1 bg-muted/40 p-0.5 rounded-lg">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRange(r.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                range === r.value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
@@ -173,31 +217,51 @@ export default function Compare() {
       </div>
 
       <div className="bg-card border border-card-border rounded-2xl p-5">
-        {loading ? (
-          <div className="h-72 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
-          </div>
-        ) : chartData.length === 0 ? (
-          <div className="h-72 flex items-center justify-center text-sm text-muted-foreground">
-            Ajoutez au moins un symbole pour voir la comparaison.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={340}>
-            <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border) / 0.4)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} width={48} />
-              <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--card-border))", borderRadius: 12, fontSize: 12 }}
-                formatter={(v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}
-              />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              {symbols.map((s, i) => (
-                <Line key={s} type="monotone" dataKey={s} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2} dot={false} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
+        <ChartViewport
+          title="Performance relative"
+          description="Chaque série est normalisée à 0 % sur la première date commune disponible."
+          controls={
+            <ChartPeriodSelector
+              options={RANGES}
+              value={range}
+              onChange={setRange}
+              disabled={loading}
+              label="Période"
+            />
+          }
+          onReset={() => setRange("3mo")}
+        >
+          {loading ? (
+            <ChartLoadingState label="Chargement des historiques…" />
+          ) : error ? (
+            <ChartErrorState
+              label="Données temporairement indisponibles."
+              onRetry={() => {
+                queries.forEach((query) => void query.refetch());
+              }}
+            />
+          ) : chartData.length === 0 ? (
+            <ChartEmptyState label={symbols.length < 2 ? "Ajoutez au moins un symbole pour voir la comparaison." : "Données historiques communes indisponibles."} />
+          ) : (
+            <div className="soliris-compare-chart-height h-[340px]" data-cursor-zone="chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 6" stroke="hsl(var(--border) / 0.24)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} width={48} />
+                  <Tooltip
+                    content={<ComparisonTooltip />}
+                    cursor={{ stroke: "hsl(var(--primary) / 0.58)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {symbols.map((s, i) => (
+                    <Line key={s} type="monotone" dataKey={s} stroke={PALETTE[i % PALETTE.length]} strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={!reducedMotion} animationDuration={450} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </ChartViewport>
       </div>
     </div>
   );

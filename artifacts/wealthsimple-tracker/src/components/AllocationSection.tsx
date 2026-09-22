@@ -61,7 +61,7 @@ function Donut({ data, centerLabel, centerValue }: {
   centerValue: string;
 }) {
   return (
-    <div className="relative h-44">
+    <div className="relative h-44" data-chart-surface="soliris" data-cursor-zone="chart">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie

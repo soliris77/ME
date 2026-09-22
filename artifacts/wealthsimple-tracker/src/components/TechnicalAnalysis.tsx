@@ -26,6 +26,7 @@ import {
   ShoppingCart, ArrowDownToLine, Layers, Activity,
 } from "lucide-react";
 import TradingJournal from "@/components/TradingJournal";
+import { ChartViewport, usePrefersReducedMotion } from "@/components/financialCharts";
 
 interface Props {
   history: OHLCPoint[];
@@ -1015,6 +1016,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
   const [showGuide, setShowGuide] = useState(false);
   const [taZoomStart, setTaZoomStart] = useState(0);
   const [taZoomEnd, setTaZoomEnd] = useState(0);
+  const reducedMotion = usePrefersReducedMotion();
 
   const data: IndicatorPoint[] = useMemo(() => computeIndicators(history), [history]);
   const analysis = useMemo(() => analyzeTradingSignals(data, currentPrice, history), [data, currentPrice, history]);
@@ -1454,7 +1456,16 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={260}>
+        <ChartViewport
+          title="Prix & indicateurs"
+          description="Les indicateurs restent des calques de lecture sur la série réelle."
+          onReset={() => {
+            setTaZoomStart(Math.max(0, data.length - Math.round(data.length * 0.5)));
+            setTaZoomEnd(Math.max(0, data.length - 1));
+          }}
+        >
+          <div className="soliris-technical-chart-height h-[260px]" data-cursor-zone="chart">
+          <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={border} vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: font, fill: mutedFg }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
@@ -1500,7 +1511,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
               </>
             )}
 
-            <Line dataKey="close" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Prix" connectNulls activeDot={{ r: 4, strokeWidth: 0 }} isAnimationActive animationDuration={650} />
+            <Line dataKey="close" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Prix" connectNulls activeDot={{ r: 4, strokeWidth: 0 }} isAnimationActive={!reducedMotion} animationDuration={650} />
 
             {overlays.has("sma") && (
               <>
@@ -1529,6 +1540,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
             />
           </ComposedChart>
         </ResponsiveContainer>
+          </div>
         <p className="analysis-chart-caption">Glissez les ancrages · la fenêtre est synchronisée avec RSI et MACD</p>
 
         <div className="flex flex-wrap gap-3 mt-2 px-1">
@@ -1539,10 +1551,11 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
           {overlays.has("sr") && <><LegendDot color="#10b981" label="Support" dashed /><LegendDot color="#ef4444" label="Résistance" dashed /></>}
           {overlays.has("fib") && <LegendDot color="#f43f5e" label="Fibonacci" dashed />}
         </div>
+        </ChartViewport>
       </section>
 
       {/* Volume */}
-      <div className="bg-card border border-card-border rounded-xl p-4">
+      <div className="bg-card border border-card-border rounded-xl p-4" data-chart-surface="soliris">
         <span className="text-sm font-semibold block mb-1">Volume des échanges</span>
         <p className="text-xs text-muted-foreground mb-3">Nombre d'actions/unités échangées sur la période. Un volume élevé confirme la force d'un mouvement.</p>
         <ResponsiveContainer width="100%" height={80}>
@@ -1567,7 +1580,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
       </div>
 
       {/* RSI */}
-      <div className="bg-card border border-card-border rounded-xl p-4">
+      <div className="bg-card border border-card-border rounded-xl p-4" data-chart-surface="soliris">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-semibold">RSI — Indice de force relative (14)</span>
           <div className="flex items-center gap-3 text-xs">
@@ -1612,7 +1625,7 @@ export default function TechnicalAnalysis({ history, currentPrice, currency, sym
       </div>
 
       {/* MACD */}
-      <div className="bg-card border border-card-border rounded-xl p-4">
+      <div className="bg-card border border-card-border rounded-xl p-4" data-chart-surface="soliris">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-semibold">MACD — Convergence/Divergence (12, 26, 9)</span>
           <div className="flex items-center gap-3 text-xs">
