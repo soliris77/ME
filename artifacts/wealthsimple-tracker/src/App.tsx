@@ -31,6 +31,8 @@ import ReconciliationPage from "@/pages/Reconciliation";
 import PerformancePage from "@/pages/Performance";
 import OrdersPage from "@/pages/Orders";
 import PortefeuillePage from "@/pages/Portefeuille";
+import PlansPage from "@/pages/Plans";
+import JarvisPage from "@/pages/Jarvis";
 import ComparePage from "@/pages/Compare";
 import CorrelationPage from "@/pages/Correlation";
 import CalendarPage from "@/pages/Calendar";
@@ -72,6 +74,7 @@ import {
   LayoutDashboard,
   LineChart,
   LogOut,
+  Mic,
   Moon,
   Newspaper,
   Radar,
@@ -191,6 +194,7 @@ function Nav() {
     {
       group: "Marchés & Analyse",
       items: [
+        { href: "/jarvis", label: "Jarvis", icon: Mic },
         { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
         { href: "/search", label: "Recherche", icon: Search },
         { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
@@ -202,6 +206,7 @@ function Nav() {
       group: "Trading & Exécution",
       items: [
         { href: "/ordres", label: "Journal des ordres", icon: Receipt },
+        { href: "/plans", label: "Limites & récurrents", icon: Repeat },
         { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
         { href: "/scanner", label: "Scanner & Signaux", icon: Radar },
         { href: "/perps", label: "Perps & levier", icon: Gauge },
@@ -501,6 +506,7 @@ function App() {
                   path="/courtier"
                   component={wrap("Courtier", BrokerPage)}
                 />
+                <Route path="/jarvis" component={wrap("Jarvis", JarvisPage)} />
                 <Route
                   path="/dashboard"
                   component={wrap("Tableau de bord", Dashboard)}
@@ -544,6 +550,10 @@ function App() {
                 <Route
                   path="/ordres"
                   component={wrap("Journal des ordres", OrdersPage)}
+                />
+                <Route
+                  path="/plans"
+                  component={wrap("Limites & récurrents", PlansPage)}
                 />
                 <Route
                   path="/debrief"
