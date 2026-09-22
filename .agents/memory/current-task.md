@@ -172,7 +172,18 @@ Tâche Dashboard Market Command Center terminée côté code. Le contrôle visue
 
 ## État
 
-Aucune tâche active.
+## Audit et optimisation globale — polish Soliris Market
+
+**Instruction utilisateur :** auditer l’application existante puis améliorer sa qualité, fiabilité, cohérence, performance, responsive et accessibilité sans recréer, supprimer ou remplacer inutilement les systèmes existants.
+**Démarrée le :** 2026-09-22
+
+## Plan d'exécution
+
+- ✅ FAIT — Étape 1 : Auditer l’architecture React, les routes, les systèmes partagés, les données, les états, la console et les risques de performance
+- → EN COURS — Étape 2 : Prioriser les corrections concrètes sans toucher aux données financières ni dupliquer les systèmes existants
+- ☐ À FAIRE — Étape 3 : Implémenter les corrections prioritaires de fiabilité, performance, design system, états et accessibilité
+- ☐ À FAIRE — Étape 4 : Vérifier responsive, navigation, recherche, portfolio, scanner, Comparator, Observatoire, 3D, CustomCursor et préférences
+- ☐ À FAIRE — Étape 5 : Lancer typecheck, tests, build, workflows, inspection console et captures visuelles, puis livrer les limites restantes
 
 ## Amélioration de la section Courtier
 

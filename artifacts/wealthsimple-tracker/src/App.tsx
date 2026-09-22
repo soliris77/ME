@@ -9,47 +9,11 @@ import { MotionConfig } from "framer-motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import Landing from "@/pages/Landing";
-import ConditionsUtilisation from "@/pages/ConditionsUtilisation";
-import BrokerPage from "@/pages/Broker";
 import TradingModeBanner from "@/components/TradingModeBanner";
-import Dashboard from "@/pages/Dashboard";
-import Observatory from "@/pages/Observatory";
-import Watchlist from "@/pages/Watchlist";
-import Alerts from "@/pages/Alerts";
-import QuoteDetail from "@/pages/QuoteDetail";
-import SearchPage from "@/pages/Search";
-import MarketNewsJournal from "@/pages/MarketNewsJournal";
-import Learn from "@/pages/Learn";
-import CandleDetail from "@/pages/learn/CandleDetail";
-import StrategyDetail from "@/pages/learn/StrategyDetail";
-import GlossaryDetail from "@/pages/learn/GlossaryDetail";
-import LessonDetail from "@/pages/learn/LessonDetail";
-import SettingsPage from "@/pages/Settings";
-import AuditLogPage from "@/pages/AuditLog";
-import ReconciliationPage from "@/pages/Reconciliation";
-import PerformancePage from "@/pages/Performance";
-import OrdersPage from "@/pages/Orders";
-import PortefeuillePage from "@/pages/Portefeuille";
-import ComparePage from "@/pages/Compare";
-import CorrelationPage from "@/pages/Correlation";
-import CalendarPage from "@/pages/Calendar";
-import CopyTradingPage from "@/pages/CopyTrading";
-import CopyTradingDiscoverPage from "@/pages/CopyTradingDiscover";
-import CopyTradingSettingsPage from "@/pages/CopyTradingSettings";
-import AgentTasksPage from "@/pages/AgentTasks";
-import AutoTraderPage from "@/pages/AutoTrader";
-import ScannerPage from "@/pages/Scanner";
-import PerpsPage from "@/pages/Perps";
-import DebriefPage from "@/pages/Debrief";
 import ApiStatusModal from "@/components/ApiStatusModal";
 import GoldParticles from "@/components/GoldParticles";
 import { CommandPalette } from "@/components/CommandPalette";
 import { PageErrorBoundary } from "@/components/PageErrorBoundary";
-import Login from "@/pages/Login";
-import SetupPassword from "@/pages/SetupPassword";
-import Pricing from "@/pages/Pricing";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import {
   Activity,
@@ -86,7 +50,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useState, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useState, useEffect, type ElementType, type ReactNode } from "react";
 import {
   initSoundPreference,
   setSoundEnabled,
@@ -95,6 +59,43 @@ import { useUserPreferences, UserPreferencesProvider } from "@/lib/userPreferenc
 import { PositionCalculator } from "@/components/PositionCalculator";
 import CustomCursor from "@/components/CustomCursor";
 import { useQuery } from "@tanstack/react-query";
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Landing = lazy(() => import("@/pages/Landing"));
+const ConditionsUtilisation = lazy(() => import("@/pages/ConditionsUtilisation"));
+const BrokerPage = lazy(() => import("@/pages/Broker"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Observatory = lazy(() => import("@/pages/Observatory"));
+const Watchlist = lazy(() => import("@/pages/Watchlist"));
+const Alerts = lazy(() => import("@/pages/Alerts"));
+const QuoteDetail = lazy(() => import("@/pages/QuoteDetail"));
+const SearchPage = lazy(() => import("@/pages/Search"));
+const MarketNewsJournal = lazy(() => import("@/pages/MarketNewsJournal"));
+const Learn = lazy(() => import("@/pages/Learn"));
+const CandleDetail = lazy(() => import("@/pages/learn/CandleDetail"));
+const StrategyDetail = lazy(() => import("@/pages/learn/StrategyDetail"));
+const GlossaryDetail = lazy(() => import("@/pages/learn/GlossaryDetail"));
+const LessonDetail = lazy(() => import("@/pages/learn/LessonDetail"));
+const SettingsPage = lazy(() => import("@/pages/Settings"));
+const AuditLogPage = lazy(() => import("@/pages/AuditLog"));
+const ReconciliationPage = lazy(() => import("@/pages/Reconciliation"));
+const PerformancePage = lazy(() => import("@/pages/Performance"));
+const OrdersPage = lazy(() => import("@/pages/Orders"));
+const PortefeuillePage = lazy(() => import("@/pages/Portefeuille"));
+const ComparePage = lazy(() => import("@/pages/Compare"));
+const CorrelationPage = lazy(() => import("@/pages/Correlation"));
+const CalendarPage = lazy(() => import("@/pages/Calendar"));
+const CopyTradingPage = lazy(() => import("@/pages/CopyTrading"));
+const CopyTradingDiscoverPage = lazy(() => import("@/pages/CopyTradingDiscover"));
+const CopyTradingSettingsPage = lazy(() => import("@/pages/CopyTradingSettings"));
+const AgentTasksPage = lazy(() => import("@/pages/AgentTasks"));
+const AutoTraderPage = lazy(() => import("@/pages/AutoTrader"));
+const ScannerPage = lazy(() => import("@/pages/Scanner"));
+const PerpsPage = lazy(() => import("@/pages/Perps"));
+const DebriefPage = lazy(() => import("@/pages/Debrief"));
+const Login = lazy(() => import("@/pages/Login"));
+const SetupPassword = lazy(() => import("@/pages/SetupPassword"));
+const Pricing = lazy(() => import("@/pages/Pricing"));
 
 const queryClient = new QueryClient({
   defaultOptions: {

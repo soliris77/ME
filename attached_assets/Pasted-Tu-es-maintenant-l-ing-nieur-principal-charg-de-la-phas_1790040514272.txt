@@ -1,0 +1,720 @@
+Tu es maintenant l’ingénieur principal chargé de la phase de POLISH, AUDIT ET OPTIMISATION de mon application Soliris Market.
+
+IMPORTANT :
+Soliris Market possède déjà beaucoup de fonctionnalités et de pages.
+NE RECRÉE PAS les fonctionnalités existantes.
+NE SUPPRIME RIEN.
+NE REMPLACE PAS une fonctionnalité existante par une nouvelle version sans raison.
+Travaille directement avec l’architecture, les composants, les hooks, les stores, les API, les styles et les systèmes déjà présents dans le projet.
+
+OBJECTIF PRINCIPAL
+
+Transformer l’application existante en une plateforme financière extrêmement cohérente, fluide, fiable et premium.
+
+Je veux améliorer la QUALITÉ de Soliris Market, pas simplement ajouter de nouvelles fonctionnalités.
+
+==================================================
+PHASE 1 — AUDIT COMPLET DU PROJET
+==================================================
+
+Commence par analyser l’ensemble du projet avant de modifier le code.
+
+Inspecte notamment :
+
+- architecture React
+- routes
+- composants
+- hooks
+- contextes
+- stores
+- services API
+- récupération des données
+- graphiques
+- composants 3D
+- CSS
+- Tailwind si présent
+- animations
+- CustomCursor existant
+- système de navigation
+- recherche
+- portfolio
+- scanner
+- comparator
+- observatoire
+- globe 3D
+- lune 3D
+- dashboard
+- notifications
+- calendrier
+- actualités
+- paramètres
+- personnalisation
+- responsive
+- accessibilité
+
+Recherche :
+
+- composants dupliqués
+- logique dupliquée
+- CSS dupliqué
+- imports inutilisés
+- dépendances inutiles
+- hooks mal utilisés
+- re-renders inutiles
+- appels API répétés inutilement
+- données fictives
+- valeurs hardcodées qui devraient venir des données
+- états loading incomplets
+- états error incomplets
+- états empty inexistants
+- boutons sans action
+- liens cassés
+- routes incohérentes
+- problèmes de navigation
+- erreurs console
+- warnings React
+- problèmes TypeScript
+- problèmes de performance
+- problèmes responsive
+- problèmes d’accessibilité
+- problèmes de contraste
+- animations excessives
+- composants trop lourds
+
+Avant de modifier une architecture importante, comprends comment le système actuel fonctionne.
+
+==================================================
+PHASE 2 — NE PAS DUPLIQUER LES SYSTÈMES EXISTANTS
+==================================================
+
+Avant toute création :
+
+Si un système existe déjà :
+→ améliore-le.
+
+Ne crée jamais :
+
+- un deuxième système de curseur
+- un deuxième système de thème
+- un deuxième système de navigation
+- un deuxième système de recherche
+- un deuxième système de notifications
+- un deuxième système de préférences
+- un deuxième système de graphiques
+- un deuxième système de données
+- une deuxième logique de responsive
+
+Utilise les systèmes existants comme source de vérité.
+
+Particulièrement :
+
+CUSTOM CURSOR
+Le CustomCursor existe déjà.
+Ne crée PAS un nouveau curseur.
+
+GRAPHIQUES
+Des composants de graphiques existent déjà.
+Améliore leur architecture et leur rendu au lieu de créer une nouvelle bibliothèque inutile.
+
+3D
+Le globe et la Lune existent déjà.
+Optimise les composants existants.
+
+==================================================
+PHASE 3 — PERFORMANCE
+==================================================
+
+Optimise l’application sans modifier son comportement fonctionnel.
+
+Priorités :
+
+1. réduire les re-renders React inutiles
+2. mémoriser les calculs coûteux
+3. éviter les appels API répétitifs
+4. optimiser les listes importantes
+5. lazy-load des pages/composants lourds
+6. optimiser les composants 3D
+7. optimiser les graphiques
+8. limiter les animations inutiles
+9. nettoyer les listeners
+10. nettoyer correctement les timers
+11. nettoyer les requestAnimationFrame
+12. éviter les memory leaks
+13. réduire les recalculs CSS inutiles
+14. éviter les gros bundles inutiles
+
+Pour les composants lourds :
+
+- utiliser React.lazy lorsque pertinent
+- utiliser Suspense lorsque pertinent
+- charger les modules lourds uniquement lorsqu’ils sont nécessaires
+- ne pas charger tout le système 3D au démarrage si l’utilisateur n’en a pas besoin
+
+Pour le globe :
+
+- limiter les calculs par frame
+- éviter les créations répétées d’objets Three.js
+- réutiliser les ressources
+- nettoyer correctement textures, géométries et matériaux
+- suspendre les animations lorsque le composant n’est plus visible
+- respecter prefers-reduced-motion
+
+Pour les graphiques :
+
+- éviter de recalculer toute la série lors d’une simple interaction
+- optimiser les tooltips
+- limiter les animations coûteuses
+- conserver une interaction fluide
+
+==================================================
+PHASE 4 — FIABILITÉ DES DONNÉES
+==================================================
+
+Soliris Market est une plateforme financière.
+
+La confiance dans les données est prioritaire.
+
+NE FABRIQUE AUCUNE donnée financière.
+
+Ne crée pas :
+
+- prix fictifs
+- volumes fictifs
+- performances fictives
+- actualités fictives
+- indicateurs fictifs
+- données de marché inventées
+
+Si une donnée n’est pas disponible :
+
+afficher clairement un état approprié :
+
+“Données indisponibles”
+
+ou
+
+“En attente des données”
+
+ou
+
+“Source indisponible”
+
+selon le contexte.
+
+==================================================
+PHASE 5 — DATA STATUS
+==================================================
+
+Améliore progressivement les composants financiers existants afin qu’ils puissent afficher :
+
+- LIVE
+- différé
+- historique
+- dernière mise à jour
+- source
+- statut de connexion
+- marché ouvert/fermé lorsque cette information est réellement disponible
+
+Exemple visuel :
+
+● LIVE
+Actualisé il y a 4 s
+
+ou :
+
+DATA DELAYED
+Dernière mise à jour : 14:32:18
+
+Le système doit être discret et cohérent avec le design Soliris.
+
+Ne surcharge pas l’interface.
+
+==================================================
+PHASE 6 — DESIGN SYSTEM SOLIRIS
+==================================================
+
+Unifie visuellement toute l’application.
+
+Conserve l’identité actuelle :
+
+- fond très sombre
+- noir profond
+- gris graphite
+- accents dorés
+- vert pour les variations positives
+- rouge pour les variations négatives
+- bordures discrètes
+- transparence subtile
+- esthétique financière premium
+- futuriste mais professionnelle
+
+ÉVITER ABSOLUMENT :
+
+- esthétique gaming
+- RGB
+- néons excessifs
+- gradients agressifs
+- animations permanentes
+- effets flashy
+- interface cyberpunk caricaturale
+
+Créer/centraliser si nécessaire des tokens de design :
+
+- couleurs
+- spacing
+- radius
+- shadows
+- typography
+- transitions
+- z-index
+- borders
+- surfaces
+
+Mais si un système équivalent existe déjà, améliore-le plutôt que d’en créer un second.
+
+==================================================
+PHASE 7 — CARTES
+==================================================
+
+Uniformiser les cartes de Soliris.
+
+Toutes les cartes doivent avoir une logique visuelle cohérente :
+
+- même structure
+- même bordure
+- même profondeur
+- même comportement hover
+- même padding selon la densité
+- même logique responsive
+
+Les cartes importantes peuvent avoir :
+
+- léger déplacement au hover
+- légère variation de luminosité
+- bordure légèrement accentuée
+- micro-animation
+
+Mais tout doit rester subtil.
+
+==================================================
+PHASE 8 — MICRO-INTERACTIONS
+==================================================
+
+Ajouter uniquement des micro-interactions utiles.
+
+Exemples :
+
+- bouton qui réagit subtilement au hover
+- carte qui révèle légèrement son contenu
+- changement de prix animé proprement
+- notification qui apparaît naturellement
+- transition entre pages
+- changement d’état fluide
+- ouverture/fermeture des panneaux
+
+Les animations doivent être :
+
+- rapides
+- fluides
+- cohérentes
+- désactivables
+- compatibles avec prefers-reduced-motion
+
+Ne jamais transformer l’interface en animation permanente.
+
+==================================================
+PHASE 9 — MODE FOCUS
+==================================================
+
+Si aucun système équivalent n’existe déjà, ajouter un MODE FOCUS cohérent avec l’application existante.
+
+Le mode Focus doit permettre de concentrer l’utilisateur sur l’analyse.
+
+Comportement :
+
+- réduire temporairement les distractions
+- réduire la sidebar
+- maximiser l’espace de travail
+- privilégier le graphique ou le module actif
+- conserver les données essentielles
+- conserver la navigation minimale
+- respecter les préférences utilisateur
+
+Raccourci :
+
+F
+
+ESC :
+
+sortir du mode Focus
+
+Ne crée pas un deuxième système de navigation pour cela.
+
+==================================================
+PHASE 10 — RACCOURCIS CLAVIER
+==================================================
+
+Ajouter uniquement si cela n’existe pas déjà.
+
+Prévoir une architecture centralisée.
+
+Exemples :
+
+/
+→ recherche
+
+G puis D
+→ Dashboard
+
+G puis O
+→ Observatoire
+
+G puis P
+→ Portfolio
+
+G puis S
+→ Scanner
+
+G puis C
+→ Comparator
+
+F
+→ Focus
+
+ESC
+→ fermer modal/panneau
+
+?
+→ afficher les raccourcis
+
+Les raccourcis ne doivent jamais interférer avec :
+
+- champs de texte
+- textarea
+- recherche
+- formulaires
+
+Prévoir une fenêtre “Raccourcis clavier”.
+
+==================================================
+PHASE 11 — RECHERCHE EXISTANTE
+==================================================
+
+NE CRÉE PAS une nouvelle recherche.
+
+Améliore la recherche existante.
+
+Lorsqu’un utilisateur recherche un actif, organiser les résultats intelligemment :
+
+ACTIFS
+Actualités
+Graphiques
+Portfolio
+Alertes
+Autres résultats pertinents
+
+Permettre lorsque les actions existent déjà :
+
+- ouvrir l’actif
+- ajouter à la watchlist
+- comparer
+- ouvrir le graphique
+- consulter les actualités
+- accéder au portfolio
+
+Ne créer aucune action qui n’est pas réellement implémentée.
+
+==================================================
+PHASE 12 — COMPARATOR EXISTANT
+==================================================
+
+NE RECRÉE PAS le Comparator.
+
+Améliore son expérience.
+
+Lorsque plusieurs actifs sont comparés :
+
+- synchroniser les périodes
+- synchroniser les axes lorsque pertinent
+- permettre la normalisation en %
+- permettre la comparaison absolue
+- afficher les performances
+- afficher les variations
+- afficher les statistiques disponibles
+- synchroniser tooltip et crosshair
+- rendre la lecture claire
+
+Ne comparer que des données réellement disponibles.
+
+==================================================
+PHASE 13 — RESPONSIVE
+==================================================
+
+Tester toute l’application sur :
+
+Desktop
+Laptop
+Tablette
+Mobile
+
+Ne pas simplement réduire les tailles.
+
+Adapter réellement :
+
+- navigation
+- cartes
+- tableaux
+- graphiques
+- modales
+- panneaux
+- globe
+- contrôles
+- densité d’information
+
+Sur mobile :
+
+prioriser l’information essentielle.
+
+Les éléments secondaires peuvent être :
+
+- repliés
+- accessibles via panneaux
+- déplacés
+- masqués selon les préférences existantes
+
+==================================================
+PHASE 14 — ACCESSIBILITÉ
+==================================================
+
+Améliorer :
+
+- navigation clavier
+- focus visible
+- aria-label
+- aria-expanded
+- aria-selected
+- boutons correctement identifiés
+- contraste
+- textes alternatifs lorsque nécessaires
+- taille des zones interactives
+- prefers-reduced-motion
+
+Ne jamais supprimer une information uniquement parce qu’elle est visuelle.
+
+==================================================
+PHASE 15 — ÉTATS DE L’APPLICATION
+==================================================
+
+Chaque module important doit gérer proprement :
+
+LOADING
+
+EMPTY
+
+ERROR
+
+SUCCESS
+
+STALE DATA
+
+OFFLINE si pertinent
+
+Exemple :
+
+Chargement :
+
+skeleton discret cohérent avec Soliris.
+
+Erreur :
+
+“Impossible de récupérer les données.”
+
+avec possibilité de réessayer si techniquement possible.
+
+Aucune page ne doit rester vide ou cassée silencieusement.
+
+==================================================
+PHASE 16 — OBSERVATOIRE ET 3D
+==================================================
+
+Le globe 3D et la Lune existent déjà.
+
+NE LES RECRÉE PAS.
+
+Optimise :
+
+- FPS
+- mémoire
+- éclairage
+- textures
+- animation
+- interaction
+- resize
+- mobile
+- reduced motion
+
+Le globe doit rester visuellement premium.
+
+La Lune doit rester intégrée au système existant.
+
+Les interactions doivent rester cohérentes avec le reste de Soliris.
+
+==================================================
+PHASE 17 — CUSTOM CURSOR
+==================================================
+
+Le CustomCursor existe déjà.
+
+NE CRÉE PAS DEUXIÈME CURSEUR.
+
+Optimise le système actuel.
+
+Conserver :
+
+- point central
+- anneau
+- halo
+- état interactif
+- état observatoire
+- état dragging
+- état positif/négatif
+- lumière locale des cartes
+- click animation
+- reduced motion
+- désactivation mobile/tablette si déjà prévue
+
+Améliorer uniquement :
+
+- fluidité
+- performance
+- cohérence
+- transitions
+- interactions
+
+Le curseur doit rester élégant et professionnel.
+
+==================================================
+PHASE 18 — CONSOLE ET ERREURS
+==================================================
+
+Analyser la console du navigateur.
+
+Corriger :
+
+- erreurs
+- warnings importants
+- erreurs React
+- erreurs réseau gérées incorrectement
+- erreurs Three.js
+- erreurs de cleanup
+- erreurs de types
+
+Ne pas masquer les erreurs avec :
+
+console.clear()
+
+ou des hacks similaires.
+
+Corriger la cause réelle.
+
+==================================================
+PHASE 19 — CODE QUALITY
+==================================================
+
+Améliorer progressivement :
+
+- noms de variables
+- types TypeScript
+- composants trop longs
+- fonctions trop longues
+- logique répétée
+- constantes
+- utilitaires
+- hooks
+
+Mais :
+
+NE FAIS PAS DE REFACTORING MASSIF INUTILE.
+
+Chaque changement doit réduire la complexité ou améliorer la maintenabilité.
+
+==================================================
+PHASE 20 — VALIDATION FINALE
+==================================================
+
+Après les modifications :
+
+1. lancer le projet
+2. vérifier les routes
+3. vérifier les pages principales
+4. vérifier les graphiques
+5. vérifier le Dashboard
+6. vérifier l’Observatoire
+7. vérifier le globe
+8. vérifier la Lune
+9. vérifier le Portfolio
+10. vérifier le Scanner
+11. vérifier le Comparator
+12. vérifier la recherche
+13. vérifier les notifications
+14. vérifier les paramètres
+15. vérifier la personnalisation
+16. vérifier le responsive
+17. vérifier le CustomCursor
+18. vérifier les raccourcis
+19. vérifier les états loading/error
+20. vérifier la console
+
+IMPORTANT :
+
+Ne te contente pas de dire que tout fonctionne.
+
+Teste réellement les éléments modifiés.
+
+==================================================
+RÈGLE ABSOLUE
+==================================================
+
+Ne supprime aucune fonctionnalité existante simplement pour simplifier le projet.
+
+Ne remplace pas une technologie existante sans nécessité.
+
+Ne crée pas de faux résultats pour masquer une absence de données.
+
+Ne crée pas de doublons.
+
+Ne change pas inutilement le design actuel.
+
+Conserve l'identité Soliris Market.
+
+==================================================
+OBJECTIF FINAL
+==================================================
+
+À la fin, Soliris Market doit donner l’impression d’un produit financier professionnel arrivé à un niveau de finition supérieur :
+
+- rapide
+- stable
+- cohérent
+- élégant
+- précis
+- responsive
+- accessible
+- fiable
+- fluide
+- immersif
+- professionnel
+
+Priorité absolue :
+
+QUALITÉ > QUANTITÉ
+
+PERFORMANCE > EFFETS
+
+DONNÉES RÉELLES > DONNÉES FICTIVES
+
+COHÉRENCE > NOUVELLES FONCTIONNALITÉS
+
+Avant chaque modification importante, vérifie que la fonctionnalité n’existe pas déjà.
+
+Commence maintenant par l’audit complet du projet, puis corrige les problèmes par ordre de priorité sans attendre ma confirmation entre chaque étape.
