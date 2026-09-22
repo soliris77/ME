@@ -157,6 +157,13 @@ description: Soliris — chantier crypto terminé, globe interactif validé
 
 Aucune tâche active.
 
+## Dashboard Market Command Center
+
+- → EN COURS — Étape 1 : Cartographier les flux réels du dashboard et définir la nouvelle hiérarchie sans duplication
+- ☐ À FAIRE — Étape 2 : Ajouter le Market Pulse et renforcer les cartes existantes avec données, navigation et états réels
+- ☐ À FAIRE — Étape 3 : Réordonner le dashboard, améliorer le responsive et les micro-interactions
+- ☐ À FAIRE — Étape 4 : Vérifier typecheck, tests, build, workflow et rendu visuel
+
 ## Espace étoilé — Observatoire du dashboard
 
 - ✅ FAIT — Étape 1 : Auditer le décor actuel de l’Observatoire et préparer des couches spatiales dédiées
