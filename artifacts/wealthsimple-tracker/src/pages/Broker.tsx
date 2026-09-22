@@ -311,7 +311,13 @@ export default function BrokerPage() {
         : s?.status === "pending"
           ? "gold"
           : "muted";
-  const tradingMode = tradingModeQ.data?.mode === "live" ? "Live" : "Paper";
+  const tradingMode = tradingModeQ.isLoading
+    ? "—"
+    : tradingModeQ.data?.mode === "live"
+      ? "Live"
+      : tradingModeQ.data?.mode === "paper"
+        ? "Paper"
+        : "—";
   const liveArmed = tradingModeQ.data?.mode === "live" && tradingModeQ.data.arm?.active === true;
   const safetyLabel = !s
     ? "En attente"
@@ -334,9 +340,10 @@ export default function BrokerPage() {
     };
     return (
       <button
+        type="button"
         onClick={onClick}
         disabled={disabled}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold tracking-[0.1em] uppercase transition-opacity disabled:opacity-40"
+        className="broker-action-button flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold tracking-[0.1em] uppercase transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         style={styles[variant]}
       >
         {children}
@@ -433,8 +440,8 @@ export default function BrokerPage() {
       )}
 
        {/* ── Courtiers disponibles ─────────────────────────────── */}
-       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-         <div className="rounded-xl p-5" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+         <div className="broker-provider-card rounded-xl p-5" style={{ background: SURFACE, border: `1px solid ${s?.connected ? "rgba(22,163,74,0.3)" : BORDER}` }}>
            <div className="flex items-start justify-between gap-3">
              <div className="flex items-center gap-3">
                <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "rgba(212,167,44,0.12)", color: ACCENT }}>
@@ -454,7 +461,7 @@ export default function BrokerPage() {
            </p>
          </div>
 
-         <div className="rounded-xl p-5" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+          <div className="broker-provider-card rounded-xl p-5" style={{ background: SURFACE, border: `1px solid ${krakenQ.data?.configured ? "rgba(142,124,255,0.3)" : BORDER}` }}>
            <div className="flex items-start justify-between gap-3">
              <div className="flex items-center gap-3">
                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#5741D9]/15 text-[#8E7CFF]">
@@ -672,8 +679,9 @@ export default function BrokerPage() {
                     <KeyRound className="w-3.5 h-3.5" /> {s?.hasCredentials ? "Mettre à jour les clés" : "Entrer les clés"}
                   </div>
                   <button
+                    type="button"
                     onClick={() => setShowSecrets(!showSecrets)}
-                    className="flex items-center gap-1 text-[11px] transition-opacity hover:opacity-80"
+                    className="flex items-center gap-1 text-[11px] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded"
                     style={{ color: MUTED }}
                   >
                     {showSecrets ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -707,8 +715,9 @@ export default function BrokerPage() {
                   const hints: Record<string, string> = { clientId: "Ex. : PERS-XXXXXXXXXXXXXXXX", consumerKey: "Consumer Key SnapTrade" };
                   return (
                     <div key={field}>
-                      <label className="block text-[11px] mb-1 uppercase tracking-[0.12em]" style={{ color: MUTED }}>{labels[field]}</label>
+                      <label htmlFor={`broker-${field}`} className="block text-[11px] mb-1 uppercase tracking-[0.12em]" style={{ color: MUTED }}>{labels[field]}</label>
                       <input
+                        id={`broker-${field}`}
                         type={showSecrets || field === "clientId" ? "text" : "password"}
                         autoComplete="off"
                         value={credsForm[field]}
@@ -843,7 +852,7 @@ export default function BrokerPage() {
       </div>
 
       {/* ── Comptes liés ─────────────────────────────────────── */}
-      {(accounts.length > 0 || accountsQ.isFetching) && (
+      {s?.connected && (accounts.length > 0 || accountsQ.isFetching || !accountsQ.isLoading) && (
         <div>
           <div className="section-rule mb-5 flex items-center justify-between gap-4">
             <span>COMPTES WEALTHSIMPLE</span>
@@ -872,42 +881,63 @@ export default function BrokerPage() {
             </div>
           )}
 
-          <div className="space-y-3">
-            {accounts.map((acc, i) => {
-              const accId = acc.id ?? String(i);
-              const isExpanded = expandedId === accId;
-              return (
-                <div key={accId} className="rounded-xl p-4 transition-all" style={{ background: SURFACE, border: `1px solid ${isExpanded ? "rgba(212,167,44,0.25)" : BORDER}` }}>
-                  <button
-                    className="w-full flex items-center justify-between gap-3 text-left"
-                    onClick={() => setExpandedId(isExpanded ? null : accId)}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Building2 className="w-4 h-4 shrink-0" style={{ color: MUTED }} />
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold truncate" style={{ color: "#E8E9ED" }}>
-                          {acc.name ?? acc.number ?? "Compte"}
-                        </div>
-                        <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>
-                          {acc.institution_name ?? acc.brokerage?.name ?? acc.meta?.institution_name ?? "Wealthsimple"}
-                          {(acc.meta?.unifiedAccountType ?? acc.type) && <> · {acc.meta?.unifiedAccountType ?? acc.type}</>}
+          {accounts.length === 0 && !accountsQ.isFetching ? (
+            <div className="flex flex-col gap-4 rounded-xl p-5 sm:flex-row sm:items-center sm:justify-between" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+              <div className="flex items-start gap-3">
+                <Building2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: MUTED }} />
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: "#E8E9ED" }}>Aucun compte reçu</div>
+                  <p className="mt-1 max-w-xl text-[11px] leading-relaxed" style={{ color: MUTED }}>
+                    La connexion est active, mais SnapTrade n’a pas encore renvoyé de compte. Lance une synchronisation avant de consulter les soldes ou d’armer le Live.
+                  </p>
+                </div>
+              </div>
+              <Btn variant="muted" onClick={() => syncMut.mutate()} disabled={syncMut.isPending}>
+                {syncMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Synchroniser
+              </Btn>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {accounts.map((acc, i) => {
+                const accId = acc.id ?? String(i);
+                const isExpanded = expandedId === accId;
+                return (
+                  <div key={accId} className="rounded-xl p-4 transition-all" style={{ background: SURFACE, border: `1px solid ${isExpanded ? "rgba(212,167,44,0.25)" : BORDER}` }}>
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      aria-controls={`broker-balance-${accId}`}
+                      className="w-full flex items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
+                      onClick={() => setExpandedId(isExpanded ? null : accId)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Building2 className="w-4 h-4 shrink-0" style={{ color: MUTED }} />
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate" style={{ color: "#E8E9ED" }}>
+                            {acc.name ?? acc.number ?? "Compte"}
+                          </div>
+                          <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                            {acc.institution_name ?? acc.brokerage?.name ?? acc.meta?.institution_name ?? "Wealthsimple"}
+                            {(acc.meta?.unifiedAccountType ?? acc.type) && <> · {acc.meta?.unifiedAccountType ?? acc.type}</>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <span className="text-[11px] shrink-0 flex items-center gap-1" style={{ color: ACCENT }}>
-                      {isExpanded ? "Masquer" : "Voir le solde"}
-                    </span>
-                  </button>
+                      <span className="text-[11px] shrink-0 flex items-center gap-1" style={{ color: ACCENT }}>
+                        {isExpanded ? "Masquer" : "Voir le solde"}
+                      </span>
+                    </button>
 
-                  {isExpanded && acc.id && (
-                    <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                      <AccountBalance accountId={acc.id} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {isExpanded && acc.id && (
+                      <div id={`broker-balance-${accId}`} className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                        <AccountBalance accountId={acc.id} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
