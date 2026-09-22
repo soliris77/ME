@@ -173,3 +173,10 @@ Tâche Dashboard Market Command Center terminée côté code. Le contrôle visue
 ## État
 
 Aucune tâche active.
+
+## Amélioration de la section Courtier
+
+- → EN COURS — Étape 1 : Auditer le rendu Broker et les composants de données/actions existants
+- ☐ À FAIRE — Étape 2 : Renforcer la hiérarchie, les états de connexion et les informations de risque sans inventer de données
+- ☐ À FAIRE — Étape 3 : Améliorer responsive, accessibilité et micro-interactions
+- ☐ À FAIRE — Étape 4 : Vérifier typecheck, build, workflow et rendu visuel

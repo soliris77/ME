@@ -82,6 +82,42 @@ function StepNum({ n, done, active }: { n: number; done: boolean; active: boolea
   );
 }
 
+function StatusPill({
+  tone,
+  children,
+}: {
+  tone: "green" | "gold" | "red" | "muted" | "violet";
+  children: React.ReactNode;
+}) {
+  const styles = {
+    green: { color: "#4ADE80", background: "rgba(22,163,74,0.11)", border: "rgba(22,163,74,0.28)" },
+    gold: { color: ACCENT, background: "rgba(212,167,44,0.11)", border: "rgba(212,167,44,0.28)" },
+    red: { color: "#F87171", background: "rgba(220,38,38,0.11)", border: "rgba(220,38,38,0.28)" },
+    muted: { color: MUTED, background: "rgba(139,146,165,0.08)", border: BORDER },
+    violet: { color: "#A78BFA", background: "rgba(87,65,217,0.12)", border: "rgba(142,124,255,0.28)" },
+  }[tone];
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
+      style={{ color: styles.color, background: styles.background, borderColor: styles.border }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+      {children}
+    </span>
+  );
+}
+
+function StatusFact({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: "rgba(11,14,20,0.35)" }}>
+      <div className="truncate text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: MUTED }}>{label}</div>
+      <div className="mt-1 truncate text-[13px] font-semibold" style={{ ...MONO, color: "#E8E9ED" }}>{value}</div>
+      {detail && <div className="mt-0.5 truncate text-[10px]" style={{ color: MUTED }}>{detail}</div>}
+    </div>
+  );
+}
+
 /* ── Account balance pill ───────────────────────────────── */
 function AccountBalance({ accountId }: { accountId: string }) {
   const q = useQuery<BalanceLine[]>({
@@ -258,6 +294,35 @@ export default function BrokerPage() {
   const s = statusQ.data;
   const step = !s ? 0 : s.status === "not_setup" ? 1 : s.status === "pending" ? 2 : 3;
   const accounts: Account[] = Array.isArray(accountsQ.data) ? accountsQ.data : [];
+  const connectionLabel = statusQ.isLoading
+    ? "Vérification…"
+    : s?.status === "connected" && s.apiOk !== false
+      ? "Connecté"
+      : s?.status === "pending"
+        ? "En attente"
+        : s?.status === "error"
+          ? "Erreur"
+          : "À configurer";
+  const connectionTone: "green" | "gold" | "red" | "muted" =
+    s?.status === "connected" && s.apiOk !== false
+      ? "green"
+      : s?.status === "error"
+        ? "red"
+        : s?.status === "pending"
+          ? "gold"
+          : "muted";
+  const tradingMode = tradingModeQ.data?.mode === "live" ? "Live" : "Paper";
+  const liveArmed = tradingModeQ.data?.mode === "live" && tradingModeQ.data.arm?.active === true;
+  const safetyLabel = !s
+    ? "En attente"
+    : s.halted
+      ? "Suspendu"
+      : liveArmed
+        ? "Live armé"
+        : "Garde-fous actifs";
+  const lastSyncLabel = s?.lastSyncedAt
+    ? new Date(s.lastSyncedAt).toLocaleString("fr-CA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : "Jamais";
 
   /* ── Btn helper ─── */
   const Btn = ({ onClick, disabled, children, variant = "gold" }: { onClick: () => void; disabled?: boolean; children: React.ReactNode; variant?: "gold" | "muted" | "danger" | "green" }) => {
@@ -280,16 +345,92 @@ export default function BrokerPage() {
   };
 
   return (
-    <div className="p-6 sm:p-8 max-w-3xl mx-auto animate-fadeUp space-y-8">
+    <div className="broker-page p-5 sm:p-7 xl:p-8 max-w-6xl mx-auto animate-fadeUp space-y-8">
 
       {/* ── En-tête ─────────────────────────────────────────── */}
       <div>
-        <div className="section-rule mb-4"><span>COURTIER</span></div>
-         <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em]">Courtiers</h1>
-        <p className="mt-2 text-sm max-w-xl" style={{ color: MUTED }}>
-           Connecte tes courtiers pour lire tes positions et, en mode live, soumettre des ordres automatisés depuis tes comptes.
-        </p>
+        <div className="section-rule mb-4"><span>CONNEXIONS &amp; GARDE-FOUS</span></div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em]">Centre courtier</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: MUTED }}>
+              Connecte tes comptes, vérifie leur état et contrôle précisément quand des ordres peuvent être envoyés.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>
+            <span className={`h-1.5 w-1.5 rounded-full ${statusQ.isFetching ? "animate-pulse" : ""}`} style={{ background: s?.apiOk === false ? "#DC2626" : ACCENT }} />
+            Surveillance automatique · 15 s
+          </div>
+        </div>
       </div>
+
+      {/* ── Synthèse opérationnelle ─────────────────────────── */}
+      <section className="broker-overview-grid" aria-labelledby="broker-overview-title">
+        <div className="broker-overview-card">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="broker-overview-icon broker-overview-icon-primary">
+                {s?.connected ? <Wifi className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
+              </div>
+              <div>
+                <div className="broker-kicker">État de la connexion</div>
+                <h2 id="broker-overview-title" className="mt-1 text-lg font-semibold tracking-wide" style={{ color: "#E8E9ED" }}>
+                  {s?.connected ? "Wealthsimple est relié" : "Connexion à terminer"}
+                </h2>
+              </div>
+            </div>
+            <StatusPill tone={connectionTone}>{connectionLabel}</StatusPill>
+          </div>
+          <p className="mt-4 max-w-xl text-[12px] leading-relaxed" style={{ color: MUTED }}>
+            {s?.connected
+              ? "Les comptes liés peuvent être synchronisés et leurs soldes consultés. Les ordres restent soumis au mode et aux garde-fous ci-dessous."
+              : "Commence par enregistrer les clés SnapTrade, puis initialise et lie ton compte dans le portail sécurisé."}
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatusFact label="Mode" value={tradingMode} detail={liveArmed ? "ordre réel autorisé" : "simulation par défaut"} />
+            <StatusFact label="Sécurité" value={safetyLabel} detail={s?.halted ? "aucun ordre envoyé" : "état surveillé"} />
+            <StatusFact label="Comptes" value={accounts.length ? `${accounts.length}` : "—"} detail={accounts.length ? "compte(s) reçu(s)" : "pas encore synchronisé"} />
+            <StatusFact label="Dernière synchro" value={lastSyncLabel} detail={s?.lastSyncedAt ? "donnée courtier" : "aucune donnée"} />
+          </div>
+        </div>
+
+        <div className="broker-overview-card broker-overview-card-secondary">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="broker-kicker">Accès crypto séparé</div>
+              <h2 className="mt-1 text-base font-semibold" style={{ color: "#E8E9ED" }}>Kraken</h2>
+            </div>
+            <StatusPill tone={krakenQ.data?.configured ? "violet" : "muted"}>
+              {krakenQ.isLoading ? "Vérification…" : krakenQ.data?.configured ? "Configuré" : "À configurer"}
+            </StatusPill>
+          </div>
+          <p className="mt-4 text-[11px] leading-relaxed" style={{ color: MUTED }}>
+            Le flux crypto reste isolé du compte Wealthsimple. Le dry-run est conservé par défaut et les ordres passent par les garde-fous de risque.
+          </p>
+          <div className="mt-5 flex items-center gap-2 text-[10px] uppercase tracking-[0.12em]" style={{ color: krakenQ.data?.configured ? "#A78BFA" : MUTED }}>
+            <Radio className="h-3.5 w-3.5" />
+            {krakenQ.data?.tradingMode === "dry_run" ? "Dry-run actif" : "Mode crypto non confirmé"}
+          </div>
+        </div>
+      </section>
+
+      {(statusQ.isError || tradingModeQ.isError || krakenQ.isError) && (
+        <div className="broker-inline-alert broker-inline-alert-warning" role="alert">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Un état de connexion n’a pas pu être vérifié. Les informations absentes restent masquées.</span>
+          <button
+            type="button"
+            onClick={() => {
+              statusQ.refetch();
+              tradingModeQ.refetch();
+              krakenQ.refetch();
+            }}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-current/25 px-2.5 py-1.5 font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-amber-400/10"
+          >
+            <RefreshCw className="h-3 w-3" /> Réessayer
+          </button>
+        </div>
+      )}
 
        {/* ── Courtiers disponibles ─────────────────────────────── */}
        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
