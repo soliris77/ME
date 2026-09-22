@@ -1,0 +1,427 @@
+Je veux maintenant travailler sur le DASHBOARD de Soliris Market.
+
+IMPORTANT :
+Ne refais pas toute l'application.
+Ne détruis aucune fonctionnalité existante.
+Ne remplace pas les données existantes.
+Ne crée pas de fausses données.
+
+Je veux une amélioration UX/UI du Dashboard existant.
+
+OBJECTIF :
+
+Transformer le Dashboard actuel en véritable "MARKET COMMAND CENTER".
+
+Lorsque l'utilisateur arrive sur le Dashboard, il doit immédiatement comprendre :
+
+1. Quel est l'état général du marché ?
+2. Qu'est-ce qui bouge actuellement ?
+3. Quels marchés ou actifs méritent mon attention ?
+4. Où puis-je approfondir ?
+
+==================================================
+1. HIÉRARCHIE VISUELLE
+==================================================
+
+Créer une hiérarchie beaucoup plus forte.
+
+Le Dashboard ne doit plus donner l'impression que toutes les cartes ont la même importance.
+
+Ordre :
+
+NIVEAU 1
+État global du marché
+
+NIVEAU 2
+Marchés majeurs / actifs importants
+
+NIVEAU 3
+Actifs alternatifs
+
+NIVEAU 4
+Performance sectorielle
+
+NIVEAU 5
+Informations secondaires
+
+Le contenu important doit être visuellement plus grand.
+
+==================================================
+2. MARKET PULSE
+==================================================
+
+Créer ou améliorer une section principale appelée :
+
+MARKET PULSE
+
+Elle doit utiliser uniquement les données réellement disponibles dans l'application.
+
+Afficher selon les données disponibles :
+
+- tendance générale
+- nombre d'actifs en hausse
+- nombre d'actifs en baisse
+- volatilité
+- activité
+- principaux mouvements
+- dernière actualisation
+
+NE PAS inventer de valeurs.
+
+Si une donnée n'existe pas :
+ne pas créer une fausse valeur.
+
+==================================================
+3. CARTE PRINCIPALE
+==================================================
+
+Créer une grande carte principale premium.
+
+Style :
+
+- fond noir profond
+- bordure très subtile
+- accent doré
+- profondeur légère
+- aucun effet RGB
+- aucun gradient agressif
+
+La carte doit donner l'impression d'un centre de contrôle financier.
+
+Titre :
+
+MARCHÉ EN DIRECT
+
+Sous-titre :
+État actuel des marchés
+
+Afficher les informations les plus importantes.
+
+==================================================
+4. INDICATEUR DE TENDANCE
+==================================================
+
+Créer un indicateur visuel élégant pour montrer la tendance du marché.
+
+Il peut prendre la forme :
+
+- d'une ligne
+- d'une jauge
+- d'un indicateur circulaire
+- ou d'une combinaison discrète
+
+Choisir la solution qui correspond le mieux aux données réellement disponibles.
+
+IMPORTANT :
+
+Ne pas transformer cela en "score magique".
+
+Toujours afficher clairement ce que mesure l'indicateur.
+
+==================================================
+5. MARCHÉS MAJEURS
+==================================================
+
+Améliorer les cartes :
+
+Nikkei
+Hang Seng
+et les autres indices disponibles.
+
+Chaque carte doit avoir :
+
+- nom
+- symbole
+- valeur
+- variation
+- mini graphique
+- état de marché
+
+Le mini graphique doit être réellement lié aux données disponibles.
+
+Ajouter un hover élégant.
+
+Au survol :
+
+- léger éclairage
+- curseur Soliris
+- graphique légèrement mis en avant
+
+==================================================
+6. ACTIFS ALTERNATIFS
+==================================================
+
+Conserver :
+
+Cryptomonnaies
+Matières premières
+
+Mais améliorer leur organisation.
+
+Chaque ligne doit avoir une hiérarchie claire :
+
+NOM
+symbole
+
+graphique
+
+PRIX
+variation
+
+Ne pas surcharger.
+
+==================================================
+7. SECTEURS
+==================================================
+
+Améliorer la section :
+
+PERFORMANCE DES SECTEURS
+
+Créer une grille plus respirante.
+
+Chaque secteur doit avoir :
+
+- nom
+- symbole
+- prix
+- variation
+- graphique
+
+Les secteurs positifs et négatifs doivent être immédiatement distinguables.
+
+Mais conserver la palette actuelle :
+
+vert = positif
+rouge = négatif
+or = information / accent
+
+==================================================
+8. ESPACEMENT
+==================================================
+
+Le Dashboard doit respirer davantage.
+
+Augmenter légèrement :
+
+- espaces entre les sections
+- espaces internes des cartes
+- séparation visuelle des groupes
+
+Mais éviter les énormes espaces vides.
+
+Le but est :
+
+dense comme une plateforme financière,
+
+mais lisible comme une application premium.
+
+==================================================
+9. TYPOGRAPHIE
+==================================================
+
+Conserver la typographie actuelle de Soliris.
+
+Créer cependant une hiérarchie plus forte :
+
+Titre principal
+>
+indicateur
+>
+valeur
+>
+variation
+>
+symbole
+
+Les chiffres importants doivent être immédiatement lisibles.
+
+==================================================
+10. MICRO-INTERACTIONS
+==================================================
+
+Utiliser le système CustomCursor existant.
+
+NE PAS créer un nouveau curseur.
+
+Au hover d'une carte :
+
+- légère élévation
+- bordure légèrement plus lumineuse
+- lumière locale très subtile
+- graphique légèrement accentué
+
+Durée approximative :
+180-250ms.
+
+Aucun effet excessif.
+
+==================================================
+11. LIEN AVEC L'OBSERVATOIRE
+==================================================
+
+Ajouter des points d'accès naturels vers l'Observatoire.
+
+Par exemple :
+
+"Explorer dans l'Observatoire"
+
+ou une interaction équivalente.
+
+Lorsqu'un utilisateur ouvre l'Observatoire depuis une donnée liée à une région :
+
+si les données permettent de déterminer une région,
+ouvrir l'Observatoire sur cette région.
+
+Ne rien inventer si l'information géographique n'existe pas.
+
+==================================================
+12. ANIMATION DES DONNÉES
+==================================================
+
+Les données doivent avoir une présence vivante.
+
+Lorsqu'une valeur réellement mise à jour change :
+
+animation très courte.
+
+Par exemple :
+
+valeur précédente
+→ transition
+→ nouvelle valeur
+
+Pour une hausse :
+accent vert très bref.
+
+Pour une baisse :
+accent rouge très bref.
+
+Puis retour à l'état normal.
+
+Ne jamais faire clignoter constamment les données.
+
+==================================================
+13. ÉTAT DE CHARGEMENT
+==================================================
+
+Améliorer les états de chargement.
+
+Utiliser des skeletons élégants.
+
+Ne pas afficher :
+
+"Loading..."
+
+partout.
+
+Le skeleton doit correspondre à la forme réelle de la carte.
+
+==================================================
+14. ÉTAT ERREUR
+==================================================
+
+Si une API échoue :
+
+ne pas casser toute la page.
+
+Afficher un état discret :
+
+"Données temporairement indisponibles"
+
+avec possibilité de réessayer.
+
+Ne jamais remplacer silencieusement une donnée réelle par une fausse donnée.
+
+==================================================
+15. RESPONSIVE
+==================================================
+
+Desktop :
+
+mise en page complète.
+
+Laptop :
+
+réduire les espacements intelligemment.
+
+Tablette :
+
+réorganiser les colonnes.
+
+Mobile :
+
+empiler les informations selon leur importance.
+
+Le Market Pulse doit toujours rester prioritaire.
+
+==================================================
+16. PERFORMANCE
+==================================================
+
+Ne pas ajouter d'animations lourdes.
+
+Le Dashboard doit rester fluide pendant que :
+
+- les données se mettent à jour
+- le CustomCursor fonctionne
+- le globe peut être utilisé
+- les graphiques sont animés.
+
+==================================================
+17. IDENTITÉ SOLIRIS
+==================================================
+
+Conserver absolument :
+
+fond noir profond
+or
+vert
+rouge
+bordures discrètes
+look financier premium
+
+Éviter :
+
+néon
+glassmorphism excessif
+cartes énormes
+effets gaming
+animations permanentes
+dégradés agressifs
+
+Je veux :
+
+LUXE SOBRE
++
+TERMINAL FINANCIER
++
+OBSERVATOIRE MONDIAL
+
+==================================================
+18. VALIDATION
+==================================================
+
+Avant de terminer :
+
+inspecter le Dashboard actuel.
+
+Identifier les composants réutilisables.
+
+Ne pas créer de duplications.
+
+Vérifier :
+
+- données réelles
+- responsive
+- accessibilité
+- performance
+- animations
+- CustomCursor
+- navigation
+- erreurs API
+- états de chargement.
+
+Puis effectuer une vérification visuelle complète du Dashboard.
+
+Le résultat doit donner l'impression que Soliris Market est une plateforme financière professionnelle complète, et non une collection de cartes indépendantes.

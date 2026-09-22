@@ -45,8 +45,19 @@ export default function CommandCenter() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["risk-settings"] }),
   });
 
-  // Chargement initial : rien (pas de squelette bruyant).
-  if (statusQ.isLoading || pnlQ.isLoading) return null;
+  if (statusQ.isLoading || pnlQ.isLoading) {
+    return (
+      <div className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Centre de commande — chargement" aria-busy="true">
+        {[1, 2, 3].map((item) => (
+          <div key={item} className="h-28 rounded-xl border border-border/40 bg-card/70 p-4 skeleton-premium">
+            <div className="h-2.5 w-32 rounded bg-muted/45" />
+            <div className="mt-5 h-5 w-24 rounded bg-muted/35" />
+            <div className="mt-2 h-2.5 w-36 rounded bg-muted/25" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   // Erreur : un bandeau de statut risque ne doit JAMAIS disparaître en silence.
   if (statusQ.isError || pnlQ.isError || typeof pnlQ.data?.realizedPnL !== "number") {
@@ -68,6 +79,7 @@ export default function CommandCenter() {
   const limitReached = hasLimit && ratio >= 1; // à 100 %, jamais vert — même si le breaker (strictement >) n'a pas encore sauté
   const nearLimit = hasLimit && ratio >= 0.8 && !limitReached && !halted;
   const limitDanger = halted || limitReached;
+  const riskKnown = Boolean(riskQ.data) && !riskQ.isError;
 
   const barColor = limitDanger ? "bg-red-500" : nearLimit ? "bg-amber-500" : "bg-emerald-500";
   const pnlUp = realizedPnL > 0;
@@ -78,12 +90,24 @@ export default function CommandCenter() {
       <div className="sm:col-span-3 flex items-center justify-between rounded-xl border border-primary/25 bg-primary/5 px-4 py-2">
         <div className="flex items-center gap-2">
           {riskQ.data?.mode === "dry_run" && <span className="rounded-md border border-amber-400/50 bg-amber-400/15 px-2 py-1 text-[10px] font-bold tracking-[0.16em] text-amber-300 animate-pulse">DRY RUN</span>}
-          <span className="text-[11px] text-muted-foreground">{riskQ.data?.killSwitchActive ? "Kill-switch actif — les protections restent en place." : "Garde-fous de risque actifs"}</span>
+          <span className="text-[11px] text-muted-foreground">
+            {!riskKnown
+              ? "État des garde-fous indisponible — aucune confirmation de sécurité affichée."
+              : riskQ.data?.killSwitchActive
+                ? "Kill-switch actif — les protections restent en place."
+                : "Garde-fous de risque actifs"}
+          </span>
         </div>
-        <button type="button" onClick={() => kill.mutate()} disabled={kill.isPending || riskQ.data?.killSwitchActive} className="rounded-lg border border-red-500/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40">
-          {riskQ.data?.killSwitchActive ? "Trading suspendu" : "Activer le kill-switch"}
+        <button type="button" onClick={() => kill.mutate()} disabled={kill.isPending || !riskKnown || riskQ.data?.killSwitchActive} className="rounded-lg border border-red-500/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40">
+          {!riskKnown ? "Risque indisponible" : riskQ.data?.killSwitchActive ? "Trading suspendu" : "Activer le kill-switch"}
         </button>
       </div>
+      {!riskKnown && (
+        <div className="sm:col-span-3 -mt-1 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-3 py-2 text-[11px] text-amber-300/85" role="status">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" />
+          Les réglages de risque n’ont pas pu être vérifiés. Le contrôle reste désactivé jusqu’à leur disponibilité.
+        </div>
+      )}
       {/* P&L réalisé du jour */}
       <Link
         href="/debrief"

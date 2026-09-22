@@ -180,3 +180,10 @@ Aucune tâche active.
 - ✅ FAIT — Étape 2 : Renforcer la hiérarchie, les états de connexion et les informations de risque sans inventer de données
 - ✅ FAIT — Étape 3 : Améliorer responsive, accessibilité et micro-interactions
 - ✅ FAIT — Étape 4 : Vérifier typecheck, build, workflow et rendu visuel; l’aperçu authentifié reste inaccessible sans connexion
+
+## Reprise du Dashboard — Market Command Center
+
+- ✅ FAIT — Étape 1 : Auditer Dashboard, MarketPulse, CommandCenter et les données réellement disponibles
+- → EN COURS — Étape 2 : Corriger les écarts UX/UI sans remplacer les flux ni inventer de valeurs
+- ☐ À FAIRE — Étape 3 : Vérifier responsive, accessibilité, erreurs, chargements, navigation et CustomCursor
+- ☐ À FAIRE — Étape 4 : Vérifier typecheck, build, workflow et rendu visuel du Dashboard
