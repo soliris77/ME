@@ -12,24 +12,29 @@ function showFatalError(title: string, message: string, stack?: string) {
   root.innerHTML = "";
   const box = document.createElement("div");
   box.style.cssText = "padding:24px;font-family:monospace;white-space:pre-wrap;color:#c0392b;background:#fff;";
-  box.innerHTML = `<h2>${title}</h2><p>${message}</p><pre style="font-size:12px;opacity:0.7">${stack || ""}</pre>`;
+  const heading = document.createElement("h2");
+  heading.textContent = title;
+  const detail = document.createElement("p");
+  detail.textContent = message;
+  const trace = document.createElement("pre");
+  trace.style.cssText = "font-size:12px;opacity:0.7";
+  trace.textContent = stack || "";
+  box.append(heading, detail, trace);
   root.appendChild(box);
 }
 
 window.addEventListener("error", (e) => {
   reportClientError("window.error", e.message, e.error?.stack);
-  showFatalError("Erreur JS (window.error)", e.message, e.error?.stack);
+  // Une erreur de script secondaire ne doit pas effacer l'application entière.
+  // Les erreurs de rendu React sont gérées par les boundaries dédiées.
 });
 
 window.addEventListener("unhandledrejection", (e) => {
   const reason = e.reason;
   const message = reason?.message || String(reason);
   reportClientError("unhandledrejection", message, reason?.stack);
-  showFatalError(
-    "Erreur JS (promesse rejetée)",
-    message,
-    reason?.stack
-  );
+  // Les requêtes réseau et les chunks lazy peuvent échouer ponctuellement :
+  // laisser leurs états de chargement/erreur locaux décider de l'interface.
 });
 
 // Enregistre le service worker (installation PWA + cache offline léger +

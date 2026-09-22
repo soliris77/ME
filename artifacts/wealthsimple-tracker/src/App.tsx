@@ -447,17 +447,67 @@ function AuthedCommandPalette() {
   return <CommandPalette />;
 }
 
-function wrap(name: string, Page: React.ComponentType) {
+function RouteLoading() {
+  return (
+    <div
+      className="min-h-[60vh] flex items-center justify-center gap-3 text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      Chargement de la page…
+    </div>
+  );
+}
+
+function wrap(name: string, Page: ElementType) {
   return () => (
     <AuthGuard>
       <AppLayout>
         <PageErrorBoundary pageName={name}>
-          <Page />
+          <Suspense fallback={<RouteLoading />}>
+            <Page />
+          </Suspense>
         </PageErrorBoundary>
       </AppLayout>
     </AuthGuard>
   );
 }
+
+const wrappedRoutes = {
+  courtier: wrap("Courtier", BrokerPage),
+  dashboard: wrap("Tableau de bord", Dashboard),
+  observatoire: wrap("Observatoire mondial", Observatory),
+  search: wrap("Recherche", SearchPage),
+  watchlist: wrap("Portefeuille suivi", Watchlist),
+  alerts: wrap("Alertes prix", Alerts),
+  journal: wrap("Journal des marchés", MarketNewsJournal),
+  portefeuille: wrap("Portefeuille", PortefeuillePage),
+  performance: wrap("Performance", PerformancePage),
+  comparer: wrap("Comparer", ComparePage),
+  correlation: wrap("Corrélation", CorrelationPage),
+  calendrier: wrap("Calendrier économique", CalendarPage),
+  ordres: wrap("Journal des ordres", OrdersPage),
+  debrief: wrap("Débriefing quotidien", DebriefPage),
+  reconciliation: wrap("Réconciliation", ReconciliationPage),
+  audit: wrap("Journal d'audit", AuditLogPage),
+  agentTasks: wrap("Tâches d'agent", AgentTasksPage),
+  autoTrader: wrap("Auto-Trader", AutoTraderPage),
+  scanner: wrap("Scanner & Signaux", ScannerPage),
+  perps: wrap("Perps & levier", PerpsPage),
+  parametres: wrap("Paramètres", SettingsPage),
+  copyTradingDiscover: wrap("Découvrir des traders", CopyTradingDiscoverPage),
+  copyTradingSettings: wrap("Paramètres trader", CopyTradingSettingsPage),
+  copyTrading: wrap("Copy Trading", CopyTradingPage),
+  lesson: wrap("Leçon", LessonDetail),
+  chandeliers: wrap("Chandeliers", CandleDetail),
+  strategies: wrap("Stratégies", StrategyDetail),
+  glossaire: wrap("Glossaire", GlossaryDetail),
+  apprendreTab: wrap("Apprendre", Learn),
+  apprendre: wrap("Apprendre", Learn),
+  quote: wrap("Fiche du titre", QuoteDetail),
+  notFound: wrap("Page introuvable", NotFound),
+};
 
 function AppRuntime() {
   const { preferences, systemReducedMotion } = useUserPreferences();
@@ -494,129 +544,126 @@ function AppRuntime() {
                 />
                 <Route
                   path="/courtier"
-                  component={wrap("Courtier", BrokerPage)}
+                  component={wrappedRoutes.courtier}
                 />
                 <Route
                   path="/dashboard"
-                  component={wrap("Tableau de bord", Dashboard)}
+                  component={wrappedRoutes.dashboard}
                 />
                 <Route
                   path="/observatoire"
-                  component={wrap("Observatoire mondial", Observatory)}
+                  component={wrappedRoutes.observatoire}
                 />
                 <Route
                   path="/search"
-                  component={wrap("Recherche", SearchPage)}
+                  component={wrappedRoutes.search}
                 />
                 <Route
                   path="/watchlist"
-                  component={wrap("Portefeuille suivi", Watchlist)}
+                  component={wrappedRoutes.watchlist}
                 />
                 <Route
                   path="/alerts"
-                  component={wrap("Alertes prix", Alerts)}
+                  component={wrappedRoutes.alerts}
                 />
                 <Route
                   path="/journal"
-                  component={wrap("Journal des marchés", MarketNewsJournal)}
+                  component={wrappedRoutes.journal}
                 />
                 <Route
                   path="/portefeuille"
-                  component={wrap("Portefeuille", PortefeuillePage)}
+                  component={wrappedRoutes.portefeuille}
                 />
                 <Route
                   path="/performance"
-                  component={wrap("Performance", PerformancePage)}
+                  component={wrappedRoutes.performance}
                 />
                 <Route
                   path="/comparer"
-                  component={wrap("Comparer", ComparePage)}
+                  component={wrappedRoutes.comparer}
                 />
                 <Route
                   path="/correlation"
-                  component={wrap("Corrélation", CorrelationPage)}
+                  component={wrappedRoutes.correlation}
                 />
                 <Route
                   path="/calendrier"
-                  component={wrap("Calendrier économique", CalendarPage)}
+                  component={wrappedRoutes.calendrier}
                 />
                 <Route
                   path="/ordres"
-                  component={wrap("Journal des ordres", OrdersPage)}
+                  component={wrappedRoutes.ordres}
                 />
                 <Route
                   path="/debrief"
-                  component={wrap("Débriefing quotidien", DebriefPage)}
+                  component={wrappedRoutes.debrief}
                 />
                 <Route
                   path="/reconciliation"
-                  component={wrap("Réconciliation", ReconciliationPage)}
+                  component={wrappedRoutes.reconciliation}
                 />
                 <Route
                   path="/audit"
-                  component={wrap("Journal d'audit", AuditLogPage)}
+                  component={wrappedRoutes.audit}
                 />
                 <Route
                   path="/agent-tasks"
-                  component={wrap("Tâches d'agent", AgentTasksPage)}
+                  component={wrappedRoutes.agentTasks}
                 />
                 <Route
                   path="/auto-trader"
-                  component={wrap("Auto-Trader", AutoTraderPage)}
+                  component={wrappedRoutes.autoTrader}
                 />
                 <Route
                   path="/scanner"
-                  component={wrap("Scanner & Signaux", ScannerPage)}
+                  component={wrappedRoutes.scanner}
                 />
                 <Route
                   path="/perps"
-                  component={wrap("Perps & levier", PerpsPage)}
+                  component={wrappedRoutes.perps}
                 />
                 <Route
                   path="/parametres"
-                  component={wrap("Paramètres", SettingsPage)}
+                  component={wrappedRoutes.parametres}
                 />
                 <Route
                   path="/copy-trading/decouvrir"
-                  component={wrap(
-                    "Découvrir des traders",
-                    CopyTradingDiscoverPage,
-                  )}
+                  component={wrappedRoutes.copyTradingDiscover}
                 />
                 <Route
                   path="/copy-trading/parametres/:id"
-                  component={wrap("Paramètres trader", CopyTradingSettingsPage)}
+                  component={wrappedRoutes.copyTradingSettings}
                 />
                 <Route
                   path="/copy-trading"
-                  component={wrap("Copy Trading", CopyTradingPage)}
+                  component={wrappedRoutes.copyTrading}
                 />
                 <Route
                   path="/apprendre/parcours/:slug"
-                  component={wrap("Leçon", LessonDetail)}
+                  component={wrappedRoutes.lesson}
                 />
                 <Route
                   path="/apprendre/chandeliers/:slug"
-                  component={wrap("Chandeliers", CandleDetail)}
+                  component={wrappedRoutes.chandeliers}
                 />
                 <Route
                   path="/apprendre/strategies/:slug"
-                  component={wrap("Stratégies", StrategyDetail)}
+                  component={wrappedRoutes.strategies}
                 />
                 <Route
                   path="/apprendre/glossaire/:slug"
-                  component={wrap("Glossaire", GlossaryDetail)}
+                  component={wrappedRoutes.glossaire}
                 />
                 <Route
                   path="/apprendre/:tab"
-                  component={wrap("Apprendre", Learn)}
+                  component={wrappedRoutes.apprendreTab}
                 />
-                <Route path="/apprendre" component={wrap("Apprendre", Learn)} />
+                <Route path="/apprendre" component={wrappedRoutes.apprendre} />
                 <Route
                   path="/quote/:symbol"
-                  component={wrap("Fiche du titre", QuoteDetail)}
+                  component={wrappedRoutes.quote}
                 />
-                <Route component={wrap("Page introuvable", NotFound)} />
+                <Route component={wrappedRoutes.notFound} />
               </Switch>
             </WouterRouter>
             <AuthedCommandPalette />
