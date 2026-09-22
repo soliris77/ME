@@ -32,6 +32,7 @@ import { PageTransition } from "@/components/PageTransition";
 import ObservatoryHero from "@/components/ObservatoryHero";
 import MarketStatusPanel from "@/components/MarketStatusPanel";
 import MarketPulse from "@/components/MarketPulse";
+import { useUserPreferences, type DashboardModuleId } from "@/lib/userPreferences";
 
 // ─── Market overview symbol groups ───────────────────────────────────────────
 
@@ -39,6 +40,19 @@ const CANADA_NORTH_AM = ["^GSPC", "^IXIC", "^DJI", "^RUT"];
 const EUROPE_ASIA = ["^FTSE", "^GDAXI", "^FCHI", "^STOXX50E", "^N225", "^HSI"];
 const CRYPTO = ["BTC-USD", "ETH-USD", "SOL-USD"];
 const COMMODITIES = ["GC=F", "CL=F", "SI=F"];
+
+function formatDashboardPrice(
+  price: number | null | undefined,
+  currency: string | null | undefined,
+  showUnits: boolean,
+) {
+  if (price == null || !Number.isFinite(price)) return "—";
+  if (showUnits) return formatPrice(price, currency ?? "USD");
+  return new Intl.NumberFormat("en-CA", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: price < 1 ? 4 : 2,
+  }).format(price);
+}
 
 const MARKET_NAMES: Record<string, string> = {
   "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^DJI": "Dow Jones", "^RUT": "Russell 2000",
@@ -510,6 +524,7 @@ function MarketStatusSection() {
 // ─── Flash quote card (indices / crypto / commodities) ────────────────────────
 
 function FlashQuote({ q }: { q: Quote }) {
+  const { preferences } = useUserPreferences();
   const [flash, setFlash] = useState(false);
   const prev = useRef(q.price);
 
@@ -554,7 +569,7 @@ function FlashQuote({ q }: { q: Quote }) {
               {MARKET_NAMES[q.symbol] ?? q.name}
             </div>
             <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/70">
-              {q.symbol}
+              <span className="dashboard-symbol">{q.symbol}</span>
             </div>
           </div>
           <span className={`shrink-0 pt-0.5 text-[9px] font-mono uppercase tracking-wide ${stateTone}`} title={marketState.label}>
@@ -564,7 +579,7 @@ function FlashQuote({ q }: { q: Quote }) {
         </div>
         <div className="font-mono text-[18px] font-medium text-foreground leading-tight mb-2 tracking-tight">
           <AnimatedCounter 
-            value={formatPrice(q.price, q.currency)} 
+            value={formatDashboardPrice(q.price, q.currency, preferences.dataDisplay.showUnits)}
             flashOnChange={flash}
             flashColor={flashColor}
           />
@@ -749,6 +764,7 @@ function MarketEmptyState() {
 function MarketSection({ title, symbols, allQuotes, loading }: {
   title: string; symbols: string[]; allQuotes: Quote[]; loading: boolean;
 }) {
+  const { preferences } = useUserPreferences();
   const filtered = allQuotes.filter((q) => symbols.includes(q.symbol));
   return (
     <div>
@@ -776,6 +792,7 @@ function MarketSection({ title, symbols, allQuotes, loading }: {
 function AssetListSection({ title, symbols, allQuotes, loading }: {
   title: string; symbols: string[]; allQuotes: Quote[]; loading: boolean;
 }) {
+  const { preferences } = useUserPreferences();
   const filtered = allQuotes.filter((q) => symbols.includes(q.symbol));
   return (
     <div className="surface-glass border border-border/40 rounded-xl overflow-hidden transition-all hover:border-border/60">
@@ -807,13 +824,13 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
                       <div className="text-[13px] font-semibold text-foreground group-hover:text-primary transition-colors">
                         {MARKET_NAMES[q.symbol] ?? q.name}
                       </div>
-                      <div className="text-[10px] text-muted-foreground font-mono tracking-wider uppercase">{q.symbol}</div>
+                      <div className="dashboard-symbol text-[10px] text-muted-foreground font-mono tracking-wider uppercase">{q.symbol}</div>
                     </div>
                     <div className="hidden sm:block mx-3 shrink-0">
                       <Sparkline symbol={q.symbol} />
                     </div>
                     <div className="text-right ml-auto">
-                      <div className="text-[13px] font-mono font-semibold tabular-nums">{formatPrice(q.price, q.currency)}</div>
+                      <div className="text-[13px] font-mono font-semibold tabular-nums">{formatDashboardPrice(q.price, q.currency, preferences.dataDisplay.showUnits)}</div>
                       <div className={`text-[11px] font-mono font-semibold flex items-center justify-end gap-0.5 ${
                         up === null ? "text-muted-foreground" : up ? "gain" : "loss"
                       }`}>
@@ -957,7 +974,7 @@ function GainLossSection({ title, quotes, loading, isGain, onTrade }: {
                   className="flex-1 flex items-center justify-between px-5 py-2.5 cursor-pointer"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[13px] font-bold font-mono text-foreground">{q.symbol}</span>
+                    <span className="dashboard-symbol text-[13px] font-bold font-mono text-foreground">{q.symbol}</span>
                     <span className="text-[11px] text-muted-foreground truncate max-w-28">{q.name}</span>
                   </div>
                   <span className={`text-[13px] font-mono font-bold ${isGain ? "gain" : "loss"}`}>
@@ -1019,12 +1036,86 @@ export default function Dashboard() {
   const secondsSince = useLastUpdated(dataUpdatedAt);
   const allIndices: Quote[] = data?.indices ?? [];
   const allPopular: Quote[] = data?.wealthsimplePopular ?? [];
+  const { preferences } = useUserPreferences();
 
   const [tradeModal, setTradeModal] = useState<TradeModalState>(null);
 
   const handleTrade = useCallback((side: "BUY" | "SELL", q: Quote) => {
     setTradeModal({ side, q });
   }, []);
+
+  const renderDashboardModule = (moduleId: DashboardModuleId) => {
+    if (!preferences.dashboardVisibility[moduleId]) return null;
+
+    switch (moduleId) {
+      case "market-pulse":
+        return (
+          <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section">
+            <MarketPulse
+              indices={allIndices}
+              topGainers={data?.topGainers ?? []}
+              topLosers={data?.topLosers ?? []}
+              isLoading={isLoading}
+              dataUpdatedAt={dataUpdatedAt}
+              secondsSince={secondsSince}
+              isFetching={isFetching}
+            />
+          </div>
+        );
+      case "major-markets":
+        return (
+          <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section space-y-6">
+            <MarketSection title="Amérique du Nord" symbols={CANADA_NORTH_AM} allQuotes={allIndices} loading={isLoading} />
+            <MarketSection title="Europe & Asie" symbols={EUROPE_ASIA} allQuotes={allIndices} loading={isLoading} />
+          </div>
+        );
+      case "alternative-assets":
+        return (
+          <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section">
+            <SectionRule title="Actifs alternatifs" />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <AssetListSection title="Cryptomonnaies" symbols={CRYPTO} allQuotes={allIndices} loading={isLoading} />
+              <AssetListSection title="Matières premières" symbols={COMMODITIES} allQuotes={allIndices} loading={isLoading} />
+            </div>
+          </div>
+        );
+      case "sectors":
+        return <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section"><SectorHeatmap /></div>;
+      case "observatory":
+        return <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section"><ObservatoryHero variant="dashboard" /></div>;
+      case "risk-command":
+        return <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section"><CommandCenter /></div>;
+      case "market-status":
+        return <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section"><MarketStatusSection /></div>;
+      case "popular-assets":
+        return (
+          <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section">
+            <MarketSection
+              title="Actifs populaires sur Wealthsimple"
+              symbols={allPopular.slice(0, 8).map((quote) => quote.symbol)}
+              allQuotes={allPopular}
+              loading={isLoading}
+            />
+          </div>
+        );
+      case "popular-stocks":
+        return (
+          <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section">
+            <PopularStocksTabs allQuotes={allPopular} loading={isLoading} onTrade={handleTrade} />
+          </div>
+        );
+      case "daily-movers":
+        return (
+          <div key={moduleId} data-dashboard-module={moduleId} className="dashboard-density-section">
+            <SectionRule title="Mouvements du jour" />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <GainLossSection title="Meilleures hausses" quotes={data?.topGainers} loading={isLoading} isGain={true} onTrade={handleTrade} />
+              <GainLossSection title="Pires baisses" quotes={data?.topLosers} loading={isLoading} isGain={false} onTrade={handleTrade} />
+            </div>
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -1050,7 +1141,7 @@ export default function Dashboard() {
                 className="w-1.5 h-1.5 rounded-full live-dot inline-block bg-primary"
                 style={{ boxShadow: "0 0 6px hsl(var(--primary) / 0.7)" }}
               />
-              <span className="text-[11px] font-bold font-mono tracking-widest uppercase text-muted-foreground/80">
+              <span className="dashboard-timestamp text-[11px] font-bold font-mono tracking-widest uppercase text-muted-foreground/80">
                 En direct — MAJ {secondsSince < 10 ? "< 10s" : `${secondsSince}s`} · Auto 10s
               </span>
             </div>
@@ -1089,76 +1180,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        <MarketPulse
-          indices={allIndices}
-          topGainers={data?.topGainers ?? []}
-          topLosers={data?.topLosers ?? []}
-          isLoading={isLoading}
-          dataUpdatedAt={dataUpdatedAt}
-          secondsSince={secondsSince}
-          isFetching={isFetching}
-        />
-
-        {/* Niveau 2 — marchés majeurs */}
-        <div className="space-y-6 mb-7">
-          <MarketSection title="Amérique du Nord" symbols={CANADA_NORTH_AM} allQuotes={allIndices} loading={isLoading} />
-          <MarketSection title="Europe & Asie" symbols={EUROPE_ASIA} allQuotes={allIndices} loading={isLoading} />
-
-          {/* Niveau 3 — actifs alternatifs */}
-          <div>
-            <SectionRule title="Actifs alternatifs" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AssetListSection title="Cryptomonnaies" symbols={CRYPTO} allQuotes={allIndices} loading={isLoading} />
-              <AssetListSection title="Matières premières" symbols={COMMODITIES} allQuotes={allIndices} loading={isLoading} />
-            </div>
-          </div>
-        </div>
-
-        {/* Niveau 4 — performance sectorielle */}
-        <SectorHeatmap />
-
-        {/* Accès à l’Observatoire — approfondissement sans région inventée */}
-        <ObservatoryHero variant="dashboard" />
-
-        {/* Informations secondaires — risque et disponibilité des places */}
-        <CommandCenter />
-        <MarketStatusSection />
-
-        {/* Niveau 5 — informations secondaires et actions disponibles */}
-        {/* Actifs populaires disponibles sur Wealthsimple — pas les positions détenues */}
-        <div className="mb-7">
-          <MarketSection
-            title="Actifs populaires sur Wealthsimple"
-            symbols={allPopular.slice(0, 8).map((quote) => quote.symbol)}
-            allQuotes={allPopular}
-            loading={isLoading}
-          />
-        </div>
-
-        {/* Popular stocks — 11 categories, all with quick-actions */}
-        <div className="mb-7">
-          <PopularStocksTabs allQuotes={allPopular} loading={isLoading} onTrade={handleTrade} />
-        </div>
-
-        {/* Gainers / Losers — also with quick-actions */}
-        <div>
-          <SectionRule title="Mouvements du jour" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <GainLossSection
-              title="Meilleures hausses"
-              quotes={data?.topGainers}
-              loading={isLoading}
-              isGain={true}
-              onTrade={handleTrade}
-            />
-            <GainLossSection
-              title="Pires baisses"
-              quotes={data?.topLosers}
-              loading={isLoading}
-              isGain={false}
-              onTrade={handleTrade}
-            />
-          </div>
+        <div className="dashboard-module-stack">
+          {preferences.dashboardOrder.map(renderDashboardModule)}
         </div>
 
         {/* Trade modal — wired to broker API */}

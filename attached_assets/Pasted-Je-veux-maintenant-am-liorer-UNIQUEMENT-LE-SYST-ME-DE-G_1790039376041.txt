@@ -1,0 +1,622 @@
+Je veux maintenant améliorer UNIQUEMENT LE SYSTÈME DE GRAPHIQUES de SOLIRIS MARKET.
+
+IMPORTANT :
+
+NE PAS recréer les fonctionnalités financières existantes.
+
+NE PAS modifier les données.
+
+NE PAS inventer de données.
+
+NE PAS remplacer tous les graphiques par une nouvelle librairie sans avoir d'abord inspecté l'architecture actuelle.
+
+Je veux améliorer les composants de graphiques EXISTANTS afin qu'ils ressemblent davantage à ceux d'une plateforme financière professionnelle.
+
+============================================================
+1. INSPECTION AVANT MODIFICATION
+============================================================
+
+Commencer par identifier :
+
+- tous les composants de graphiques
+- librairie utilisée
+- composants réutilisables
+- sources de données
+- graphiques du Dashboard
+- graphiques des fiches d'actifs
+- graphiques du portefeuille
+- graphiques du scanner
+- graphiques du comparateur
+- graphiques de l'Observatoire si présents.
+
+Créer ou améliorer un système de graphique partagé lorsque cela est pertinent.
+
+NE PAS dupliquer le code graphique dans chaque page.
+
+============================================================
+2. DESIGN GLOBAL
+============================================================
+
+Les graphiques doivent correspondre à l'identité Soliris :
+
+- fond sombre
+- or comme accent
+- vert pour les données positives
+- rouge pour les données négatives
+- lignes fines
+- grille très discrète
+- typographie claire
+- aucun style gaming
+- aucun RGB
+- aucun effet néon excessif.
+
+Le graphique doit sembler faire partie de l'interface et non être un composant ajouté après coup.
+
+============================================================
+3. COURBE PRINCIPALE
+============================================================
+
+Améliorer les lignes.
+
+Utiliser :
+
+- épaisseur fine
+- courbe propre
+- transitions fluides
+- anti-aliasing correct
+- aucun effet inutile.
+
+La courbe doit rester lisible même lorsque beaucoup de données sont affichées.
+
+============================================================
+4. GRILLE
+============================================================
+
+Réduire fortement la présence de la grille.
+
+La grille doit uniquement aider à lire les valeurs.
+
+Elle ne doit jamais devenir un élément visuel dominant.
+
+Utiliser des lignes très discrètes.
+
+============================================================
+5. AXES
+============================================================
+
+Améliorer les axes :
+
+- valeurs lisibles
+- unités correctes
+- dates courtes
+- aucun chevauchement
+- formatage cohérent.
+
+Éviter les labels trop nombreux.
+
+Adapter automatiquement la densité des labels à la largeur disponible.
+
+============================================================
+6. CROSSHAIR
+============================================================
+
+Ajouter un mode d'analyse au survol.
+
+Lorsque la souris se trouve au-dessus du graphique :
+
+afficher :
+
+- ligne verticale
+- éventuellement ligne horizontale
+- point exact sur la courbe
+- valeur correspondante
+- date/heure.
+
+Le crosshair doit suivre la position réelle de la souris.
+
+Il doit être très fin et discret.
+
+============================================================
+7. TOOLTIP
+============================================================
+
+Créer un tooltip premium.
+
+Exemple :
+
+21 sept. 2026 — 14:30
+
+PRIX
+108 421 $
+
+VARIATION
++2,14 %
+
+VOLUME
+...
+
+Les informations doivent provenir uniquement des données disponibles.
+
+Ne jamais afficher une information inexistante.
+
+Le tooltip doit :
+
+- suivre intelligemment le curseur
+- ne pas sortir de l'écran
+- ne pas recouvrir inutilement la courbe
+- rester lisible sur fond sombre.
+
+============================================================
+8. INTERACTION AVEC CUSTOMCURSOR
+============================================================
+
+Le projet possède déjà :
+
+CustomCursor.tsx
+
+NE PAS créer un nouveau curseur.
+
+Lorsque la souris entre dans un graphique :
+
+activer le mode analytique existant.
+
+Le curseur peut afficher :
+
+- réticule
+- anneau légèrement renforcé
+- point central.
+
+Mais l'interaction doit rester subtile.
+
+Le graphique doit rester prioritaire.
+
+============================================================
+9. PÉRIODES
+============================================================
+
+Pour les graphiques qui disposent réellement de suffisamment de données, ajouter un sélecteur :
+
+1J
+5J
+1M
+3M
+6M
+1A
+5A
+MAX
+
+IMPORTANT :
+
+N'afficher que les périodes réellement disponibles.
+
+Si 5A n'existe pas :
+ne pas afficher 5A comme si les données existaient.
+
+============================================================
+10. ZOOM
+============================================================
+
+Pour les graphiques avancés :
+
+permettre :
+
+- zoom horizontal
+- déplacement horizontal
+- retour à la vue initiale.
+
+Ajouter un bouton :
+
+RESET
+
+ou :
+
+RÉINITIALISER
+
+Ne pas activer le zoom sur les mini-graphiques lorsque cela n'apporte aucune valeur.
+
+============================================================
+11. MODE PLEIN ÉCRAN
+============================================================
+
+Ajouter sur les graphiques importants un bouton :
+
+⛶
+
+permettant d'ouvrir le graphique en grand.
+
+Le mode plein écran doit conserver :
+
+- données
+- tooltip
+- crosshair
+- périodes
+- zoom
+- comparaison.
+
+Le design doit devenir plus spacieux.
+
+============================================================
+12. COMPARAISON
+============================================================
+
+Lorsque le composant le permet, prévoir :
+
+AJOUTER UNE COMPARAISON
+
+Exemple :
+
+Bitcoin
++
+Ethereum
+
+ou :
+
+Nikkei
++
+S&P 500
+
+Afficher les séries de manière lisible.
+
+IMPORTANT :
+
+Ne pas comparer directement des prix absolus incompatibles sans normalisation.
+
+Si nécessaire, proposer :
+
+PERFORMANCE RELATIVE
+
+avec une base commune de 100 au début de la période.
+
+Exemple conceptuel :
+
+Début = 100
+
+Bitcoin → 112
+Indice → 106
+
+Cela permet de comparer l'évolution.
+
+============================================================
+13. ÉTATS DE MARCHÉ
+============================================================
+
+Si une série possède une variation positive :
+
+utiliser le système vert existant.
+
+Si négative :
+
+utiliser le système rouge existant.
+
+Si neutre :
+
+utiliser la couleur neutre existante.
+
+Ne pas utiliser le vert ou le rouge pour des éléments purement décoratifs.
+
+============================================================
+14. MISE À JOUR DES DONNÉES
+============================================================
+
+Lorsque de nouvelles données arrivent :
+
+ne pas reconstruire brutalement le graphique.
+
+Créer une transition courte et fluide.
+
+La nouvelle valeur doit apparaître naturellement.
+
+Éviter les animations permanentes.
+
+============================================================
+15. MINI-GRAPHIQUES
+============================================================
+
+Les cartes du Dashboard peuvent utiliser des sparklines.
+
+Une sparkline doit :
+
+- être très compacte
+- supprimer les axes inutiles
+- conserver uniquement l'information essentielle
+- être liée aux données réelles.
+
+Pas de tooltip complexe sur une minuscule sparkline si cela rend l'expérience confuse.
+
+============================================================
+16. GRAPHIQUE STANDARD
+============================================================
+
+Créer une hiérarchie claire.
+
+MINI :
+
+aperçu.
+
+STANDARD :
+
+analyse rapide.
+
+ADVANCED :
+
+analyse approfondie.
+
+FULLSCREEN :
+
+analyse complète.
+
+Utiliser les mêmes composants de base pour éviter les incohérences.
+
+============================================================
+17. GRAPHIQUES DU PORTEFEUILLE
+============================================================
+
+Améliorer les graphiques du portefeuille.
+
+Selon les données disponibles :
+
+- évolution de valeur
+- performance
+- allocation
+- répartition.
+
+Pour une allocation :
+
+utiliser une visualisation adaptée.
+
+Pour une évolution temporelle :
+
+utiliser une courbe.
+
+Ne pas utiliser un graphique uniquement parce qu'il est visuellement joli.
+
+Chaque graphique doit répondre à une question.
+
+============================================================
+18. GRAPHIQUES DU COMPARATEUR
+============================================================
+
+Le comparateur doit avoir un vrai graphique central.
+
+Permettre :
+
+- sélection des actifs
+- période
+- performance relative
+- tooltip
+- crosshair
+- légende.
+
+La légende doit permettre de comprendre immédiatement quelle ligne correspond à quel actif.
+
+============================================================
+19. RESPONSIVE
+============================================================
+
+Desktop :
+
+graphique complet.
+
+Laptop :
+
+adapter la densité.
+
+Tablette :
+
+réduire les contrôles secondaires.
+
+Mobile :
+
+prioriser :
+
+- valeur
+- variation
+- période
+- graphique.
+
+Les contrôles peuvent devenir horizontaux et défilants si nécessaire.
+
+Ne jamais écraser le graphique.
+
+============================================================
+20. ACCESSIBILITÉ
+============================================================
+
+Prévoir :
+
+- navigation clavier lorsque possible
+- focus visible
+- labels accessibles
+- contraste suffisant
+- alternative lorsque les interactions graphiques sont indisponibles.
+
+Respecter :
+
+prefers-reduced-motion
+
+============================================================
+21. PERFORMANCE
+============================================================
+
+C'est très important.
+
+Soliris contient déjà :
+
+- globe 3D
+- Lune
+- CustomCursor
+- animations
+- plusieurs graphiques.
+
+Les graphiques doivent rester performants.
+
+Éviter :
+
+- renders React inutiles
+- recalculs à chaque mouvement de souris
+- animations lourdes
+- duplication des données
+- bibliothèques supplémentaires inutiles.
+
+Pour le crosshair et les interactions souris, privilégier une architecture performante.
+
+============================================================
+22. DONNÉES
+============================================================
+
+RÈGLE ABSOLUE :
+
+AUCUNE DONNÉE INVENTÉE.
+
+Les graphiques doivent utiliser les données réellement fournies par l'application.
+
+Si les données historiques ne sont pas disponibles :
+
+afficher un état approprié :
+
+"Données historiques indisponibles."
+
+Ne pas simuler artificiellement une courbe.
+
+============================================================
+23. DESIGN DES CONTRÔLES
+============================================================
+
+Les boutons de graphique doivent être petits et élégants.
+
+Exemple :
+
+1J | 5J | 1M | 3M | 1A | MAX
+
+et :
+
+Zoom
+Comparer
+Plein écran
+
+Ne pas transformer le graphique en panneau rempli de boutons.
+
+Les contrôles secondaires peuvent apparaître au hover ou dans un menu.
+
+============================================================
+24. ÉTATS DE CHARGEMENT
+============================================================
+
+Créer des skeletons adaptés aux graphiques.
+
+Ne pas afficher simplement un grand écran vide.
+
+============================================================
+25. ÉTATS D'ERREUR
+============================================================
+
+Si les données échouent :
+
+"Données temporairement indisponibles."
+
++
+
+"Réessayer"
+
+Ne pas casser la carte.
+
+============================================================
+26. COHÉRENCE
+============================================================
+
+Tous les graphiques de Soliris doivent partager :
+
+- même système de typographie
+- mêmes marges
+- mêmes axes
+- mêmes tooltips
+- même crosshair
+- mêmes comportements
+- mêmes états
+- même identité visuelle.
+
+Créer un véritable langage graphique Soliris.
+
+============================================================
+27. RÈGLE DE DESIGN
+============================================================
+
+Chaque graphique doit répondre à une question.
+
+Exemples :
+
+"Comment le prix évolue-t-il ?"
+
+→ graphique temporel.
+
+"Quel actif a le plus progressé ?"
+
+→ graphique comparatif.
+
+"Comment le portefeuille est-il réparti ?"
+
+→ allocation.
+
+"Comment deux actifs évoluent-ils ensemble ?"
+
+→ comparaison/corrélation.
+
+NE PAS ajouter un graphique simplement pour remplir une carte.
+
+============================================================
+28. VALIDATION
+============================================================
+
+Après implémentation :
+
+tester tous les endroits où un graphique existe.
+
+Vérifier :
+
+- Dashboard
+- fiches d'actifs
+- portefeuille
+- comparateur
+- scanner
+- Observatoire
+- responsive
+- mobile
+- thème sombre
+- thème clair
+- CustomCursor
+- zoom
+- tooltip
+- crosshair
+- plein écran
+- chargement
+- erreur.
+
+Vérifier également :
+
+- TypeScript
+- console navigateur
+- performance
+- absence de composants dupliqués.
+
+============================================================
+OBJECTIF FINAL
+============================================================
+
+Je veux que les graphiques de Soliris donnent immédiatement l'impression d'utiliser une plateforme financière professionnelle.
+
+Ils doivent être :
+
+PRÉCIS
+LISIBLES
+INTERACTIFS
+RAPIDES
+ÉLÉGANTS
+SOBRES
+
+et parfaitement intégrés à l'identité :
+
+SOLIRIS MARKET
+
+Ne pas chercher à rendre les graphiques spectaculaires.
+
+Chercher à les rendre extrêmement bien conçus.

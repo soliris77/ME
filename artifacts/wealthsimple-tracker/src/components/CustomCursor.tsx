@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useUserPreferences } from "@/lib/userPreferences";
 
 type CursorPosition = {
   x: number;
@@ -54,6 +55,7 @@ function getCursorContext(target: EventTarget | null) {
  * interpolated in one short-lived rAF loop.
  */
 export default function CustomCursor() {
+  const { preferences, systemReducedMotion } = useUserPreferences();
   const rootRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLSpanElement>(null);
   const ringRef = useRef<HTMLSpanElement>(null);
@@ -64,7 +66,32 @@ export default function CustomCursor() {
   const clickTimerRef = useRef<number | null>(null);
   const visibleRef = useRef(false);
   const reducedMotionRef = useRef(false);
+  const preferenceRef = useRef(preferences);
   const activeCardRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    preferenceRef.current = preferences;
+    const root = rootRef.current;
+    if (!root) return;
+    const finePointer = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+    document.documentElement.classList.toggle(
+      "soliris-cursor-enabled",
+      finePointer && preferences.cursor.enabled,
+    );
+    root.classList.toggle("soliris-cursor-disabled", !preferences.cursor.enabled);
+    root.classList.toggle("soliris-cursor-no-halo", !preferences.cursor.halo);
+    root.classList.toggle("soliris-cursor-no-reticle", !preferences.cursor.reticle);
+    root.classList.toggle("soliris-cursor-no-hover", !preferences.cursor.hover);
+    root.classList.toggle("soliris-cursor-no-click", !preferences.cursor.click);
+    reducedMotionRef.current = systemReducedMotion || preferences.animations !== "full";
+    if (!preferences.cursor.enabled) {
+      root.classList.remove("soliris-cursor-visible");
+      if (activeCardRef.current) {
+        activeCardRef.current.classList.remove("soliris-cursor-card-active");
+        activeCardRef.current = null;
+      }
+    }
+  }, [preferences, systemReducedMotion]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -75,7 +102,7 @@ export default function CustomCursor() {
 
     const finePointer = window.matchMedia("(pointer: fine) and (hover: hover)");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    reducedMotionRef.current = reducedMotion.matches;
+    reducedMotionRef.current = reducedMotion.matches || preferenceRef.current.animations !== "full";
 
     if (!finePointer.matches) return;
 
@@ -145,11 +172,17 @@ export default function CustomCursor() {
       root.classList.toggle("soliris-cursor-native", context.isTextField);
       root.classList.toggle("soliris-cursor-positive", context.tone === "positive");
       root.classList.toggle("soliris-cursor-negative", context.tone === "negative");
-      if (event) updateCardLight(context.card, event);
+      if (event && preferenceRef.current.cursor.hover) {
+        updateCardLight(context.card, event);
+      } else if (activeCardRef.current) {
+        activeCardRef.current.classList.remove("soliris-cursor-card-active");
+        activeCardRef.current = null;
+      }
       return context;
     };
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (!preferenceRef.current.cursor.enabled) return;
       targetRef.current = { x: event.clientX, y: event.clientY };
       visibleRef.current = true;
       root.classList.add("soliris-cursor-visible");
@@ -158,6 +191,7 @@ export default function CustomCursor() {
     };
 
     const handlePointerOver = (event: PointerEvent) => {
+      if (!preferenceRef.current.cursor.enabled) return;
       updateContext(event.target, event);
     };
 
@@ -173,6 +207,7 @@ export default function CustomCursor() {
     };
 
     const handlePointerDown = (event: PointerEvent) => {
+      if (!preferenceRef.current.cursor.enabled || !preferenceRef.current.cursor.click) return;
       root.classList.add("soliris-cursor-clicking");
       const context = updateContext(event.target, event);
       if (context.isObservatory) root.classList.add("soliris-cursor-dragging");
@@ -190,7 +225,7 @@ export default function CustomCursor() {
     };
 
     const handleReducedMotionChange = (event: MediaQueryListEvent) => {
-      reducedMotionRef.current = event.matches;
+      reducedMotionRef.current = event.matches || preferenceRef.current.animations !== "full";
       if (event.matches) {
         root.classList.add("soliris-cursor-reduced");
       } else {
@@ -199,7 +234,9 @@ export default function CustomCursor() {
       wakeAnimation();
     };
 
-    document.documentElement.classList.add("soliris-cursor-enabled");
+    if (preferenceRef.current.cursor.enabled) {
+      document.documentElement.classList.add("soliris-cursor-enabled");
+    }
     if (reducedMotion.matches) root.classList.add("soliris-cursor-reduced");
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true });

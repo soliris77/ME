@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, ShieldAlert, Loader2, Save, RotateCcw, Bell, MessageSquareWarning, KeyRound, Eye, EyeOff, Crown, RefreshCw, Activity, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
+import PersonalizationCenter from "@/components/PersonalizationCenter";
 import {
   subscriptionLabel,
   useGrantFounder,
@@ -431,7 +432,7 @@ function IntegrationsHealthSection() {
 }
 
 export default function SettingsPage() {
-  usePageMeta("Paramètres — Soliris Market", "Seuils de risque et friction sur les ordres importants.");
+  usePageMeta("Paramètres — Soliris Market", "Personnalisation de l’espace Soliris et seuils de risque.");
   const qc = useQueryClient();
   const { toast } = useToast();
   const settingsQ = useRiskSettings();
@@ -490,9 +491,11 @@ export default function SettingsPage() {
       (maxDailyLoss.trim() === "" ? null : Number(maxDailyLoss)) !== settingsQ.data.maxDailyLossAmount);
 
   return (
-    <div className="p-6 sm:p-8 max-w-2xl mx-auto animate-fadeUp">
+    <div className="p-6 sm:p-8 max-w-6xl mx-auto animate-fadeUp">
+      <PersonalizationCenter />
+
       <div className="mb-8">
-        <div className="section-rule mb-4"><span>PARAMÈTRES</span></div>
+        <div className="section-rule mb-4"><span>RISQUE &amp; EXÉCUTION</span></div>
         <h1 className="text-2xl font-semibold brand-mark tracking-[0.08em] flex items-center gap-2.5">
           <SettingsIcon className="w-5 h-5 text-primary" />
           Seuils de risque

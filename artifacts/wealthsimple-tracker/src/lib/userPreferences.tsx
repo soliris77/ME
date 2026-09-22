@@ -43,7 +43,7 @@ export const DASHBOARD_MODULE_LABELS: Record<DashboardModuleId, string> = {
   "daily-movers": "Mouvements du jour",
 };
 
-export interface UserPreferences {
+export interface PreferenceSnapshot {
   theme: ThemePreference;
   density: DensityPreference;
   dashboardLayout: DashboardLayout;
@@ -79,12 +79,17 @@ export interface UserPreferences {
   sound: boolean;
 }
 
-export type PreferencePatch = Partial<Omit<UserPreferences, "cursor" | "sidebar" | "dataDisplay" | "immersive" | "accessibility">> & {
-  cursor?: Partial<UserPreferences["cursor"]>;
-  sidebar?: Partial<UserPreferences["sidebar"]>;
-  dataDisplay?: Partial<UserPreferences["dataDisplay"]>;
-  immersive?: Partial<UserPreferences["immersive"]>;
-  accessibility?: Partial<UserPreferences["accessibility"]>;
+export interface UserPreferences extends PreferenceSnapshot {
+  profiles: Record<string, PreferenceSnapshot>;
+  activeProfile: string | null;
+}
+
+export type PreferencePatch = Partial<Omit<PreferenceSnapshot, "cursor" | "sidebar" | "dataDisplay" | "immersive" | "accessibility">> & {
+  cursor?: Partial<PreferenceSnapshot["cursor"]>;
+  sidebar?: Partial<PreferenceSnapshot["sidebar"]>;
+  dataDisplay?: Partial<PreferenceSnapshot["dataDisplay"]>;
+  immersive?: Partial<PreferenceSnapshot["immersive"]>;
+  accessibility?: Partial<PreferenceSnapshot["accessibility"]>;
 };
 
 const PREFERENCES_KEY = "soliris-user-preferences";
@@ -127,6 +132,8 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   },
   privacy: false,
   sound: true,
+  profiles: {},
+  activeProfile: null,
 };
 
 function isDashboardModuleId(value: unknown): value is DashboardModuleId {
@@ -163,6 +170,8 @@ function readStoredPreferences(): UserPreferences {
       dataDisplay: { ...DEFAULT_USER_PREFERENCES.dataDisplay, ...(stored.dataDisplay ?? {}) },
       immersive: { ...DEFAULT_USER_PREFERENCES.immersive, ...(stored.immersive ?? {}) },
       accessibility: { ...DEFAULT_USER_PREFERENCES.accessibility, ...(stored.accessibility ?? {}) },
+      profiles: stored.profiles ?? {},
+      activeProfile: stored.activeProfile ?? null,
     };
   } catch {
     return DEFAULT_USER_PREFERENCES;
@@ -186,6 +195,10 @@ function applyPreferencesToDocument(preferences: UserPreferences, systemReducedM
   document.documentElement.dataset.sidebar = preferences.sidebar.mode;
   document.documentElement.dataset.cursorIntensity = preferences.cursor.intensity;
   document.documentElement.dataset.cursorDisabled = preferences.cursor.enabled ? "false" : "true";
+  document.documentElement.dataset.valueDisplay = preferences.dataDisplay.compactValues ? "compact" : "full";
+  document.documentElement.dataset.showSymbols = preferences.dataDisplay.showSymbols ? "true" : "false";
+  document.documentElement.dataset.showUnits = preferences.dataDisplay.showUnits ? "true" : "false";
+  document.documentElement.dataset.showTimestamps = preferences.dataDisplay.showTimestamps ? "true" : "false";
 }
 
 interface UserPreferencesContextValue {
@@ -194,6 +207,9 @@ interface UserPreferencesContextValue {
   updatePreferences: (patch: PreferencePatch) => void;
   setDashboardModuleVisibility: (id: DashboardModuleId, visible: boolean) => void;
   moveDashboardModule: (id: DashboardModuleId, beforeId: DashboardModuleId) => void;
+  saveProfile: (name: string) => void;
+  loadProfile: (name: string) => void;
+  deleteProfile: (name: string) => void;
   resetPreferences: () => void;
   isDashboardModuleVisible: (id: DashboardModuleId) => boolean;
 }
@@ -264,6 +280,45 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
       dataDisplay: { ...DEFAULT_USER_PREFERENCES.dataDisplay },
       immersive: { ...DEFAULT_USER_PREFERENCES.immersive },
       accessibility: { ...DEFAULT_USER_PREFERENCES.accessibility },
+      profiles: {},
+      activeProfile: null,
+    });
+  }, []);
+
+  const saveProfile = useCallback((name: string) => {
+    const cleanName = name.trim().slice(0, 32);
+    if (!cleanName) return;
+    setPreferences((current) => {
+      const { profiles: _profiles, activeProfile: _activeProfile, ...snapshot } = current;
+      return {
+        ...current,
+        profiles: { ...current.profiles, [cleanName]: snapshot },
+        activeProfile: cleanName,
+      };
+    });
+  }, []);
+
+  const loadProfile = useCallback((name: string) => {
+    setPreferences((current) => {
+      const profile = current.profiles[name];
+      if (!profile) return current;
+      return {
+        ...profile,
+        profiles: current.profiles,
+        activeProfile: name,
+      };
+    });
+  }, []);
+
+  const deleteProfile = useCallback((name: string) => {
+    setPreferences((current) => {
+      const profiles = { ...current.profiles };
+      delete profiles[name];
+      return {
+        ...current,
+        profiles,
+        activeProfile: current.activeProfile === name ? null : current.activeProfile,
+      };
     });
   }, []);
 
@@ -273,6 +328,9 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     updatePreferences,
     setDashboardModuleVisibility,
     moveDashboardModule,
+    saveProfile,
+    loadProfile,
+    deleteProfile,
     resetPreferences,
     isDashboardModuleVisible: (id) => preferences.dashboardVisibility[id],
   }), [
@@ -281,6 +339,9 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     updatePreferences,
     setDashboardModuleVisibility,
     moveDashboardModule,
+    saveProfile,
+    loadProfile,
+    deleteProfile,
     resetPreferences,
   ]);
 

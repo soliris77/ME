@@ -2911,6 +2911,171 @@
   }
 }
 
+/* ─── Préférences d'interface centralisées ─── */
+.dashboard-module-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.dashboard-density-section {
+  min-width: 0;
+}
+
+:root[data-density="compact"] .dashboard-module-stack {
+  gap: 1rem;
+}
+
+:root[data-density="comfort"] .dashboard-module-stack {
+  gap: 2.5rem;
+}
+
+:root[data-density="compact"] .dashboard-density-section .surface-glass {
+  border-radius: 0.65rem;
+}
+
+:root[data-density="comfort"] .dashboard-density-section .surface-glass {
+  border-radius: 1.15rem;
+}
+
+:root[data-animation-level="reduced"] *,
+:root[data-animation-level="minimal"] * {
+  transition-duration: 160ms !important;
+  animation-duration: 160ms !important;
+}
+
+:root[data-animation-level="minimal"] * {
+  transition-duration: 0ms !important;
+  animation-duration: 0ms !important;
+}
+
+:root[data-cursor-intensity="low"] .soliris-cursor-ring {
+  width: 24px;
+  height: 24px;
+  opacity: 0.72;
+  box-shadow: 0 0 4px rgba(201, 162, 39, 0.25);
+}
+
+:root[data-cursor-intensity="low"] .soliris-cursor-halo {
+  opacity: 0.35;
+}
+
+:root[data-cursor-intensity="strong"] .soliris-cursor-ring {
+  width: 34px;
+  height: 34px;
+  box-shadow: 0 0 10px rgba(201, 162, 39, 0.5);
+}
+
+:root[data-cursor-intensity="strong"] .soliris-cursor-halo {
+  width: 58px;
+  height: 58px;
+  opacity: 0.82;
+}
+
+.soliris-cursor-no-halo .soliris-cursor-halo,
+.soliris-cursor-no-reticle .soliris-cursor-reticle {
+  display: none !important;
+}
+
+.soliris-cursor-no-hover .soliris-cursor-interactive .soliris-cursor-ring {
+  width: 30px;
+  height: 30px;
+  box-shadow: 0 0 7px rgba(201, 162, 39, 0.42);
+}
+
+.soliris-cursor-no-hover .soliris-cursor-interactive .soliris-cursor-halo {
+  opacity: 0.7;
+}
+
+.soliris-cursor-no-click .soliris-cursor-clicking .soliris-cursor-ring,
+.soliris-cursor-no-click .soliris-cursor-clicking .soliris-cursor-halo {
+  scale: 1;
+}
+
+:root.high-contrast {
+  --border: 38 25% 64%;
+}
+
+:root.high-contrast .text-muted-foreground {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+:root[data-show-symbols="false"] .dashboard-symbol {
+  display: none;
+}
+
+:root[data-show-timestamps="false"] .dashboard-timestamp {
+  display: none;
+}
+
+.app-sidebar[data-sidebar-mode="collapsed"] {
+  width: 4rem;
+}
+
+.app-sidebar[data-sidebar-mode="collapsed"] .sidebar-label,
+.app-sidebar[data-sidebar-labels="hidden"] .sidebar-label {
+  display: none;
+}
+
+.app-sidebar[data-sidebar-mode="collapsed"] > div,
+.app-sidebar[data-sidebar-mode="collapsed"] nav {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.app-sidebar[data-sidebar-mode="collapsed"] a,
+.app-sidebar[data-sidebar-mode="collapsed"] button {
+  justify-content: center;
+}
+
+.app-sidebar[data-sidebar-mode="collapsed"] ~ .app-shell-content {
+  margin-left: 4rem !important;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar[data-sidebar-mode="auto"],
+  .app-sidebar[data-sidebar-mode="collapsed"] {
+    width: 4rem;
+  }
+
+  .app-sidebar[data-sidebar-mode="auto"] .sidebar-label,
+  .app-sidebar[data-sidebar-mode="collapsed"] .sidebar-label {
+    display: none;
+  }
+
+  .app-sidebar[data-sidebar-mode="auto"] > div,
+  .app-sidebar[data-sidebar-mode="collapsed"] > div,
+  .app-sidebar[data-sidebar-mode="auto"] nav,
+  .app-sidebar[data-sidebar-mode="collapsed"] nav {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .app-sidebar[data-sidebar-mode="auto"] a,
+  .app-sidebar[data-sidebar-mode="collapsed"] a,
+  .app-sidebar[data-sidebar-mode="auto"] button,
+  .app-sidebar[data-sidebar-mode="collapsed"] button {
+    justify-content: center;
+  }
+
+  .app-sidebar[data-sidebar-mode="auto"] ~ .app-shell-content,
+  .app-sidebar[data-sidebar-mode="collapsed"] ~ .app-shell-content {
+    margin-left: 4rem !important;
+  }
+
+  .app-sidebar[data-sidebar-mode="open"] {
+    width: 12rem;
+  }
+
+  .app-sidebar[data-sidebar-mode="open"] ~ .app-shell-content {
+    margin-left: 12rem !important;
+  }
+
+  .app-sidebar[data-sidebar-mode="open"][data-sidebar-labels="hidden"] .sidebar-label {
+    display: none;
+  }
+}
+
 /* ─── Premium foundation ─────────────────────────────────────────────────── */
 :root {
   --dur-base: 320ms;

@@ -90,7 +90,6 @@ import { useState, useEffect, type ReactNode } from "react";
 import {
   initSoundPreference,
   setSoundEnabled,
-  isSoundEnabled,
 } from "@/lib/sounds";
 import { useUserPreferences, UserPreferencesProvider } from "@/lib/userPreferences";
 import { PositionCalculator } from "@/components/PositionCalculator";
@@ -163,7 +162,6 @@ function Nav() {
   const dark = preferences.theme === "dark";
   const soundOn = preferences.sound;
   const privacy = preferences.privacy;
-  const sidebarCollapsed = preferences.sidebar.mode === "collapsed";
   const activeAlertsCount = useActiveAlertsCount();
   const unreadNotifsCount = useUnreadNotificationsCount();
 
@@ -374,7 +372,7 @@ function Nav() {
           </button>
           <Link
             href="/conditions-utilisation"
-            className="link-underline flex items-center gap-2 px-3 py-2 text-[11px] text-sidebar-foreground/35 hover:text-sidebar-accent-foreground transition-colors w-fit"
+            className="sidebar-label link-underline flex items-center gap-2 px-3 py-2 text-[11px] text-sidebar-foreground/35 hover:text-sidebar-accent-foreground transition-colors w-fit"
           >
             Conditions d'utilisation
           </Link>

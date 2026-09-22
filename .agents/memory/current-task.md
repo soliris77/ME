@@ -191,6 +191,16 @@ Aucune tâche active.
 ## Personnalisation avancée de Soliris Market
 
 - ✅ FAIT — Étape 1 : Auditer le routing, les paramètres, le thème, la sidebar, le curseur et les composants réutilisables
-- → EN COURS — Étape 2 : Centraliser et persister les préférences d’interface sans toucher aux données financières
-- ☐ À FAIRE — Étape 3 : Créer le centre Paramètres → Personnalisation et brancher les contrôles en aperçu immédiat
-- ☐ À FAIRE — Étape 4 : Vérifier modules Dashboard, densité, layout, thème, animations, curseur, sidebar, responsive et clavier
+- ✅ FAIT — Étape 2 : Centraliser et persister les préférences d’interface sans toucher aux données financières
+- ✅ FAIT — Étape 3 : Créer le centre Paramètres → Personnalisation et brancher les contrôles en aperçu immédiat
+- ✅ FAIT — Étape 4 : Vérifier modules Dashboard, densité, layout, thème, animations, curseur, sidebar, responsive et clavier
+
+## Amélioration ciblée du système de graphiques Soliris Market
+
+**Instruction utilisateur :** Améliorer uniquement les graphiques existants, sans recréer les fonctionnalités financières, modifier les données, inventer des séries ou remplacer la librairie sans inspection.
+
+- → EN COURS — Étape 1 : Cartographier les composants de graphiques, la librairie, les usages par page et les sources historiques
+- ☐ À FAIRE — Étape 2 : Définir les primitives graphiques partagées compatibles avec l’architecture actuelle
+- ☐ À FAIRE — Étape 3 : Améliorer interactions, tooltips, crosshair, périodes, zoom et plein écran uniquement quand les données existent
+- ☐ À FAIRE — Étape 4 : Harmoniser les graphiques du Dashboard, fiches actifs, portefeuille, comparateur, scanner et Observatoire sans dupliquer la logique
+- ☐ À FAIRE — Étape 5 : Vérifier données réelles, états loading/erreur, responsive, accessibilité, reduced motion, typecheck, build et workflow
