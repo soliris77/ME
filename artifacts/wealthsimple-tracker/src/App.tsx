@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import {
   Activity,
   Repeat,
+  Mic,
   Wallet,
   Bell,
   BookOpen,
@@ -82,6 +83,8 @@ const ReconciliationPage = lazy(() => import("@/pages/Reconciliation"));
 const PerformancePage = lazy(() => import("@/pages/Performance"));
 const OrdersPage = lazy(() => import("@/pages/Orders"));
 const PortefeuillePage = lazy(() => import("@/pages/Portefeuille"));
+const PlansPage = lazy(() => import("@/pages/Plans"));
+const JarvisPage = lazy(() => import("@/pages/Jarvis"));
 const ComparePage = lazy(() => import("@/pages/Compare"));
 const CorrelationPage = lazy(() => import("@/pages/Correlation"));
 const CalendarPage = lazy(() => import("@/pages/Calendar"));
@@ -172,6 +175,7 @@ function Nav() {
       items: [
         { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
         { href: "/observatoire", label: "Observatoire", icon: Globe2 },
+        { href: "/jarvis", label: "Jarvis", icon: Mic },
         { href: "/search", label: "Recherche", icon: Search },
         { href: "/watchlist", label: "Portefeuille suivi", icon: Bookmark },
         { href: "/journal", label: "Journal des marchés", icon: Newspaper },
@@ -182,6 +186,7 @@ function Nav() {
       group: "Trading & Exécution",
       items: [
         { href: "/ordres", label: "Journal des ordres", icon: Receipt },
+        { href: "/plans", label: "Limites & recurrents", icon: Repeat },
         { href: "/auto-trader", label: "Auto-Trader", icon: Cpu },
         { href: "/scanner", label: "Scanner & Signaux", icon: Radar },
         { href: "/perps", label: "Perps & levier", icon: Gauge },
@@ -488,6 +493,8 @@ const wrappedRoutes = {
   correlation: wrap("Corrélation", CorrelationPage),
   calendrier: wrap("Calendrier économique", CalendarPage),
   ordres: wrap("Journal des ordres", OrdersPage),
+  plans: wrap("Limites & recurrents", PlansPage),
+  jarvis: wrap("Jarvis", JarvisPage),
   debrief: wrap("Débriefing quotidien", DebriefPage),
   reconciliation: wrap("Réconciliation", ReconciliationPage),
   audit: wrap("Journal d'audit", AuditLogPage),
@@ -595,6 +602,8 @@ function AppRuntime() {
                   path="/ordres"
                   component={wrappedRoutes.ordres}
                 />
+                <Route path="/plans" component={wrappedRoutes.plans} />
+                <Route path="/jarvis" component={wrappedRoutes.jarvis} />
                 <Route
                   path="/debrief"
                   component={wrappedRoutes.debrief}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Volume2, VolumeX, Check, X, Loader2, Radio } from "lucide-react";
-import { usePageMeta } from "@/hooks/usePageMeta";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { useToast } from "@/hooks/use-toast";
 
 /**
@@ -99,10 +99,7 @@ function taire(): void {
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function JarvisPage() {
-  usePageMeta({
-    title: "Jarvis",
-    description: "Assistant vocal de Soliris Market",
-  });
+  usePageMeta("Jarvis - Soliris Market", "Assistant vocal : lecture du portefeuille et preparation des ordres.");
   const { toast } = useToast();
 
   const [ecoute, setEcoute] = useState(false);
