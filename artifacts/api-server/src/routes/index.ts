@@ -9,6 +9,7 @@ import whopRouter from "./whop";
 import brokerRouter from "./broker";
 import portfolioRouter from "./portfolio";
 import plansRouter from "./plans";
+import jarvisRouter from "./jarvis";
 import authRouter from "./auth";
 import settingsRouter from "./settings";
 import notificationPreferencesRouter from "./notificationPreferences";
@@ -23,7 +24,6 @@ import copyTradingRouter from "./copyTrading";
 import symbolsRouter from "./symbols";
 import agentTasksRouter from "./agentTasks";
 import autoTraderRouter from "./autoTrader";
-import perpsRouter from "./perps";
 import dailySummaryRouter from "./dailySummary";
 import scannerRouter from "./scanner";
 import signalsRouter from "./signals";
@@ -59,6 +59,11 @@ router.use(portfolioRouter);
 // Plans à cours limité et achats récurrents. N'envoie rien de lui-même :
 // tout passe par submitOrder, et seule la route run-due déclenche un passage.
 router.use(plansRouter);
+// Jarvis : assistant conversationnel. Lecture seule, sur liste blanche, et il
+// réutilise la session de l'appelant — il ne peut donc rien faire de plus que
+// l'utilisateur connecté. Il ne touche jamais orderEngine : il propose, et
+// c'est la confirmation humaine qui passe par POST /api/plans.
+router.use(jarvisRouter);
 router.use(settingsRouter);
 router.use(notificationPreferencesRouter);
 router.use(auditRouter);
@@ -71,8 +76,6 @@ router.use(requirePremium, copyTradingRouter);
 router.use(symbolsRouter);
 router.use(agentTasksRouter);
 router.use(requirePremium, autoTraderRouter);
-// Lot 10 : contrats perpetuels a levier. Double serrure interne.
-router.use(requirePremium, perpsRouter);
 router.use(dailySummaryRouter);
 // Lots 8 et 9 : pilotage et mesure. Le webhook d'entree des signaux, lui,
 // est monte hors de /api dans app.ts et s'authentifie par signature HMAC.
