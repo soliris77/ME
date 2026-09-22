@@ -180,10 +180,12 @@ Tâche Dashboard Market Command Center terminée côté code. Le contrôle visue
 ## Plan d'exécution
 
 - ✅ FAIT — Étape 1 : Auditer l’architecture React, les routes, les systèmes partagés, les données, les états, la console et les risques de performance
-- → EN COURS — Étape 2 : Prioriser les corrections concrètes sans toucher aux données financières ni dupliquer les systèmes existants
-- ☐ À FAIRE — Étape 3 : Implémenter les corrections prioritaires de fiabilité, performance, design system, états et accessibilité
-- ☐ À FAIRE — Étape 4 : Vérifier responsive, navigation, recherche, portfolio, scanner, Comparator, Observatoire, 3D, CustomCursor et préférences
-- ☐ À FAIRE — Étape 5 : Lancer typecheck, tests, build, workflows, inspection console et captures visuelles, puis livrer les limites restantes
+- ✅ FAIT — Étape 2 : Prioriser les corrections concrètes sans toucher aux données financières ni dupliquer les systèmes existants
+- ✅ FAIT — Étape 3 : Implémenter les corrections prioritaires de fiabilité, performance, design system, états et accessibilité
+- ✅ FAIT — Étape 4 : Vérifier responsive, navigation, recherche, portfolio, scanner, Comparator, Observatoire, 3D, CustomCursor et préférences sur le code et le preview public; les interactions authentifiées restent à couvrir
+- ✅ FAIT — Étape 5 : Lancer typecheck, tests frontend, build, workflow web, inspection console et capture visuelle, puis livrer les limites restantes
+
+**Limites de validation :** le preview public est sain et sans nouvelle erreur navigateur. Les écrans authentifiés n’ont pas pu être parcourus visuellement sans session connectée. La suite API globale reste bloquée par la résolution préexistante de `@gmx-io/sdk` dans deux suites; 347 tests sur 35 suites passent.
 
 ## Amélioration de la section Courtier
 

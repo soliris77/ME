@@ -532,7 +532,8 @@ function AppRuntime() {
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <CustomCursor />
-              <Switch>
+              <Suspense fallback={<RouteLoading />}>
+                <Switch>
                 <Route path="/" component={Landing} />
                 <Route path="/setup" component={SetupPassword} />
                 <Route path="/login" component={Login} />
@@ -663,8 +664,9 @@ function AppRuntime() {
                   path="/quote/:symbol"
                   component={wrappedRoutes.quote}
                 />
-                <Route component={wrappedRoutes.notFound} />
-              </Switch>
+                  <Route component={wrappedRoutes.notFound} />
+                </Switch>
+              </Suspense>
             </WouterRouter>
             <AuthedCommandPalette />
             <AlertNotificationWatcher />

@@ -205,6 +205,7 @@ export default function MarketGlobe({
   const selectedExchangeIdRef = useRef<string | null>(null);
   const pointerInsideRef = useRef(false);
   const autoRotateRef = useRef(true);
+  const isVisibleRef = useRef(true);
   const [isDragging, setIsDragging] = useState(false);
   const [rotationMode, setRotationMode] = useState<'auto' | 'manual' | 'paused'>('auto');
   const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(variant === 'hero' ? 'nyse' : null);
@@ -237,15 +238,17 @@ export default function MarketGlobe({
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const projection = geoOrthographic().clipAngle(90).precision(0.7);
     let lastTime = performance.now();
-    let reqId: number;
+    let reqId: number | null = null;
+    let mounted = true;
 
     const loop = (time: number) => {
-      reqId = requestAnimationFrame(loop);
+      reqId = null;
       
-      if (document.hidden) {
+      if (!mounted || document.hidden || !isVisibleRef.current) {
         lastTime = time;
         return;
       }
+      reqId = requestAnimationFrame(loop);
 
       const dt = time - lastTime;
       lastTime = time;
@@ -538,8 +541,40 @@ export default function MarketGlobe({
       
     };
 
-    reqId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(reqId);
+    const startLoop = () => {
+      if (mounted && !document.hidden && isVisibleRef.current && reqId === null) {
+        lastTime = performance.now();
+        reqId = requestAnimationFrame(loop);
+      }
+    };
+    const stopLoop = () => {
+      if (reqId !== null) {
+        cancelAnimationFrame(reqId);
+        reqId = null;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) stopLoop();
+      else startLoop();
+    };
+    const observer = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(([entry]) => {
+          isVisibleRef.current = entry.isIntersecting;
+          if (entry.isIntersecting) startLoop();
+          else stopLoop();
+        }, { threshold: 0.01 });
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (observer && containerRef.current) observer.observe(containerRef.current);
+    startLoop();
+
+    return () => {
+      mounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      observer?.disconnect();
+      stopLoop();
+    };
   }, [interactive, variant]);
 
   const clearResumeTimer = () => {
