@@ -92,7 +92,7 @@ import {
   setSoundEnabled,
   isSoundEnabled,
 } from "@/lib/sounds";
-import { isMotionForced, setMotionForced, subscribeMotion } from "@/lib/motion";
+import { useUserPreferences, UserPreferencesProvider } from "@/lib/userPreferences";
 import { PositionCalculator } from "@/components/PositionCalculator";
 import CustomCursor from "@/components/CustomCursor";
 import { useQuery } from "@tanstack/react-query";
@@ -157,38 +157,15 @@ const NOTIFIED_IDS_KEY = "soliris-notified-alert-ids";
 function Nav() {
   const [location] = useLocation();
   const { logout } = useAuth();
-  const [dark, setDark] = useState(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored) return stored === "dark";
-    return true; // default to dark (Obsidian Luxe)
-  });
+  const { preferences, updatePreferences } = useUserPreferences();
   const [showApi, setShowApi] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
-  const [soundOn, setSoundOn] = useState(isSoundEnabled);
-  const [privacy, setPrivacy] = useState(
-    () => localStorage.getItem("privacy") === "on",
-  );
-  const [motionOn, setMotionOn] = useState(isMotionForced);
+  const dark = preferences.theme === "dark";
+  const soundOn = preferences.sound;
+  const privacy = preferences.privacy;
+  const sidebarCollapsed = preferences.sidebar.mode === "collapsed";
   const activeAlertsCount = useActiveAlertsCount();
   const unreadNotifsCount = useUnreadNotificationsCount();
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("theme", dark ? "dark" : "light");
-  }, [dark]);
-
-  // Mode confidentialité : floute les montants sensibles (classe .sensitive)
-  useEffect(() => {
-    document.documentElement.classList.toggle("privacy", privacy);
-    localStorage.setItem("privacy", privacy ? "on" : "off");
-  }, [privacy]);
-
-  // La preference vit dans lib/motion : on suit ses changements, d'ou
-  // qu'ils viennent.
-  useEffect(
-    () => subscribeMotion((value) => setMotionOn(value === "full")),
-    [],
-  );
 
   const links = [
     {
@@ -240,7 +217,12 @@ function Nav() {
     <>
       {showApi && <ApiStatusModal onClose={() => setShowApi(false)} />}
       {showCalc && <PositionCalculator onClose={() => setShowCalc(false)} />}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-30 shadow-2xl">
+      <aside
+        className="app-sidebar fixed inset-y-0 left-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-30 shadow-2xl transition-[width] duration-200"
+        data-sidebar-mode={preferences.sidebar.mode}
+        data-sidebar-labels={preferences.sidebar.labels ? "visible" : "hidden"}
+        aria-label="Navigation principale"
+      >
         {/* Logo */}
         <div className="px-5 py-6">
           <div className="flex items-center gap-3">
@@ -248,10 +230,10 @@ function Nav() {
               <SolirisMark />
             </div>
             <div className="leading-none">
-              <div data-static-gold className="brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">
+              <div data-static-gold className="sidebar-label brand-mark text-sidebar-primary font-semibold text-[14px] tracking-[0.2em]">
                 SOLIRIS
               </div>
-              <div className="text-sidebar-foreground/40 text-[9px] tracking-[0.38em] mt-0.5">
+              <div className="sidebar-label text-sidebar-foreground/40 text-[9px] tracking-[0.38em] mt-0.5">
                 MARKET
               </div>
             </div>
@@ -262,7 +244,7 @@ function Nav() {
         <nav className="flex-1 px-3 py-2 space-y-5 overflow-y-auto min-h-0 custom-scrollbar">
           {links.map((group, idx) => (
             <div key={idx}>
-              <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/30">
+              <div className="sidebar-label sidebar-group-title px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/30">
                 {group.group}
               </div>
               <div className="space-y-0.5">
@@ -289,7 +271,7 @@ function Nav() {
                           </span>
                         )}
                       </span>
-                      <span className="flex-1">{label}</span>
+                       <span className="sidebar-label flex-1">{label}</span>
                       {isAlerts && unreadNotifsCount > 0 && (
                         <span
                           className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center leading-none shadow-sm"
@@ -311,13 +293,15 @@ function Nav() {
         {/* Footer */}
         <div className="px-3 py-3 space-y-0.5 bg-sidebar-accent/10">
           <button
+            type="button"
             onClick={() => setShowCalc(true)}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             <Calculator className="w-4 h-4 flex-shrink-0" />
-            Taille de position
+            <span className="sidebar-label">Taille de position</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               import("@/lib/sounds").then(({ playSound }) =>
                 playSound("toggle"),
@@ -327,10 +311,11 @@ function Nav() {
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             <Settings className="w-4 h-4 flex-shrink-0" />
-            Coûts API &amp; données
+            <span className="sidebar-label">Coûts API &amp; données</span>
           </button>
           <button
-            onClick={() => setPrivacy((p) => !p)}
+            type="button"
+            onClick={() => updatePreferences({ privacy: !privacy })}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
             title="Floute les soldes et montants sensibles (partage d'écran, lieu public)"
           >
@@ -339,10 +324,11 @@ function Nav() {
             ) : (
               <EyeOff className="w-4 h-4 flex-shrink-0" />
             )}
-            {privacy ? "Afficher les montants" : "Masquer les montants"}
+            <span className="sidebar-label">{privacy ? "Afficher les montants" : "Masquer les montants"}</span>
           </button>
           <button
-            onClick={() => setDark((d) => !d)}
+            type="button"
+            onClick={() => updatePreferences({ theme: dark ? "light" : "dark" })}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             {dark ? (
@@ -350,13 +336,13 @@ function Nav() {
             ) : (
               <Moon className="w-4 h-4 flex-shrink-0" />
             )}
-            {dark ? "Mode clair" : "Mode sombre"}
+            <span className="sidebar-label">{dark ? "Mode clair" : "Mode sombre"}</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               const next = !soundOn;
-              setSoundEnabled(next);
-              setSoundOn(next);
+              updatePreferences({ sound: next });
               // Jouer un son de confirmation si on vient d'activer
               if (next) {
                 import("@/lib/sounds").then(({ playSound }) =>
@@ -371,19 +357,20 @@ function Nav() {
             ) : (
               <VolumeX className="w-4 h-4 flex-shrink-0" />
             )}
-            {soundOn ? "Sons activés" : "Sons désactivés"}
+            <span className="sidebar-label">{soundOn ? "Sons activés" : "Sons désactivés"}</span>
           </button>
           <button
-            onClick={() => setMotionForced(!motionOn)}
-            title={
-              motionOn
-                ? "Les animations tournent, meme si ton systeme demande de les reduire"
-                : "Les animations suivent le reglage de ton systeme"
-            }
+            type="button"
+            onClick={() => updatePreferences({
+              animations: preferences.animations === "full" ? "reduced" : "full",
+            })}
+            title="Choisir entre les animations complètes et réduites"
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             <Activity className="w-4 h-4 flex-shrink-0" />
-            {motionOn ? "Mouvement activé" : "Mouvement système"}
+            <span className="sidebar-label">
+              {preferences.animations === "full" ? "Animations complètes" : "Animations réduites"}
+            </span>
           </button>
           <Link
             href="/conditions-utilisation"
@@ -392,11 +379,12 @@ function Nav() {
             Conditions d'utilisation
           </Link>
           <button
+            type="button"
             onClick={() => logout()}
             className="flex items-center gap-2 px-3 py-2 text-[13px] text-sidebar-foreground/55 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-lg w-full transition-all"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
-            Déconnexion
+            <span className="sidebar-label">Déconnexion</span>
           </button>
         </div>
       </aside>
@@ -409,7 +397,7 @@ function AppLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen relative">
       <GoldParticles />
       <Nav />
-      <div className="flex-1 min-w-0 ml-64 flex flex-col min-h-screen">
+      <div className="app-shell-content flex-1 min-w-0 ml-64 flex flex-col min-h-screen transition-[margin] duration-200">
         <TradingModeBanner />
         <main className="flex-1 min-w-0 bg-background relative z-10">
           {children}
@@ -472,21 +460,24 @@ function wrap(name: string, Page: React.ComponentType) {
   );
 }
 
-function App() {
+function AppRuntime() {
+  const { preferences, systemReducedMotion } = useUserPreferences();
+
   // Lire la préférence son une seule fois au montage (avant toute interaction)
   useEffect(() => {
     initSoundPreference();
   }, []);
 
-  // MotionConfig doit suivre la bascule, qui vit dans Nav.
-  const [motionOn, setMotionOn] = useState(isMotionForced);
-  useEffect(
-    () => subscribeMotion((value) => setMotionOn(value === "full")),
-    [],
-  );
+  useEffect(() => {
+    setSoundEnabled(preferences.sound);
+  }, [preferences.sound]);
 
   return (
-    <MotionConfig reducedMotion={motionOn ? "never" : "user"}>
+    <MotionConfig
+      reducedMotion={
+        preferences.animations === "full" && !systemReducedMotion ? "never" : "always"
+      }
+    >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
@@ -636,6 +627,14 @@ function App() {
         </AuthProvider>
       </QueryClientProvider>
     </MotionConfig>
+  );
+}
+
+function App() {
+  return (
+    <UserPreferencesProvider>
+      <AppRuntime />
+    </UserPreferencesProvider>
   );
 }
 

@@ -1,0 +1,663 @@
+Je veux maintenant travailler UNIQUEMENT sur la PERSONNALISATION AVANCÉE de SOLIRIS MARKET.
+
+IMPORTANT :
+
+Les fonctionnalités suivantes existent déjà dans le projet :
+
+- Watchlist
+- Notifications
+- Recherche globale
+- Fiches d'actifs
+- Comparateur
+- Scanner
+- Market Timeline
+- Heatmap mondiale
+- Command Center
+- Observatoire
+- Dashboard
+- Portefeuille
+- Calendrier économique
+- Actualités
+- CustomCursor
+- Thèmes
+
+NE PAS recréer ces fonctionnalités.
+NE PAS les remplacer.
+NE PAS modifier leur logique métier.
+
+Cette tâche concerne UNIQUEMENT la personnalisation de l'expérience utilisateur.
+
+============================================================
+OBJECTIF
+============================================================
+
+Je veux que Soliris Market puisse s'adapter à chaque utilisateur.
+
+L'idée est :
+
+"Soliris est mon espace de travail financier."
+
+L'utilisateur doit pouvoir décider :
+
+- quoi afficher
+- où l'afficher
+- comment l'afficher
+- quelle densité utiliser
+- quel thème utiliser
+- quelles animations utiliser
+- quelles préférences conserver
+
+Mais la personnalisation doit rester élégante et professionnelle.
+
+============================================================
+1. CENTRE DE PERSONNALISATION
+============================================================
+
+Créer une section :
+
+PARAMÈTRES → PERSONNALISATION
+
+avec une interface premium.
+
+Organiser les paramètres par catégories :
+
+APPARENCE
+INTERFACE
+DASHBOARD
+ANIMATIONS
+CURSEUR
+DENSITÉ
+ACCESSIBILITÉ
+RACCOURCIS
+
+Ne pas mettre toutes les options dans une seule longue page.
+
+Utiliser des sections claires.
+
+============================================================
+2. PERSONNALISATION DU DASHBOARD
+============================================================
+
+Permettre à l'utilisateur de choisir les modules visibles.
+
+Exemples :
+
+☑ Market Pulse
+☑ Marchés majeurs
+☑ Cryptomonnaies
+☑ Matières premières
+☑ Performance des secteurs
+☑ Actualités
+☑ Calendrier
+☑ Watchlist
+☑ Alertes
+☑ Timeline
+☑ Heatmap
+
+IMPORTANT :
+
+Ne pas recréer les modules.
+
+Le système doit simplement permettre de les afficher ou de les masquer.
+
+============================================================
+3. RÉORGANISATION DES MODULES
+============================================================
+
+Permettre de modifier l'ordre des sections du Dashboard.
+
+Par exemple :
+
+POSITION 1
+Market Pulse
+
+POSITION 2
+Watchlist
+
+POSITION 3
+Heatmap
+
+POSITION 4
+Secteurs
+
+etc.
+
+Utiliser une interaction de type :
+
+DRAG & DROP
+
+avec une animation très légère.
+
+Lorsqu'un module est déplacé :
+
+- montrer clairement sa nouvelle position
+- conserver la fluidité
+- éviter les animations excessives.
+
+============================================================
+4. MODES DE DENSITÉ
+============================================================
+
+Ajouter trois niveaux :
+
+COMPACT
+
+STANDARD
+
+CONFORT
+
+COMPACT :
+
+- cartes plus petites
+- moins d'espace
+- plus d'informations visibles
+- idéal pour grand écran
+
+STANDARD :
+
+- configuration actuelle recommandée
+
+CONFORT :
+
+- plus d'espace
+- textes plus respirants
+- cartes légèrement plus grandes
+
+Le changement doit affecter l'interface globalement de manière cohérente.
+
+Ne pas modifier arbitrairement les tailles de police importantes.
+
+============================================================
+5. MODE ANALYSE
+============================================================
+
+Créer éventuellement un preset :
+
+MODE ANALYSE
+
+Ce mode doit privilégier :
+
+- graphiques
+- tableaux
+- données
+- informations chiffrées
+- densité élevée
+
+Réduire les éléments purement décoratifs.
+
+============================================================
+6. MODE IMMERSIF
+============================================================
+
+Conserver le système de mode immersif existant.
+
+Permettre à l'utilisateur de choisir si certaines pages utilisent automatiquement ce mode.
+
+Particulièrement :
+
+OBSERVATOIRE
+
+Le mode immersif doit rester compatible avec :
+
+- Terre 3D
+- Lune
+- CustomCursor
+- contrôles
+- graphiques
+- panneaux contextuels.
+
+============================================================
+7. THÈMES
+============================================================
+
+Le projet possède déjà le mode sombre et/ou le mode clair.
+
+Améliorer la personnalisation sans créer une multitude de thèmes inutiles.
+
+Créer au maximum :
+
+SOLIRIS DARK
+SOLIRIS LIGHT
+
+avec éventuellement un choix :
+
+Système
+Sombre
+Clair
+
+Ne pas créer de thèmes flashy.
+
+L'identité Soliris doit rester présente.
+
+============================================================
+8. INTENSITÉ DES ANIMATIONS
+============================================================
+
+Créer une option :
+
+ANIMATIONS
+
+avec :
+
+COMPLÈTES
+RÉDUITES
+MINIMALES
+
+COMPLÈTES :
+animations normales de Soliris.
+
+RÉDUITES :
+transitions plus courtes et effets réduits.
+
+MINIMALES :
+interface presque statique.
+
+IMPORTANT :
+
+Cette préférence doit respecter également :
+
+prefers-reduced-motion
+
+Si le système d'exploitation demande la réduction des mouvements, respecter cette préférence.
+
+============================================================
+9. PERSONNALISATION DU CURSEUR
+============================================================
+
+Le CustomCursor EXISTE DÉJÀ.
+
+NE PAS créer un nouveau curseur.
+
+Ajouter seulement quelques préférences.
+
+Exemple :
+
+CURSEUR SOLIRIS
+
+☑ Curseur personnalisé
+
+Intensité :
+
+Faible
+Standard
+Renforcée
+
+Effets :
+
+☑ Halo
+☑ Réticule
+☑ Effet au survol
+☑ Effet au clic
+
+IMPORTANT :
+
+Même en intensité renforcée, le curseur doit rester premium.
+
+Aucun effet gaming.
+Aucun RGB.
+Aucun effet néon.
+
+============================================================
+10. AFFICHAGE DES VALEURS
+============================================================
+
+Ajouter éventuellement une préférence :
+
+AFFICHAGE DES DONNÉES
+
+Exemple :
+
+Valeurs compactes
+Valeurs complètes
+
+Et éventuellement :
+
+Afficher les symboles
+Afficher les unités
+Afficher les timestamps
+
+Uniquement si ces informations existent réellement dans les composants.
+
+============================================================
+11. SIDEBAR
+============================================================
+
+Permettre :
+
+SIDEBAR
+
+☑ Toujours ouverte
+☑ Réduite par défaut
+☑ Automatique
+
+Et éventuellement :
+
+☑ Afficher les libellés
+☑ Afficher uniquement les icônes en mode réduit
+
+La sidebar doit conserver son organisation actuelle.
+
+============================================================
+12. BARRE SUPÉRIEURE
+============================================================
+
+Permettre éventuellement de choisir certains éléments visibles dans la barre supérieure.
+
+Exemples :
+
+☑ Recherche
+☑ Notifications
+☑ Horloge
+☑ Statut du marché
+☑ Command Center
+
+Ne pas supprimer les fonctionnalités.
+
+Cela contrôle uniquement leur affichage.
+
+============================================================
+13. LAYOUT DU DASHBOARD
+============================================================
+
+Prévoir plusieurs dispositions cohérentes.
+
+Par exemple :
+
+STANDARD
+
+ANALYSE
+
+COMPACT
+
+IMMERSIF
+
+Mais attention :
+
+ce ne sont pas quatre applications différentes.
+
+Ce sont quatre configurations du même Dashboard.
+
+============================================================
+14. SAUVEGARDE DES PRÉFÉRENCES
+============================================================
+
+Les préférences doivent être persistantes.
+
+Si l'architecture actuelle ne possède pas encore de système utilisateur persistant :
+
+commencer par une solution locale appropriée.
+
+Par exemple :
+
+localStorage
+
+Mais construire le système de manière suffisamment propre pour permettre plus tard une synchronisation avec un compte utilisateur.
+
+Créer un système centralisé de préférences.
+
+Éviter de disperser des dizaines de clés localStorage différentes dans toute l'application.
+
+Créer si pertinent un objet de configuration central :
+
+userPreferences
+
+avec des catégories structurées.
+
+Exemple conceptuel :
+
+{
+  theme,
+  density,
+  dashboardLayout,
+  dashboardModules,
+  sidebar,
+  animations,
+  cursor,
+  accessibility
+}
+
+Adapter la structure au projet réel.
+
+============================================================
+15. PROFILS DE CONFIGURATION
+============================================================
+
+Permettre éventuellement de sauvegarder plusieurs configurations.
+
+Exemple :
+
+"Mon Dashboard"
+
+"Trading"
+
+"Analyse"
+
+"Observatoire"
+
+L'utilisateur peut changer de profil.
+
+Exemple :
+
+PROFIL ACTUEL
+
+ANALYSE
+
+[Changer]
+
+Puis :
+
+MES PROFILS
+
+- Analyse
+- Marchés
+- Observatoire
+- Compact
+
+IMPORTANT :
+
+Ne pas créer de logique financière supplémentaire.
+
+Ce sont simplement des configurations d'interface.
+
+============================================================
+16. RÉINITIALISATION
+============================================================
+
+Ajouter :
+
+RÉINITIALISER LA PERSONNALISATION
+
+avec confirmation.
+
+Message :
+
+"Restaurer les paramètres par défaut ?"
+
+Puis :
+
+Annuler
+Restaurer
+
+Ne jamais réinitialiser les données financières, le portefeuille ou les alertes.
+
+Uniquement les préférences d'interface.
+
+============================================================
+17. APERÇU EN TEMPS RÉEL
+============================================================
+
+Lorsque l'utilisateur modifie une préférence :
+
+le changement doit être visible immédiatement.
+
+Exemple :
+
+Densité → Compact
+
+Le Dashboard s'adapte immédiatement.
+
+Animations → Minimales
+
+Les animations se réduisent immédiatement.
+
+Sidebar → Réduite
+
+La sidebar se réduit immédiatement.
+
+Pas besoin de recharger la page lorsque ce n'est pas nécessaire.
+
+============================================================
+18. DESIGN DU CENTRE DE PERSONNALISATION
+============================================================
+
+Le centre de personnalisation doit respecter exactement l'identité Soliris.
+
+Style :
+
+- noir profond
+- or
+- blanc cassé
+- bordures fines
+- cartes sobres
+- typographie élégante
+- beaucoup de précision
+
+Éviter :
+
+- gros boutons colorés
+- interfaces flashy
+- gradients agressifs
+- RGB
+- style gaming.
+
+Je veux que les paramètres ressemblent à ceux d'une plateforme financière professionnelle.
+
+============================================================
+19. ACCESSIBILITÉ
+============================================================
+
+Toutes les préférences doivent fonctionner au clavier.
+
+Prévoir :
+
+- focus visible
+- navigation clavier
+- labels clairs
+- contrastes suffisants
+- reduced motion
+
+Ne jamais rendre une information dépendante uniquement de la couleur.
+
+============================================================
+20. RESPONSIVE
+============================================================
+
+Desktop :
+
+interface complète.
+
+Laptop :
+
+panneau de personnalisation adapté.
+
+Tablette :
+
+sections empilées.
+
+Mobile :
+
+interface en une colonne.
+
+Les paramètres doivent rester faciles à utiliser.
+
+============================================================
+21. PERFORMANCE
+============================================================
+
+Les préférences ne doivent pas provoquer des re-renders inutiles.
+
+Éviter de recalculer toute l'application à chaque changement de préférence.
+
+Utiliser une architecture propre :
+
+context/store/hook centralisé si cela correspond à l'architecture actuelle.
+
+Réutiliser les systèmes existants.
+
+============================================================
+22. IMPORTANT : NE PAS CASSER L'EXISTANT
+============================================================
+
+Avant de modifier :
+
+inspecter :
+
+- système de routing
+- Dashboard
+- sidebar
+- thème
+- CustomCursor
+- Observatoire
+- système de préférences éventuel
+- composants UI existants.
+
+Réutiliser ce qui existe.
+
+Ne pas créer de deuxième système de thème.
+
+Ne pas créer de deuxième système de curseur.
+
+Ne pas créer de deuxième système de navigation.
+
+Ne pas créer de deuxième système de layout.
+
+============================================================
+23. TESTS
+============================================================
+
+Tester :
+
+1. changement de thème
+2. changement de densité
+3. affichage/masquage d'un module
+4. réorganisation du Dashboard
+5. réduction de sidebar
+6. intensité du curseur
+7. animations réduites
+8. sauvegarde des préférences
+9. rechargement de la page
+10. réinitialisation
+11. responsive
+12. clavier
+13. reduced motion
+14. Observatoire
+15. graphiques
+16. Command Center.
+
+Vérifier également qu'aucune donnée financière n'est modifiée par les préférences.
+
+============================================================
+24. RÈGLE FINALE
+============================================================
+
+La personnalisation ne doit jamais transformer Soliris en interface compliquée.
+
+L'utilisateur doit pouvoir personnaliser profondément son environnement,
+
+mais l'application doit rester :
+
+SIMPLE
+PROFESSIONNELLE
+RAPIDE
+COHÉRENTE
+ÉLÉGANTE.
+
+Le principe est :
+
+"Personnalisation profonde derrière une interface simple."
+
+Ne pas ajouter de fonctionnalités financières dans cette tâche.
+
+Ne pas recréer les fonctionnalités existantes.
+
+Cette phase concerne UNIQUEMENT la personnalisation avancée de l'expérience Soliris Market.

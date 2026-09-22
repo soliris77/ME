@@ -187,3 +187,10 @@ Aucune tâche active.
 - ✅ FAIT — Étape 2 : Corriger les écarts UX/UI sans remplacer les flux ni inventer de valeurs
 - ✅ FAIT — Étape 3 : Vérifier responsive, accessibilité, erreurs, chargements, navigation et CustomCursor
 - ✅ FAIT — Étape 4 : Vérifier typecheck, build, workflow et rendu visuel du Dashboard; la capture authentifiée reste bloquée par la porte de connexion
+
+## Personnalisation avancée de Soliris Market
+
+- ✅ FAIT — Étape 1 : Auditer le routing, les paramètres, le thème, la sidebar, le curseur et les composants réutilisables
+- → EN COURS — Étape 2 : Centraliser et persister les préférences d’interface sans toucher aux données financières
+- ☐ À FAIRE — Étape 3 : Créer le centre Paramètres → Personnalisation et brancher les contrôles en aperçu immédiat
+- ☐ À FAIRE — Étape 4 : Vérifier modules Dashboard, densité, layout, thème, animations, curseur, sidebar, responsive et clavier
