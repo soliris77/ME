@@ -63,6 +63,7 @@ export default function SectorHeatmap() {
                   index >= 2 ? "sm:border-t sm:border-border/25" : "",
                   index >= 3 ? "lg:border-t lg:border-border/25" : "",
                 ].join(" ")}
+                data-cursor-card
                 aria-label={`${sector.label}, ${formatPercent(quote?.changePercent)}`}
               >
                 <div className="mb-4 flex items-start justify-between gap-4">

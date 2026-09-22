@@ -79,6 +79,7 @@ export default function CommandCenter() {
   const limitReached = hasLimit && ratio >= 1; // à 100 %, jamais vert — même si le breaker (strictement >) n'a pas encore sauté
   const nearLimit = hasLimit && ratio >= 0.8 && !limitReached && !halted;
   const limitDanger = halted || limitReached;
+  const riskChecking = riskQ.isLoading && !riskQ.data;
   const riskKnown = Boolean(riskQ.data) && !riskQ.isError;
 
   const barColor = limitDanger ? "bg-red-500" : nearLimit ? "bg-amber-500" : "bg-emerald-500";
@@ -91,7 +92,9 @@ export default function CommandCenter() {
         <div className="flex items-center gap-2">
           {riskQ.data?.mode === "dry_run" && <span className="rounded-md border border-amber-400/50 bg-amber-400/15 px-2 py-1 text-[10px] font-bold tracking-[0.16em] text-amber-300 animate-pulse">DRY RUN</span>}
           <span className="text-[11px] text-muted-foreground">
-            {!riskKnown
+            {riskChecking
+              ? "Vérification des garde-fous de risque…"
+              : !riskKnown
               ? "État des garde-fous indisponible — aucune confirmation de sécurité affichée."
               : riskQ.data?.killSwitchActive
                 ? "Kill-switch actif — les protections restent en place."
@@ -99,10 +102,10 @@ export default function CommandCenter() {
           </span>
         </div>
         <button type="button" onClick={() => kill.mutate()} disabled={kill.isPending || !riskKnown || riskQ.data?.killSwitchActive} className="rounded-lg border border-red-500/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40">
-          {!riskKnown ? "Risque indisponible" : riskQ.data?.killSwitchActive ? "Trading suspendu" : "Activer le kill-switch"}
+          {riskChecking ? "Vérification…" : !riskKnown ? "Risque indisponible" : riskQ.data?.killSwitchActive ? "Trading suspendu" : "Activer le kill-switch"}
         </button>
       </div>
-      {!riskKnown && (
+      {!riskKnown && !riskChecking && (
         <div className="sm:col-span-3 -mt-1 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-3 py-2 text-[11px] text-amber-300/85" role="status">
           <WifiOff className="h-3.5 w-3.5 shrink-0" />
           Les réglages de risque n’ont pas pu être vérifiés. Le contrôle reste désactivé jusqu’à leur disponibilité.

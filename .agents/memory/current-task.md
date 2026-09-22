@@ -184,6 +184,6 @@ Aucune tâche active.
 ## Reprise du Dashboard — Market Command Center
 
 - ✅ FAIT — Étape 1 : Auditer Dashboard, MarketPulse, CommandCenter et les données réellement disponibles
-- → EN COURS — Étape 2 : Corriger les écarts UX/UI sans remplacer les flux ni inventer de valeurs
-- ☐ À FAIRE — Étape 3 : Vérifier responsive, accessibilité, erreurs, chargements, navigation et CustomCursor
-- ☐ À FAIRE — Étape 4 : Vérifier typecheck, build, workflow et rendu visuel du Dashboard
+- ✅ FAIT — Étape 2 : Corriger les écarts UX/UI sans remplacer les flux ni inventer de valeurs
+- ✅ FAIT — Étape 3 : Vérifier responsive, accessibilité, erreurs, chargements, navigation et CustomCursor
+- ✅ FAIT — Étape 4 : Vérifier typecheck, build, workflow et rendu visuel du Dashboard; la capture authentifiée reste bloquée par la porte de connexion

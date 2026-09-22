@@ -313,6 +313,8 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
     <div className={`market-continuous-card surface-glass border rounded-xl p-4 flex flex-col transition-all ${t.border} hover:border-opacity-50`}>
       {/* Header — cliquable pour étendre */}
       <button
+        type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-2.5 mb-4 w-full text-left group"
       >
@@ -363,6 +365,7 @@ function H24Card({ cat }: { cat: typeof H24_CATEGORIES[number] }) {
         )}
         {!expanded && hasMore && (
           <button
+            type="button"
             onClick={() => setExpanded(true)}
             className={`text-[9px] font-mono px-2 py-1 rounded-md border border-dashed
               opacity-60 hover:opacity-100 transition-opacity ${t.label} border-current uppercase tracking-widest`}
@@ -432,6 +435,7 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
         ))}
         {!expanded && hasMore && (
           <button
+            type="button"
             onClick={() => setExpanded(true)}
             className="text-[9px] font-mono px-2 py-1 rounded-md border border-dashed
               border-border/40 text-muted-foreground hover:text-foreground/70 hover:border-border transition-colors uppercase tracking-widest"
@@ -441,6 +445,7 @@ function ExchangeCard({ ex }: { ex: typeof EXCHANGES[number] }) {
         )}
         {expanded && hasMore && (
           <button
+            type="button"
             onClick={() => setExpanded(false)}
             className="text-[9px] font-mono px-2 py-1 rounded-md border border-dashed
               border-border/40 text-muted-foreground hover:text-foreground/70 hover:border-border transition-colors uppercase tracking-widest"
@@ -731,6 +736,7 @@ function MarketEmptyState() {
     <div className="text-xs text-muted-foreground py-3 pl-1 flex items-center gap-3">
       <span>Données indisponibles pour le moment.</span>
       <button
+        type="button"
         onClick={() => queryClient.invalidateQueries({ queryKey: getGetMarketOverviewQueryKey() })}
         className="text-primary hover:underline font-medium"
       >
@@ -795,7 +801,7 @@ function AssetListSection({ title, symbols, allQuotes, loading }: {
             ) : filtered.map((q) => {
               const up = isUp(q.changePercent);
               return (
-                <Link key={q.symbol} href={`/quote/${encodeURIComponent(q.symbol)}`}>
+                <Link key={q.symbol} href={`/quote/${encodeURIComponent(q.symbol)}`} data-cursor-card>
                   <div className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors group">
                     <div>
                       <div className="text-[13px] font-semibold text-foreground group-hover:text-primary transition-colors">
@@ -1024,7 +1030,7 @@ export default function Dashboard() {
     <div className="flex flex-col min-h-screen">
       <LiveTicker />
 
-      <PageTransition className="p-7 max-w-7xl">
+      <PageTransition className="w-full px-4 py-5 sm:p-7 max-w-7xl">
         {/* Page header */}
         <motion.div 
           className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4"
@@ -1050,6 +1056,7 @@ export default function Dashboard() {
             </div>
           </div>
           <motion.button
+            type="button"
             onClick={() => refetch()}
             disabled={isFetching}
             className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary/80 hover:text-primary transition-all px-4 py-2.5 rounded-lg border border-primary/20 hover:border-primary/40 hover:bg-primary/10 disabled:opacity-50"
@@ -1071,6 +1078,7 @@ export default function Dashboard() {
               <span>Données temporairement indisponibles. Les valeurs absentes restent vides.</span>
             </div>
             <button
+              type="button"
               onClick={() => refetch()}
               disabled={isFetching}
               className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 px-2.5 py-1.5 font-semibold uppercase tracking-wider transition-colors hover:bg-amber-400/10 disabled:opacity-50"
@@ -1091,15 +1099,6 @@ export default function Dashboard() {
           isFetching={isFetching}
         />
 
-        {/* Accès à l’Observatoire — approfondissement sans région inventée */}
-        <ObservatoryHero variant="dashboard" />
-
-        {/* Informations secondaires — P&L du jour, coupe-circuit, limite de perte */}
-        <CommandCenter />
-
-        {/* Disponibilité des places et régimes de marché */}
-        <MarketStatusSection />
-
         {/* Niveau 2 — marchés majeurs */}
         <div className="space-y-6 mb-7">
           <MarketSection title="Amérique du Nord" symbols={CANADA_NORTH_AM} allQuotes={allIndices} loading={isLoading} />
@@ -1117,6 +1116,13 @@ export default function Dashboard() {
 
         {/* Niveau 4 — performance sectorielle */}
         <SectorHeatmap />
+
+        {/* Accès à l’Observatoire — approfondissement sans région inventée */}
+        <ObservatoryHero variant="dashboard" />
+
+        {/* Informations secondaires — risque et disponibilité des places */}
+        <CommandCenter />
+        <MarketStatusSection />
 
         {/* Niveau 5 — informations secondaires et actions disponibles */}
         {/* Actifs populaires disponibles sur Wealthsimple — pas les positions détenues */}
