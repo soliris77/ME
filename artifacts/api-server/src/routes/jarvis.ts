@@ -1,42 +1,73 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 
 /**
- * JARVIS — le cerveau conversationnel de Soliris.
+ * JARVIS — le cerveau conversationnel de Soliris, et sa voix.
  *
- * Principe de conception, et il n'est pas négociable :
+ * ─── Principe de conception, non négociable ────────────────────────────────
  *
  *   Jarvis ne peut RIEN faire que toi, connecté, tu ne puisses déjà faire.
  *
- * Concrètement il n'accède pas à la base, pas au broker, pas à orderEngine.
- * Il appelle l'API de Soliris par HTTP, en réutilisant TON cookie de session.
- * Donc :
- *   - s'il n'est pas authentifié, il obtient 401 comme n'importe qui ;
+ * Il n'accède pas à la base, pas au broker, pas à orderEngine. Il appelle
+ * l'API de Soliris par HTTP en réutilisant TON cookie de session. Donc :
+ *   - sans session authentifiée il obtient 401 comme n'importe qui ;
  *   - il hérite exactement de tes droits, jamais plus ;
  *   - aucune route existante n'est modifiée pour lui.
  *
- * Et il est en LECTURE SEULE. La liste LECTURE_AUTORISEE plus bas est une
- * liste blanche : tout ce qui n'y est pas est refusé, et seul GET passe.
- * Quand Jarvis veut agir, il ne fait que PROPOSER — un objet structuré que
- * l'interface affiche et que tu confirmes d'un geste. La confirmation part
- * ensuite par POST /api/plans, le chemin déjà en place et déjà testé.
+ * Il est en LECTURE SEULE. LECTURE_AUTORISEE est une liste blanche : ce qui
+ * n'y est pas est refusé, et seul GET passe. Quand Jarvis veut agir, il ne
+ * fait que PROPOSER — un objet structuré que l'interface affiche et que tu
+ * confirmes d'un geste. La confirmation part ensuite par POST /api/plans,
+ * le chemin déjà en place et déjà testé.
+ *
+ * ─── Fournisseur de modèle ─────────────────────────────────────────────────
+ *
+ * Tout passe par le format OpenAI, que Gemini, Groq, Mistral, OpenAI et
+ * GitHub Models parlent tous. Changer de fournisseur = changer deux
+ * variables d'environnement, pas une ligne de code.
+ *
+ *   Gemini  (défaut)  JARVIS_BASE=https://generativelanguage.googleapis.com/v1beta/openai
+ *                     JARVIS_MODELE=gemini-3.8-flash
+ *                     GEMINI_API_KEY=...
+ *
+ *   Groq              JARVIS_BASE=https://api.groq.com/openai/v1
+ *                     JARVIS_MODELE=<un modèle Groq>
+ *                     JARVIS_API_KEY=...
+ *
+ *   OpenAI            JARVIS_BASE=https://api.openai.com/v1
+ *                     JARVIS_MODELE=gpt-...
+ *                     OPENAI_API_KEY=...
+ *
+ * Les clés ne quittent jamais le serveur. Le navigateur n'en voit aucune.
  */
 
 const router: IRouter = Router();
 
 // ─── Réglages ──────────────────────────────────────────────────────────────
 
-const MODELE = process.env.JARVIS_MODELE ?? "claude-sonnet-4-5";
-const CLE = process.env.ANTHROPIC_API_KEY ?? "";
+const BASE =
+  process.env.JARVIS_BASE ?? "https://generativelanguage.googleapis.com/v1beta/openai";
+const MODELE = process.env.JARVIS_MODELE ?? "gemini-3.8-flash";
+
+/** Première clé trouvée gagne : on peut changer de fournisseur sans toucher au code. */
+const CLE =
+  process.env.JARVIS_API_KEY ??
+  process.env.GEMINI_API_KEY ??
+  process.env.OPENAI_API_KEY ??
+  process.env.GROQ_API_KEY ??
+  "";
+
+const CLE_VOIX = process.env.ELEVENLABS_API_KEY ?? "";
+const MODELE_VOIX = process.env.ELEVENLABS_MODELE ?? "eleven_multilingual_v2";
+
 const PORT_LOCAL = process.env.PORT ?? "5000";
 const BASE_LOCALE = `http://127.0.0.1:${PORT_LOCAL}`;
 
 const MAX_TOURS = 6; // garde-fou : au-delà, Jarvis tourne en rond
-const MAX_HISTORIQUE = 12; // on ne renvoie pas toute la conversation à chaque fois
+const MAX_HISTORIQUE = 12;
+const MAX_CARACTERES_VOIX = 900; // ElevenLabs facture au caractère
+const MAX_ESSAIS = 3; // sur 429 / 5xx, avec attente croissante
 
-/**
- * Liste blanche des chemins que Jarvis peut lire. Fail-closed : un chemin
- * absent d'ici est refusé, même s'il existe dans l'API.
- */
+/** Liste blanche des lectures. Fail-closed : absent d'ici = refusé. */
 const LECTURE_AUTORISEE: readonly string[] = [
   "/api/portfolio",
   "/api/broker/allocation",
@@ -60,116 +91,103 @@ const LECTURE_AUTORISEE: readonly string[] = [
   "/api/daily-summary",
 ];
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Types (format OpenAI) ─────────────────────────────────────────────────
 
-type Role = "user" | "assistant";
+interface AppelOutil {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+interface MessageSortie {
+  role: "assistant";
+  content: string | null;
+  tool_calls?: AppelOutil[];
+}
+
+type Message =
+  | { role: "system" | "user" | "assistant"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls: AppelOutil[] }
+  | { role: "tool"; tool_call_id: string; content: string };
 
 interface Tour {
-  role: Role;
+  role: "user" | "assistant";
   contenu: string;
 }
 
-interface BlocTexte {
-  type: "text";
-  text: string;
-}
-
-interface BlocOutil {
-  type: "tool_use";
-  id: string;
-  name: string;
-  input: unknown;
-}
-
-interface BlocResultat {
-  type: "tool_result";
-  tool_use_id: string;
-  content: string;
-  is_error?: boolean;
-}
-
-type BlocSortie = BlocTexte | BlocOutil;
-type BlocEntree = BlocTexte | BlocOutil | BlocResultat;
-
-interface MessageApi {
-  role: Role;
-  content: string | BlocEntree[];
-}
-
-interface ReponseApi {
-  content: BlocSortie[];
-  stop_reason: string | null;
-}
-
-/** Une action que Jarvis suggère. Rien n'est exécuté tant que tu ne confirmes pas. */
 interface Proposition {
   genre: "plan";
   resume: string;
   corps: Record<string, unknown>;
 }
 
-// ─── Les outils de Jarvis ──────────────────────────────────────────────────
+// ─── Les outils ────────────────────────────────────────────────────────────
 
 const OUTILS = [
   {
-    name: "lire",
-    description:
-      "Lit une ressource de l'API Soliris (GET uniquement). Utilise ceci pour " +
-      "connaître le portefeuille, les positions, les prix, les plans, les signaux, " +
-      "les actualités, la performance. Exemples de chemin : /api/portfolio, " +
-      "/api/broker/allocation, /api/quotes?symbols=AAPL,BTC, /api/plans, /api/signals. " +
-      "Si un chemin est refusé, n'insiste pas : dis-le simplement.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        chemin: {
-          type: "string" as const,
-          description: "Chemin commençant par /api/, avec sa chaîne de requête si besoin.",
+    type: "function" as const,
+    function: {
+      name: "lire",
+      description:
+        "Lit une ressource de l'API Soliris (GET uniquement). Sers-t'en pour connaître " +
+        "le portefeuille, les positions, les prix, les plans, les signaux, les actualités, " +
+        "la performance. Exemples : /api/portfolio, /api/broker/allocation, " +
+        "/api/quotes?symbols=AAPL,BTC, /api/plans, /api/signals. Si un chemin est refusé, " +
+        "n'insiste pas : dis-le simplement.",
+      parameters: {
+        type: "object",
+        properties: {
+          chemin: {
+            type: "string",
+            description: "Chemin commençant par /api/, avec sa chaîne de requête si besoin.",
+          },
         },
+        required: ["chemin"],
       },
-      required: ["chemin"],
     },
   },
   {
-    name: "proposer_plan",
-    description:
-      "Prépare un ordre à cours limité ou un achat récurrent et le SOUMET À " +
-      "L'APPROBATION DE LION. Ceci n'envoie aucun ordre : cela affiche une carte " +
-      "qu'il doit confirmer d'un geste. Utilise-le dès qu'il demande d'acheter, " +
-      "de vendre, de programmer un achat, ou de poser une limite. Ne demande jamais " +
-      "de confirmation par la voix : la carte s'en charge.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        type: {
-          type: "string" as const,
-          enum: ["limite", "recurrent"],
-          description: "limite = déclenché par un prix. recurrent = déclenché par un calendrier.",
+    type: "function" as const,
+    function: {
+      name: "proposer_plan",
+      description:
+        "Prépare un ordre à cours limité ou un achat récurrent et le SOUMET À L'APPROBATION " +
+        "de Lion. Ceci n'envoie aucun ordre : cela affiche une carte qu'il doit confirmer d'un " +
+        "geste. Utilise-le dès qu'il demande d'acheter, de vendre, de programmer un achat ou " +
+        "de poser une limite. Ne demande jamais confirmation par la voix : la carte s'en charge.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["limite", "recurrent"],
+            description: "limite = déclenché par un prix. recurrent = déclenché par un calendrier.",
+          },
+          symbole: { type: "string", description: "Ex. AAPL, BTC-USD." },
+          sens: { type: "string", enum: ["achat", "vente"] },
+          montant: {
+            type: "number",
+            description: "Montant en dollars à engager (pas un nombre de parts).",
+          },
+          prix_declencheur: {
+            type: "number",
+            description: "Pour un plan à cours limité : le prix qui déclenche. Sinon, omets.",
+          },
+          cadence: {
+            type: "string",
+            enum: ["quotidien", "hebdomadaire", "mensuel"],
+            description: "Pour un plan récurrent. Sinon, omets.",
+          },
+          pourquoi: {
+            type: "string",
+            description: "Une phrase : la raison, telle que tu l'expliquerais à Lion.",
+          },
         },
-        symbole: { type: "string" as const, description: "Ex. AAPL, BTC-USD." },
-        sens: { type: "string" as const, enum: ["achat", "vente"] },
-        montant: {
-          type: "number" as const,
-          description: "Montant en dollars à engager (pas un nombre de parts).",
-        },
-        prix_declencheur: {
-          type: "number" as const,
-          description: "Pour un plan à cours limité : le prix qui déclenche. Sinon, omets.",
-        },
-        cadence: {
-          type: "string" as const,
-          enum: ["quotidien", "hebdomadaire", "mensuel"],
-          description: "Pour un plan récurrent. Sinon, omets.",
-        },
-        pourquoi: {
-          type: "string" as const,
-          description: "Une phrase : la raison, telle que tu l'expliquerais à Lion.",
-        },
+        required: ["type", "symbole", "sens", "montant", "pourquoi"],
       },
-      required: ["type", "symbole", "sens", "montant", "pourquoi"],
     },
   },
-] as const;
+];
 
 const CONSIGNE = `Tu es Jarvis, l'assistant de Soliris Market. Tu parles à Lion.
 
@@ -184,16 +202,15 @@ franchement que tu n'as pas pu, et laquelle.
 
 Quand il veut agir, appelle proposer_plan. Tu ne passes pas d'ordres : tu prépares,
 il confirme d'un geste. Ne lui demande pas « es-tu sûr ? » — la carte de
-confirmation est là pour ça, et le lui demander deux fois est agaçant.
+confirmation est là pour ça.
 
 Tu n'es pas son conseiller financier et tu ne fais pas semblant de l'être. Tu lui
-donnes les faits dont il a besoin pour décider. S'il te demande si un achat est
-une bonne idée, tu peux donner ce qui plaide pour et ce qui plaide contre, en
-nommant ce que tu ignores — mais la décision reste la sienne.
+donnes les faits dont il a besoin pour décider. S'il te demande si un achat est une
+bonne idée, tu peux donner ce qui plaide pour et ce qui plaide contre, en nommant ce
+que tu ignores — la décision reste la sienne.
 
 Si quelque chose dans les données te paraît anormal — une position qui a fondu, un
-plan qui s'est déclenché sans qu'il le sache — dis-le, même s'il n'a pas posé la
-question.
+plan déclenché sans qu'il le sache — dis-le, même s'il n'a pas posé la question.
 
 Réponses courtes. Deux ou trois phrases sauf s'il en demande plus.`;
 
@@ -221,7 +238,6 @@ async function lireRessource(chemin: string, cookie: string): Promise<string> {
     if (!reponse.ok) {
       return `Erreur ${reponse.status} sur ${chemin} : ${texte.slice(0, 400)}`;
     }
-    // On tronque : un portefeuille entier ferait exploser le contexte.
     return texte.length > 24_000 ? `${texte.slice(0, 24_000)}\n…(tronqué)` : texte;
   } catch (erreur) {
     const motif = erreur instanceof Error ? erreur.message : String(erreur);
@@ -229,35 +245,61 @@ async function lireRessource(chemin: string, cookie: string): Promise<string> {
   }
 }
 
-// ─── Appel au modèle ───────────────────────────────────────────────────────
+// ─── Appel au modèle, avec réessai sur 429 ─────────────────────────────────
 
-async function appelerModele(messages: MessageApi[]): Promise<ReponseApi> {
-  const reponse = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": CLE,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODELE,
-      max_tokens: 1024,
-      system: CONSIGNE,
-      tools: OUTILS,
-      messages,
-    }),
-  });
+const dormir = (ms: number): Promise<void> =>
+  new Promise((resoudre) => setTimeout(resoudre, ms));
 
-  if (!reponse.ok) {
-    const detail = await reponse.text();
-    throw new Error(`Modèle indisponible (${reponse.status}) : ${detail.slice(0, 300)}`);
+async function appelerModele(messages: Message[]): Promise<MessageSortie> {
+  let dernierMotif = "";
+
+  for (let essai = 0; essai < MAX_ESSAIS; essai += 1) {
+    const reponse = await fetch(`${BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${CLE}`,
+      },
+      body: JSON.stringify({
+        model: MODELE,
+        max_tokens: 1200,
+        messages,
+        tools: OUTILS,
+      }),
+    });
+
+    // 429 = quota par minute atteint. 5xx = hoquet côté fournisseur.
+    // Dans les deux cas on attend et on recommence, au lieu de planter.
+    if (reponse.status === 429 || reponse.status >= 500) {
+      dernierMotif = `${reponse.status} ${(await reponse.text()).slice(0, 200)}`;
+      if (essai < MAX_ESSAIS - 1) {
+        await dormir(1500 * (essai + 1));
+        continue;
+      }
+      throw new Error(
+        reponse.status === 429
+          ? "Quota du fournisseur atteint. Réessaie dans une minute."
+          : `Fournisseur indisponible : ${dernierMotif}`,
+      );
+    }
+
+    if (!reponse.ok) {
+      const detail = await reponse.text();
+      throw new Error(`Modèle indisponible (${reponse.status}) : ${detail.slice(0, 300)}`);
+    }
+
+    const brut = (await reponse.json()) as {
+      choices?: { message?: MessageSortie }[];
+    };
+    const premier = Array.isArray(brut.choices) ? brut.choices[0] : undefined;
+    const message = premier?.message;
+    if (message === undefined) {
+      throw new Error("Réponse du modèle vide ou inattendue.");
+    }
+    return message;
   }
 
-  const brut = (await reponse.json()) as unknown;
-  const objet = brut as { content?: unknown; stop_reason?: unknown };
-  const contenu = Array.isArray(objet.content) ? (objet.content as BlocSortie[]) : [];
-  const arret = typeof objet.stop_reason === "string" ? objet.stop_reason : null;
-  return { content: contenu, stop_reason: arret };
+  throw new Error(dernierMotif === "" ? "Échec de l'appel au modèle." : dernierMotif);
 }
 
 // ─── La boucle ─────────────────────────────────────────────────────────────
@@ -278,12 +320,23 @@ function resumerProposition(entree: Record<string, unknown>): string {
   return `${sens} ${montant} $ de ${symbole}`;
 }
 
+function lireArguments(brut: string): Record<string, unknown> {
+  try {
+    const objet: unknown = JSON.parse(brut);
+    return typeof objet === "object" && objet !== null
+      ? (objet as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 router.post("/api/jarvis/ask", async (req: Request, res: Response) => {
   if (CLE === "") {
     res.status(503).json({
       erreur:
-        "Jarvis n'a pas de cerveau : la variable ANTHROPIC_API_KEY est absente de " +
-        "l'environnement. Ajoute-la dans les Secrets de Replit, puis relance.",
+        "Jarvis n'a pas de cerveau : aucune clé de modèle dans l'environnement. " +
+        "Ajoute GEMINI_API_KEY dans les Secrets de Replit, puis relance le serveur.",
     });
     return;
   }
@@ -309,8 +362,9 @@ router.post("/api/jarvis/ask", async (req: Request, res: Response) => {
 
   const cookie = typeof req.headers.cookie === "string" ? req.headers.cookie : "";
 
-  const messages: MessageApi[] = [
-    ...historique.map((t): MessageApi => ({ role: t.role, content: t.contenu })),
+  const messages: Message[] = [
+    { role: "system", content: CONSIGNE },
+    ...historique.map((t): Message => ({ role: t.role, content: t.contenu })),
     { role: "user", content: texte },
   ];
 
@@ -319,44 +373,38 @@ router.post("/api/jarvis/ask", async (req: Request, res: Response) => {
 
   try {
     for (let tour = 0; tour < MAX_TOURS; tour += 1) {
-      const reponse = await appelerModele(messages);
+      const message = await appelerModele(messages);
+      const appels = message.tool_calls ?? [];
 
-      const outils = reponse.content.filter((b): b is BlocOutil => b.type === "tool_use");
-
-      if (outils.length === 0) {
-        const dit = reponse.content
-          .filter((b): b is BlocTexte => b.type === "text")
-          .map((b) => b.text)
-          .join("\n")
-          .trim();
-        res.json({ reponse: dit, propositions, journal });
+      if (appels.length === 0) {
+        res.json({ reponse: (message.content ?? "").trim(), propositions, journal });
         return;
       }
 
-      messages.push({ role: "assistant", content: reponse.content });
+      messages.push({
+        role: "assistant",
+        content: message.content ?? null,
+        tool_calls: appels,
+      });
 
-      const resultats: BlocEntree[] = [];
-      for (const outil of outils) {
-        const entree =
-          typeof outil.input === "object" && outil.input !== null
-            ? (outil.input as Record<string, unknown>)
-            : {};
+      for (const appel of appels) {
+        const entree = lireArguments(appel.function.arguments);
 
-        if (outil.name === "lire") {
+        if (appel.function.name === "lire") {
           const chemin = typeof entree["chemin"] === "string" ? entree["chemin"] : "";
           journal.push(`lecture ${chemin}`);
           const contenu = await lireRessource(chemin, cookie);
-          resultats.push({ type: "tool_result", tool_use_id: outil.id, content: contenu });
+          messages.push({ role: "tool", tool_call_id: appel.id, content: contenu });
           continue;
         }
 
-        if (outil.name === "proposer_plan") {
+        if (appel.function.name === "proposer_plan") {
           const resume = resumerProposition(entree);
           propositions.push({ genre: "plan", resume, corps: entree });
           journal.push(`proposition ${resume}`);
-          resultats.push({
-            type: "tool_result",
-            tool_use_id: outil.id,
+          messages.push({
+            role: "tool",
+            tool_call_id: appel.id,
             content:
               "La carte de confirmation est affichée à Lion. Rien n'est envoyé tant " +
               "qu'il n'a pas confirmé. Annonce-lui simplement ce que tu proposes.",
@@ -364,15 +412,12 @@ router.post("/api/jarvis/ask", async (req: Request, res: Response) => {
           continue;
         }
 
-        resultats.push({
-          type: "tool_result",
-          tool_use_id: outil.id,
-          content: `Outil inconnu : ${outil.name}`,
-          is_error: true,
+        messages.push({
+          role: "tool",
+          tool_call_id: appel.id,
+          content: `Outil inconnu : ${appel.function.name}`,
         });
       }
-
-      messages.push({ role: "user", content: resultats });
     }
 
     res.json({
@@ -387,9 +432,116 @@ router.post("/api/jarvis/ask", async (req: Request, res: Response) => {
   }
 });
 
-/** Sonde pour l'interface : sait-on si Jarvis a un cerveau et une voix ? */
+// ─── La voix (ElevenLabs) ──────────────────────────────────────────────────
+//
+// La clé reste ici. Le navigateur envoie du texte et reçoit du son.
+
+interface VoixElevenLabs {
+  voice_id: string;
+  name: string;
+  labels?: Record<string, string>;
+}
+
+router.get("/api/jarvis/voix", async (_req: Request, res: Response) => {
+  if (CLE_VOIX === "") {
+    res.json({ disponible: false, voix: [] });
+    return;
+  }
+  try {
+    const reponse = await fetch("https://api.elevenlabs.io/v1/voices", {
+      headers: { "xi-api-key": CLE_VOIX },
+    });
+    if (!reponse.ok) {
+      const detail = await reponse.text();
+      res.status(502).json({
+        disponible: false,
+        voix: [],
+        erreur: `ElevenLabs a répondu ${reponse.status} : ${detail.slice(0, 200)}`,
+      });
+      return;
+    }
+    const brut = (await reponse.json()) as { voices?: unknown };
+    const liste = Array.isArray(brut.voices) ? (brut.voices as VoixElevenLabs[]) : [];
+    res.json({
+      disponible: true,
+      voix: liste.map((v) => ({
+        id: v.voice_id,
+        nom: v.name,
+        genre: v.labels?.["gender"] ?? "",
+        accent: v.labels?.["accent"] ?? "",
+      })),
+    });
+  } catch (erreur) {
+    const motif = erreur instanceof Error ? erreur.message : String(erreur);
+    res.status(502).json({ disponible: false, voix: [], erreur: motif });
+  }
+});
+
+router.post("/api/jarvis/voix", async (req: Request, res: Response) => {
+  if (CLE_VOIX === "") {
+    res.status(503).json({
+      erreur:
+        "Pas de voix ElevenLabs : ELEVENLABS_API_KEY est absente. " +
+        "La voix du navigateur prend le relais.",
+    });
+    return;
+  }
+
+  const corps = req.body as { texte?: unknown; voix?: unknown };
+  const texte =
+    typeof corps.texte === "string" ? corps.texte.trim().slice(0, MAX_CARACTERES_VOIX) : "";
+  const voix = typeof corps.voix === "string" ? corps.voix : "";
+
+  if (texte === "" || voix === "") {
+    res.status(400).json({ erreur: "Il faut un texte et un identifiant de voix." });
+    return;
+  }
+  if (!/^[A-Za-z0-9]{10,40}$/.test(voix)) {
+    res.status(400).json({ erreur: "Identifiant de voix invalide." });
+    return;
+  }
+
+  try {
+    const reponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voix}`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": CLE_VOIX,
+        "content-type": "application/json",
+        accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text: texte,
+        model_id: MODELE_VOIX,
+        voice_settings: { stability: 0.4, similarity_boost: 0.8 },
+      }),
+    });
+
+    if (!reponse.ok) {
+      const detail = await reponse.text();
+      res.status(502).json({
+        erreur: `ElevenLabs a répondu ${reponse.status} : ${detail.slice(0, 200)}`,
+      });
+      return;
+    }
+
+    const audio = Buffer.from(await reponse.arrayBuffer());
+    res.setHeader("content-type", "audio/mpeg");
+    res.setHeader("cache-control", "no-store");
+    res.send(audio);
+  } catch (erreur) {
+    const motif = erreur instanceof Error ? erreur.message : String(erreur);
+    res.status(502).json({ erreur: motif });
+  }
+});
+
+/** Sonde pour l'interface. Ne révèle aucune clé — seulement leur présence. */
 router.get("/api/jarvis/etat", (_req: Request, res: Response) => {
-  res.json({ pret: CLE !== "", modele: MODELE });
+  res.json({
+    pret: CLE !== "",
+    modele: MODELE,
+    fournisseur: BASE,
+    voixElevenLabs: CLE_VOIX !== "",
+  });
 });
 
 export default router;
