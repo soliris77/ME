@@ -195,9 +195,29 @@ Author
 
 Personal project — <your name>.
 
+## Where Soliris stands — and where it's going
 
+*Seven months, billions of tokens, and 60% of the way there.*
+
+Soliris has been in development for seven months. Not a weekend project — seven months of evenings spent redrawing the HUD, rewriting the core, watching a ring spin and asking myself whether the thing behind it was actually thinking.
+
+Billions of tokens later, here is the honest number: **Soliris is about 60% complete.**
+
+What exists today is real. The HUD on this page is the actual interface, running locally: the core status, the activity feed, the orchestration panel, the intention bar at the bottom. The Python core, the command layer and the conversation loop work. But look closely at the panels, and you'll see what makes this project what it is — *à vérifier*, *non connecté*, *aucun statut simulé*, *pas d'état inventé*. The interface is built to refuse to invent a status. If a service isn't connected, it says so. That rule has cost me more time than any animation, and it is the reason I trust what the screen shows me.
+
+The remaining 40% is the hardest and the most interesting part:
+
+- the **orchestrator core** — the layer that will take a goal in plain language, split it into steps, and dispatch them to the right module;
+- **long-term memory**, so the system keeps context across days instead of one session;
+- **real service connections**, to replace the preview panels with live data;
+- the long, unglamorous work of making all of it stable enough to leave running.
+
+Finishing Soliris is my dream. Not because the world needs another assistant, but because this one is mine: it runs on my machine, it answers to my rules, and every line of it exists because I wanted to understand how far a single person can push a system built alone. There is no release date and no funding — just a screen that says *Le système est en veille*, and the stubborn intention to see it wake up fully.
+
+If you're reading this and you're building something similar: the 60% is the part nobody sees. Keep going.
 License
 
 Personal project, all rights reserved. If you plan to accept contributions or allow reuse, switch to a standard license such as MIT by adding a LICENSE file and updating the badge above.
+<img width="1009" height="641" alt="image" src="https://github.com/user-attachments/assets/82a22b12-a097-45aa-be4a-e8e26e2bb153" />
 
 Add a block (type / for options)
