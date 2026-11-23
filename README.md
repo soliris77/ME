@@ -26,7 +26,8 @@ The design principle is simple: the logic lives in a Python core, and the UI onl
 
 <p align="center"> <img src="assets/capture-hud.png" alt="Soliris HUD interface" width="720"> </p>
 
-The Soliris HUD: status ring, command transcript, and response stream.
+The Soliris HUD: status ring, command transcript, and response stream.<img width="1214" height="656" alt="image" src="https://github.com/user-attachments/assets/d59e3ab9-8221-4ac2-aac5-6ee780b038b1" />
+
 
 
 
